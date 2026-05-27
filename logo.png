@@ -1,0 +1,107 @@
+//+------------------------------------------------------------------+
+//| XAU AI SIGNAL GEN Z - MT5 Expert Advisor                         |
+//| Mode awal: ambil signal dari Cloudflare Pages API dan tampil alert|
+//+------------------------------------------------------------------+
+#property strict
+
+input string SignalURL = "https://DOMAIN-KAMU.pages.dev/api/signal";
+input int RefreshSeconds = 60;
+input bool ShowAlert = true;
+
+string lastSignalText = "";
+
+int OnInit()
+{
+   EventSetTimer(RefreshSeconds);
+   Comment("XAU AI Signal aktif. Tunggu signal...");
+   return(INIT_SUCCEEDED);
+}
+
+void OnDeinit(const int reason)
+{
+   EventKillTimer();
+   Comment("");
+}
+
+void OnTimer()
+{
+   FetchSignal();
+}
+
+void FetchSignal()
+{
+   char post[];
+   char result[];
+   string headers;
+   string resultHeaders;
+   int timeout = 10000;
+
+   ResetLastError();
+   int res = WebRequest("GET", SignalURL, headers, timeout, post, result, resultHeaders);
+
+   if(res == -1)
+   {
+      int err = GetLastError();
+      Comment("WebRequest gagal. Error: ", err, "\nPastikan URL diizinkan di Tools > Options > Expert Advisors.");
+      return;
+   }
+
+   string body = CharArrayToString(result);
+   string pair = JsonValue(body, "pair");
+   string signal = JsonValue(body, "signal");
+   string entry = JsonValue(body, "entry");
+   string sl = JsonValue(body, "sl");
+   string tp1 = JsonValue(body, "tp1");
+   string tp2 = JsonValue(body, "tp2");
+   string confidence = JsonValue(body, "confidence");
+   string reason = JsonValue(body, "reason");
+
+   string text = "⚡ XAU AI SIGNAL\n" +
+                 "Pair: " + pair + "\n" +
+                 "Signal: " + signal + "\n" +
+                 "Entry: " + entry + "\n" +
+                 "SL: " + sl + "\n" +
+                 "TP1: " + tp1 + "\n" +
+                 "TP2: " + tp2 + "\n" +
+                 "Confidence: " + confidence + "%\n" +
+                 "Reason: " + reason;
+
+   Comment(text);
+
+   if(ShowAlert && text != lastSignalText)
+   {
+      Alert(text);
+      lastSignalText = text;
+   }
+}
+
+string JsonValue(string json, string key)
+{
+   string pattern = "\"" + key + "\":";
+   int start = StringFind(json, pattern);
+   if(start < 0) return "";
+
+   start += StringLen(pattern);
+   while(start < StringLen(json) && StringGetCharacter(json, start) == ' ') start++;
+
+   bool isString = false;
+   if(StringGetCharacter(json, start) == '"')
+   {
+      isString = true;
+      start++;
+   }
+
+   int end = start;
+   while(end < StringLen(json))
+   {
+      ushort ch = StringGetCharacter(json, end);
+      if(isString && ch == '"') break;
+      if(!isString && (ch == ',' || ch == '}')) break;
+      end++;
+   }
+
+   string value = StringSubstr(json, start, end - start);
+   StringReplace(value, "\\n", " ");
+   StringReplace(value, "\\\"", "\"");
+   return value;
+}

@@ -1,12 +1,7 @@
 name = "xau-ai-signal-genz"
-main = "src/index.js"
-compatibility_date = "2026-05-01"
+compatibility_date = "2026-05-27"
+pages_build_output_dir = "dist"
 
-[assets]
-directory = "./public"
-binding = "ASSETS"
-
-[[kv_namespaces]]
-binding = "SIGNALS_KV"
-id = "GANTI_DENGAN_KV_NAMESPACE_ID"
-preview_id = "GANTI_DENGAN_PREVIEW_KV_NAMESPACE_ID"
+# KV binding dipasang dari Cloudflare Dashboard:
+# Pages Project -> Settings -> Functions -> KV namespace bindings
+# Variable name: SIGNALS_KV
