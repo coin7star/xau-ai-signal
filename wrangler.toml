@@ -1,7 +1,3 @@
-name = "xau-ai-signal-genz"
+name = "xau-ai-signal"
 compatibility_date = "2026-05-27"
 pages_build_output_dir = "dist"
-
-# KV binding dipasang dari Cloudflare Dashboard:
-# Pages Project -> Settings -> Functions -> KV namespace bindings
-# Variable name: SIGNALS_KV
