@@ -1,9 +1,7 @@
 name = "xau-ai-signal"
-
 pages_build_output_dir = "dist"
-
 compatibility_date = "2026-05-27"
 
 [[kv_namespaces]]
 binding = "SIGNALS_KV"
-id = "dd8ab91ab30541b99a5e9ecc1c672e8c"
+id = "ISI_KV_ID_KAMU"
