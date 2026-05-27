@@ -1,0 +1,91 @@
+<!doctype html>
+<html lang="id">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>XAU AI Signal GenZ</title>
+  <link rel="stylesheet" href="/style.css" />
+</head>
+<body>
+  <main class="shell">
+    <section class="hero">
+      <div>
+        <p class="badge">XAUUSD AI Signal • Cloudflare KV • MT5 Bridge</p>
+        <h1>Call sinyal emas, tapi tetap waras risk management 😎</h1>
+        <p class="muted">Dashboard ini baca sinyal terakhir dari EA MetaEditor/MT5. AI bantu analisis, bukan tombol auto kaya mendadak.</p>
+      </div>
+      <div class="status-card">
+        <span id="healthDot" class="dot"></span>
+        <b id="healthText">Checking...</b>
+      </div>
+    </section>
+
+    <section class="grid">
+      <div class="card signal-card">
+        <div class="card-head">
+          <div>
+            <p class="eyebrow">Latest Signal</p>
+            <h2 id="signalAction">WAIT</h2>
+          </div>
+          <button id="refreshBtn">Refresh</button>
+        </div>
+
+        <div class="price-row">
+          <div><span>Entry</span><b id="entry">-</b></div>
+          <div><span>SL</span><b id="sl">-</b></div>
+          <div><span>TP1</span><b id="tp1">-</b></div>
+          <div><span>TP2</span><b id="tp2">-</b></div>
+        </div>
+
+        <div class="confidence">
+          <span>Confidence</span>
+          <div class="bar"><i id="confidenceBar"></i></div>
+          <b id="confidenceText">0%</b>
+        </div>
+
+        <p id="reason" class="reason">Belum ada data. Jalankan EA MT5 dulu.</p>
+        <p id="riskNote" class="risk">Risk note muncul di sini.</p>
+      </div>
+
+      <div class="card">
+        <p class="eyebrow">Manual Test</p>
+        <h3>Generate sinyal tanpa MT5 dulu</h3>
+        <p class="muted small">Isi secret + data harga dummy untuk ngetes Worker dan AI API.</p>
+
+        <label>APP_SECRET</label>
+        <input id="secret" type="password" placeholder="secret Cloudflare kamu" />
+
+        <div class="two">
+          <label>Bid <input id="bid" type="number" step="0.001" value="2350.000" /></label>
+          <label>Ask <input id="ask" type="number" step="0.001" value="2350.250" /></label>
+        </div>
+
+        <div class="two">
+          <label>RSI <input id="rsi" type="number" step="0.1" value="55" /></label>
+          <label>ATR <input id="atr" type="number" step="0.1" value="3.2" /></label>
+        </div>
+
+        <div class="two">
+          <label>EMA Fast <input id="emaFast" type="number" step="0.001" value="2351.000" /></label>
+          <label>EMA Slow <input id="emaSlow" type="number" step="0.001" value="2348.000" /></label>
+        </div>
+
+        <button id="manualBtn" class="wide">Gas Generate</button>
+        <pre id="manualOutput"></pre>
+      </div>
+    </section>
+
+    <section class="card">
+      <div class="card-head">
+        <div>
+          <p class="eyebrow">History</p>
+          <h3>50 sinyal terakhir</h3>
+        </div>
+      </div>
+      <div id="history" class="history"></div>
+    </section>
+  </main>
+
+  <script src="/app.js"></script>
+</body>
+</html>
