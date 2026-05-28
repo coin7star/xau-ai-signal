@@ -1,6 +1,6 @@
 {
-  "name": "xau-ai-signal-telegram-connect-card-visible",
-  "version": "5.4.1",
+  "name": "xau-ai-signal-telegram-connect-copy-command",
+  "version": "5.4.2",
   "type": "module",
   "scripts": {
     "dev": "vite",

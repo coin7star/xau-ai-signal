@@ -80,7 +80,8 @@ async function handleConnect(env, message, args) {
       "Format:",
       "<code>/connect XAU-123456</code>",
       "",
-      "Ambil kode dari dashboard premium kamu, bagian Telegram Alert."
+      "Ambil kode dari dashboard premium kamu:",
+      "Dashboard → Telegram Alert → Generate Connect Code → Copy Command."
     ].join("\n");
   }
 
@@ -203,8 +204,14 @@ function buildStartMessage() {
     "• CALL History",
     "• Telegram Connect",
     "",
-    "<b>Telegram Connect:</b>",
-    "Buka dashboard → Generate Code → kirim <code>/connect KODE</code> ke bot ini.",
+    "<b>Cara Connect Telegram:</b>",
+    "1. Login dashboard pakai akun premium/admin.",
+    "2. Buka card <b>Telegram Alert</b>.",
+    "3. Klik <b>Generate Connect Code</b>.",
+    "4. Klik <b>Copy Command</b>.",
+    "5. Paste command ke bot ini, contoh:",
+    "<code>/connect XAU-123456</code>",
+    "6. Balik dashboard lalu klik <b>Refresh Status</b>.",
     "",
     "<i>Auto alert MAIN CALL tetap masuk ke chat utama. Multi-user alert lanjut Step 3.</i>"
   ].join("\n");

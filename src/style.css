@@ -684,3 +684,41 @@
     grid-template-columns: 1fr;
   }
 }
+
+
+.telegramConnectSteps {
+  margin-bottom: 16px;
+  padding: 16px 18px;
+  border-radius: 18px;
+  background: rgba(103,232,249,.10);
+  border: 1px solid rgba(103,232,249,.18);
+  display: grid;
+  gap: 7px;
+  color: #cfe7ff;
+  line-height: 1.55;
+}
+
+.telegramConnectSteps b {
+  color: #ffffff;
+}
+
+.telegramConnectSteps code {
+  color: #ffe879;
+  background: rgba(0,0,0,.22);
+  padding: 2px 6px;
+  border-radius: 8px;
+}
+
+.telegramActions button.copyBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  background: rgba(255,232,121,.14);
+  color: #ffe879;
+  border-color: rgba(255,232,121,.24);
+}
+
+.telegramActions button:disabled {
+  opacity: .55;
+  cursor: not-allowed;
+}

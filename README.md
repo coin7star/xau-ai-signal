@@ -1,28 +1,29 @@
-# XAU Telegram Connect Card Visible Fix
+# XAU Telegram Connect Copy Command Full Fix
 
-Masalah:
-- Akun ADMIN/PREMIUM sudah masuk dashboard.
-- Tapi card Generate Connect Code tidak muncul di web.
+Update:
+- Card Telegram Connect sekarang punya tombol Copy Command.
+- User tidak perlu select manual command /connect.
+- Keterangan cara connect dibuat lebih jelas step-by-step.
+- Pesan /start bot juga diperjelas:
+  1. Login dashboard
+  2. Generate Connect Code
+  3. Copy Command
+  4. Paste ke bot Telegram
+  5. Refresh Status
 
-Fix:
-- TelegramConnectPanel dipasang tegas tepat setelah navbar/header.
-- Card hanya muncul untuk role premium/admin.
-- Loader status Telegram dipanggil setelah user premium masuk.
-- Endpoint Step 2 tetap ada:
-  GET/POST /api/telegram-connect-code
-  POST /api/telegram-disconnect
+File berubah:
+- src/App.jsx
+- src/style.css
+- functions/api/telegram-webhook.js
+- package.json
 
 Cara test:
-1. Upload replace semua ke GitHub.
-2. Commit.
-3. Tunggu Cloudflare deploy.
-4. Login pakai akun admin/premium.
-5. Tepat di bawah navbar harus muncul card:
-   Connect Telegram Premium
-6. Klik Generate Connect Code.
-7. Kirim /connect XAU-xxxxxx ke bot.
-8. Klik Refresh Status.
+1. Login sebagai premium/admin.
+2. Klik Generate Connect Code.
+3. Klik Copy Command.
+4. Paste ke bot Telegram.
+5. Klik Refresh Status.
+6. Status harus Connected.
 
-Catatan:
-- Kalau card belum muncul, hard refresh browser / Mini App.
-- Multi-user alert tetap Step 3.
+MQ5:
+- Tidak perlu update.

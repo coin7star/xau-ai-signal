@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { createChart, ColorType, CrosshairMode } from "lightweight-charts";
-import { Activity, Bot, Database, Lock, LogOut, Radio, RefreshCcw, Settings, Shield, Sparkles, Target, TrendingDown, TrendingUp, User, Zap } from "lucide-react";
+import { Activity, Bot, Copy, Database, Lock, LogOut, Radio, RefreshCcw, Settings, Shield, Sparkles, Target, TrendingDown, TrendingUp, User, Zap } from "lucide-react";
 import { ensureUserProfile, getUserProfile, hasFirebaseClientConfig, isPremiumProfile, listenAuth, loginWithEmail, loginWithGoogle, logout, refreshCurrentUser, registerWithEmail, sendVerificationEmail } from "./firebaseClient";
 
 export default function App() {
@@ -785,6 +785,9 @@ function TelegramConnectPanel({ user, profile, telegramConnect, onRefresh }) {
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState("");
   const connected = Boolean(telegramConnect?.telegramConnected);
+  const canConnect = profile?.role === "premium" || profile?.role === "admin";
+  const commandText = telegramConnect?.telegramCode ? `/connect ${telegramConnect.telegramCode}` : "";
+  const displayCommand = commandText || "/connect XAU-123456";
 
   async function generateCode() {
     setBusy(true);
@@ -804,12 +807,27 @@ function TelegramConnectPanel({ user, profile, telegramConnect, onRefresh }) {
         return;
       }
 
-      setMessage(`Kode dibuat. Kirim ${json.instruction} ke bot Telegram.`);
+      const command = json.instruction || `/connect ${json.code}`;
+      setMessage(`Kode dibuat. Tap Copy Command lalu paste ke bot Telegram: ${command}`);
       await onRefresh();
     } catch (err) {
       setMessage(err.message || String(err));
     } finally {
       setBusy(false);
+    }
+  }
+
+  async function copyCommand() {
+    if (!commandText) {
+      setMessage("Generate kode dulu, baru command bisa dicopy.");
+      return;
+    }
+
+    try {
+      await navigator.clipboard.writeText(commandText);
+      setMessage(`Command berhasil dicopy: ${commandText}`);
+    } catch {
+      setMessage(`Copy manual command ini: ${commandText}`);
     }
   }
 
@@ -840,24 +858,35 @@ function TelegramConnectPanel({ user, profile, telegramConnect, onRefresh }) {
     }
   }
 
+  if (!canConnect) return null;
+
   return (
     <section className="telegramConnectPanel card">
       <div className="telegramConnectHeader">
         <div>
           <span className="pill mini"><Bot size={14} /> TELEGRAM ALERT</span>
           <h3>Connect Telegram Premium</h3>
-          <p>Hubungkan akun dashboard ini ke bot Telegram biar nanti bisa dapat alert premium per-user.</p>
+          <p>Hubungkan akun dashboard ini ke bot Telegram supaya nanti alert premium bisa masuk ke chat kamu.</p>
         </div>
         <div className={`telegramStatusBadge ${connected ? "connected" : ""}`}>
           {connected ? "Connected" : "Not Connected"}
         </div>
       </div>
 
+      <div className="telegramConnectSteps">
+        <b>Cara connect:</b>
+        <span>1. Klik <b>Generate Connect Code</b>.</span>
+        <span>2. Klik <b>Copy Command</b>.</span>
+        <span>3. Buka bot Telegram XAU AI.</span>
+        <span>4. Paste command, contoh <code>/connect XAU-123456</code>.</span>
+        <span>5. Balik ke dashboard lalu klik <b>Refresh Status</b>.</span>
+      </div>
+
       <div className="telegramConnectGrid">
         <div className="telegramConnectBox">
           <span>Status</span>
           <b>{connected ? "Telegram Connected" : "Belum connect"}</b>
-          <small>{connected ? `Chat ID: ${telegramConnect?.telegramChatId || "-"}` : "Generate kode lalu kirim ke bot."}</small>
+          <small>{connected ? `Chat ID: ${telegramConnect?.telegramChatId || "-"}` : "Generate kode lalu kirim command ke bot."}</small>
         </div>
 
         <div className="telegramConnectBox">
@@ -868,8 +897,8 @@ function TelegramConnectPanel({ user, profile, telegramConnect, onRefresh }) {
 
         <div className="telegramConnectBox commandBox">
           <span>Command ke Bot</span>
-          <b>{telegramConnect?.telegramCode ? `/connect ${telegramConnect.telegramCode}` : "/connect XAU-123456"}</b>
-          <small>Kirim command ini ke bot Telegram XAU AI.</small>
+          <b>{displayCommand}</b>
+          <small>{commandText ? "Tap Copy Command, lalu paste ke bot Telegram." : "Generate kode dulu untuk membuat command asli."}</small>
         </div>
       </div>
 
@@ -878,6 +907,9 @@ function TelegramConnectPanel({ user, profile, telegramConnect, onRefresh }) {
       <div className="telegramActions">
         <button type="button" onClick={generateCode} disabled={busy}>
           {busy ? "Loading..." : "Generate Connect Code"}
+        </button>
+        <button type="button" className="copyBtn" onClick={copyCommand} disabled={busy || !commandText}>
+          <Copy size={16} /> Copy Command
         </button>
         <button type="button" onClick={onRefresh} disabled={busy}>
           Refresh Status
@@ -890,7 +922,7 @@ function TelegramConnectPanel({ user, profile, telegramConnect, onRefresh }) {
       </div>
 
       <p className="miniNote">
-        Step ini hanya connect akun ke Telegram. Multi-user auto alert akan aktif di Step 3.
+        Setelah status Connected, akun ini sudah siap menerima alert premium. Multi-user auto alert lanjut Step 3.
       </p>
     </section>
   );
