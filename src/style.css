@@ -272,3 +272,7 @@
     grid-template-columns: 1fr;
   }
 }
+
+
+.supportDot { background: #38bdf8; }
+.resistDot { background: #fb923c; }

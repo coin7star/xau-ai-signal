@@ -17,6 +17,7 @@ export default function App() {
 
   const obLinesM1Ref = useRef([]);
   const obLinesM15Ref = useRef([]);
+  const srLinesM1Ref = useRef([]);
 
   const [market, setMarket] = useState(null);
   const [signal, setSignal] = useState(null);
@@ -130,6 +131,17 @@ export default function App() {
       addObLines(seriesM15Ref.current, obLinesM15Ref, bullish, bearish);
     }
   }, [signal]);
+
+  useEffect(() => {
+    if (seriesM1Ref.current) {
+      addStructureLines(seriesM1Ref.current, srLinesM1Ref, signal?.strategy?.scalping);
+    }
+  }, [
+    signal?.strategy?.scalping?.support,
+    signal?.strategy?.scalping?.resistance,
+    signal?.strategy?.scalping?.supportTouches,
+    signal?.strategy?.scalping?.resistanceTouches
+  ]);
 
   function initChart(type) {
     const boxRef = type === "M1" ? chartM1BoxRef : chartM15BoxRef;
@@ -300,7 +312,7 @@ export default function App() {
       <section className={`scalpPanel card ${String(scalping.action || "WAIT").toLowerCase()}`}>
         <div className="strategyHeader">
           <div>
-            <span className="pill mini"><Zap size={14} /> M1 SCALP RADAR</span>
+            <span className="pill mini"><Zap size={14} /> M1 STRUCTURE SCALP</span>
             <h3>{scalping.label || "SCALP WAIT"}</h3>
           </div>
           <div className={`biasBadge ${scalping.action === "SCALP_BUY" ? "buy" : scalping.action === "SCALP_SELL" ? "sell" : "wait"}`}>
@@ -317,7 +329,7 @@ export default function App() {
         </div>
 
         <p className="scalpReason">{scalping.reason}</p>
-        <p className="scalpWarning">Mode scalp ini buat pantauan cepat. CALL utama tetap lebih saklek: RSI + MFI + EMA 9/20 + Fresh OB M15.</p>
+        <p className="scalpWarning">Mode scalp baru pakai struktur M1: buy di support maksimal 2 sentuhan + bullish engulfing, sell di resistance maksimal 2 sentuhan + bearish engulfing. CALL utama tetap lebih saklek.</p>
       </section>
 
       <section className="historyPanel card">
@@ -392,6 +404,8 @@ export default function App() {
             <b><i className="ema20Dot"></i> EMA 20</b>
             <b><i className="obBullDot"></i> Bull OB</b>
             <b><i className="obBearDot"></i> Bear OB</b>
+            <b><i className="supportDot"></i> M1 Support</b>
+            <b><i className="resistDot"></i> M1 Resistance</b>
             <em><span></span> Auto refresh 12s</em>
           </div>
         </div>
@@ -550,6 +564,55 @@ function addObLines(series, linesRef, bullish, bearish) {
     });
 
     newLines.push({ series, line: bearLow }, { series, line: bearHigh });
+  }
+
+  linesRef.current = newLines;
+}
+
+
+function clearStructureLines(linesRef) {
+  if (!linesRef.current) return;
+
+  linesRef.current.forEach(({ series, line }) => {
+    try {
+      series.removePriceLine(line);
+    } catch {}
+  });
+
+  linesRef.current = [];
+}
+
+function addStructureLines(series, linesRef, scalping) {
+  clearStructureLines(linesRef);
+
+  const newLines = [];
+  const support = Number(scalping?.support);
+  const resistance = Number(scalping?.resistance);
+  const supportTouches = Number(scalping?.supportTouches || 0);
+  const resistanceTouches = Number(scalping?.resistanceTouches || 0);
+
+  if (Number.isFinite(support) && support > 0) {
+    const line = series.createPriceLine({
+      price: support,
+      color: "#38bdf8",
+      lineWidth: 1,
+      lineStyle: 1,
+      axisLabelVisible: true,
+      title: `M1 Support x${supportTouches || 1}`
+    });
+    newLines.push({ series, line });
+  }
+
+  if (Number.isFinite(resistance) && resistance > 0) {
+    const line = series.createPriceLine({
+      price: resistance,
+      color: "#fb923c",
+      lineWidth: 1,
+      lineStyle: 1,
+      axisLabelVisible: true,
+      title: `M1 Resistance x${resistanceTouches || 1}`
+    });
+    newLines.push({ series, line });
   }
 
   linesRef.current = newLines;

@@ -232,6 +232,7 @@ async function buildSignalMessage(env) {
     "",
     `⚡ <b>M1 Scalping:</b> ${escapeHtml(s.scalping?.label || "SCALP WAIT")} · ${s.scalping?.confidence || 0}%`,
     `Quick plan: Entry ${s.scalping?.entry || "-"} · SL ${s.scalping?.sl || "-"} · TP ${s.scalping?.tp || "-"}`,
+    `Structure: Support ${s.scalping?.support || "-"} · Resistance ${s.scalping?.resistance || "-"} · Pattern ${escapeHtml(humanize(s.scalping?.pattern))}`,
     `Note: ${escapeHtml(s.scalping?.reason || "M1 belum kasih momentum yang cakep.")}`,
     "",
     `🎯 <b>Fresh OB M15:</b>`,
@@ -443,18 +444,183 @@ function buildSignal(candles, candlesM15, market) {
 
 
 function buildM1ScalpingStrategy(candles, closes, context = {}) {
+  const legacy = buildM1ScalpingLegacy(candles, closes, context);
+  const structure = buildM1StructureEngulfingScalp(candles, closes, context);
+
+  return {
+    ...structure,
+    legacy,
+    activeRule: "M1_STRUCTURE_ENGULFING",
+    mode: "M1_SCALPING_STRUCTURE_ENGULFING"
+  };
+}
+
+function buildM1StructureEngulfingScalp(candles, closes, context = {}) {
   const last = candles[candles.length - 1];
-  if (!last || closes.length < 30) {
+  const prev = candles[candles.length - 2];
+
+  if (!last || !prev || candles.length < 40) {
     return {
-      mode: "M1_SCALPING",
+      mode: "M1_STRUCTURE_ENGULFING",
       action: "WAIT",
-      label: "WAIT",
+      label: "SCALP WAIT",
       score: 0,
       confidence: 0,
       entry: 0,
       sl: 0,
       tp: 0,
-      reason: "Menunggu minimal 30 candle M1 untuk scalping.",
+      support: 0,
+      resistance: 0,
+      zone: "WAIT",
+      pattern: "NONE",
+      reason: "Menunggu minimal 40 candle M1 untuk baca struktur support/resistance.",
+      checklist: []
+    };
+  }
+
+  const atrValue = Number(context.atr14 || atr(candles, 14) || 1);
+  const close = Number(context.close || last.close);
+  const recent = candles.slice(-35, -1);
+  const structure = detectM1StructureZones(recent, atrValue);
+  const support = structure.support;
+  const resistance = structure.resistance;
+  const supportTouches = Number(structure.supportTouches || 0);
+  const resistanceTouches = Number(structure.resistanceTouches || 0);
+  const zoneBuffer = Math.max(atrValue * 0.35, close * 0.00008);
+
+  const nearSupport =
+    Number.isFinite(support) &&
+    last.low <= support + zoneBuffer &&
+    last.close >= support - zoneBuffer;
+
+  const nearResistance =
+    Number.isFinite(resistance) &&
+    last.high >= resistance - zoneBuffer &&
+    last.close <= resistance + zoneBuffer;
+
+  const bullishEngulfing = isBullishEngulfing(prev, last);
+  const bearishEngulfing = isBearishEngulfing(prev, last);
+
+  const rsi = Number(context.rsi14 || rsiWilder(closes, 14));
+  const mfiValue = Number(context.mfi14 || mfi(candles, 14));
+
+  const rsiBuyOk = rsi >= 42 && rsi <= 72;
+  const rsiSellOk = rsi <= 58 && rsi >= 28;
+  const mfiBuyOk = mfiValue >= 38 && mfiValue <= 82;
+  const mfiSellOk = mfiValue <= 62 && mfiValue >= 18;
+
+  let buyScore = 0;
+  let sellScore = 0;
+  const checklist = [];
+
+  if (nearSupport) { buyScore += 28; checklist.push(`Harga di area support M1 (${supportTouches || 1} sentuhan)`); }
+  if (nearResistance) { sellScore += 28; checklist.push(`Harga di area resistance M1 (${resistanceTouches || 1} sentuhan)`); }
+  if (supportTouches === 2) { buyScore += 6; checklist.push("Support M1 fresh maksimal 2 sentuhan"); }
+  if (resistanceTouches === 2) { sellScore += 6; checklist.push("Resistance M1 fresh maksimal 2 sentuhan"); }
+
+  if (bullishEngulfing) { buyScore += 34; checklist.push("Bullish engulfing valid"); }
+  if (bearishEngulfing) { sellScore += 34; checklist.push("Bearish engulfing valid"); }
+
+  if (rsiBuyOk) { buyScore += 10; checklist.push("RSI aman untuk BUY"); }
+  if (rsiSellOk) { sellScore += 10; checklist.push("RSI aman untuk SELL"); }
+
+  if (mfiBuyOk) { buyScore += 10; checklist.push("MFI aman untuk BUY"); }
+  if (mfiSellOk) { sellScore += 10; checklist.push("MFI aman untuk SELL"); }
+
+  const buyValid = nearSupport && bullishEngulfing && supportTouches <= 2 && buyScore >= 58;
+  const sellValid = nearResistance && bearishEngulfing && resistanceTouches <= 2 && sellScore >= 58;
+
+  let action = "WAIT";
+  let label = "SCALP WAIT";
+  let score = Math.max(buyScore, sellScore);
+  let sl = 0;
+  let tp = 0;
+  let zone = "WAIT";
+  let pattern = "NONE";
+
+  if (buyValid) {
+    action = "SCALP_BUY";
+    label = "SCALP BUY";
+    zone = "SUPPORT";
+    pattern = "BULLISH_ENGULFING";
+
+    // SL di bawah support + ATR dikit
+    sl = support - atrValue * 0.18;
+    const risk = Math.abs(close - sl);
+    tp = close + risk * 1.25;
+  } else if (sellValid) {
+    action = "SCALP_SELL";
+    label = "SCALP SELL";
+    zone = "RESISTANCE";
+    pattern = "BEARISH_ENGULFING";
+
+    // SL di atas resistance + ATR dikit
+    sl = resistance + atrValue * 0.18;
+    const risk = Math.abs(sl - close);
+    tp = close - risk * 1.25;
+  } else {
+    if (nearSupport) zone = "NEAR_SUPPORT";
+    else if (nearResistance) zone = "NEAR_RESISTANCE";
+
+    if (bullishEngulfing) pattern = "BULLISH_ENGULFING";
+    else if (bearishEngulfing) pattern = "BEARISH_ENGULFING";
+  }
+
+  return {
+    mode: "M1_STRUCTURE_ENGULFING",
+    action,
+    label,
+    score: Math.round(score),
+    confidence: Math.min(90, Math.max(45, Math.round(score))),
+    entry: round(close),
+    sl: round(sl),
+    tp: round(tp),
+    support: round(support),
+    resistance: round(resistance),
+    supportTouches,
+    resistanceTouches,
+    zone,
+    pattern,
+    atr: round(atrValue),
+    zoneBuffer: round(zoneBuffer),
+    nearSupport,
+    nearResistance,
+    bullishEngulfing,
+    bearishEngulfing,
+    reason: buildStructureScalpReason({
+      action,
+      buyScore,
+      sellScore,
+      support,
+      resistance,
+      supportTouches,
+      resistanceTouches,
+      nearSupport,
+      nearResistance,
+      bullishEngulfing,
+      bearishEngulfing,
+      zone,
+      pattern,
+      checklist
+    }),
+    checklist: checklist.slice(0, 8)
+  };
+}
+
+function buildM1ScalpingLegacy(candles, closes, context = {}) {
+  const last = candles[candles.length - 1];
+
+  if (!last || closes.length < 30) {
+    return {
+      mode: "M1_SCALPING_LEGACY_EMA",
+      action: "WAIT",
+      label: "LEGACY WAIT",
+      score: 0,
+      confidence: 0,
+      entry: 0,
+      sl: 0,
+      tp: 0,
+      reason: "Legacy scalping menunggu minimal 30 candle M1.",
       checklist: []
     };
   }
@@ -476,8 +642,9 @@ function buildM1ScalpingStrategy(candles, closes, context = {}) {
 
   const bullishCross = prevEma5 <= prevEma13 && ema5 > ema13;
   const bearishCross = prevEma5 >= prevEma13 && ema5 < ema13;
-  const bullishTrend = ema5 > ema13 && close > ema9Safe(context.ema9, ema5);
-  const bearishTrend = ema5 < ema13 && close < ema9Safe(context.ema9, ema5);
+  const ema9Value = ema9Safe(context.ema9, ema5);
+  const bullishTrend = ema5 > ema13 && close > ema9Value;
+  const bearishTrend = ema5 < ema13 && close < ema9Value;
 
   const breakoutUp = close > recentHigh + atrValue * 0.03;
   const breakoutDown = close < recentLow - atrValue * 0.03;
@@ -496,38 +663,33 @@ function buildM1ScalpingStrategy(candles, closes, context = {}) {
 
   if (bullishCross) { buyScore += 24; checklist.push("EMA5 cross up EMA13"); }
   if (bearishCross) { sellScore += 24; checklist.push("EMA5 cross down EMA13"); }
-
   if (bullishTrend) { buyScore += 18; checklist.push("Trend M1 bullish"); }
   if (bearishTrend) { sellScore += 18; checklist.push("Trend M1 bearish"); }
-
   if (breakoutUp) { buyScore += 18; checklist.push("Break high 12 candle M1"); }
   if (breakoutDown) { sellScore += 18; checklist.push("Break low 12 candle M1"); }
-
   if (rsiBuy) { buyScore += 14; checklist.push("RSI support BUY"); }
   if (rsiSell) { sellScore += 14; checklist.push("RSI support SELL"); }
-
   if (mfiBuy) { buyScore += 14; checklist.push("MFI support BUY"); }
   if (mfiSell) { sellScore += 14; checklist.push("MFI support SELL"); }
 
   if (volumeSpike) {
-    buyScore += bullishTrend || breakoutUp ? 8 : 0;
-    sellScore += bearishTrend || breakoutDown ? 8 : 0;
+    if (bullishTrend || breakoutUp) buyScore += 8;
+    if (bearishTrend || breakoutDown) sellScore += 8;
     checklist.push("Volume spike");
   }
 
   let action = "WAIT";
-  let label = "SCALP WAIT";
-  let score = Math.max(buyScore, sellScore);
-
+  let label = "LEGACY WAIT";
+  const score = Math.max(buyScore, sellScore);
   const buyValid = buyScore >= 58 && buyScore > sellScore + 8;
   const sellValid = sellScore >= 58 && sellScore > buyScore + 8;
 
   if (buyValid) {
     action = "SCALP_BUY";
-    label = "SCALP BUY";
+    label = "LEGACY SCALP BUY";
   } else if (sellValid) {
     action = "SCALP_SELL";
-    label = "SCALP SELL";
+    label = "LEGACY SCALP SELL";
   }
 
   let sl = 0;
@@ -544,7 +706,7 @@ function buildM1ScalpingStrategy(candles, closes, context = {}) {
   }
 
   return {
-    mode: "M1_SCALPING",
+    mode: "M1_SCALPING_LEGACY_EMA",
     action,
     label,
     score: Math.round(score),
@@ -563,6 +725,151 @@ function buildM1ScalpingStrategy(candles, closes, context = {}) {
   };
 }
 
+function detectM1StructureZones(candles, atrValue) {
+  const swingHighs = [];
+  const swingLows = [];
+  const lastClose = Number(candles[candles.length - 1]?.close || 0);
+  const tolerance = Math.max(atrValue * 0.22, lastClose * 0.00005);
+
+  for (let i = 2; i < candles.length - 2; i++) {
+    const c = candles[i];
+    const left = candles.slice(i - 2, i);
+    const right = candles.slice(i + 1, i + 3);
+
+    const isHigh = left.every((x) => c.high >= x.high) && right.every((x) => c.high >= x.high);
+    const isLow = left.every((x) => c.low <= x.low) && right.every((x) => c.low <= x.low);
+
+    if (isHigh) swingHighs.push(c.high);
+    if (isLow) swingLows.push(c.low);
+  }
+
+  const supportClusters = clusterStructureLevels(
+    swingLows.filter((x) => x <= lastClose + atrValue * 0.8),
+    tolerance
+  );
+
+  const resistanceClusters = clusterStructureLevels(
+    swingHighs.filter((x) => x >= lastClose - atrValue * 0.8),
+    tolerance
+  );
+
+  const supportPick = pickNearestFreshStructure(supportClusters, lastClose, "support");
+  const resistancePick = pickNearestFreshStructure(resistanceClusters, lastClose, "resistance");
+
+  return {
+    support: supportPick?.price ?? Math.min(...candles.slice(-20).map((c) => c.low)),
+    resistance: resistancePick?.price ?? Math.max(...candles.slice(-20).map((c) => c.high)),
+    supportTouches: supportPick?.touches ?? 1,
+    resistanceTouches: resistancePick?.touches ?? 1,
+    supportIsFresh: Boolean(supportPick),
+    resistanceIsFresh: Boolean(resistancePick),
+    swingLowCount: swingLows.length,
+    swingHighCount: swingHighs.length
+  };
+}
+
+function clusterStructureLevels(levels, tolerance) {
+  const clusters = [];
+
+  for (const raw of levels) {
+    const price = Number(raw);
+    if (!Number.isFinite(price)) continue;
+
+    const found = clusters.find((cluster) => Math.abs(cluster.price - price) <= tolerance);
+
+    if (found) {
+      found.values.push(price);
+      found.touches += 1;
+      found.price = found.values.reduce((a, b) => a + b, 0) / found.values.length;
+    } else {
+      clusters.push({
+        price,
+        touches: 1,
+        values: [price]
+      });
+    }
+  }
+
+  return clusters;
+}
+
+function pickNearestFreshStructure(clusters, lastClose, side) {
+  const fresh = clusters
+    .filter((x) => x.touches <= 2)
+    .filter((x) => side === "support" ? x.price <= lastClose : x.price >= lastClose);
+
+  if (!fresh.length) return null;
+
+  fresh.sort((a, b) => {
+    const aPref = a.touches === 2 ? 0 : 1;
+    const bPref = b.touches === 2 ? 0 : 1;
+    if (aPref !== bPref) return aPref - bPref;
+    return Math.abs(lastClose - a.price) - Math.abs(lastClose - b.price);
+  });
+
+  return fresh[0];
+}
+
+function isBullishEngulfing(prev, curr) {
+  const prevBear = prev.close < prev.open;
+  const currBull = curr.close > curr.open;
+
+  if (!prevBear || !currBull) return false;
+
+  const prevBodyLow = Math.min(prev.open, prev.close);
+  const prevBodyHigh = Math.max(prev.open, prev.close);
+  const currBodyLow = Math.min(curr.open, curr.close);
+  const currBodyHigh = Math.max(curr.open, curr.close);
+
+  return currBodyLow <= prevBodyLow && currBodyHigh >= prevBodyHigh;
+}
+
+function isBearishEngulfing(prev, curr) {
+  const prevBull = prev.close > prev.open;
+  const currBear = curr.close < curr.open;
+
+  if (!prevBull || !currBear) return false;
+
+  const prevBodyLow = Math.min(prev.open, prev.close);
+  const prevBodyHigh = Math.max(prev.open, prev.close);
+  const currBodyLow = Math.min(curr.open, curr.close);
+  const currBodyHigh = Math.max(curr.open, curr.close);
+
+  return currBodyHigh >= prevBodyHigh && currBodyLow <= prevBodyLow;
+}
+
+function buildStructureScalpReason(data) {
+  const buy = Math.round(data.buyScore);
+  const sell = Math.round(data.sellScore);
+  const confirmations = data.checklist.length ? data.checklist.slice(0, 5).join(" • ") : "belum ada setup valid";
+
+  if (data.action === "SCALP_BUY") {
+    return `🚀 M1 scalp BUY valid. Harga mantul dari support M1 fresh (${data.supportTouches || 1} sentuhan) + bullish engulfing kebaca. BUY power ${buy}/100 vs SELL ${sell}/100. Quick plan aktif, tetap jaga SL. Konfirmasi: ${confirmations}.`;
+  }
+
+  if (data.action === "SCALP_SELL") {
+    return `🔻 M1 scalp SELL valid. Harga reject dari resistance M1 fresh (${data.resistanceTouches || 1} sentuhan) + bearish engulfing kebaca. SELL power ${sell}/100 vs BUY ${buy}/100. Quick plan aktif, tetap jaga SL. Konfirmasi: ${confirmations}.`;
+  }
+
+  if (data.nearSupport && !data.bullishEngulfing) {
+    return `👀 Harga lagi dekat support M1 fresh (${data.supportTouches || 1} sentuhan), tapi belum ada bullish engulfing. BUY power ${buy}/100. Tunggu candle reversal yang lebih jelas.`;
+  }
+
+  if (data.nearResistance && !data.bearishEngulfing) {
+    return `👀 Harga lagi dekat resistance M1 fresh (${data.resistanceTouches || 1} sentuhan), tapi belum ada bearish engulfing. SELL power ${sell}/100. Tunggu candle reject yang lebih jelas.`;
+  }
+
+  if (data.bullishEngulfing && !data.nearSupport) {
+    return `⚠️ Bullish engulfing muncul, tapi posisinya belum di area support M1. Tunggu harga masuk area struktur biar entry lebih cakep.`;
+  }
+
+  if (data.bearishEngulfing && !data.nearResistance) {
+    return `⚠️ Bearish engulfing muncul, tapi posisinya belum di area resistance M1. Tunggu area struktur biar nggak entry nanggung.`;
+  }
+
+  return `😴 M1 scalp masih nunggu setup. Rule baru butuh engulfing di area support/resistance M1 fresh maksimal 2 sentuhan. Support ${round(data.support)} (${data.supportTouches || 1}x), Resistance ${round(data.resistance)} (${data.resistanceTouches || 1}x).`;
+}
+
 function ema9Safe(value, fallback) {
   const n = Number(value);
   return Number.isFinite(n) && n > 0 ? n : fallback;
@@ -576,18 +883,18 @@ function buildScalpReason(action, buyScore, sellScore, checklist) {
   const confirmations = checklist.length ? checklist.slice(0, 4).join(" • ") : "belum ada konfirmasi kuat";
 
   if (action === "SCALP_BUY") {
-    return `🚀 M1 scalp lagi gas ke BUY. BUY power ${buy}/100 vs SELL ${sell}/100. Setup sudah valid buat SCALP BUY, tapi tetap pakai risk tipis. Konfirmasi: ${confirmations}.`;
+    return `🚀 Legacy M1 scalp lagi gas ke BUY. BUY power ${buy}/100 vs SELL ${sell}/100. Konfirmasi: ${confirmations}.`;
   }
 
   if (action === "SCALP_SELL") {
-    return `🔻 M1 scalp lagi berat ke SELL. SELL power ${sell}/100 vs BUY ${buy}/100. Setup sudah valid buat SCALP SELL, jangan lupa jaga SL. Konfirmasi: ${confirmations}.`;
+    return `🔻 Legacy M1 scalp lagi berat ke SELL. SELL power ${sell}/100 vs BUY ${buy}/100. Konfirmasi: ${confirmations}.`;
   }
 
   if (dominantScore >= 45) {
-    return `👀 Bias M1 mulai condong ${dominant}, tapi belum cukup matang buat entry. BUY power ${buy}/100, SELL power ${sell}/100. Tunggu power minimal 58/100 biar keluar SCALP BUY/SELL. Yang kebaca: ${confirmations}.`;
+    return `👀 Legacy bias M1 mulai condong ${dominant}, tapi belum cukup matang. BUY power ${buy}/100, SELL power ${sell}/100.`;
   }
 
-  return `😴 M1 masih kalem, belum ada momentum cakep. BUY power ${buy}/100, SELL power ${sell}/100. Tunggu candle yang lebih niat dulu, jangan maksa entry.`;
+  return `😴 Legacy M1 masih kalem. BUY power ${buy}/100, SELL power ${sell}/100.`;
 }
 
 
