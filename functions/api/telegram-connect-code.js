@@ -50,6 +50,17 @@ export async function onRequest({ request, env }) {
       return json({ ok: false, error: "Hanya user premium/admin yang bisa connect Telegram" }, 403);
     }
 
+    const oldCode = user.telegramConnectCode || null;
+
+    if (oldCode) {
+      await fbPatch(dbUrl, `/telegramConnectCodes/${oldCode}`, {
+        used: true,
+        invalidated: true,
+        invalidatedAt: new Date().toISOString(),
+        reason: "new-code-generated"
+      }).catch(() => {});
+    }
+
     const code = createCode();
     const now = new Date();
     const expires = new Date(now.getTime() + 15 * 60 * 1000);
@@ -67,7 +78,9 @@ export async function onRequest({ request, env }) {
       email: user.email || "",
       createdAt: now.toISOString(),
       expiresAt: expires.toISOString(),
-      used: false
+      used: false,
+      securityLevel: "LV1_ONE_TIME_15_MINUTES",
+      warning: "Do not share this code. Anyone with this code can connect Telegram to this account."
     });
 
     return json({

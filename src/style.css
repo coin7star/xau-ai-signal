@@ -722,3 +722,20 @@
   opacity: .55;
   cursor: not-allowed;
 }
+
+
+.telegramSecurityWarning {
+  margin-bottom: 14px;
+  padding: 16px 18px;
+  border-radius: 18px;
+  background: rgba(255, 184, 77, .12);
+  border: 1px solid rgba(255, 184, 77, .24);
+  display: grid;
+  gap: 7px;
+  color: #ffe2ad;
+  line-height: 1.55;
+}
+
+.telegramSecurityWarning b {
+  color: #fff2c2;
+}

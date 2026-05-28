@@ -808,7 +808,7 @@ function TelegramConnectPanel({ user, profile, telegramConnect, onRefresh }) {
       }
 
       const command = json.instruction || `/connect ${json.code}`;
-      setMessage(`Kode dibuat. Tap Copy Command lalu paste ke bot Telegram: ${command}`);
+      setMessage(`Kode baru dibuat. Kode lama otomatis invalid. Tap Copy Command lalu paste ke bot Telegram: ${command}`);
       await onRefresh();
     } catch (err) {
       setMessage(err.message || String(err));
@@ -873,6 +873,12 @@ function TelegramConnectPanel({ user, profile, telegramConnect, onRefresh }) {
         </div>
       </div>
 
+      <div className="telegramSecurityWarning">
+        <b>⚠️ Security Note</b>
+        <span>Jangan share kode connect ke siapa pun. Siapa pun yang memakai kode ini bisa menghubungkan Telegram ke akun kamu.</span>
+        <span>Kode hanya aktif 15 menit, sekali pakai, dan kode lama otomatis invalid kalau kamu generate kode baru.</span>
+      </div>
+
       <div className="telegramConnectSteps">
         <b>Cara connect:</b>
         <span>1. Klik <b>Generate Connect Code</b>.</span>
@@ -892,7 +898,7 @@ function TelegramConnectPanel({ user, profile, telegramConnect, onRefresh }) {
         <div className="telegramConnectBox">
           <span>Connect Code</span>
           <b>{telegramConnect?.telegramCode || "-"}</b>
-          <small>{telegramConnect?.telegramCodeExpiresAt ? `Expired: ${formatShortDateTime(telegramConnect.telegramCodeExpiresAt)}` : "Kode aktif 15 menit."}</small>
+          <small>{telegramConnect?.telegramCodeExpiresAt ? `Expired: ${formatShortDateTime(telegramConnect.telegramCodeExpiresAt)} · sekali pakai` : "Kode aktif 15 menit dan sekali pakai."}</small>
         </div>
 
         <div className="telegramConnectBox commandBox">

@@ -1,6 +1,6 @@
 {
-  "name": "xau-ai-signal-telegram-connect-copy-command",
-  "version": "5.4.2",
+  "name": "xau-ai-signal-telegram-connect-security-lv1",
+  "version": "5.4.3",
   "type": "module",
   "scripts": {
     "dev": "vite",

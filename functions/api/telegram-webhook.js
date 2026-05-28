@@ -81,7 +81,9 @@ async function handleConnect(env, message, args) {
       "<code>/connect XAU-123456</code>",
       "",
       "Ambil kode dari dashboard premium kamu:",
-      "Dashboard → Telegram Alert → Generate Connect Code → Copy Command."
+      "Dashboard → Telegram Alert → Generate Connect Code → Copy Command.",
+      "",
+      "⚠️ Jangan share kode connect. Kode aktif 15 menit dan sekali pakai."
     ].join("\n");
   }
 
@@ -212,6 +214,8 @@ function buildStartMessage() {
     "5. Paste command ke bot ini, contoh:",
     "<code>/connect XAU-123456</code>",
     "6. Balik dashboard lalu klik <b>Refresh Status</b>.",
+    "",
+    "⚠️ Jangan share kode connect. Siapa pun yang pakai kode bisa connect ke akun kamu.",
     "",
     "<i>Auto alert MAIN CALL tetap masuk ke chat utama. Multi-user alert lanjut Step 3.</i>"
   ].join("\n");
