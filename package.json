@@ -1,6 +1,6 @@
 {
-  "name": "xau-ai-signal-smc-ob-v2",
-  "version": "1.9.0",
+  "name": "xau-ai-signal-ob-m15-ema-ready-cross",
+  "version": "2.0.0",
   "type": "module",
   "scripts": {
     "dev": "vite",

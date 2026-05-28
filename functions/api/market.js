@@ -29,23 +29,33 @@ export async function onRequest({ request, env }) {
 
     const symbol = body.symbol || "XAUUSD";
     const candles = Array.isArray(body.candles) ? body.candles.slice(-500) : [];
+    const candlesM15 = Array.isArray(body.candlesM15) ? body.candlesM15.slice(-500) : [];
 
     const payload = {
       ok: true,
       source: "mt5",
       symbol,
       timeframe: body.timeframe || "M1",
+      obTimeframe: body.obTimeframe || "M15",
       bid: Number(body.bid || 0),
       ask: Number(body.ask || 0),
       digits: Number(body.digits || 2),
       serverTime: body.serverTime || null,
       receivedAt: new Date().toISOString(),
-      candles
+      candles,
+      candlesM15
     };
 
     await fbPut(dbUrl, "/xauusd/latest", payload);
 
-    return j({ ok: true, message: "Market data saved to Firebase", symbol, candleCount: candles.length, receivedAt: payload.receivedAt });
+    return j({
+      ok: true,
+      message: "Market data saved to Firebase",
+      symbol,
+      candleCount: candles.length,
+      candleM15Count: candlesM15.length,
+      receivedAt: payload.receivedAt
+    });
   }
 
   return j({ ok: false, error: `Method ${request.method} not allowed` }, 405);

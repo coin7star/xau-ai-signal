@@ -58,6 +58,7 @@ export default function App() {
 
   const isBuy = signal?.signal === "BUY";
   const isSell = signal?.signal === "SELL";
+  const isReady = signal?.callStage === "READY";
   const spread = market?.ask && market?.bid ? Math.abs(Number(market.ask) - Number(market.bid)).toFixed(2) : "-";
 
   useEffect(() => {
@@ -67,24 +68,11 @@ export default function App() {
       const chart = createChart(chartContainerRef.current, {
         width: chartContainerRef.current.clientWidth || 900,
         height: 500,
-        layout: {
-          background: { type: ColorType.Solid, color: "#070b17" },
-          textColor: "#cbd5e1"
-        },
-        grid: {
-          vertLines: { color: "rgba(255,255,255,0.06)" },
-          horzLines: { color: "rgba(255,255,255,0.06)" }
-        },
+        layout: { background: { type: ColorType.Solid, color: "#070b17" }, textColor: "#cbd5e1" },
+        grid: { vertLines: { color: "rgba(255,255,255,0.06)" }, horzLines: { color: "rgba(255,255,255,0.06)" } },
         crosshair: { mode: CrosshairMode.Normal },
-        rightPriceScale: {
-          borderColor: "rgba(255,255,255,0.12)",
-          scaleMargins: { top: 0.12, bottom: 0.12 }
-        },
-        timeScale: {
-          borderColor: "rgba(255,255,255,0.12)",
-          timeVisible: true,
-          secondsVisible: false
-        }
+        rightPriceScale: { borderColor: "rgba(255,255,255,0.12)", scaleMargins: { top: 0.12, bottom: 0.12 } },
+        timeScale: { borderColor: "rgba(255,255,255,0.12)", timeVisible: true, secondsVisible: false }
       });
 
       const candleSeries = chart.addCandlestickSeries({
@@ -121,7 +109,6 @@ export default function App() {
 
   useEffect(() => {
     if (!candleSeriesRef.current || !chartRef.current) return;
-
     try {
       if (tvCandles.length > 0) {
         candleSeriesRef.current.setData(tvCandles);
@@ -133,8 +120,8 @@ export default function App() {
     }
   }, [tvCandles]);
 
-  const signalTone = isBuy ? "buy" : isSell ? "sell" : "wait";
-  const readableSignal = signal?.signal || "WAIT";
+  const signalTone = isBuy ? "buy" : isSell ? "sell" : isReady ? "ready" : "wait";
+  const readableSignal = signal?.signalLabel || signal?.signal || "WAIT";
   const trendBias = signal?.strategy?.trendBias || "-";
   const smc = signal?.strategy?.smc;
 
@@ -145,7 +132,7 @@ export default function App() {
           <div className="logo"><Bot size={22} /></div>
           <div>
             <b>XAU AI Signal</b>
-            <span>SMC Order Block v2 · AI Analysis</span>
+            <span>OB M15 · EMA Ready Cross</span>
           </div>
         </div>
         <div className="live"><Radio size={14} /> Firebase Live</div>
@@ -153,11 +140,11 @@ export default function App() {
 
       <section className="hero cleanHero">
         <div className="intro card">
-          <span className="pill"><Zap size={15} /> SMC ORDER BLOCK V2</span>
-          <h1>Order Block lebih pintar: BOS, status, strength.</h1>
+          <span className="pill"><Zap size={15} /> OB M15 + EMA READY</span>
+          <h1>Siap-siap dulu, call saat EMA benar-benar cross.</h1>
           <p>
-            Sistem sekarang cari swing high/low, deteksi Break of Structure, cari origin candle,
-            lalu validasi apakah OB masih active, mitigated, atau invalid.
+            Order Block sekarang pakai timeframe M15. EMA 9/20 tetap membaca M1:
+            saat mendekati cross muncul READY, saat cross baru keluar BUY/SELL.
           </p>
           <div className="actions">
             <button onClick={loadData} disabled={loading}>
@@ -186,8 +173,8 @@ export default function App() {
 
       <section className="overview card">
         <div className="overviewItem"><Database size={18} /><small>Data source</small><strong>Firebase RTDB</strong></div>
-        <div className="overviewItem"><Activity size={18} /><small>Candle</small><strong>{candles.length} data</strong></div>
-        <div className="overviewItem"><Shield size={18} /><small>Spread</small><strong>{spread}</strong></div>
+        <div className="overviewItem"><Activity size={18} /><small>M1 Candle</small><strong>{candles.length} data</strong></div>
+        <div className="overviewItem"><Shield size={18} /><small>M15 OB</small><strong>{market?.candlesM15?.length || 0} data</strong></div>
         <div className="overviewItem">{isSell ? <TrendingDown size={18} /> : <TrendingUp size={18} />}<small>Last close</small><strong>{lastCandle?.close || "-"}</strong></div>
       </section>
 
@@ -209,30 +196,30 @@ export default function App() {
       <section className="strategyPanel card">
         <div className="strategyHeader">
           <div>
-            <span className="pill mini"><Target size={14} /> SMC SNAPSHOT</span>
-            <h3>Ringkasan struktur market</h3>
+            <span className="pill mini"><Target size={14} /> CROSS SNAPSHOT</span>
+            <h3>EMA ready cross + OB M15</h3>
           </div>
           <div className={`biasBadge ${signalTone}`}>{trendBias}</div>
         </div>
 
         <div className="strategyCleanGrid">
-          <Metric label="RSI 14" value={signal?.strategy?.rsi ?? "-"} note="Wilder RSI seperti MT5" />
-          <Metric label="EMA Cross" value={humanize(signal?.strategy?.emaCross)} note={`EMA9 ${signal?.strategy?.ema9 ?? "-"} · EMA20 ${signal?.strategy?.ema20 ?? "-"}`} />
-          <Metric label="Last BOS" value={humanize(smc?.lastBos?.type)} note={`BOS count ${smc?.bosCount ?? 0}`} />
+          <Metric label="EMA Cross" value={humanize(signal?.strategy?.emaCross)} note={signal?.strategy?.crossAlert?.message || "-"} />
+          <Metric label="EMA Gap" value={signal?.strategy?.emaGap ?? "-"} note={`Threshold ${signal?.strategy?.emaGapThreshold ?? "-"}`} />
+          <Metric label="Last BOS M15" value={humanize(smc?.lastBos?.type)} note={`BOS count ${smc?.bosCount ?? 0}`} />
         </div>
 
         <div className="obV2Grid">
-          <ObV2 title="Bullish OB v2" data={signal?.strategy?.orderBlock?.bullish} />
-          <ObV2 title="Bearish OB v2" data={signal?.strategy?.orderBlock?.bearish} />
+          <ObV2 title="Bullish OB M15" data={signal?.strategy?.orderBlock?.bullish} />
+          <ObV2 title="Bearish OB M15" data={signal?.strategy?.orderBlock?.bearish} />
         </div>
 
         <details className="detailsBox">
           <summary>Lihat detail indikator</summary>
           <div className="detailsGrid">
+            <InfoLine label="RSI 14" value={signal?.strategy?.rsi ?? "-"} />
+            <InfoLine label="EMA9 / EMA20" value={`${signal?.strategy?.ema9 ?? "-"} / ${signal?.strategy?.ema20 ?? "-"}`} />
             <InfoLine label="Buy / Sell Score" value={`${signal?.strategy?.buyScore ?? "-"} / ${signal?.strategy?.sellScore ?? "-"}`} />
-            <InfoLine label="SMC Version" value={smc?.version || "-"} />
-            <InfoLine label="Last BOS Time" value={smc?.lastBos?.time || "-"} />
-            <InfoLine label="Mode" value={signal?.mode || "-"} />
+            <InfoLine label="OB Timeframe" value={signal?.strategy?.obTimeframe || "M15"} />
           </div>
         </details>
       </section>
@@ -240,8 +227,8 @@ export default function App() {
       <section className="chartWrap card">
         <div className="sectionTitle">
           <div>
-            <h3>Live Candlestick Chart</h3>
-            <span>{market?.symbol || "XAUUSD"} · {market?.timeframe || "M1"} · Bid {market?.bid || "-"}</span>
+            <h3>Live M1 Candlestick Chart</h3>
+            <span>{market?.symbol || "XAUUSD"} · {market?.timeframe || "M1"} · Bid {market?.bid || "-"} · Spread {spread}</span>
           </div>
           <div className="legend">
             <b><i className="bullDot"></i> Bullish</b>
@@ -266,7 +253,6 @@ export default function App() {
 function candlesToTradingView(candles) {
   if (!Array.isArray(candles)) return [];
   const seen = new Set();
-
   return candles
     .map((candle, index) => {
       const timestamp = parseMt5Time(candle.time);
@@ -277,10 +263,8 @@ function candlesToTradingView(candles) {
         low: Number(candle.low),
         close: Number(candle.close)
       };
-
       if (seen.has(item.time)) return null;
       seen.add(item.time);
-
       return item;
     })
     .filter(Boolean)
