@@ -24,6 +24,9 @@ export async function onRequest({ request, env }) {
       ok: true,
       stats,
       history: list
+    }, 200, {
+      ...H,
+      "Cache-Control": "public, max-age=30, s-maxage=30, stale-while-revalidate=30"
     });
   }
 
@@ -119,9 +122,9 @@ async function fbPut(dbUrl, path, data) {
   return await res.json();
 }
 
-function json(payload, status = 200) {
+function json(payload, status = 200, headers = { ...H, "Cache-Control": "no-store" }) {
   return new Response(JSON.stringify(payload, null, 2), {
     status,
-    headers: { ...H, "Cache-Control": "no-store" }
+    headers
   });
 }

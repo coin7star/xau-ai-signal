@@ -1,6 +1,6 @@
 {
-  "name": "xau-ai-signal-m1-last-swing-structure",
-  "version": "3.7.0",
+  "name": "xau-ai-signal-firebase-bandwidth-saver",
+  "version": "3.8.0",
   "type": "module",
   "scripts": {
     "dev": "vite",

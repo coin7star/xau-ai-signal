@@ -28,25 +28,57 @@ export default function App() {
   const [lastUpdate, setLastUpdate] = useState("-");
   const [chartError, setChartError] = useState("");
 
-  async function loadData() {
+  async function loadData({ includeChart = false, includeHistory = false } = {}) {
     try {
       setLoading(true);
-      const [marketJson, signalJson, aiJson, historyJson] = await Promise.all([
-        fetch(`/api/market?ts=${Date.now()}`, { cache: "no-store" }).then((r) => r.json()),
+
+      const requests = [
+        fetch(`/api/market?mode=${includeChart ? "chart&m1=90&m15=60" : "lite"}&ts=${Date.now()}`, { cache: "no-store" }).then((r) => r.json()),
         fetch(`/api/signal?ts=${Date.now()}`, { cache: "no-store" }).then((r) => r.json()),
-        fetch(`/api/ai-analysis?ts=${Date.now()}`, { cache: "no-store" }).then((r) => r.json()),
-        fetch(`/api/call-history?ts=${Date.now()}`, { cache: "no-store" }).then((r) => r.json()).catch(() => ({ stats: null, history: [] }))
-      ]);
-      setMarket(marketJson);
+        fetch(`/api/ai-analysis?ts=${Date.now()}`, { cache: "no-store" }).then((r) => r.json())
+      ];
+
+      if (includeHistory) {
+        requests.push(fetch(`/api/call-history?ts=${Date.now()}`, { cache: "no-store" }).then((r) => r.json()).catch(() => ({ stats: null, history: [] })));
+      }
+
+      const [marketJson, signalJson, aiJson, historyJson] = await Promise.all(requests);
+
+      setMarket((previous) => {
+        if (includeChart) return marketJson;
+        return {
+          ...(previous || {}),
+          ...marketJson,
+          candles: previous?.candles || [],
+          candlesM15: previous?.candlesM15 || []
+        };
+      });
+
       setSignal(signalJson);
       setAiAnalysis(aiJson);
-      setCallHistory(historyJson);
+
+      if (includeHistory && historyJson) {
+        setCallHistory(historyJson);
+      }
+
       setLastUpdate(new Date().toLocaleTimeString("id-ID"));
     } catch (err) {
-      setMarket({ ok: false, message: err.message, candles: [], candlesM15: [] });
+      setMarket((previous) => previous || { ok: false, message: err.message, candles: [], candlesM15: [] });
     } finally {
       setLoading(false);
     }
+  }
+
+  async function loadLiteData() {
+    return loadData({ includeChart: false, includeHistory: false });
+  }
+
+  async function loadChartData() {
+    return loadData({ includeChart: true, includeHistory: false });
+  }
+
+  async function loadHistoryData() {
+    return loadData({ includeChart: false, includeHistory: true });
   }
 
   async function updateCallResult(id, result) {
@@ -69,7 +101,7 @@ export default function App() {
         return;
       }
 
-      await loadData();
+      await loadHistoryData();
     } catch (err) {
       alert(err.message || String(err));
     }
@@ -81,9 +113,17 @@ export default function App() {
   }
 
   useEffect(() => {
-    loadData();
-    const interval = setInterval(loadData, 12000);
-    return () => clearInterval(interval);
+    loadData({ includeChart: true, includeHistory: true });
+
+    const liteInterval = setInterval(loadLiteData, 12000);
+    const chartInterval = setInterval(loadChartData, 45000);
+    const historyInterval = setInterval(loadHistoryData, 60000);
+
+    return () => {
+      clearInterval(liteInterval);
+      clearInterval(chartInterval);
+      clearInterval(historyInterval);
+    };
   }, []);
 
   const candlesM1 = Array.isArray(market?.candles) ? market.candles : [];
@@ -259,7 +299,7 @@ export default function App() {
             Setelah webhook diset, Telegram bot bisa membalas command langsung dari Firebase dan signal terbaru.
           </p>
           <div className="actions">
-            <button onClick={loadData} disabled={loading}><RefreshCcw size={16} /> {loading ? "Loading..." : "Refresh"}</button>
+            <button onClick={() => loadData({ includeChart: true, includeHistory: true })} disabled={loading}><RefreshCcw size={16} /> {loading ? "Loading..." : "Refresh"}</button>
             <a href="/api/telegram-set-webhook" target="_blank" rel="noreferrer">Set Webhook</a>
           </div>
         </div>
@@ -279,8 +319,8 @@ export default function App() {
 
       <section className="overview card">
         <div className="overviewItem"><Database size={18} /><small>Data source</small><strong>Firebase RTDB</strong></div>
-        <div className="overviewItem"><Activity size={18} /><small>M1 Candle</small><strong>{candlesM1.length} data</strong></div>
-        <div className="overviewItem"><Shield size={18} /><small>M15 Candle</small><strong>{candlesM15.length} data</strong></div>
+        <div className="overviewItem"><Activity size={18} /><small>M1 Candle</small><strong>{candlesM1.length || market?.m1Count || 0} data</strong></div>
+        <div className="overviewItem"><Shield size={18} /><small>M15 Candle</small><strong>{candlesM15.length || market?.m15Count || 0} data</strong></div>
         <div className="overviewItem">{isSell ? <TrendingDown size={18} /> : <TrendingUp size={18} />}<small>Last close</small><strong>{lastCandle?.close || "-"}</strong></div>
       </section>
 
@@ -406,7 +446,7 @@ export default function App() {
             <b><i className="obBearDot"></i> Bear OB</b>
             <b><i className="supportDot"></i> M1 Support</b>
             <b><i className="resistDot"></i> M1 Resistance</b>
-            <em><span></span> Auto refresh 12s</em>
+            <em><span></span> Lite 12s · Chart 45s</em>
           </div>
         </div>
         {chartError && <div className="chartError">Chart error: {chartError}</div>}

@@ -12,9 +12,26 @@ export async function onRequest({ request, env }) {
   if (!dbUrl) return j({ ok: false, error: "ENV FIREBASE_DATABASE_URL belum diset" }, 500);
 
   if (request.method === "GET") {
-    const data = await fbGet(dbUrl, "/xauusd/latest");
-    if (!data) return j({ ok: false, mode: "waiting-mt5-data", message: "Belum ada data MT5 di Firebase." });
-    return j(data);
+    const url = new URL(request.url);
+    const mode = url.searchParams.get("mode") || "full";
+    const rawData = await fbGet(dbUrl, "/xauusd/latest");
+
+    if (!rawData) {
+      return j({
+        ok: false,
+        mode: "waiting-mt5-data",
+        message: "Belum ada data MT5 di Firebase."
+      }, 200, cacheHeaders(10));
+    }
+
+    if (mode === "lite") {
+      return j(toMarketLite(rawData), 200, cacheHeaders(6));
+    }
+
+    const m1Limit = clampNumber(url.searchParams.get("m1"), 80, 40, 180);
+    const m15Limit = clampNumber(url.searchParams.get("m15"), 60, 30, 140);
+
+    return j(toMarketChart(rawData, m1Limit, m15Limit), 200, cacheHeaders(20));
   }
 
   if (request.method === "POST") {
@@ -61,6 +78,57 @@ export async function onRequest({ request, env }) {
   return j({ ok: false, error: `Method ${request.method} not allowed` }, 405);
 }
 
+
+function toMarketLite(data) {
+  const candles = Array.isArray(data.candles) ? data.candles : [];
+  const candlesM15 = Array.isArray(data.candlesM15) ? data.candlesM15 : [];
+  const last = candles[candles.length - 1] || null;
+
+  return {
+    ok: true,
+    source: data.source || "mt5",
+    mode: "lite",
+    symbol: data.symbol || "XAUUSD",
+    timeframe: data.timeframe || "M1",
+    obTimeframe: data.obTimeframe || "M15",
+    bid: Number(data.bid || 0),
+    ask: Number(data.ask || 0),
+    digits: Number(data.digits || 2),
+    serverTime: data.serverTime || null,
+    receivedAt: data.receivedAt || null,
+    lastClose: Number(last?.close || data.bid || 0),
+    lastCandleTime: last?.time || null,
+    m1Count: candles.length,
+    m15Count: candlesM15.length
+  };
+}
+
+function toMarketChart(data, m1Limit = 80, m15Limit = 60) {
+  const candles = Array.isArray(data.candles) ? data.candles.slice(-m1Limit) : [];
+  const candlesM15 = Array.isArray(data.candlesM15) ? data.candlesM15.slice(-m15Limit) : [];
+
+  return {
+    ...toMarketLite(data),
+    mode: "chart",
+    candles,
+    candlesM15
+  };
+}
+
+function clampNumber(value, fallback, min, max) {
+  const n = Number(value);
+  if (!Number.isFinite(n)) return fallback;
+  return Math.min(max, Math.max(min, Math.round(n)));
+}
+
+function cacheHeaders(seconds = 10) {
+  return {
+    ...H,
+    "Cache-Control": `public, max-age=${seconds}, s-maxage=${seconds}, stale-while-revalidate=15`
+  };
+}
+
+
 async function fbGet(dbUrl, path) {
   const res = await fetch(`${dbUrl}${path}.json?ts=${Date.now()}`, { headers: { "Cache-Control": "no-cache" } });
   if (!res.ok) return null;
@@ -77,6 +145,6 @@ async function fbPut(dbUrl, path, data) {
   return await res.json();
 }
 
-function j(payload, status = 200) {
-  return new Response(JSON.stringify(payload, null, 2), { status, headers: { ...H, "Cache-Control": "no-store" } });
+function j(payload, status = 200, headers = { ...H, "Cache-Control": "no-store" }) {
+  return new Response(JSON.stringify(payload, null, 2), { status, headers });
 }
