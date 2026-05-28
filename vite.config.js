@@ -1,1 +1,6 @@
-Full fix TradingView lightweight-charts. Upload replace semua ke GitHub, commit, lalu retry deploy Cloudflare.
+import { defineConfig } from "vite";
+import react from "@vitejs/plugin-react";
+
+export default defineConfig({
+  plugins: [react()]
+});
