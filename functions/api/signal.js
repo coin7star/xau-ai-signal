@@ -271,8 +271,10 @@ async function maybeSendTelegramAlert(env, dbUrl, signal, market) {
 function buildTelegramMessage(signal, market) {
   const s = signal.strategy || {};
   const c = s.confirmation || {};
-  const obBull = s.orderBlock?.bullish;
-  const obBear = s.orderBlock?.bearish;
+  const rawBullOb = s.orderBlock?.bullish;
+  const rawBearOb = s.orderBlock?.bearish;
+  const obBull = getFreshObForDisplay(rawBullOb);
+  const obBear = getFreshObForDisplay(rawBearOb);
 
   const emoji = signal.signal === "BUY" ? "🟢" : signal.signal === "SELL" ? "🔴" : "🟡";
   const title = signal.callStage === "CALL" ? "CALL SIGNAL VALID" : "READY ALERT";
@@ -803,9 +805,17 @@ function humanize(value) {
   return String(value).replaceAll("_", " ");
 }
 
+function getFreshObForDisplay(ob) {
+  if (!ob) return null;
+  if (ob.status !== "active") return null;
+  if (ob.mitigated || ob.invalidated) return null;
+  return ob;
+}
+
 function formatOb(ob) {
-  if (!ob) return "belum jelas";
-  return `${ob.low}-${ob.high} (${ob.status}, strength ${ob.strength}%)`;
+  if (!ob) return "tidak ada fresh OB";
+  const method = ob.method ? `, ${ob.method}` : "";
+  return `${ob.low}-${ob.high} (${ob.status}${method}, strength ${ob.strength}%)`;
 }
 
 function escapeHtml(text) {

@@ -266,7 +266,7 @@ export default function App() {
             <b><i className="ema20Dot"></i> EMA 20</b>
             <b><i className="obBullDot"></i> Bull OB</b>
             <b><i className="obBearDot"></i> Bear OB</b>
-            <em><span></span> OB M15</em>
+            <em><span></span> Fresh OB M15</em>
           </div>
         </div>
         <div className="tvChart small" ref={chartM15BoxRef}></div>

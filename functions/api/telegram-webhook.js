@@ -156,8 +156,10 @@ async function buildSignalMessage(env) {
 
   const s = signal.strategy || {};
   const c = s.confirmation || {};
-  const obBull = s.orderBlock?.bullish;
-  const obBear = s.orderBlock?.bearish;
+  const rawBullOb = s.orderBlock?.bullish;
+  const rawBearOb = s.orderBlock?.bearish;
+  const obBull = getFreshObForDisplay(rawBullOb);
+  const obBear = getFreshObForDisplay(rawBearOb);
 
   const emoji = signal.signal === "BUY" ? "🟢" : signal.signal === "SELL" ? "🔴" : signal.callStage === "READY" ? "🟡" : "⚪";
 
@@ -174,7 +176,7 @@ async function buildSignalMessage(env) {
     `<b>EMA9/20:</b> ${s.ema9 ?? "-"} / ${s.ema20 ?? "-"}`,
     `<b>EMA:</b> ${escapeHtml(humanize(s.emaCross))}`,
     "",
-    `<b>OB M15:</b>`,
+    `<b>Fresh OB M15:</b>`,
     `Bullish: ${escapeHtml(formatOb(obBull))}`,
     `Bearish: ${escapeHtml(formatOb(obBear))}`,
     "",
@@ -797,9 +799,17 @@ function humanize(value) {
   return String(value).replaceAll("_", " ");
 }
 
+function getFreshObForDisplay(ob) {
+  if (!ob) return null;
+  if (ob.status !== "active") return null;
+  if (ob.mitigated || ob.invalidated) return null;
+  return ob;
+}
+
 function formatOb(ob) {
-  if (!ob) return "belum jelas";
-  return `${ob.low}-${ob.high} (${ob.status}, strength ${ob.strength}%)`;
+  if (!ob) return "tidak ada fresh OB";
+  const method = ob.method ? `, ${ob.method}` : "";
+  return `${ob.low}-${ob.high} (${ob.status}${method}, strength ${ob.strength}%)`;
 }
 
 function escapeHtml(text) {

@@ -1,36 +1,28 @@
-# XAU OB Impulse Breakout Full Fix
+# XAU Telegram Web OB Sync Full Fix
 
-Penjelasan penting:
-- MQ5 / MetaEditor TIDAK menghitung OB.
-- MQ5 cuma kirim candle M1 dan M15.
-- OB dihitung di Cloudflare Functions:
-  - functions/api/signal.js
-  - functions/api/telegram-webhook.js
+Masalah:
+- Telegram /signal masih menampilkan OB mentah, termasuk invalid/mitigated.
+- Web/chart hanya menampilkan garis OB fresh/active.
+- Akibatnya kelihatan tidak sinkron.
 
-Update OB v3:
-- Tetap pakai SMC BOS klasik.
-- Ditambah detection visual: IMPULSE_BREAKOUT.
-- Bullish OB:
-  - candle bearish/base terakhir sebelum impulse bullish
-  - impulse bullish harus break recent resistance/high 20 candle terakhir
-- Bearish OB:
-  - candle bullish/base terakhir sebelum impulse bearish
-  - impulse bearish harus break recent support/low 20 candle terakhir
+Fix:
+- Telegram /signal sekarang hanya menampilkan Fresh OB M15:
+  - status harus active
+  - mitigated harus false
+  - invalidated harus false
+- OB invalid / mitigated tidak ditampilkan di Telegram.
+- Telegram CALL alert juga memakai format OB fresh agar konsisten dengan web.
+- Web tetap menampilkan garis OB M15 fresh/active di chart M1 dan M15.
 
-Mitigation:
-- OB tidak hilang hanya karena wick sentuh tipis.
-- OB baru mitigated kalau retrace minimal 50% zona OB setelah breakout/BOS.
-- OB invalid kalau close tembus sisi lawan OB.
-
-Chart:
-- Garis OB M15 tetap tampil di chart M1 dan M15 selama OB masih active/fresh.
-- EMA 9 dan EMA 20 tetap tampil.
+Catatan:
+- Kalau Fresh OB jauh dari area harga chart, garis bisa berada di luar view chart.
+- Tapi Telegram tidak akan lagi menampilkan OB invalid.
 
 MQ5 tidak perlu update.
 
 File yang berubah:
-- functions/api/signal.js
 - functions/api/telegram-webhook.js
+- functions/api/signal.js
 - src/App.jsx
 - package.json
 
@@ -38,6 +30,4 @@ Cara pakai:
 1. Upload replace semua ke GitHub.
 2. Commit changes.
 3. Tunggu Cloudflare deploy sukses.
-4. Refresh web.
-5. Cek /api/signal, lihat strategy.smc.version harus:
-   SMC_OB_V3_IMPULSE_BREAKOUT
+4. Test Telegram /signal lagi.
