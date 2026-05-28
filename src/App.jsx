@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { Activity, Bot, Database, Radio, RefreshCcw, Shield, TrendingDown, TrendingUp, Zap } from "lucide-react";
-import { ResponsiveContainer, ComposedChart, Bar, Line, XAxis, YAxis, Tooltip, CartesianGrid, ReferenceLine } from "recharts";
+import { ResponsiveContainer, ComposedChart, Bar, Line, XAxis, YAxis, Tooltip, CartesianGrid, ReferenceLine, Cell } from "recharts";
 
 export default function App() {
   const [market, setMarket] = useState(null);
@@ -40,6 +40,7 @@ export default function App() {
       const close = Number(c.close);
       const high = Number(c.high);
       const low = Number(c.low);
+      const isBull = close >= open;
       return {
         idx: i + 1,
         time: String(c.time || "").slice(11, 16),
@@ -49,7 +50,9 @@ export default function App() {
         low,
         wick: [low, high],
         body: [Math.min(open, close), Math.max(open, close)],
-        colorType: close >= open ? "bull" : "bear",
+        isBull,
+        candleColor: isBull ? "#19f28f" : "#ff4d6d",
+        wickColor: isBull ? "#77ffd0" : "#ff9aac",
         volume: Number(c.volume || 0)
       };
     });
@@ -74,10 +77,10 @@ export default function App() {
 
       <section className="hero">
         <div className="intro card">
-          <span className="pill"><Zap size={15} /> LIVE GOLD DATA</span>
-          <h1>XAUUSD live dashboard dari MT5 kamu 🚀</h1>
+          <span className="pill"><Zap size={15} /> REAL CANDLE COLOR</span>
+          <h1>Candlestick merah hijau dari MT5 🔥</h1>
           <p>
-            Data candle real sudah masuk dari MetaTrader ke Firebase. Web ini auto-refresh tiap 5 detik.
+            Candle bullish tampil hijau, bearish tampil merah. Data tetap realtime dari MetaTrader → Firebase → Web.
           </p>
           <div className="actions">
             <button onClick={loadAll} disabled={loading}>
@@ -113,23 +116,38 @@ export default function App() {
       <section className="chartWrap card">
         <div className="sectionTitle">
           <div>
-            <h3>Realtime MT5 Candle Chart</h3>
+            <h3>Realtime MT5 Candlestick</h3>
             <span>{market?.symbol || "XAUUSD"} · {market?.timeframe || "M1"} · Bid {market?.bid || "-"}</span>
           </div>
-          <div className="statusDot"><span></span> Auto refresh 5s</div>
+          <div className="legend">
+            <b><i className="bullDot"></i> Bullish</b>
+            <b><i className="bearDot"></i> Bearish</b>
+            <em><span></span> Auto refresh 5s</em>
+          </div>
         </div>
 
         {chartData.length > 0 ? (
-          <ResponsiveContainer width="100%" height={420}>
+          <ResponsiveContainer width="100%" height={430}>
             <ComposedChart data={chartData} margin={{ top: 20, right: 25, left: 5, bottom: 10 }}>
               <CartesianGrid strokeDasharray="3 3" opacity={0.18} />
               <XAxis dataKey="time" tick={{ fill: "#aab6d3", fontSize: 12 }} interval="preserveStartEnd" />
               <YAxis domain={["dataMin - 2", "dataMax + 2"]} tick={{ fill: "#aab6d3", fontSize: 12 }} width={78} />
               <Tooltip content={<CustomTooltip />} />
               <ReferenceLine y={Number(lastCandle?.close || 0)} strokeDasharray="4 4" opacity={0.65} />
-              <Bar dataKey="wick" fill="#93f8ff" barSize={2} radius={[2, 2, 2, 2]} />
-              <Bar dataKey="body" fill="#9bf6ff" barSize={9} radius={[4, 4, 4, 4]} />
-              <Line type="monotone" dataKey="close" strokeWidth={2} dot={false} opacity={0.75} />
+
+              <Bar dataKey="wick" barSize={2} radius={[2, 2, 2, 2]}>
+                {chartData.map((entry, index) => (
+                  <Cell key={`wick-${index}`} fill={entry.wickColor} />
+                ))}
+              </Bar>
+
+              <Bar dataKey="body" barSize={10} radius={[4, 4, 4, 4]}>
+                {chartData.map((entry, index) => (
+                  <Cell key={`body-${index}`} fill={entry.candleColor} />
+                ))}
+              </Bar>
+
+              <Line type="monotone" dataKey="close" stroke="#9bdcff" strokeWidth={2} dot={false} opacity={0.45} />
             </ComposedChart>
           </ResponsiveContainer>
         ) : (
@@ -146,12 +164,13 @@ function CustomTooltip({ active, payload }) {
   if (!active || !payload?.length) return null;
   const d = payload[0]?.payload;
   return (
-    <div className="tooltip">
-      <b>{d.time}</b>
+    <div className={`tooltip ${d.isBull ? "tipBull" : "tipBear"}`}>
+      <b>{d.time} · {d.isBull ? "Bullish" : "Bearish"}</b>
       <span>Open: {d.open}</span>
       <span>High: {d.high}</span>
       <span>Low: {d.low}</span>
       <span>Close: {d.close}</span>
+      <span>Volume: {d.volume}</span>
     </div>
   );
 }
