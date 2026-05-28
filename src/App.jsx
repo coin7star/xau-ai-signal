@@ -614,29 +614,37 @@ export default function App() {
           </div>
         </div>
 
-        <div className="adminTokenBox">
-          <span>Admin token untuk update Win/Loss</span>
-          <input
-            value={adminToken}
-            onChange={(event) => saveAdminToken(event.target.value)}
-            placeholder="Isi ADMIN_ACTION_TOKEN Cloudflare"
-            type="password"
-          />
-        </div>
+        {!isAdmin && (
+          <div className="premiumViewerNote">
+            Premium view: kamu bisa lihat history, result, dan winrate. Update WIN/LOSS/BE hanya bisa dilakukan admin.
+          </div>
+        )}
+
+        {isAdmin && (
+          <div className="adminTokenBox">
+            <span>Admin token untuk update Win/Loss</span>
+            <input
+              value={adminToken}
+              onChange={(event) => saveAdminToken(event.target.value)}
+              placeholder="Isi ADMIN_ACTION_TOKEN Cloudflare"
+              type="password"
+            />
+          </div>
+        )}
 
         <div className="historyTable">
-          <div className={`historyHead ${isAdmin ? "adminMode" : "viewerMode"}` }>
+          <div className={`historyHead ${isAdmin ? "adminMode" : "viewerMode"}`}>
             <span>Time</span>
             <span>Signal</span>
             <span>Entry</span>
             <span>SL / TP</span>
             <span>Prob</span>
             <span>Result</span>
-            <span>Action</span>
+            {isAdmin && <span>Action</span>}
           </div>
 
           {(callHistory?.history || []).slice(0, 12).map((item) => (
-            <div className={`historyRow ${isAdmin ? "adminMode" : "viewerMode"}` } key={item.id}>
+            <div className={`historyRow ${isAdmin ? "adminMode" : "viewerMode"}`} key={item.id}>
               <span>{formatHistoryTime(item.createdAt || item.candleTime)}</span>
               <strong className={String(item.signal || "").toLowerCase()}>{item.signal}</strong>
               <span>{item.entry}</span>
@@ -646,15 +654,13 @@ export default function App() {
                 {item.result || item.status || "OPEN"}
               </span>
               {isAdmin && (
-              {isAdmin && (
-              <div className="historyActions">
-                <button type="button" onClick={() => updateCallResult(item.id, "WIN")}>WIN</button>
-                <button type="button" onClick={() => updateCallResult(item.id, "LOSS")}>LOSS</button>
-                <button type="button" onClick={() => updateCallResult(item.id, "BE")}>BE</button>
-                <button type="button" onClick={() => updateCallResult(item.id, "OPEN")}>OPEN</button>
-              </div>
-            )}
-            )}
+                <div className="historyActions">
+                  <button type="button" onClick={() => updateCallResult(item.id, "WIN")}>WIN</button>
+                  <button type="button" onClick={() => updateCallResult(item.id, "LOSS")}>LOSS</button>
+                  <button type="button" onClick={() => updateCallResult(item.id, "BE")}>BE</button>
+                  <button type="button" onClick={() => updateCallResult(item.id, "OPEN")}>OPEN</button>
+                </div>
+              )}
             </div>
           ))}
 
@@ -670,11 +676,6 @@ export default function App() {
           <div>
             <h3>{isAdmin ? "SCALP M1 Valid History & Manual Result" : "SCALP M1 Valid Performance"}</h3>
             <span>Cuma SCALP BUY/SELL valid yang disimpan. SCALP WAIT tidak masuk biar Firebase tetap hemat.</span>
-        {!isAdmin && (
-          <div className="premiumViewerNote scalpViewerNote">
-            Premium view: kamu bisa lihat result SCALP M1 dan winrate. Update WIN/LOSS/BE hanya bisa dilakukan admin.
-          </div>
-        )}
           </div>
           <div className="historyStats">
             <b>Total {scalpStats.total || 0}</b>
@@ -686,19 +687,25 @@ export default function App() {
           </div>
         </div>
 
+        {!isAdmin && (
+          <div className="premiumViewerNote scalpViewerNote">
+            Premium view: kamu bisa lihat result SCALP M1 dan winrate. Update WIN/LOSS/BE hanya bisa dilakukan admin.
+          </div>
+        )}
+
         <div className="historyTable">
-          <div className={`historyHead ${isAdmin ? "adminMode" : "viewerMode"}` }>
+          <div className={`historyHead ${isAdmin ? "adminMode" : "viewerMode"}`}>
             <span>Time</span>
             <span>Signal</span>
             <span>Entry</span>
             <span>SL / TP</span>
             <span>Score</span>
             <span>Result</span>
-            <span>Action</span>
+            {isAdmin && <span>Action</span>}
           </div>
 
           {(scalpHistory?.history || []).slice(0, 10).map((item) => (
-            <div className={`historyRow ${isAdmin ? "adminMode" : "viewerMode"}` } key={item.id}>
+            <div className={`historyRow ${isAdmin ? "adminMode" : "viewerMode"}`} key={item.id}>
               <span>{formatHistoryTime(item.createdAt || item.candleTime)}</span>
               <strong className={String(item.signal || "").toLowerCase()}>{item.signal}</strong>
               <span>{item.entry}</span>
@@ -708,13 +715,13 @@ export default function App() {
                 {item.result || item.status || "OPEN"}
               </span>
               {isAdmin && (
-              <div className="historyActions">
-                <button type="button" onClick={() => updateScalpResult(item.id, "WIN")}>WIN</button>
-                <button type="button" onClick={() => updateScalpResult(item.id, "LOSS")}>LOSS</button>
-                <button type="button" onClick={() => updateScalpResult(item.id, "BE")}>BE</button>
-                <button type="button" onClick={() => updateScalpResult(item.id, "OPEN")}>OPEN</button>
-              </div>
-            )}
+                <div className="historyActions">
+                  <button type="button" onClick={() => updateScalpResult(item.id, "WIN")}>WIN</button>
+                  <button type="button" onClick={() => updateScalpResult(item.id, "LOSS")}>LOSS</button>
+                  <button type="button" onClick={() => updateScalpResult(item.id, "BE")}>BE</button>
+                  <button type="button" onClick={() => updateScalpResult(item.id, "OPEN")}>OPEN</button>
+                </div>
+              )}
             </div>
           ))}
 

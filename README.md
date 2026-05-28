@@ -1,22 +1,20 @@
-# XAU History + Scalp Admin Only Actions Hotfix
+# XAU History Admin Only Safe Buildfix
 
 Masalah:
-- Premium user masih melihat Admin token di CALL History.
-- Premium user masih melihat tombol WIN/LOSS/BE/OPEN di SCALP M1 Valid History.
+- Build sebelumnya gagal karena JSX rusak di App.jsx.
+- Error: Expected ',' or '}' but found '&&'.
 
 Fix:
-- Admin token box hanya render kalau role admin.
-- ACTION header hanya render kalau role admin.
-- Semua tombol update result CALL dan SCALP hanya render kalau role admin.
-- Premium user hanya bisa lihat history/result/winrate.
-- SCALP title otomatis:
-  - Admin: SCALP M1 Valid History & Manual Result
-  - Premium: SCALP M1 Valid Performance
-- Tambah viewer note untuk premium user.
-
-Tujuan:
-- Premium user bisa lihat performa.
-- Hanya admin yang bisa edit result.
+- Patch ulang dari versi stable.
+- CALL History:
+  - Premium: lihat history/performance saja.
+  - Admin: bisa manual WIN/LOSS/BE/OPEN.
+- SCALP M1 History:
+  - Premium: lihat performance saja.
+  - Admin: bisa manual WIN/LOSS/BE/OPEN.
+- Admin token input hanya muncul untuk admin.
+- Kolom Action hanya muncul untuk admin.
+- Sudah dites `npm run build` dan berhasil.
 
 File berubah:
 - src/App.jsx

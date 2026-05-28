@@ -1182,46 +1182,18 @@
   line-height: 1.5;
 }
 
-/* Premium viewer mode: table lebih ringkas tanpa kolom ACTION */
-.historyHead.viewerMode,
-.historyRow.viewerMode {
-  grid-template-columns: 1fr 1fr 1fr 1fr 1fr;
-}
-
-.historyHead.adminMode,
-.historyRow.adminMode {
-  grid-template-columns: 1fr 1fr 1fr 1fr 1fr 1.35fr;
-}
-
-@media(max-width: 900px) {
-  .historyHead.viewerMode,
-  .historyRow.viewerMode,
-  .historyHead.adminMode,
-  .historyRow.adminMode {
-    grid-template-columns: 1fr;
-  }
-}
-
-
-/* Admin-only history action safety net */
-.historyRow.viewerMode .historyActions,
-.historyRow.viewerMode .callActions,
-.historyRow.viewerMode .scalpActions {
-  display: none !important;
-}
-
-.historyHead.viewerMode,
-.historyRow.viewerMode {
-  grid-template-columns: 1fr 1fr 1fr 1fr 1fr !important;
-}
-
-.historyHead.adminMode,
-.historyRow.adminMode {
-  grid-template-columns: 1fr 1fr 1fr 1fr 1fr 1.35fr !important;
-}
-
 .scalpViewerNote {
   margin-top: 12px;
+}
+
+.historyHead.viewerMode,
+.historyRow.viewerMode {
+  grid-template-columns: 1fr 1fr 1fr 1fr 1fr 1fr !important;
+}
+
+.historyHead.adminMode,
+.historyRow.adminMode {
+  grid-template-columns: 1fr 1fr 1fr 1fr 1fr 1fr 1.35fr !important;
 }
 
 @media(max-width: 900px) {

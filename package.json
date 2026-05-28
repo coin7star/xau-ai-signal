@@ -1,6 +1,6 @@
 {
-  "name": "xau-ai-signal-history-scalp-admin-only-actions",
-  "version": "5.6.6",
+  "name": "xau-ai-signal-history-admin-only-safe-buildfix",
+  "version": "5.6.7",
   "type": "module",
   "scripts": {
     "dev": "vite",
