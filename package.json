@@ -1,6 +1,6 @@
 {
-  "name": "xau-ai-signal-clean-seo",
-  "version": "1.7.0",
+  "name": "xau-ai-signal-ai-analysis-sync",
+  "version": "1.8.0",
   "type": "module",
   "scripts": {
     "dev": "vite",

@@ -1,10 +1,17 @@
-# XAU UI Clean SEO Full Fix
+# XAU AI Analysis Sync Full Fix
 
-Fix:
-- UI strategy dibuat lebih rapi, tidak banyak card kecil.
-- Ringkasan teknikal hanya 3 metric utama.
-- Detail Order Block disembunyikan di dropdown.
-- Meta SEO tag ditambah di index.html.
-- Chart dan API tetap sama.
+Fitur baru:
+- /api/ai-analysis
+- AI membaca signal internal, RSI, EMA Cross 9/20, Order Block, candle MT5 terbaru
+- UI menampilkan AI Market Analysis
+- Fallback analysis tetap jalan kalau AI_API_KEY belum diset
 
-Upload replace semua ke GitHub, commit, lalu retry deploy Cloudflare.
+ENV Cloudflare:
+- FIREBASE_DATABASE_URL
+- MT5_INGEST_TOKEN
+- AI_API_KEY
+- AI_MODEL
+- AI_BASE_URL optional
+
+Default AI_BASE_URL:
+https://api.groq.com/openai/v1/chat/completions

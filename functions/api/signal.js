@@ -15,7 +15,7 @@ export async function onRequest({ env }) {
   return json(signal);
 }
 
-function buildSignal(candles, market) {
+export function buildSignal(candles, market) {
   const cleanCandles = candles
     .map((c) => ({
       time: c.time,
@@ -46,6 +46,7 @@ function buildSignal(candles, market) {
       reason: "Menunggu minimal 35 candle untuk RSI Wilder, EMA Cross 9/20, dan Order Block.",
       mode: market ? "firebase-mt5-data" : "waiting-mt5",
       strategy: {
+        trendBias: "Netral",
         rsi: null,
         rsiMethod: "Wilder RSI 14 seperti MT5 iRSI",
         ema9: null,

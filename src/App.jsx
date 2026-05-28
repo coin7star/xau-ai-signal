@@ -3,10 +3,12 @@ import { createChart, ColorType, CrosshairMode } from "lightweight-charts";
 import {
   Activity,
   Bot,
+  Brain,
   Database,
   Radio,
   RefreshCcw,
   Shield,
+  Sparkles,
   Target,
   TrendingDown,
   TrendingUp,
@@ -20,6 +22,7 @@ export default function App() {
 
   const [market, setMarket] = useState(null);
   const [signal, setSignal] = useState(null);
+  const [aiAnalysis, setAiAnalysis] = useState(null);
   const [loading, setLoading] = useState(false);
   const [lastUpdate, setLastUpdate] = useState("-");
   const [chartError, setChartError] = useState("");
@@ -28,13 +31,15 @@ export default function App() {
     try {
       setLoading(true);
 
-      const [marketJson, signalJson] = await Promise.all([
+      const [marketJson, signalJson, aiJson] = await Promise.all([
         fetch(`/api/market?ts=${Date.now()}`, { cache: "no-store" }).then((r) => r.json()),
-        fetch(`/api/signal?ts=${Date.now()}`, { cache: "no-store" }).then((r) => r.json())
+        fetch(`/api/signal?ts=${Date.now()}`, { cache: "no-store" }).then((r) => r.json()),
+        fetch(`/api/ai-analysis?ts=${Date.now()}`, { cache: "no-store" }).then((r) => r.json())
       ]);
 
       setMarket(marketJson);
       setSignal(signalJson);
+      setAiAnalysis(aiJson);
       setLastUpdate(new Date().toLocaleTimeString("id-ID"));
     } catch (err) {
       setMarket({ ok: false, message: err.message, candles: [] });
@@ -45,7 +50,7 @@ export default function App() {
 
   useEffect(() => {
     loadData();
-    const interval = setInterval(loadData, 5000);
+    const interval = setInterval(loadData, 12000);
     return () => clearInterval(interval);
   }, []);
 
@@ -149,7 +154,7 @@ export default function App() {
           <div className="logo"><Bot size={22} /></div>
           <div>
             <b>XAU AI Signal</b>
-            <span>Clean dashboard · MT5 realtime</span>
+            <span>AI Analysis · MT5 realtime</span>
           </div>
         </div>
         <div className="live"><Radio size={14} /> Firebase Live</div>
@@ -157,17 +162,17 @@ export default function App() {
 
       <section className="hero cleanHero">
         <div className="intro card">
-          <span className="pill"><Zap size={15} /> XAUUSD STRATEGY</span>
-          <h1>Sinyal XAUUSD realtime yang lebih rapi.</h1>
+          <span className="pill"><Zap size={15} /> XAUUSD AI STRATEGY</span>
+          <h1>AI analysis sinkron dengan sinyal XAUUSD.</h1>
           <p>
-            Dashboard ini membaca data candle dari MT5, lalu merangkum RSI, EMA Cross 9/20,
-            dan Order Block tanpa bikin tampilan penuh card kecil.
+            AI membaca sinyal internal, RSI, EMA Cross 9/20, Order Block, dan candle MT5 terbaru.
+            Kalau API key belum diset, sistem otomatis pakai fallback analysis.
           </p>
           <div className="actions">
             <button onClick={loadData} disabled={loading}>
               <RefreshCcw size={16} /> {loading ? "Loading..." : "Refresh"}
             </button>
-            <a href="/api/signal" target="_blank" rel="noreferrer">Signal JSON</a>
+            <a href="/api/ai-analysis" target="_blank" rel="noreferrer">AI JSON</a>
           </div>
         </div>
 
@@ -211,6 +216,21 @@ export default function App() {
         </div>
       </section>
 
+      <section className="aiPanel card">
+        <div className="strategyHeader">
+          <div>
+            <span className="pill mini"><Sparkles size={14} /> AI MARKET ANALYSIS</span>
+            <h3>Analisa AI sinkron</h3>
+          </div>
+          <div className={`biasBadge ${aiAnalysis?.mode === "ai-live" ? "buy" : "wait"}`}>
+            {aiAnalysis?.mode === "ai-live" ? "AI Live" : "Fallback"}
+          </div>
+        </div>
+        <div className="aiText">
+          {formatAiText(aiAnalysis?.analysis || "Menunggu analisa AI...")}
+        </div>
+      </section>
+
       <section className="strategyPanel card">
         <div className="strategyHeader">
           <div>
@@ -246,7 +266,7 @@ export default function App() {
           <div className="legend">
             <b><i className="bullDot"></i> Bullish</b>
             <b><i className="bearDot"></i> Bearish</b>
-            <em><span></span> Auto refresh 5s</em>
+            <em><span></span> Auto refresh 12s</em>
           </div>
         </div>
 
@@ -339,4 +359,11 @@ function humanize(value) {
 function formatOb(ob) {
   if (!ob) return "Belum terdeteksi";
   return `${ob.low} - ${ob.high} · ${ob.originTime || "-"}`;
+}
+
+function formatAiText(text) {
+  return String(text)
+    .split("\n")
+    .filter(Boolean)
+    .map((line, index) => <p key={index}>{line}</p>);
 }
