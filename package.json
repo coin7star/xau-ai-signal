@@ -1,6 +1,6 @@
 {
-  "name": "xau-ai-signal-admin-panel-advanced-step4",
-  "version": "5.6.0",
+  "name": "xau-ai-signal-admin-panel-compact-step4",
+  "version": "5.6.1",
   "type": "module",
   "scripts": {
     "dev": "vite",

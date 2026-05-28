@@ -956,7 +956,10 @@ function AdminPanel({ adminToken, setAdminToken }) {
   const [customDate, setCustomDate] = useState("");
   const [broadcastText, setBroadcastText] = useState("");
   const [broadcastTarget, setBroadcastTarget] = useState("premium_connected");
+  const [expandedUid, setExpandedUid] = useState("");
+  const [page, setPage] = useState(1);
 
+  const pageSize = 6;
   const stats = useMemo(() => buildAdminStats(users), [users]);
 
   const filteredUsers = users.filter((user) => {
@@ -978,6 +981,14 @@ function AdminPanel({ adminToken, setAdminToken }) {
 
     return matchSearch && matchRole && matchTelegram;
   });
+
+  const totalPages = Math.max(1, Math.ceil(filteredUsers.length / pageSize));
+  const safePage = Math.min(page, totalPages);
+  const pagedUsers = filteredUsers.slice((safePage - 1) * pageSize, safePage * pageSize);
+
+  useEffect(() => {
+    setPage(1);
+  }, [query, roleFilter, telegramFilter]);
 
   useEffect(() => {
     if (adminToken) {
@@ -1029,11 +1040,7 @@ function AdminPanel({ adminToken, setAdminToken }) {
     setMessage("");
 
     try {
-      const body = {
-        token: adminToken,
-        uid: user.uid,
-        role
-      };
+      const body = { token: adminToken, uid: user.uid, role };
 
       if (premiumDays > 0) body.premiumDays = premiumDays;
       if (premiumUntil) body.premiumUntil = premiumUntil;
@@ -1126,28 +1133,28 @@ function AdminPanel({ adminToken, setAdminToken }) {
   }
 
   return (
-    <section className="adminPanel card">
+    <section className="adminPanel card compactAdminPanel">
       <div className="sectionTitle">
         <div>
           <span className="pill mini"><Settings size={14} /> ADMIN PANEL STEP 4</span>
           <h3>Advanced Premium Management</h3>
-          <span>Filter user, custom premium, Telegram status, dan broadcast ke premium connected.</span>
+          <span>Compact mode: list user dibuat pendek, action ada di detail.</span>
         </div>
         <button type="button" onClick={loadUsers} disabled={busy}>
           <RefreshCcw size={16} className={busy ? "spin" : ""} /> Refresh Users
         </button>
       </div>
 
-      <div className="adminStatsGrid">
-        <AdminStat label="Total User" value={stats.total} />
-        <AdminStat label="Premium Active" value={stats.premiumActive} />
+      <div className="adminStatsGrid compact">
+        <AdminStat label="Total" value={stats.total} />
+        <AdminStat label="Premium" value={stats.premiumActive} />
         <AdminStat label="Expired" value={stats.expired} />
         <AdminStat label="Admin" value={stats.admin} />
-        <AdminStat label="Telegram Connected" value={stats.telegramConnected} />
+        <AdminStat label="Telegram" value={stats.telegramConnected} />
         <AdminStat label="Free" value={stats.free} />
       </div>
 
-      <div className="adminControls advanced">
+      <div className="adminControls advanced compact">
         <label>
           Admin Token
           <input
@@ -1158,110 +1165,139 @@ function AdminPanel({ adminToken, setAdminToken }) {
           />
         </label>
         <label>
-          Search User
+          Search
           <input
             value={query}
             onChange={(event) => setQuery(event.target.value)}
-            placeholder="Cari email / UID / role"
+            placeholder="Cari email / UID"
           />
         </label>
         <label>
-          Role Filter
+          Role
           <select value={roleFilter} onChange={(event) => setRoleFilter(event.target.value)}>
-            <option value="all">All Role</option>
+            <option value="all">All</option>
             <option value="free">Free</option>
-            <option value="premium">Premium Active</option>
-            <option value="expired">Premium Expired</option>
+            <option value="premium">Premium</option>
+            <option value="expired">Expired</option>
             <option value="admin">Admin</option>
           </select>
         </label>
         <label>
-          Telegram Filter
+          Telegram
           <select value={telegramFilter} onChange={(event) => setTelegramFilter(event.target.value)}>
-            <option value="all">All Telegram</option>
+            <option value="all">All</option>
             <option value="connected">Connected</option>
             <option value="not_connected">Not Connected</option>
           </select>
         </label>
       </div>
 
-      <div className="adminCustomTools">
-        <label>
-          Custom Premium Days
-          <input
-            type="number"
-            min="1"
-            value={customDays}
-            onChange={(event) => setCustomDays(event.target.value)}
-          />
-        </label>
-        <label>
-          Custom Expired Date
-          <input
-            type="date"
-            value={customDate}
-            onChange={(event) => setCustomDate(event.target.value)}
-          />
-        </label>
-      </div>
+      <details className="adminToolsDetails">
+        <summary>Broadcast & Custom Premium Tools</summary>
 
-      <div className="adminBroadcastBox">
-        <div>
-          <span className="pill mini"><Bot size={14} /> BROADCAST</span>
-          <h4>Broadcast Telegram</h4>
-          <p>Kirim pesan ke user Telegram yang sudah connect. Pakai ini untuk pengumuman maintenance, update strategi, atau promo.</p>
+        <div className="adminCustomTools compact">
+          <label>
+            Custom Premium Days
+            <input
+              type="number"
+              min="1"
+              value={customDays}
+              onChange={(event) => setCustomDays(event.target.value)}
+            />
+          </label>
+          <label>
+            Custom Expired Date
+            <input
+              type="date"
+              value={customDate}
+              onChange={(event) => setCustomDate(event.target.value)}
+            />
+          </label>
         </div>
-        <select value={broadcastTarget} onChange={(event) => setBroadcastTarget(event.target.value)}>
-          <option value="premium_connected">Premium/Admin Connected</option>
-          <option value="all_connected">All Connected</option>
-          <option value="admin_connected">Admin Connected</option>
-        </select>
-        <textarea
-          value={broadcastText}
-          onChange={(event) => setBroadcastText(event.target.value)}
-          placeholder="Contoh: XAU AI update malam ini. Alert tetap aktif, dashboard maintenance 5 menit."
-        />
-        <button type="button" onClick={broadcastTelegram} disabled={busy}>
-          Send Broadcast
-        </button>
-      </div>
+
+        <div className="adminBroadcastBox compact">
+          <div>
+            <span className="pill mini"><Bot size={14} /> BROADCAST</span>
+            <h4>Broadcast Telegram</h4>
+            <p>Kirim pesan ke user Telegram yang sudah connect.</p>
+          </div>
+          <select value={broadcastTarget} onChange={(event) => setBroadcastTarget(event.target.value)}>
+            <option value="premium_connected">Premium/Admin Connected</option>
+            <option value="all_connected">All Connected</option>
+            <option value="admin_connected">Admin Connected</option>
+          </select>
+          <textarea
+            value={broadcastText}
+            onChange={(event) => setBroadcastText(event.target.value)}
+            placeholder="Contoh: XAU AI update malam ini."
+          />
+          <button type="button" onClick={broadcastTelegram} disabled={busy}>
+            Send Broadcast
+          </button>
+        </div>
+      </details>
 
       {message && <div className="adminMessage">{message}</div>}
 
-      <div className="adminTable advanced">
-        <div className="adminHead advanced">
-          <span>User</span>
-          <span>Role</span>
-          <span>Premium</span>
-          <span>Telegram</span>
-          <span>Action</span>
+      <div className="adminListToolbar">
+        <b>{filteredUsers.length} user ditemukan</b>
+        <span>Halaman {safePage}/{totalPages} · Maks {pageSize} user per halaman</span>
+        <div>
+          <button type="button" onClick={() => setPage((value) => Math.max(1, value - 1))} disabled={safePage <= 1}>Prev</button>
+          <button type="button" onClick={() => setPage((value) => Math.min(totalPages, value + 1))} disabled={safePage >= totalPages}>Next</button>
         </div>
+      </div>
 
-        {filteredUsers.map((user) => (
-          <div className="adminRow advanced" key={user.uid}>
-            <div>
-              <strong>{user.email || "-"}</strong>
-              <small>{user.uid}</small>
-              <small>Created: {formatShortDateTime(user.createdAt)}</small>
-            </div>
-            <b className={`roleBadge ${user.role || "free"}`}>{getRoleStatusLabel(user)}</b>
-            <span>{formatPremiumUntil(user)}</span>
-            <div className={`telegramMiniStatus ${user.telegramConnected ? "connected" : ""}`}>
-              <b>{user.telegramConnected ? "Connected" : "Not Connected"}</b>
-              <small>{user.telegramUsername ? `@${user.telegramUsername}` : user.telegramChatId ? "Chat ID saved" : "-"}</small>
-            </div>
-            <div className="adminActions advanced">
-              <button type="button" onClick={() => updateUser(user, "premium", 7)}>+7D</button>
-              <button type="button" onClick={() => updateUser(user, "premium", 30)}>+30D</button>
-              <button type="button" onClick={() => applyCustomDays(user)}>+Custom Days</button>
-              <button type="button" onClick={() => applyCustomDate(user)}>Set Date</button>
-              <button type="button" onClick={() => updateUser(user, "free")}>Free</button>
-              <button type="button" onClick={() => updateUser(user, "admin")}>Admin</button>
-            </div>
-          </div>
-        ))}
+      <div className="adminCompactList">
+        {pagedUsers.map((user) => {
+          const expanded = expandedUid === user.uid;
 
-        {!filteredUsers.length && (
+          return (
+            <div className="adminCompactRow" key={user.uid}>
+              <button
+                type="button"
+                className="adminCompactMain"
+                onClick={() => setExpandedUid(expanded ? "" : user.uid)}
+              >
+                <div>
+                  <strong>{user.email || "-"}</strong>
+                  <small>{user.uid}</small>
+                </div>
+
+                <b className={`roleBadge ${user.role || "free"}`}>{getRoleStatusLabel(user)}</b>
+
+                <span className="compactPremium">{formatPremiumUntil(user)}</span>
+
+                <div className={`telegramMiniStatus ${user.telegramConnected ? "connected" : ""}`}>
+                  <b>{user.telegramConnected ? "TG OK" : "No TG"}</b>
+                </div>
+
+                <span className="expandHint">{expanded ? "Hide" : "Manage"}</span>
+              </button>
+
+              {expanded && (
+                <div className="adminCompactDetail">
+                  <div className="detailGrid">
+                    <span><b>Created:</b> {formatShortDateTime(user.createdAt)}</span>
+                    <span><b>Telegram:</b> {user.telegramUsername ? `@${user.telegramUsername}` : user.telegramChatId ? "Chat ID saved" : "-"}</span>
+                    <span><b>Premium:</b> {formatPremiumUntil(user)}</span>
+                  </div>
+
+                  <div className="adminActions compact">
+                    <button type="button" onClick={() => updateUser(user, "premium", 7)}>+7D</button>
+                    <button type="button" onClick={() => updateUser(user, "premium", 30)}>+30D</button>
+                    <button type="button" onClick={() => applyCustomDays(user)}>+Custom Days</button>
+                    <button type="button" onClick={() => applyCustomDate(user)}>Set Date</button>
+                    <button type="button" onClick={() => updateUser(user, "free")}>Free</button>
+                    <button type="button" onClick={() => updateUser(user, "admin")}>Admin</button>
+                  </div>
+                </div>
+              )}
+            </div>
+          );
+        })}
+
+        {!pagedUsers.length && (
           <div className="emptyHistory">Belum ada user sesuai filter, atau token admin belum diisi.</div>
         )}
       </div>

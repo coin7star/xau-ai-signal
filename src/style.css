@@ -895,3 +895,203 @@
     display: none;
   }
 }
+
+
+.compactAdminPanel {
+  max-height: none;
+}
+
+.adminStatsGrid.compact {
+  grid-template-columns: repeat(6, minmax(90px, 1fr));
+}
+
+.adminStatsGrid.compact .adminStatCard {
+  padding: 12px;
+}
+
+.adminStatsGrid.compact .adminStatCard b {
+  font-size: 22px;
+}
+
+.adminControls.advanced.compact {
+  grid-template-columns: 1.2fr 1fr .55fr .65fr;
+}
+
+.adminToolsDetails {
+  margin: 12px 0;
+  border-radius: 18px;
+  background: rgba(0,0,0,.18);
+  border: 1px solid rgba(255,255,255,.08);
+  overflow: hidden;
+}
+
+.adminToolsDetails summary {
+  cursor: pointer;
+  padding: 14px 16px;
+  font-weight: 1000;
+  color: #dbeafe;
+  list-style: none;
+}
+
+.adminToolsDetails summary::-webkit-details-marker {
+  display: none;
+}
+
+.adminCustomTools.compact,
+.adminBroadcastBox.compact {
+  margin: 0;
+  border-radius: 0;
+  border-left: 0;
+  border-right: 0;
+}
+
+.adminBroadcastBox.compact textarea {
+  min-height: 64px;
+}
+
+.adminListToolbar {
+  margin: 14px 0 10px;
+  padding: 12px 14px;
+  border-radius: 16px;
+  background: rgba(61,214,255,.08);
+  border: 1px solid rgba(61,214,255,.16);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.adminListToolbar span {
+  color: #9fb0d6;
+  font-weight: 800;
+}
+
+.adminListToolbar button {
+  border: 1px solid rgba(255,255,255,.12);
+  background: rgba(255,255,255,.08);
+  color: #f8fbff;
+  border-radius: 12px;
+  padding: 8px 12px;
+  font-weight: 1000;
+  cursor: pointer;
+  margin-left: 6px;
+}
+
+.adminListToolbar button:disabled {
+  opacity: .45;
+  cursor: not-allowed;
+}
+
+.adminCompactList {
+  display: grid;
+  gap: 8px;
+}
+
+.adminCompactRow {
+  border-radius: 18px;
+  background: rgba(0,0,0,.18);
+  border: 1px solid rgba(255,255,255,.08);
+  overflow: hidden;
+}
+
+.adminCompactMain {
+  width: 100%;
+  border: 0;
+  background: transparent;
+  color: #f8fbff;
+  padding: 12px 14px;
+  cursor: pointer;
+  display: grid;
+  grid-template-columns: 1.55fr .55fr .9fr .55fr .45fr;
+  gap: 10px;
+  align-items: center;
+  text-align: left;
+}
+
+.adminCompactMain strong {
+  display: block;
+  font-size: 15px;
+}
+
+.adminCompactMain small {
+  display: block;
+  color: #9fb0d6;
+  font-size: 11px;
+  word-break: break-all;
+}
+
+.compactPremium {
+  color: #e5edff;
+  font-weight: 900;
+  font-size: 13px;
+}
+
+.expandHint {
+  justify-self: end;
+  padding: 8px 10px;
+  border-radius: 999px;
+  background: rgba(255,255,255,.08);
+  color: #dbeafe;
+  font-weight: 1000;
+  font-size: 12px;
+}
+
+.adminCompactDetail {
+  padding: 12px 14px 14px;
+  border-top: 1px solid rgba(255,255,255,.08);
+  background: rgba(0,0,0,.16);
+}
+
+.detailGrid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 10px;
+  color: #a8b5d8;
+  font-size: 13px;
+  margin-bottom: 12px;
+}
+
+.adminActions.compact {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.adminActions.compact button {
+  padding: 8px 10px;
+  font-size: 12px;
+}
+
+.adminCompactMain .telegramMiniStatus {
+  padding: 7px 9px;
+  text-align: center;
+}
+
+.adminCompactMain .telegramMiniStatus small {
+  display: none;
+}
+
+@media(max-width: 1000px) {
+  .adminStatsGrid.compact,
+  .adminControls.advanced.compact,
+  .detailGrid {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .adminCompactMain {
+    grid-template-columns: 1fr;
+  }
+
+  .expandHint {
+    justify-self: start;
+  }
+}
+
+@media(max-width: 620px) {
+  .adminStatsGrid.compact,
+  .adminControls.advanced.compact,
+  .detailGrid {
+    grid-template-columns: 1fr;
+  }
+}

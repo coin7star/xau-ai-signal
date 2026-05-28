@@ -1,48 +1,32 @@
-# XAU Admin Panel Advanced Step 4 Full Fix
+# XAU Admin Panel Compact Step 4 Full Fix
 
-Step 4:
-- Admin Panel lanjutan untuk management premium.
+Update:
+- Admin Panel dibuat lebih pendek dan compact.
+- User list tidak panjang ke bawah.
+- List dibatasi 6 user per halaman.
+- Ada tombol Prev / Next.
+- Action user disembunyikan di detail.
+- Klik row user untuk buka Manage/Hide.
+- Broadcast dan custom tools masuk ke collapsible section.
 
-Fitur baru:
-- Statistik user:
-  - Total User
-  - Premium Active
-  - Expired
-  - Admin
-  - Telegram Connected
-  - Free
-- Filter:
-  - All Role
-  - Free
-  - Premium Active
-  - Premium Expired
-  - Admin
-  - Telegram Connected / Not Connected
-- Custom premium:
-  - +7D
-  - +30D
-  - +Custom Days
-  - Set custom expired date
-- Telegram status per user:
-  - Connected / Not Connected
-  - username / chat id saved
-- Broadcast Telegram:
-  - Premium/Admin Connected
-  - All Connected
-  - Admin Connected
+Fitur tetap:
+- Statistik user
+- Filter role
+- Filter Telegram
+- Search user
+- Custom premium days
+- Set expired date
+- Broadcast Telegram
+- Premium/free/admin action
 
-Endpoint baru:
-- POST /api/admin-broadcast-telegram
+Cara pakai:
+1. Upload replace semua ke GitHub.
+2. Commit.
+3. Tunggu deploy.
+4. Login admin.
+5. Klik Admin.
+6. User list harus jauh lebih pendek.
+7. Klik Manage pada user untuk buka action.
 
-Log broadcast:
-- xauusd/telegram/broadcastLogs/{date}
-
-ENV wajib:
-- ADMIN_ACTION_TOKEN
-- FIREBASE_DATABASE_URL
-- TELEGRAM_BOT_TOKEN untuk broadcast
-
-Catatan:
-- Step 3 multi-user alert tetap jalan.
-- MQ5 tidak perlu update.
-- Payment gateway belum masuk, itu Step 6.
+MQ5:
+- Tidak perlu update.
