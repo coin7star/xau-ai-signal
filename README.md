@@ -1,38 +1,39 @@
-# XAU Email Verification Export Fix
+# XAU Email OTP Code Verification Full Fix
 
-Masalah build:
-- App.jsx import refreshCurrentUser dan sendVerificationEmail.
-- firebaseClient.js belum export kedua function itu.
-- Cloudflare build gagal dengan MISSING_EXPORT.
+Update:
+- Selain link verifikasi Firebase, sekarang user bisa verifikasi email pakai kode angka 6 digit.
+- Cocok untuk user yang takut klik link dari email.
+- Kode berlaku 10 menit.
 
-Fix:
-- src/firebaseClient.js diganti clean full file.
-- Export yang tersedia:
-  - listenAuth
-  - loginWithEmail
-  - registerWithEmail
-  - loginWithGoogle
-  - logout
-  - sendVerificationEmail
-  - refreshCurrentUser
-  - ensureUserProfile
-  - getUserProfile
-  - isPremiumProfile
-  - hasFirebaseClientConfig
+Flow:
+1. User register.
+2. User masuk halaman Verifikasi Email.
+3. User bisa pilih:
+   - Kirim Kode
+   - Kirim Link
+4. Kalau pilih Kirim Kode:
+   - Sistem kirim kode 6 digit ke email via Resend.
+   - User input kode.
+   - Jika benar, users/{uid}/emailCodeVerified = true.
+   - Dashboard/paywall lanjut terbuka.
 
-Fitur tetap:
-- Email verification anti-spam.
-- Login/register.
-- Premium paywall.
-- Admin panel.
-- Logout.
-- Premium expiry display.
+ENV Cloudflare wajib untuk kode email:
+RESEND_API_KEY=re_xxxxx
+EMAIL_FROM=XAU AI Signal <onboarding@resend.dev>
 
-MQ5:
-- Tidak perlu update.
+ENV lama tetap:
+FIREBASE_DATABASE_URL=...
+VITE_FIREBASE_*=...
 
-Cara pakai:
-1. Upload replace semua file ke GitHub.
-2. Commit changes.
-3. Tunggu Cloudflare deploy.
-4. Test register email baru.
+Endpoint baru:
+POST /api/send-email-code
+POST /api/verify-email-code
+
+Database baru:
+emailCodes/{uid}
+users/{uid}/emailCodeVerified
+
+Catatan:
+- Link Firebase tetap ada sebagai opsi backup.
+- Google login biasanya sudah verified.
+- MQ5 tidak perlu update.

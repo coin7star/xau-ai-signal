@@ -1,6 +1,6 @@
 {
-  "name": "xau-ai-signal-email-verification-export-fix",
-  "version": "5.2.1",
+  "name": "xau-ai-signal-email-otp-code-verification",
+  "version": "5.3.0",
   "type": "module",
   "scripts": {
     "dev": "vite",
