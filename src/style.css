@@ -29,3 +29,13 @@
   background: #ef4444;
   box-shadow: 0 0 18px rgba(239,68,68,.8);
 }
+
+
+.metric strong {
+  line-height: 1.2;
+  word-break: break-word;
+}
+
+.metric span {
+  line-height: 1.35;
+}

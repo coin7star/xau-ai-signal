@@ -1,6 +1,6 @@
 {
-  "name": "xau-ai-signal-telegram-web-ob-sync",
-  "version": "2.8.0",
+  "name": "xau-ai-signal-ui-ob-value-card",
+  "version": "2.9.0",
   "type": "module",
   "scripts": {
     "dev": "vite",

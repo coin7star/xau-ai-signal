@@ -170,6 +170,10 @@ export default function App() {
   const trendBias = signal?.strategy?.trendBias || "-";
   const smc = signal?.strategy?.smc;
   const confirmation = signal?.strategy?.confirmation || {};
+  const freshBullOb = getFreshOb(signal?.strategy?.orderBlock?.bullish);
+  const freshBearOb = getFreshOb(signal?.strategy?.orderBlock?.bearish);
+  const obCardValue = formatObCardValue(freshBullOb, freshBearOb);
+  const obCardNote = formatObCardNote(freshBullOb, freshBearOb, smc);
   const telegramStatus = signal?.telegram?.ok ? "Telegram OK" : signal?.telegram?.skipped || "Telegram standby";
 
   return (
@@ -235,7 +239,7 @@ export default function App() {
           <Metric label="RSI 14" value={signal?.strategy?.rsi ?? "-"} note={`BUY ${confirmation.rsiBuyOk ? "OK" : "-"} · SELL ${confirmation.rsiSellOk ? "OK" : "-"}`} />
           <Metric label="MFI 14" value={signal?.strategy?.mfi ?? "-"} note={`BUY ${confirmation.mfiBuyOk ? "OK" : "-"} · SELL ${confirmation.mfiSellOk ? "OK" : "-"}`} />
           <Metric label="EMA Cross" value={humanize(signal?.strategy?.emaCross)} note={signal?.strategy?.crossAlert?.message || "-"} />
-          <Metric label="OB M15" value={`BUY ${confirmation.obBuyOk ? "OK" : "-"} · SELL ${confirmation.obSellOk ? "OK" : "-"}`} note={`BOS ${humanize(smc?.lastBos?.type)}`} />
+          <Metric label="Fresh OB M15" value={obCardValue} note={obCardNote} />
         </div>
       </section>
 
@@ -412,6 +416,41 @@ function addObLines(series, linesRef, bullish, bearish) {
   linesRef.current = newLines;
 }
 
-function Metric({ label, value, note }) { return <div className="metric"><small>{label}</small><strong>{value || "-"}</strong><span>{note}</span></div>; }
+function formatObCardValue(bullish, bearish) {
+  if (bullish) return `BUY ${Number(bullish.low).toFixed(2)} - ${Number(bullish.high).toFixed(2)}`;
+  if (bearish) return `SELL ${Number(bearish.low).toFixed(2)} - ${Number(bearish.high).toFixed(2)}`;
+  return "Tidak ada fresh OB";
+}
+
+function formatObCardNote(bullish, bearish, smc) {
+  const ob = bullish || bearish;
+
+  if (!ob) {
+    return `Last: ${humanize(smc?.lastBos?.type)}`;
+  }
+
+  const method = ob.method ? humanize(ob.method) : "SMC";
+  const strength = ob.strength ? `strength ${ob.strength}%` : "fresh";
+  const origin = ob.originTime ? `origin ${formatShortTime(ob.originTime)}` : "";
+
+  return `${ob.direction?.toUpperCase?.() || "OB"} · ${method} · ${strength}${origin ? " · " + origin : ""}`;
+}
+
+function formatShortTime(value) {
+  if (!value) return "-";
+  const raw = String(value);
+  const parts = raw.split(" ");
+  return parts[1] || raw;
+}
+
+function Metric({ label, value, note }) {
+  return (
+    <div className="metric">
+      <small>{label}</small>
+      <strong title={String(value || "-")}>{value || "-"}</strong>
+      <span>{note}</span>
+    </div>
+  );
+}
 function humanize(value) { if (!value) return "-"; return String(value).replaceAll("_", " "); }
 function formatAiText(text) { return String(text).split("\n").filter(Boolean).map((line, index) => <p key={index}>{line}</p>); }
