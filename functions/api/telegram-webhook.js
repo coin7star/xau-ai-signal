@@ -1,27 +1,220 @@
-export async function onRequest({ env }) {
-  const dbUrl = (env.FIREBASE_DATABASE_URL || "").replace(/\/$/, "");
-  let market = null;
+const H = {
+  "Content-Type": "application/json",
+  "Access-Control-Allow-Origin": "*"
+};
 
-  if (dbUrl) {
-    const res = await fetch(`${dbUrl}/xauusd/latest.json?ts=${Date.now()}`, {
-      headers: { "Cache-Control": "no-cache" }
+export async function onRequest({ request, env }) {
+  if (request.method !== "POST") {
+    return json({
+      ok: true,
+      message: "Telegram webhook endpoint aktif. Telegram akan POST update ke endpoint ini."
     });
-    if (res.ok) market = await res.json();
   }
 
-  const candles = Array.isArray(market?.candles) ? market.candles : [];
-  const candlesM15 = Array.isArray(market?.candlesM15) ? market.candlesM15 : [];
-  const signal = buildSignal(candles, candlesM15, market);
+  if (!env.TELEGRAM_BOT_TOKEN) {
+    return json({ ok: false, error: "TELEGRAM_BOT_TOKEN belum diset" }, 500);
+  }
 
-  const telegram = await maybeSendTelegramAlert(env, dbUrl, signal, market);
+  let update;
+  try {
+    update = await request.json();
+  } catch {
+    return json({ ok: false, error: "Body Telegram tidak valid" }, 400);
+  }
+
+  const message = update.message || update.edited_message;
+  if (!message) return json({ ok: true, skipped: "no-message" });
+
+  const chatId = message.chat?.id;
+  const text = String(message.text || "").trim();
+
+  if (!chatId) return json({ ok: true, skipped: "no-chat-id" });
+  if (!text.startsWith("/")) return json({ ok: true, skipped: "not-command" });
+
+  const command = text.split(/\s+/)[0].split("@")[0].toLowerCase();
+
+  let replyText = "";
+
+  if (command === "/start") {
+    replyText = buildStartMessage();
+  } else if (command === "/help") {
+    replyText = buildHelpMessage();
+  } else if (command === "/status") {
+    replyText = await buildStatusMessage(env);
+  } else if (command === "/signal") {
+    replyText = await buildSignalMessage(env);
+  } else {
+    replyText = [
+      "🤖 <b>Command tidak dikenal.</b>",
+      "",
+      "Pakai:",
+      "/signal - lihat sinyal terbaru",
+      "/status - cek koneksi bot",
+      "/help - panduan bot"
+    ].join("\n");
+  }
+
+  const sent = await sendTelegram(env.TELEGRAM_BOT_TOKEN, chatId, replyText);
 
   return json({
-    ...signal,
-    telegram
-  });
+    ok: sent.ok,
+    command,
+    chatId,
+    status: sent.status,
+    response: sent.response
+  }, sent.ok ? 200 : 500);
 }
 
-export function buildSignal(candles, candlesM15, market) {
+function buildStartMessage() {
+  return [
+    "🔥 <b>XAU AI Signal Alert aktif.</b>",
+    "",
+    "Bot ini mengirim CALL BUY/SELL XAUUSD saat setup valid dari data MT5.",
+    "",
+    "<b>Strategi:</b>",
+    "• RSI 14",
+    "• MFI 14",
+    "• EMA Cross 9/20",
+    "• Order Block M15",
+    "• AI Analysis",
+    "",
+    "<b>Command:</b>",
+    "/signal - cek sinyal terbaru",
+    "/status - cek koneksi bot",
+    "/help - panduan",
+    "",
+    "<i>Bukan financial advice. XAUUSD galak, risk management wajib.</i>"
+  ].join("\n");
+}
+
+function buildHelpMessage() {
+  return [
+    "📌 <b>Panduan Bot</b>",
+    "",
+    "<b>READY</b> = siap-siap, belum entry.",
+    "<b>CALL</b> = BUY/SELL valid.",
+    "<b>SL</b> = patokan OB M15 + ATR.",
+    "<b>TP</b> = risk × 1.7.",
+    "",
+    "Bot otomatis kirim alert saat CALL valid.",
+    "",
+    "<b>Command:</b>",
+    "/signal - sinyal terbaru",
+    "/status - status koneksi",
+    "/help - bantuan",
+    "",
+    "<i>Bukan financial advice.</i>"
+  ].join("\n");
+}
+
+async function buildStatusMessage(env) {
+  const dbUrl = (env.FIREBASE_DATABASE_URL || "").replace(/\/$/, "");
+  const telegramReady = Boolean(env.TELEGRAM_BOT_TOKEN);
+  const firebaseReady = Boolean(dbUrl);
+
+  let market = null;
+  if (dbUrl) {
+    market = await fbGet(dbUrl, "/xauusd/latest");
+  }
+
+  const hasMt5 = Boolean(market?.ok && Array.isArray(market?.candles));
+
+  return [
+    "✅ <b>Status Bot</b>",
+    "",
+    `${telegramReady ? "✅" : "❌"} Telegram token: ${telegramReady ? "aktif" : "belum diset"}`,
+    `${firebaseReady ? "✅" : "❌"} Firebase: ${firebaseReady ? "aktif" : "belum diset"}`,
+    `${hasMt5 ? "✅" : "❌"} MT5 data: ${hasMt5 ? "diterima" : "belum ada"}`,
+    "",
+    `<b>Pair:</b> ${escapeHtml(market?.symbol || "-")}`,
+    `<b>Last update:</b> ${escapeHtml(market?.serverTime || market?.receivedAt || "-")}`,
+    `<b>M1 candle:</b> ${Array.isArray(market?.candles) ? market.candles.length : 0}`,
+    `<b>M15 candle:</b> ${Array.isArray(market?.candlesM15) ? market.candlesM15.length : 0}`,
+    "",
+    `<b>Alert CALL:</b> ${String(env.TELEGRAM_ALERT_ENABLED || "true").toLowerCase() !== "false" ? "ON" : "OFF"}`,
+    `<b>Alert READY:</b> ${String(env.TELEGRAM_READY_ALERT_ENABLED || "false").toLowerCase() === "true" ? "ON" : "OFF"}`
+  ].join("\n");
+}
+
+async function buildSignalMessage(env) {
+  const dbUrl = (env.FIREBASE_DATABASE_URL || "").replace(/\/$/, "");
+  if (!dbUrl) {
+    return "❌ Firebase belum diset. Isi ENV FIREBASE_DATABASE_URL dulu.";
+  }
+
+  const market = await fbGet(dbUrl, "/xauusd/latest");
+
+  if (!market?.ok) {
+    return "⏳ Belum ada data MT5 di Firebase. Pastikan EA MT5 aktif.";
+  }
+
+  const signal = buildSignal(
+    Array.isArray(market.candles) ? market.candles : [],
+    Array.isArray(market.candlesM15) ? market.candlesM15 : [],
+    market
+  );
+
+  const s = signal.strategy || {};
+  const c = s.confirmation || {};
+  const obBull = s.orderBlock?.bullish;
+  const obBear = s.orderBlock?.bearish;
+
+  const emoji = signal.signal === "BUY" ? "🟢" : signal.signal === "SELL" ? "🔴" : signal.callStage === "READY" ? "🟡" : "⚪";
+
+  return [
+    `${emoji} <b>XAUUSD Latest Signal</b>`,
+    "",
+    `<b>Status:</b> ${escapeHtml(signal.signalLabel || signal.signal)} (${escapeHtml(signal.callStage)})`,
+    `<b>Confidence:</b> ${signal.confidence}%`,
+    `<b>Entry:</b> ${signal.entry}`,
+    `<b>SL:</b> ${signal.sl || "-"}`,
+    `<b>TP:</b> ${signal.tp || "-"}`,
+    "",
+    `<b>RSI:</b> ${s.rsi ?? "-"} | <b>MFI:</b> ${s.mfi ?? "-"}`,
+    `<b>EMA9/20:</b> ${s.ema9 ?? "-"} / ${s.ema20 ?? "-"}`,
+    `<b>EMA:</b> ${escapeHtml(humanize(s.emaCross))}`,
+    "",
+    `<b>OB M15:</b>`,
+    `Bullish: ${escapeHtml(formatOb(obBull))}`,
+    `Bearish: ${escapeHtml(formatOb(obBear))}`,
+    "",
+    `<b>Konfirmasi:</b>`,
+    `BUY: RSI ${c.rsiBuyOk ? "✅" : "❌"} | MFI ${c.mfiBuyOk ? "✅" : "❌"} | OB ${c.obBuyOk ? "✅" : "❌"}`,
+    `SELL: RSI ${c.rsiSellOk ? "✅" : "❌"} | MFI ${c.mfiSellOk ? "✅" : "❌"} | OB ${c.obSellOk ? "✅" : "❌"}`,
+    "",
+    `<b>Reason:</b> ${escapeHtml(signal.reason || "-")}`,
+    "",
+    "<i>Bukan financial advice.</i>"
+  ].join("\n");
+}
+
+async function sendTelegram(botToken, chatId, text) {
+  const res = await fetch(`https://api.telegram.org/bot${botToken}/sendMessage`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      chat_id: chatId,
+      text,
+      parse_mode: "HTML",
+      disable_web_page_preview: true
+    })
+  });
+
+  let response = null;
+  try { response = await res.json(); } catch { response = await res.text(); }
+
+  return { ok: res.ok, status: res.status, response };
+}
+
+async function fbGet(dbUrl, path) {
+  const res = await fetch(`${dbUrl}${path}.json?ts=${Date.now()}`, {
+    headers: { "Cache-Control": "no-cache" }
+  });
+  if (!res.ok) return null;
+  return await res.json();
+}
+
+function buildSignal(candles, candlesM15, market) {
   const m1 = clean(candles);
   const m15 = clean(candlesM15);
   const closes = m1.map((c) => c.close);
@@ -39,8 +232,7 @@ export function buildSignal(candles, candlesM15, market) {
       sl: 0,
       tp: 0,
       confidence: 50,
-      reason: "Menunggu minimal 50 candle M1. Strategi butuh RSI + MFI + EMA 9/20 + OB M15.",
-      mode: market ? "firebase-mt5-data" : "waiting-mt5",
+      reason: "Menunggu minimal 50 candle M1.",
       strategy: emptyStrategy()
     };
   }
@@ -92,72 +284,54 @@ export function buildSignal(candles, candlesM15, market) {
   else if (ema9 > ema20) emaCross = "BULLISH_TREND";
   else if (ema9 < ema20) emaCross = "BEARISH_TREND";
 
-  let buyScore = 0;
-  let sellScore = 0;
-  const reasons = [];
-
-  if (bullishCrossNow) { buyScore += 34; reasons.push("EMA 9 sudah cross ke atas EMA 20."); }
-  if (bearishCrossNow) { sellScore += 34; reasons.push("EMA 9 sudah cross ke bawah EMA 20."); }
-
-  if (readyBuy) { buyScore += 18; reasons.push("EMA 9 mendekati bullish cross. Siap-siap BUY, tunggu cross."); }
-  if (readySell) { sellScore += 18; reasons.push("EMA 9 mendekati bearish cross. Siap-siap SELL, tunggu cross."); }
-
-  if (rsiBuyOk) { buyScore += 16; reasons.push(`RSI ${round(rsi14)} cocok untuk BUY.`); }
-  if (rsiSellOk) { sellScore += 16; reasons.push(`RSI ${round(rsi14)} cocok untuk SELL.`); }
-
-  if (mfiBuyOk) { buyScore += 16; reasons.push(`MFI ${round(mfi14)} mendukung arus beli.`); }
-  if (mfiSellOk) { sellScore += 16; reasons.push(`MFI ${round(mfi14)} mendukung arus jual.`); }
-
-  if (obBuyOk) { buyScore += 18; reasons.push(`Harga dekat Bullish OB M15 (${bullOb.status}).`); }
-  if (obSellOk) { sellScore += 18; reasons.push(`Harga dekat Bearish OB M15 (${bearOb.status}).`); }
-
-  if (smc?.lastBos?.type === "BULLISH_BOS") buyScore += 8;
-  if (smc?.lastBos?.type === "BEARISH_BOS") sellScore += 8;
-
-  let finalSignal = "WAIT";
-  let callStage = "WAIT";
-  let signalLabel = "WAIT";
-
   const buyAllMatch = bullishCrossNow && rsiBuyOk && mfiBuyOk && obBuyOk;
   const sellAllMatch = bearishCrossNow && rsiSellOk && mfiSellOk && obSellOk;
   const readyBuyAllMatch = readyBuy && rsiBuyOk && mfiBuyOk && obBuyOk;
   const readySellAllMatch = readySell && rsiSellOk && mfiSellOk && obSellOk;
 
+  let signal = "WAIT";
+  let callStage = "WAIT";
+  let signalLabel = "WAIT";
+  let reason = "Belum call karena RSI + MFI + EMA 9/20 + area OB M15 belum cocok semua.";
+
   if (readyBuyAllMatch) {
-    finalSignal = "READY_BUY";
+    signal = "READY_BUY";
     callStage = "READY";
     signalLabel = "SIAP-SIAP BUY";
+    reason = "Semua konfirmasi mendukung. EMA mendekati bullish cross, siap-siap BUY.";
   } else if (readySellAllMatch) {
-    finalSignal = "READY_SELL";
+    signal = "READY_SELL";
     callStage = "READY";
     signalLabel = "SIAP-SIAP SELL";
+    reason = "Semua konfirmasi mendukung. EMA mendekati bearish cross, siap-siap SELL.";
   }
 
   if (buyAllMatch) {
-    finalSignal = "BUY";
+    signal = "BUY";
     callStage = "CALL";
     signalLabel = "BUY";
+    reason = "RSI + MFI + EMA cross bullish + OB M15 cocok. CALL BUY aktif.";
   } else if (sellAllMatch) {
-    finalSignal = "SELL";
+    signal = "SELL";
     callStage = "CALL";
     signalLabel = "SELL";
+    reason = "RSI + MFI + EMA cross bearish + OB M15 cocok. CALL SELL aktif.";
   }
 
-  if (finalSignal === "WAIT") {
-    reasons.push("Belum call karena RSI + MFI + EMA 9/20 + area OB M15 belum cocok semua.");
-  }
-
-  const score = Math.max(buyScore, sellScore);
   let sl = 0;
   let tp = 0;
 
-  if (finalSignal === "BUY") {
+  if (signal === "BUY") {
     sl = bullOb ? Math.min(bullOb.low, close - atr14 * 1.1) : close - atr14 * 1.4;
     tp = close + Math.abs(close - sl) * 1.7;
-  } else if (finalSignal === "SELL") {
+  } else if (signal === "SELL") {
     sl = bearOb ? Math.max(bearOb.high, close + atr14 * 1.1) : close + atr14 * 1.4;
     tp = close - Math.abs(sl - close) * 1.7;
   }
+
+  const buyScore = (bullishCrossNow ? 34 : readyBuy ? 18 : 0) + (rsiBuyOk ? 16 : 0) + (mfiBuyOk ? 16 : 0) + (obBuyOk ? 18 : 0);
+  const sellScore = (bearishCrossNow ? 34 : readySell ? 18 : 0) + (rsiSellOk ? 16 : 0) + (mfiSellOk ? 16 : 0) + (obSellOk ? 18 : 0);
+  const score = Math.max(buyScore, sellScore);
 
   const confidence = callStage === "READY"
     ? Math.min(82, Math.max(58, Math.round(score)))
@@ -165,36 +339,20 @@ export function buildSignal(candles, candlesM15, market) {
       ? Math.min(95, Math.max(68, Math.round(score)))
       : Math.min(60, Math.max(45, Math.round(score)));
 
-  const trendBias = ema9 > ema20 ? "Bullish" : ema9 < ema20 ? "Bearish" : "Netral";
-
-  if (m15.length < 50) {
-    reasons.push("OB M15 belum aktif karena data M15 belum cukup. Pastikan EA terbaru sudah dipasang.");
-  }
-
   return {
-    ok: true,
-    pair: "XAUUSD",
-    signal: finalSignal,
+    signal,
     signalLabel,
     callStage,
-    candleTime: last.time || null,
+    confidence,
     entry: round(close),
     sl: round(sl),
     tp: round(tp),
-    confidence,
-    reason: reasons.slice(0, 7).join(" "),
-    mode: "firebase-mt5-data",
+    reason,
     strategy: {
-      trendBias,
       rsi: round(rsi14),
-      rsiMethod: "Wilder RSI 14 seperti MT5 iRSI",
       mfi: round(mfi14),
-      mfiMethod: "Money Flow Index 14 dari candle volume MT5",
       ema9: round(ema9),
       ema20: round(ema20),
-      emaGap: round(gap),
-      emaGapThreshold: round(gapThreshold),
-      emaGapClosing: gapClosing,
       emaCross,
       confirmation: {
         buyAllMatch,
@@ -208,179 +366,21 @@ export function buildSignal(candles, candlesM15, market) {
         obBuyOk,
         obSellOk
       },
-      crossAlert: {
-        status: callStage,
-        message: buildCrossMessage(finalSignal, emaCross),
-        readyBuy,
-        readySell,
-        bullishCrossNow,
-        bearishCrossNow
-      },
-      obTimeframe: "M15",
-      smc,
-      orderBlock: { bullish: bullOb, bearish: bearOb },
-      buyScore: round(buyScore),
-      sellScore: round(sellScore),
-      score: round(score)
+      orderBlock: { bullish: bullOb, bearish: bearOb }
     }
   };
 }
 
-async function maybeSendTelegramAlert(env, dbUrl, signal, market) {
-  const enabled = String(env.TELEGRAM_ALERT_ENABLED || "true").toLowerCase() !== "false";
-  const readyEnabled = String(env.TELEGRAM_READY_ALERT_ENABLED || "false").toLowerCase() === "true";
-
-  if (!enabled) return { ok: false, skipped: "telegram-disabled" };
-  if (!env.TELEGRAM_BOT_TOKEN || !env.TELEGRAM_CHAT_ID) return { ok: false, skipped: "telegram-env-missing" };
-  if (!dbUrl) return { ok: false, skipped: "firebase-env-missing" };
-
-  const isCall = signal.callStage === "CALL" && (signal.signal === "BUY" || signal.signal === "SELL");
-  const isReady = readyEnabled && signal.callStage === "READY" && (signal.signal === "READY_BUY" || signal.signal === "READY_SELL");
-
-  if (!isCall && !isReady) return { ok: false, skipped: "not-call-signal" };
-
-  const alertKey = [
-    signal.pair || "XAUUSD",
-    signal.signal,
-    signal.callStage,
-    signal.candleTime || market?.serverTime || market?.receivedAt || "no-time"
-  ].join("|");
-
-  const lastAlert = await fbGet(dbUrl, "/xauusd/telegram/lastAlert");
-
-  if (lastAlert?.alertKey === alertKey) {
-    return { ok: true, skipped: "duplicate-alert", alertKey };
-  }
-
-  const message = buildTelegramMessage(signal, market);
-  const sent = await sendTelegram(env.TELEGRAM_BOT_TOKEN, env.TELEGRAM_CHAT_ID, message);
-
-  if (sent.ok) {
-    await fbPut(dbUrl, "/xauusd/telegram/lastAlert", {
-      alertKey,
-      signal: signal.signal,
-      callStage: signal.callStage,
-      candleTime: signal.candleTime || null,
-      sentAt: new Date().toISOString()
-    });
-  }
-
-  return { ok: sent.ok, alertKey, status: sent.status, response: sent.response };
-}
-
-function buildTelegramMessage(signal, market) {
-  const s = signal.strategy || {};
-  const c = s.confirmation || {};
-  const obBull = s.orderBlock?.bullish;
-  const obBear = s.orderBlock?.bearish;
-
-  const emoji = signal.signal === "BUY" ? "🟢" : signal.signal === "SELL" ? "🔴" : "🟡";
-  const title = signal.callStage === "CALL" ? "CALL SIGNAL VALID" : "READY ALERT";
-
-  const obText = signal.signal.includes("BUY")
-    ? formatOb(obBull)
-    : signal.signal.includes("SELL")
-      ? formatOb(obBear)
-      : `Bull ${formatOb(obBull)} | Bear ${formatOb(obBear)}`;
-
-  return [
-    `${emoji} <b>${title} - ${escapeHtml(signal.signalLabel || signal.signal)}</b>`,
-    ``,
-    `<b>Pair:</b> ${escapeHtml(market?.symbol || signal.pair || "XAUUSD")}`,
-    `<b>TF Signal:</b> ${escapeHtml(market?.timeframe || "M1")}`,
-    `<b>TF OB:</b> M15`,
-    `<b>Confidence:</b> ${signal.confidence}%`,
-    ``,
-    `<b>Entry:</b> ${signal.entry}`,
-    `<b>SL:</b> ${signal.sl || "-"}`,
-    `<b>TP:</b> ${signal.tp || "-"}`,
-    ``,
-    `<b>RSI:</b> ${s.rsi} | <b>MFI:</b> ${s.mfi}`,
-    `<b>EMA9/20:</b> ${s.ema9} / ${s.ema20}`,
-    `<b>EMA:</b> ${escapeHtml(humanize(s.emaCross))}`,
-    `<b>OB M15:</b> ${escapeHtml(obText)}`,
-    ``,
-    `<b>Konfirmasi:</b>`,
-    `RSI BUY ${c.rsiBuyOk ? "✅" : "❌"} | MFI BUY ${c.mfiBuyOk ? "✅" : "❌"} | OB BUY ${c.obBuyOk ? "✅" : "❌"}`,
-    `RSI SELL ${c.rsiSellOk ? "✅" : "❌"} | MFI SELL ${c.mfiSellOk ? "✅" : "❌"} | OB SELL ${c.obSellOk ? "✅" : "❌"}`,
-    ``,
-    `<b>Reason:</b> ${escapeHtml(signal.reason || "-")}`,
-    ``,
-    `<i>Bukan financial advice. Demo first, risk management wajib.</i>`
-  ].join("\n");
-}
-
-async function sendTelegram(botToken, chatId, text) {
-  const url = `https://api.telegram.org/bot${botToken}/sendMessage`;
-
-  const res = await fetch(url, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      chat_id: chatId,
-      text,
-      parse_mode: "HTML",
-      disable_web_page_preview: true
-    })
-  });
-
-  let response = null;
-  try { response = await res.json(); } catch { response = await res.text(); }
-
-  return { ok: res.ok, status: res.status, response };
-}
-
-async function fbGet(dbUrl, path) {
-  const res = await fetch(`${dbUrl}${path}.json?ts=${Date.now()}`, { headers: { "Cache-Control": "no-cache" } });
-  if (!res.ok) return null;
-  return await res.json();
-}
-
-async function fbPut(dbUrl, path, data) {
-  const res = await fetch(`${dbUrl}${path}.json`, {
-    method: "PUT",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(data)
-  });
-  if (!res.ok) return null;
-  return await res.json();
-}
-
 function emptyStrategy() {
   return {
-    trendBias: "Netral",
     rsi: null,
     mfi: null,
     ema9: null,
     ema20: null,
-    emaGap: null,
-    emaGapThreshold: null,
-    emaGapClosing: false,
     emaCross: "WAIT",
     confirmation: {},
-    crossAlert: {
-      status: "WAITING_DATA",
-      message: "Menunggu data candle.",
-      readyBuy: false,
-      readySell: false,
-      bullishCrossNow: false,
-      bearishCrossNow: false
-    },
-    obTimeframe: "M15",
-    smc: null,
-    orderBlock: { bullish: null, bearish: null },
-    buyScore: 0,
-    sellScore: 0,
-    score: 0
+    orderBlock: { bullish: null, bearish: null }
   };
-}
-
-function buildCrossMessage(signal, emaCross) {
-  if (signal === "BUY") return "RSI + MFI + EMA cross bullish + OB M15 cocok. CALL BUY aktif.";
-  if (signal === "SELL") return "RSI + MFI + EMA cross bearish + OB M15 cocok. CALL SELL aktif.";
-  if (signal === "READY_BUY") return "Semua konfirmasi mendukung. EMA mendekati bullish cross, siap-siap BUY.";
-  if (signal === "READY_SELL") return "Semua konfirmasi mendukung. EMA mendekati bearish cross, siap-siap SELL.";
-  return `Belum call. Status EMA: ${emaCross}`;
 }
 
 function clean(candles) {
@@ -422,7 +422,6 @@ function detectSmcOrderBlockV2(candles) {
   return {
     version: "SMC_OB_V2_M15",
     timeframe: "M15",
-    swingLookback: 2,
     bosCount: bosEvents.length,
     lastBos: bosEvents[bosEvents.length - 1] || null,
     bullish,
@@ -450,20 +449,16 @@ function detectBosEvents(data, swings, atr14) {
   const events = [];
   let lastHigh = null;
   let lastLow = null;
-
   for (let i = 0; i < data.length; i++) {
     for (const s of swings.filter((x) => x.index === i)) {
       if (s.type === "swingHigh") lastHigh = s;
       if (s.type === "swingLow") lastLow = s;
     }
-
     const c = data[i];
-
     if (lastHigh && i > lastHigh.index + 1 && c.close > lastHigh.price + atr14 * 0.05) {
       events.push({ type: "BULLISH_BOS", index: i, time: c.time, breakPrice: round(lastHigh.price), close: round(c.close), brokenSwingTime: lastHigh.time });
       lastHigh = null;
     }
-
     if (lastLow && i > lastLow.index + 1 && c.close < lastLow.price - atr14 * 0.05) {
       events.push({ type: "BEARISH_BOS", index: i, time: c.time, breakPrice: round(lastLow.price), close: round(c.close), brokenSwingTime: lastLow.time });
       lastLow = null;
@@ -490,7 +485,6 @@ function buildObZone(data, bos, origin, direction, atr14) {
   const displacement = Math.abs(data[bos.index].close - origin.close);
   const displacementAtr = displacement / Math.max(0.01, atr14);
   const strength = Math.min(95, Math.max(45, 45 + displacementAtr * 14 + origin.bodyRatio * 20));
-
   return {
     type: direction === "bullish" ? "Bullish OB M15" : "Bearish OB M15",
     direction,
@@ -502,8 +496,6 @@ function buildObZone(data, bos, origin, direction, atr14) {
     bosType: bos.type,
     breakPrice: bos.breakPrice,
     status: "active",
-    mitigated: false,
-    invalidated: false,
     strength: round(strength),
     reason: `${bos.type} M15 setelah origin candle ${direction === "bullish" ? "bearish" : "bullish"}`
   };
@@ -516,7 +508,6 @@ function updateObStatus(data, ob, direction, atr14) {
   let mitigatedTime = null;
   let invalidatedTime = null;
   const afterOrigin = data.filter((c) => timeToNum(c.time) > timeToNum(ob.originTime));
-
   for (const c of afterOrigin) {
     const touched = c.low <= ob.high && c.high >= ob.low;
     if (touched) {
@@ -534,11 +525,8 @@ function updateObStatus(data, ob, direction, atr14) {
       break;
     }
   }
-
   if (invalidated) status = "invalid";
   else if (mitigated) status = "mitigated";
-  else status = "active";
-
   return { ...ob, status, mitigated, invalidated, mitigatedTime, invalidatedTime };
 }
 
@@ -582,26 +570,20 @@ function rsiWilder(values, period = 14) {
 
 function mfi(candles, period = 14) {
   if (candles.length <= period) return 50;
-
   let positiveFlow = 0;
   let negativeFlow = 0;
   const slice = candles.slice(-period - 1);
-
   for (let i = 1; i < slice.length; i++) {
     const current = slice[i];
     const previous = slice[i - 1];
-
     const currentTp = (current.high + current.low + current.close) / 3;
     const previousTp = (previous.high + previous.low + previous.close) / 3;
     const moneyFlow = currentTp * Math.max(1, current.volume || 1);
-
     if (currentTp > previousTp) positiveFlow += moneyFlow;
     else if (currentTp < previousTp) negativeFlow += moneyFlow;
   }
-
   if (negativeFlow === 0 && positiveFlow === 0) return 50;
   if (negativeFlow === 0) return 100;
-
   const moneyRatio = positiveFlow / negativeFlow;
   return 100 - 100 / (1 + moneyRatio);
 }
@@ -640,12 +622,9 @@ function escapeHtml(text) {
     .replaceAll(">", "&gt;");
 }
 
-function json(payload) {
+function json(payload, status = 200) {
   return new Response(JSON.stringify(payload, null, 2), {
-    headers: {
-      "Content-Type": "application/json",
-      "Access-Control-Allow-Origin": "*",
-      "Cache-Control": "no-store"
-    }
+    status,
+    headers: H
   });
 }

@@ -1,24 +1,34 @@
-# XAU Telegram CALL Alert Full Fix
+# XAU Telegram Webhook Commands Full Fix
 
-Fitur:
-- Kirim Telegram otomatis saat CALL BUY / CALL SELL valid.
-- Anti-spam: menyimpan last alert key di Firebase.
-- Endpoint test Telegram: /api/telegram-test
-- READY alert default mati. Bisa aktif dengan TELEGRAM_READY_ALERT_ENABLED=true.
+Fitur baru:
+- /start aktif
+- /status aktif
+- /signal aktif
+- /help aktif
+- Endpoint setup webhook:
+  /api/telegram-set-webhook?secret=ISI_SECRET_KAMU
+- Endpoint webhook:
+  /api/telegram-webhook
+- Endpoint test:
+  /api/telegram-test
 
 ENV Cloudflare:
+- FIREBASE_DATABASE_URL
+- MT5_INGEST_TOKEN
 - TELEGRAM_BOT_TOKEN
 - TELEGRAM_CHAT_ID
 - TELEGRAM_ALERT_ENABLED=true
 - TELEGRAM_READY_ALERT_ENABLED=false
+- TELEGRAM_WEBHOOK_SECRET=buat_secret_bebas
 
-Cara BotFather:
-1. Telegram buka @BotFather
-2. /newbot
-3. Buat nama bot
-4. Simpan token dari BotFather
-5. Chat bot kamu dulu dengan pesan bebas: /start
-6. Ambil chat_id pakai:
-   https://api.telegram.org/botTOKEN_KAMU/getUpdates
-7. Masukkan chat_id ke ENV Cloudflare.
-8. Buka /api/telegram-test untuk test.
+Cara pasang:
+1. Upload replace semua ke GitHub.
+2. Deploy Cloudflare.
+3. Tambahkan ENV TELEGRAM_WEBHOOK_SECRET.
+4. Buka:
+   https://xau-ai-signal.pages.dev/api/telegram-set-webhook?secret=ISI_SECRET_KAMU
+5. Kalau JSON ok true, buka Telegram dan coba:
+   /start
+   /status
+   /signal
+   /help

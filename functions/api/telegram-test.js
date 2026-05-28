@@ -15,7 +15,7 @@ export async function onRequest({ env }) {
     "✅ <b>XAU AI Signal Telegram Test</b>",
     "",
     "Bot sudah terhubung.",
-    "Nanti kalau CALL BUY/SELL valid, alert otomatis masuk ke sini.",
+    "Webhook command juga bisa dites setelah /api/telegram-set-webhook sukses.",
     "",
     "<i>Bukan financial advice.</i>"
   ].join("\n");
@@ -32,23 +32,11 @@ export async function onRequest({ env }) {
   });
 
   let response = null;
+  try { response = await res.json(); } catch { response = await res.text(); }
 
-  try {
-    response = await res.json();
-  } catch {
-    response = await res.text();
-  }
-
-  return json({
-    ok: res.ok,
-    status: res.status,
-    response
-  }, res.ok ? 200 : 500);
+  return json({ ok: res.ok, status: res.status, response }, res.ok ? 200 : 500);
 }
 
 function json(payload, status = 200) {
-  return new Response(JSON.stringify(payload, null, 2), {
-    status,
-    headers: H
-  });
+  return new Response(JSON.stringify(payload, null, 2), { status, headers: H });
 }
