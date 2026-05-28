@@ -1095,3 +1095,30 @@
     grid-template-columns: 1fr;
   }
 }
+
+
+.chartReloadBtn {
+  border: 1px solid rgba(255,255,255,.12);
+  background: rgba(255,255,255,.08);
+  color: #f8fbff;
+  border-radius: 999px;
+  padding: 8px 12px;
+  font-weight: 1000;
+  cursor: pointer;
+}
+
+.tvChart {
+  position: relative;
+}
+
+.chartEmpty {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  color: #8fa2c7;
+  font-weight: 900;
+  text-align: center;
+  pointer-events: none;
+  z-index: 0;
+}

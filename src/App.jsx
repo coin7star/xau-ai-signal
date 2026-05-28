@@ -92,6 +92,17 @@ export default function App() {
     return loadData({ includeChart: true, includeHistory: false });
   }
 
+  async function reloadChartsNow() {
+    await loadChartData();
+
+    setTimeout(() => {
+      initChart("M1");
+      initChart("M15");
+      updateChart(seriesM1Ref.current, chartM1Ref.current, tvM1);
+      updateChart(seriesM15Ref.current, chartM15Ref.current, tvM15);
+    }, 120);
+  }
+
   async function loadHistoryData() {
     return loadData({ includeChart: false, includeHistory: true });
   }
@@ -227,9 +238,30 @@ export default function App() {
   const spread = market?.ask && market?.bid ? Math.abs(Number(market.ask) - Number(market.bid)).toFixed(2) : "-";
 
   useEffect(() => {
-    initChart("M1");
-    initChart("M15");
-  }, []);
+    if (!authUser || !isPremiumProfile(authProfile)) return;
+
+    const frame = requestAnimationFrame(() => {
+      initChart("M1");
+      initChart("M15");
+
+      setTimeout(() => {
+        updateChart(seriesM1Ref.current, chartM1Ref.current, tvM1);
+        updateChart(seriesM15Ref.current, chartM15Ref.current, tvM15);
+
+        if (ema9M1Ref.current && ema20M1Ref.current && tvM1.length > 0) {
+          ema9M1Ref.current.setData(buildEMAData(tvM1, 9));
+          ema20M1Ref.current.setData(buildEMAData(tvM1, 20));
+        }
+
+        if (ema9M15Ref.current && ema20M15Ref.current && tvM15.length > 0) {
+          ema9M15Ref.current.setData(buildEMAData(tvM15, 9));
+          ema20M15Ref.current.setData(buildEMAData(tvM15, 20));
+        }
+      }, 0);
+    });
+
+    return () => cancelAnimationFrame(frame);
+  }, [authUser, authProfile?.role, authProfile?.premiumUntil, tvM1, tvM15]);
 
   useEffect(() => updateChart(seriesM1Ref.current, chartM1Ref.current, tvM1), [tvM1]);
   useEffect(() => updateChart(seriesM15Ref.current, chartM15Ref.current, tvM15), [tvM15]);
@@ -667,7 +699,9 @@ export default function App() {
           </div>
         </div>
         {chartError && <div className="chartError">Chart error: {chartError}</div>}
-        <div className="tvChart" ref={chartM1BoxRef}></div>
+        <div className="tvChart" ref={chartM1BoxRef}>
+          {tvM1.length === 0 && <div className="chartEmpty">Menunggu candle M1 dari MT5 / Firebase...</div>}
+        </div>
       </section>
 
       <section className="chartWrap card">
@@ -683,7 +717,9 @@ export default function App() {
             <em><span></span> Fresh OB M15</em>
           </div>
         </div>
-        <div className="tvChart small" ref={chartM15BoxRef}></div>
+        <div className="tvChart small" ref={chartM15BoxRef}>
+          {tvM15.length === 0 && <div className="chartEmpty">Menunggu candle M15 dari MT5 / Firebase...</div>}
+        </div>
       </section>
 
       <footer>Bukan financial advice. Demo first, XAUUSD galak bro 😭</footer>

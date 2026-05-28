@@ -1,32 +1,29 @@
-# XAU Admin Panel Compact Step 4 Full Fix
+# XAU Chart After Login Init Fix
 
-Update:
-- Admin Panel dibuat lebih pendek dan compact.
-- User list tidak panjang ke bawah.
-- List dibatasi 6 user per halaman.
-- Ada tombol Prev / Next.
-- Action user disembunyikan di detail.
-- Klik row user untuk buka Manage/Hide.
-- Broadcast dan custom tools masuk ke collapsible section.
+Masalah:
+- Setelah fitur login/paywall, chart kadang hitam kosong.
+- Penyebab: init chart jalan saat halaman masih Loading/Login.
+- Saat dashboard premium muncul, elemen chart baru ada, tapi init chart tidak jalan ulang.
 
-Fitur tetap:
-- Statistik user
-- Filter role
-- Filter Telegram
-- Search user
-- Custom premium days
-- Set expired date
-- Broadcast Telegram
-- Premium/free/admin action
+Fix:
+- Chart M1/M15 init ulang setelah authUser premium/admin siap.
+- Setelah init, data candle dan EMA langsung dipasang ulang.
+- Tambah tombol Reload Chart manual di header chart.
+- Tambah empty state kalau candle benar-benar kosong.
 
-Cara pakai:
+File berubah:
+- src/App.jsx
+- src/style.css
+- package.json
+
+Cara test:
 1. Upload replace semua ke GitHub.
 2. Commit.
-3. Tunggu deploy.
-4. Login admin.
-5. Klik Admin.
-6. User list harus jauh lebih pendek.
-7. Klik Manage pada user untuk buka action.
+3. Deploy.
+4. Login akun premium/admin.
+5. Chart harus muncul otomatis.
+6. Kalau Mini App cache, tutup Mini App lalu buka ulang.
+7. Kalau masih blank, klik Reload Chart.
 
 MQ5:
-- Tidak perlu update.
+- Tidak perlu update, tapi MT5 harus nyala agar data terbaru masuk.
