@@ -213,18 +213,28 @@ export default function App() {
     loadData({ includeChart: true, includeHistory: true, includeScalpHistory: true });
     loadTelegramConnectStatus();
 
-    const liteInterval = setInterval(loadLiteData, 12000);
-    const chartInterval = setInterval(loadChartData, 45000);
-    const historyInterval = setInterval(loadHistoryData, 60000);
-    const scalpHistoryInterval = setInterval(loadScalpHistoryData, 90000);
+    // Hemat RTDB:
+    // Lite refresh tetap jalan lebih lambat untuk cek apakah MT5 hidup lagi.
+    // Chart/history/scalp history dipause saat data MT5 stale.
+    const liteInterval = setInterval(loadLiteData, shouldPauseHeavyRefresh ? 60000 : 12000);
+
+    let chartInterval = null;
+    let historyInterval = null;
+    let scalpHistoryInterval = null;
+
+    if (!shouldPauseHeavyRefresh) {
+      chartInterval = setInterval(loadChartData, 45000);
+      historyInterval = setInterval(loadHistoryData, 60000);
+      scalpHistoryInterval = setInterval(loadScalpHistoryData, 90000);
+    }
 
     return () => {
       clearInterval(liteInterval);
-      clearInterval(chartInterval);
-      clearInterval(historyInterval);
-      clearInterval(scalpHistoryInterval);
+      if (chartInterval) clearInterval(chartInterval);
+      if (historyInterval) clearInterval(historyInterval);
+      if (scalpHistoryInterval) clearInterval(scalpHistoryInterval);
     };
-  }, [authUser, authProfile?.role, authProfile?.premiumUntil]);
+  }, [authUser, authProfile?.role, authProfile?.premiumUntil, shouldPauseHeavyRefresh]);
 
   const candlesM1 = Array.isArray(market?.candles) ? market.candles : [];
   const candlesM15 = Array.isArray(market?.candlesM15) ? market.candlesM15 : [];
@@ -399,6 +409,8 @@ export default function App() {
   const historyStats = callHistory?.stats || {};
   const scalpStats = scalpHistory?.stats || {};
   const telegramStatus = signal?.telegram?.ok ? "Telegram OK" : signal?.telegram?.skipped || "Telegram standby";
+  const mt5Status = getMt5Status(market);
+  const shouldPauseHeavyRefresh = mt5Status.isStale;
   const premiumActive = isPremiumProfile(authProfile);
   const roleLabel = authProfile?.role?.toUpperCase?.() || "FREE";
   const isAdmin = authProfile?.role === "admin";
@@ -459,6 +471,7 @@ export default function App() {
           </div>
         </div>
         <div className="navActions">
+          <div className={`live ${mt5Status.isStale ? "stale" : ""}`}><Radio size={14} /> {mt5Status.label}</div>
           <div className="live"><Radio size={14} /> {telegramStatus}</div>
           <div className="accountBadge"><User size={15} /> {roleLabel}</div>
           <div className={`premiumExpiryBadge ${premiumInfo.expired ? "expired" : ""}`}>
@@ -474,6 +487,22 @@ export default function App() {
           </button>
         </div>
       </header>
+      {mt5Status.isStale && (
+        <section className="mt5PauseBanner card">
+          <div>
+            <span className="pill mini">MT5 / VPS OFFLINE MODE</span>
+            <h3>Auto refresh berat dipause biar RTDB hemat</h3>
+            <p>
+              Data MT5 terakhir update {mt5Status.lastText}. Chart/history refresh otomatis dipause.
+              Lite check tetap jalan tiap 60 detik untuk cek MT5 hidup lagi.
+            </p>
+          </div>
+          <button type="button" onClick={() => loadData({ includeChart: true, includeHistory: true, includeScalpHistory: true })}>
+            Manual Refresh
+          </button>
+        </section>
+      )}
+
 
       <TelegramConnectPanel
         user={authUser}
@@ -815,6 +844,67 @@ function getPremiumInfo(profile) {
   };
 }
 
+
+
+
+function getMt5Status(market) {
+  const rawTime = market?.receivedAt || market?.serverReceivedAt || market?.updatedAt || market?.timestamp || null;
+
+  if (!rawTime) {
+    return {
+      isStale: true,
+      ageMs: Infinity,
+      label: "MT5 waiting data",
+      lastText: "belum ada data"
+    };
+  }
+
+  let timeMs = 0;
+
+  if (typeof rawTime === "number") {
+    timeMs = rawTime > 1000000000000 ? rawTime : rawTime * 1000;
+  } else {
+    const parsed = Date.parse(String(rawTime).replace(" ", "T"));
+    timeMs = Number.isFinite(parsed) ? parsed : 0;
+  }
+
+  if (!timeMs) {
+    return {
+      isStale: true,
+      ageMs: Infinity,
+      label: "MT5 time unknown",
+      lastText: "waktu tidak valid"
+    };
+  }
+
+  const ageMs = Date.now() - timeMs;
+  const staleMs = 3 * 60 * 1000;
+  const isStale = ageMs > staleMs;
+
+  return {
+    isStale,
+    ageMs,
+    label: isStale ? "MT5/VPS offline · refresh paused" : "MT5 live",
+    lastText: formatAge(ageMs)
+  };
+}
+
+function formatAge(ageMs) {
+  if (!Number.isFinite(ageMs)) return "unknown";
+  if (ageMs < 0) return "baru saja";
+
+  const sec = Math.floor(ageMs / 1000);
+  if (sec < 60) return `${sec} detik lalu`;
+
+  const min = Math.floor(sec / 60);
+  if (min < 60) return `${min} menit lalu`;
+
+  const hour = Math.floor(min / 60);
+  if (hour < 24) return `${hour} jam lalu`;
+
+  const day = Math.floor(hour / 24);
+  return `${day} hari lalu`;
+}
 
 
 function TelegramConnectPanel({ user, profile, telegramConnect, onRefresh }) {

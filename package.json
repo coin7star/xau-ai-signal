@@ -1,6 +1,6 @@
 {
-  "name": "xau-ai-signal-chart-after-login-init-fix",
-  "version": "5.6.2",
+  "name": "xau-ai-signal-mt5-stale-auto-pause-refresh",
+  "version": "5.6.3",
   "type": "module",
   "scripts": {
     "dev": "vite",

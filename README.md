@@ -1,29 +1,32 @@
-# XAU Chart After Login Init Fix
+# XAU MT5 Stale Auto Pause Refresh Fix
 
-Masalah:
-- Setelah fitur login/paywall, chart kadang hitam kosong.
-- Penyebab: init chart jalan saat halaman masih Loading/Login.
-- Saat dashboard premium muncul, elemen chart baru ada, tapi init chart tidak jalan ulang.
+Update:
+- Web otomatis mendeteksi MT5/VPS offline atau data stale.
+- Kalau receivedAt market lebih dari 3 menit:
+  - chart refresh dipause
+  - history refresh dipause
+  - scalp history refresh dipause
+  - lite check diperlambat dari 12 detik ke 60 detik
+- Tujuan: hemat Firebase RTDB Downloads saat MT5/VPS mati.
+- Jika MT5 hidup lagi, lite check akan mendeteksi update dan auto refresh normal kembali.
+- Ada banner:
+  MT5 / VPS OFFLINE MODE
+- Ada tombol Manual Refresh.
 
-Fix:
-- Chart M1/M15 init ulang setelah authUser premium/admin siap.
-- Setelah init, data candle dan EMA langsung dipasang ulang.
-- Tambah tombol Reload Chart manual di header chart.
-- Tambah empty state kalau candle benar-benar kosong.
+Mode refresh:
+- MT5 live:
+  lite 12s, chart 45s, history 60s, scalp 90s
+- MT5 stale/offline:
+  lite 60s only, heavy refresh paused
 
 File berubah:
 - src/App.jsx
 - src/style.css
 - package.json
 
-Cara test:
-1. Upload replace semua ke GitHub.
-2. Commit.
-3. Deploy.
-4. Login akun premium/admin.
-5. Chart harus muncul otomatis.
-6. Kalau Mini App cache, tutup Mini App lalu buka ulang.
-7. Kalau masih blank, klik Reload Chart.
-
 MQ5:
-- Tidak perlu update, tapi MT5 harus nyala agar data terbaru masuk.
+- Tidak perlu update.
+
+Catatan:
+- Threshold stale: 3 menit.
+- Data lama tetap tampil, tapi refresh berat dipause.
