@@ -562,3 +562,10 @@
     text-align: left;
   }
 }
+
+
+.authError.info {
+  background: rgba(61,214,255,.12);
+  color: #b9f3ff;
+  border-color: rgba(61,214,255,.22);
+}

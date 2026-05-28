@@ -5,6 +5,8 @@ import {
   getAuth,
   GoogleAuthProvider,
   onAuthStateChanged,
+  reload,
+  sendEmailVerification,
   setPersistence,
   signInWithEmailAndPassword,
   signInWithPopup,
@@ -76,6 +78,7 @@ export async function ensureUserProfile(user) {
       email: user.email || "",
       displayName: user.displayName || "",
       photoURL: user.photoURL || "",
+      emailVerified: Boolean(user.emailVerified),
       role: "free",
       status: "active",
       premiumUntil: null,
@@ -90,6 +93,8 @@ export async function ensureUserProfile(user) {
     email: user.email || current.email || "",
     displayName: user.displayName || current.displayName || "",
     photoURL: user.photoURL || current.photoURL || "",
+    emailVerified: Boolean(user.emailVerified),
+    emailVerified: Boolean(user.emailVerified),
     lastLoginAt: new Date().toISOString(),
     updatedAt: new Date().toISOString()
   });

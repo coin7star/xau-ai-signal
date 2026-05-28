@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { createChart, ColorType, CrosshairMode } from "lightweight-charts";
 import { Activity, Bot, Database, Lock, LogOut, Radio, RefreshCcw, Settings, Shield, Sparkles, Target, TrendingDown, TrendingUp, User, Zap } from "lucide-react";
-import { ensureUserProfile, getUserProfile, hasFirebaseClientConfig, isPremiumProfile, listenAuth, loginWithEmail, loginWithGoogle, logout, registerWithEmail } from "./firebaseClient";
+import { ensureUserProfile, getUserProfile, hasFirebaseClientConfig, isPremiumProfile, listenAuth, loginWithEmail, loginWithGoogle, logout, refreshCurrentUser, registerWithEmail, sendVerificationEmail } from "./firebaseClient";
 
 export default function App() {
   const chartM1Ref = useRef(null);
@@ -354,6 +354,7 @@ export default function App() {
   const roleLabel = authProfile?.role?.toUpperCase?.() || "FREE";
   const isAdmin = authProfile?.role === "admin";
   const premiumInfo = getPremiumInfo(authProfile);
+  const emailVerified = Boolean(authUser?.emailVerified || authProfile?.emailVerified);
 
   if (authLoading) {
     return (
@@ -381,6 +382,17 @@ export default function App() {
 
   if (!authUser) {
     return <AuthScreen />;
+  }
+
+  if (!emailVerified) {
+    return <VerifyEmailScreen user={authUser} profile={authProfile} onLogout={logout} onVerified={async () => {
+      const freshUser = await refreshCurrentUser();
+      if (freshUser) {
+        setAuthUser({ ...freshUser });
+        const freshProfile = await getUserProfile(freshUser.uid);
+        setAuthProfile(freshProfile);
+      }
+    }} />;
   }
 
   if (!premiumActive) {
@@ -956,6 +968,75 @@ function AuthScreen() {
   );
 }
 
+
+function VerifyEmailScreen({ user, onLogout, onVerified }) {
+  const [busy, setBusy] = useState(false);
+  const [message, setMessage] = useState("");
+
+  async function handleResend() {
+    setBusy(true);
+    setMessage("");
+
+    try {
+      await sendVerificationEmail(user);
+      setMessage("Link verifikasi sudah dikirim ulang. Cek inbox/spam email kamu.");
+    } catch (err) {
+      setMessage(cleanAuthError(err));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function handleCheck() {
+    setBusy(true);
+    setMessage("");
+
+    try {
+      await onVerified();
+      setMessage("Status dicek. Kalau sudah verifikasi, dashboard akan terbuka otomatis. Kalau belum, cek email dulu.");
+    } catch (err) {
+      setMessage(cleanAuthError(err));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <main className="page authPage">
+      <section className="authCard paywallCard card">
+        <div className="logo big"><Lock size={30} /></div>
+        <span className="pill mini"><Shield size={14} /> EMAIL VERIFICATION</span>
+        <h1>Verifikasi Email Dulu</h1>
+        <p>Akun kamu sudah dibuat, tapi email perlu diverifikasi dulu untuk mencegah spam akun.</p>
+
+        <div className="paywallUser">
+          <b>{user?.email}</b>
+          <span>Status: Email belum verified</span>
+          <span>Cek inbox atau folder spam.</span>
+        </div>
+
+        {message && <div className="authError info">{message}</div>}
+
+        <div className="paywallActions">
+          <button type="button" onClick={handleResend} disabled={busy}>
+            {busy ? "Loading..." : "Kirim Ulang Link"}
+          </button>
+          <button type="button" onClick={handleCheck} disabled={busy}>
+            Saya Sudah Verifikasi
+          </button>
+        </div>
+
+        <button className="linkBtn" type="button" onClick={onLogout}>
+          Logout
+        </button>
+
+        <p className="miniNote">Setelah klik link verifikasi di email, balik ke halaman ini lalu tekan <b>Saya Sudah Verifikasi</b>.</p>
+      </section>
+    </main>
+  );
+}
+
+
 function PaywallScreen({ user, profile, onLogout }) {
   return (
     <main className="page authPage">
@@ -994,6 +1075,8 @@ function cleanAuthError(err) {
   if (message.includes("auth/email-already-in-use")) return "Email sudah terdaftar. Coba login.";
   if (message.includes("auth/weak-password")) return "Password minimal 6 karakter.";
   if (message.includes("auth/popup")) return "Popup Google diblokir. Coba izinkan popup atau pakai email/password.";
+  if (message.includes("auth/too-many-requests")) return "Terlalu banyak percobaan. Tunggu sebentar lalu coba lagi.";
+  if (message.includes("auth/quota-exceeded")) return "Limit kirim email verifikasi sementara penuh. Coba lagi nanti.";
   return message;
 }
 
