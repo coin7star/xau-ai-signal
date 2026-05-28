@@ -309,10 +309,11 @@ export default function App() {
         </div>
 
         <div className="scalpGrid">
-          <Metric label="Scalp Entry" value={scalping.entry || "-"} note="Entry cepat M1" />
-          <Metric label="Scalp SL" value={scalping.sl || "-"} note="ATR + swing M1" />
-          <Metric label="Scalp TP" value={scalping.tp || "-"} note="RR cepat 1 : 1.25" />
-          <Metric label="EMA 5/13" value={`${scalping.ema5 || "-"} / ${scalping.ema13 || "-"}`} note="Trigger scalping M1" />
+          <Metric label="Scalp Entry" value={scalping.entry || "-"} note="Harga acuan kalau status SCALP valid" />
+          <Metric label="Scalp SL" value={scalping.sl || "-"} note="Stop loss cepat dari ATR + swing M1" />
+          <Metric label="Scalp TP" value={scalping.tp || "-"} note="Target cepat RR 1 : 1.25" />
+          <Metric label="EMA 5/13" value={`${scalping.ema5 || "-"} / ${scalping.ema13 || "-"}`} note="EMA cepat untuk baca momentum M1" />
+          <Metric label="Scalp Strength" value={`${scalping.score || 0}/100`} note="Minimal 58/100 untuk SCALP BUY/SELL" />
         </div>
 
         <p className="scalpReason">{scalping.reason}</p>

@@ -250,3 +250,25 @@
     grid-template-columns: 1fr;
   }
 }
+
+
+.scalpGrid {
+  grid-template-columns: repeat(5, 1fr);
+}
+
+.scalpReason {
+  color: #dbeafe;
+  font-weight: 800;
+}
+
+@media(max-width: 1180px) {
+  .scalpGrid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media(max-width: 720px) {
+  .scalpGrid {
+    grid-template-columns: 1fr;
+  }
+}

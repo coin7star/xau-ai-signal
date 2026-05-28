@@ -1,31 +1,32 @@
-# XAU Telegram Scalping Signal Sync Full Fix
+# XAU Scalping Wording User Friendly Full Fix
 
 Masalah:
-- Web sudah deploy, tapi Telegram /signal belum menampilkan Scalping M1.
-- Penyebab: telegram-webhook.js masih format lama Fresh OB dan belum insert blok scalping.
+- Teks sebelumnya: "BUY 32 vs SELL 14" bisa bikin user bingung.
+- User bisa salah paham itu jumlah order, padahal itu score internal.
 
 Fix:
-- /signal Telegram sekarang pasti menampilkan:
-  Scalping M1: SCALP BUY / SCALP SELL / SCALP WAIT
-  Entry
-  SL
-  TP
-  Reason
-- /api/signal juga tetap membawa strategy.scalping.
-- MQ5 tidak perlu update.
+- Teks scalping sekarang user-friendly:
+  - Scalp Bias: BUY mulai terbentuk / SELL mulai terbentuk / belum jelas
+  - BUY Strength xx/100
+  - SELL Strength xx/100
+  - Trigger minimal 58/100 untuk SCALP BUY/SELL
+  - Konfirmasi yang sedang aktif
+- Panel web ditambah:
+  - Scalp Strength xx/100
+- Telegram /signal ikut pakai wording baru.
 
-File penting yang wajib ter-upload:
-- functions/api/telegram-webhook.js
+MQ5 tidak perlu update.
+
+File yang berubah:
 - functions/api/signal.js
+- functions/api/telegram-webhook.js
 - src/App.jsx
 - src/style.css
+- package.json
 
 Cara pakai:
-1. Upload replace semua file ke GitHub.
+1. Upload replace semua ke GitHub.
 2. Commit changes.
 3. Tunggu Cloudflare deploy sukses.
-4. Test:
-   https://xau-ai-signal.pages.dev/api/signal
-   cari: strategy.scalping
-5. Test Telegram:
-   /signal
+4. Refresh web.
+5. Test Telegram /signal.

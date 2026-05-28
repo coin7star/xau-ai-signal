@@ -569,15 +569,26 @@ function ema9Safe(value, fallback) {
 }
 
 function buildScalpReason(action, buyScore, sellScore, checklist) {
+  const buy = Math.round(buyScore);
+  const sell = Math.round(sellScore);
+  const dominant = buy >= sell ? "BUY" : "SELL";
+  const dominantScore = Math.max(buy, sell);
+  const triggerText = "Trigger minimal 58/100 untuk muncul SCALP BUY/SELL.";
+  const confirmations = checklist.length ? checklist.slice(0, 4).join(", ") : "konfirmasi belum kuat";
+
   if (action === "SCALP_BUY") {
-    return `Scalping M1 condong BUY. Score BUY ${Math.round(buyScore)} vs SELL ${Math.round(sellScore)}. ${checklist.slice(0, 4).join(", ")}.`;
+    return `Scalp Bias: BUY kuat. BUY Strength ${buy}/100, SELL Strength ${sell}/100. Status sudah valid SCALP BUY. Konfirmasi: ${confirmations}.`;
   }
 
   if (action === "SCALP_SELL") {
-    return `Scalping M1 condong SELL. Score SELL ${Math.round(sellScore)} vs BUY ${Math.round(buyScore)}. ${checklist.slice(0, 4).join(", ")}.`;
+    return `Scalp Bias: SELL kuat. SELL Strength ${sell}/100, BUY Strength ${buy}/100. Status sudah valid SCALP SELL. Konfirmasi: ${confirmations}.`;
   }
 
-  return `Scalping M1 masih WAIT. BUY ${Math.round(buyScore)} vs SELL ${Math.round(sellScore)}. Tunggu momentum lebih jelas.`;
+  if (dominantScore >= 45) {
+    return `Scalp Bias: ${dominant} mulai terbentuk, tapi belum valid entry. BUY Strength ${buy}/100, SELL Strength ${sell}/100. ${triggerText} Konfirmasi saat ini: ${confirmations}.`;
+  }
+
+  return `Scalp Bias: belum jelas. BUY Strength ${buy}/100, SELL Strength ${sell}/100. ${triggerText} Tunggu momentum M1 lebih kuat.`;
 }
 
 

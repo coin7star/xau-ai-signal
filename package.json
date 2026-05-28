@@ -1,6 +1,6 @@
 {
-  "name": "xau-ai-signal-telegram-scalping-sync",
-  "version": "3.2.0",
+  "name": "xau-ai-signal-scalping-wording-friendly",
+  "version": "3.3.0",
   "type": "module",
   "scripts": {
     "dev": "vite",
