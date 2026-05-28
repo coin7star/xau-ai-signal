@@ -1,60 +1,30 @@
-# XAU Login Premium Paywall Step 1 Full Fix
+# XAU Admin Panel + Logout Step 1 Full Fix
 
-Step 1 premium foundation:
-- Login user via Firebase Auth:
-  - Email/password
-  - Google login
-- Auto-create user profile di Firebase RTDB:
-  /users/{uid}
-- Role user:
-  - free
-  - premium
-  - admin
-- Premium access:
-  - premiumUntil harus masih aktif
-  - admin selalu aktif
-- Paywall:
-  - Free user login tetap bisa masuk, tapi dashboard dikunci
-  - Premium/admin bisa akses dashboard
-- Admin endpoint manual:
-  - GET /api/admin-user
-  - POST /api/admin-user
+Update:
+- Web dashboard sekarang punya menu Logout yang jelas di navbar.
+- Jika akun role admin, muncul tombol Admin di navbar.
+- Admin Panel bisa:
+  - Load semua user
+  - Search user by email / UID / role
+  - Set Premium 7 hari
+  - Set Premium 30 hari
+  - Set Free
+  - Set Admin
 
-ENV Cloudflare Pages wajib:
-VITE_FIREBASE_API_KEY=...
-VITE_FIREBASE_AUTH_DOMAIN=...
-VITE_FIREBASE_DATABASE_URL=...
-VITE_FIREBASE_PROJECT_ID=...
-VITE_FIREBASE_APP_ID=...
+Syarat:
+- Akun kamu harus role: "admin"
+- Cloudflare ENV wajib ada:
+  ADMIN_ACTION_TOKEN=token_admin_kamu
+  FIREBASE_DATABASE_URL=database_url_kamu
 
-ENV Cloudflare Function:
-FIREBASE_DATABASE_URL=...
-ADMIN_ACTION_TOKEN=...
+Cara pakai Admin Panel:
+1. Login pakai akun admin.
+2. Klik tombol Admin di navbar.
+3. Isi ADMIN_ACTION_TOKEN.
+4. Klik Refresh Users.
+5. Klik Premium 7D / Premium 30D / Free / Admin pada user.
 
-Cara aktifkan premium manual via Firebase:
-users/{uid}/role = premium
-users/{uid}/premiumUntil = 2026-06-30T23:59:59.000Z
-
-Atau via endpoint:
-POST /api/admin-user
-body:
-{
-  "token": "ADMIN_ACTION_TOKEN_KAMU",
-  "uid": "USER_UID",
-  "role": "premium",
-  "premiumDays": 30
-}
-
-Firebase Console:
-1. Authentication -> Sign-in method -> aktifkan Email/Password
-2. Optional: aktifkan Google provider
-3. Realtime Database rules sementara untuk test:
-{
-  "rules": {
-    ".read": true,
-    ".write": true
-  }
-}
-Nanti rules bisa kita ketatkan setelah Step 2/3.
-
-MQ5 tidak perlu update.
+Catatan:
+- MQ5 tidak perlu update.
+- Telegram auto alert MAIN CALL tetap aman.
+- Step ini cuma merapikan pengelolaan premium user.

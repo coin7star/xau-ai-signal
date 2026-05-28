@@ -297,3 +297,197 @@
 .accountBadge { display: inline-flex; align-items: center; gap: 7px; padding: 11px 13px; border-radius: 999px; background: rgba(34,255,170,.12); color: #a6ffd8; font-weight: 1000; border: 1px solid rgba(34,255,170,.2); }
 .miniNote code { color: #ffe879; }
 @media(max-width: 720px) { .paywallActions { grid-template-columns: 1fr; } }
+
+
+.navActions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+.navBtn {
+  border: 1px solid rgba(255,255,255,.12);
+  background: rgba(255,255,255,.08);
+  color: #f8fbff;
+  border-radius: 999px;
+  padding: 10px 14px;
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  font-weight: 1000;
+  cursor: pointer;
+}
+
+.navBtn.danger {
+  background: rgba(255,77,109,.12);
+  color: #ffd1d8;
+  border-color: rgba(255,77,109,.24);
+}
+
+.accountBadge {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 10px 14px;
+  border-radius: 999px;
+  background: rgba(34,255,170,.12);
+  color: #a6ffd8;
+  font-weight: 1000;
+  border: 1px solid rgba(34,255,170,.2);
+}
+
+.adminPanel {
+  margin-bottom: 24px;
+  padding: 24px;
+}
+
+.adminControls {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 14px;
+  margin: 18px 0;
+}
+
+.adminControls label {
+  display: grid;
+  gap: 8px;
+  color: #c7d2fe;
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: .08em;
+  font-weight: 1000;
+}
+
+.adminControls input {
+  width: 100%;
+  border: 1px solid rgba(255,255,255,.14);
+  outline: none;
+  border-radius: 16px;
+  padding: 14px 16px;
+  background: rgba(7,11,23,.92);
+  color: #fff;
+  font-weight: 800;
+  text-transform: none;
+  letter-spacing: 0;
+}
+
+.adminMessage {
+  margin: 10px 0 16px;
+  padding: 12px 14px;
+  border-radius: 14px;
+  background: rgba(61,214,255,.12);
+  color: #b9f3ff;
+  border: 1px solid rgba(61,214,255,.2);
+  font-weight: 900;
+}
+
+.adminTable {
+  display: grid;
+  gap: 10px;
+}
+
+.adminHead,
+.adminRow {
+  display: grid;
+  grid-template-columns: 1.4fr .6fr 1fr 1.8fr;
+  gap: 12px;
+  align-items: center;
+}
+
+.adminHead {
+  color: #9fb0d6;
+  text-transform: uppercase;
+  letter-spacing: .08em;
+  font-size: 12px;
+  font-weight: 1000;
+  padding: 0 10px;
+}
+
+.adminRow {
+  padding: 14px;
+  border-radius: 18px;
+  background: rgba(0,0,0,.22);
+  border: 1px solid rgba(255,255,255,.08);
+}
+
+.adminRow strong {
+  display: block;
+}
+
+.adminRow small {
+  color: #9fb0d6;
+  word-break: break-all;
+}
+
+.roleBadge {
+  width: fit-content;
+  padding: 7px 10px;
+  border-radius: 999px;
+  background: rgba(255,255,255,.08);
+  color: #dbeafe;
+}
+
+.roleBadge.premium {
+  background: rgba(34,255,170,.12);
+  color: #a6ffd8;
+}
+
+.roleBadge.admin {
+  background: rgba(255,232,121,.15);
+  color: #ffe879;
+}
+
+.roleBadge.free {
+  background: rgba(148,163,184,.12);
+  color: #cbd5e1;
+}
+
+.adminActions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.adminActions button,
+.adminPanel .sectionTitle button {
+  border: 1px solid rgba(255,255,255,.12);
+  background: rgba(255,255,255,.08);
+  color: #f8fbff;
+  border-radius: 12px;
+  padding: 9px 11px;
+  font-weight: 1000;
+  cursor: pointer;
+}
+
+.adminActions button:first-child,
+.adminActions button:nth-child(2) {
+  background: rgba(34,255,170,.12);
+  color: #a6ffd8;
+  border-color: rgba(34,255,170,.2);
+}
+
+@media(max-width: 920px) {
+  .nav {
+    height: auto;
+    align-items: flex-start;
+    gap: 14px;
+    flex-direction: column;
+  }
+
+  .navActions {
+    width: 100%;
+    justify-content: flex-start;
+  }
+
+  .adminControls,
+  .adminHead,
+  .adminRow {
+    grid-template-columns: 1fr;
+  }
+
+  .adminHead {
+    display: none;
+  }
+}

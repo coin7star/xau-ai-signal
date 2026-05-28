@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { createChart, ColorType, CrosshairMode } from "lightweight-charts";
-import { Activity, Bot, Database, Lock, LogOut, Radio, RefreshCcw, Shield, Sparkles, Target, TrendingDown, TrendingUp, User, Zap } from "lucide-react";
+import { Activity, Bot, Database, Lock, LogOut, Radio, RefreshCcw, Settings, Shield, Sparkles, Target, TrendingDown, TrendingUp, User, Zap } from "lucide-react";
 import { ensureUserProfile, getUserProfile, hasFirebaseClientConfig, isPremiumProfile, listenAuth, loginWithEmail, loginWithGoogle, logout, registerWithEmail } from "./firebaseClient";
 
 export default function App() {
@@ -32,6 +32,7 @@ export default function App() {
   const [authUser, setAuthUser] = useState(null);
   const [authProfile, setAuthProfile] = useState(null);
   const [authLoading, setAuthLoading] = useState(true);
+  const [showAdminPanel, setShowAdminPanel] = useState(false);
 
   async function loadData({ includeChart = false, includeHistory = false, includeScalpHistory = false } = {}) {
     try {
@@ -351,6 +352,7 @@ export default function App() {
   const telegramStatus = signal?.telegram?.ok ? "Telegram OK" : signal?.telegram?.skipped || "Telegram standby";
   const premiumActive = isPremiumProfile(authProfile);
   const roleLabel = authProfile?.role?.toUpperCase?.() || "FREE";
+  const isAdmin = authProfile?.role === "admin";
 
   if (authLoading) {
     return (
@@ -394,8 +396,23 @@ export default function App() {
             <span>Telegram Webhook Commands · RSI · MFI · EMA · OB M15</span>
           </div>
         </div>
-        <div className="live"><Radio size={14} /> {telegramStatus}</div>
+        <div className="navActions">
+          <div className="live"><Radio size={14} /> {telegramStatus}</div>
+          <div className="accountBadge"><User size={15} /> {roleLabel}</div>
+          {isAdmin && (
+            <button className="navBtn" type="button" onClick={() => setShowAdminPanel((value) => !value)}>
+              <Settings size={16} /> Admin
+            </button>
+          )}
+          <button className="navBtn danger" type="button" onClick={logout}>
+            <LogOut size={16} /> Logout
+          </button>
+        </div>
       </header>
+
+      {isAdmin && showAdminPanel && (
+        <AdminPanel adminToken={adminToken} setAdminToken={setAdminToken} />
+      )}
 
       <section className="hero cleanHero">
         <div className="intro card">
@@ -630,6 +647,172 @@ export default function App() {
 
       <footer>Bukan financial advice. Demo first, XAUUSD galak bro 😭</footer>
     </main>
+  );
+}
+
+
+
+function AdminPanel({ adminToken, setAdminToken }) {
+  const [users, setUsers] = useState([]);
+  const [busy, setBusy] = useState(false);
+  const [message, setMessage] = useState("");
+  const [query, setQuery] = useState("");
+
+  const filteredUsers = users.filter((user) => {
+    const text = `${user.email || ""} ${user.uid || ""} ${user.role || ""}`.toLowerCase();
+    return text.includes(query.toLowerCase());
+  });
+
+  useEffect(() => {
+    if (adminToken) {
+      loadUsers();
+    }
+  }, []);
+
+  function saveToken(value) {
+    setAdminToken(value);
+    localStorage.setItem("xau_admin_token", value);
+  }
+
+  async function loadUsers() {
+    if (!adminToken) {
+      setMessage("Isi ADMIN_ACTION_TOKEN dulu.");
+      return;
+    }
+
+    setBusy(true);
+    setMessage("");
+
+    try {
+      const res = await fetch(`/api/admin-user?token=${encodeURIComponent(adminToken)}&ts=${Date.now()}`, {
+        cache: "no-store"
+      });
+      const json = await res.json();
+
+      if (!json.ok) {
+        setMessage(json.error || "Gagal load users");
+        return;
+      }
+
+      setUsers(json.users || []);
+      setMessage(`Loaded ${json.users?.length || 0} user.`);
+    } catch (err) {
+      setMessage(err.message || String(err));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function updateUser(user, role, premiumDays = 0) {
+    if (!adminToken) {
+      setMessage("Isi ADMIN_ACTION_TOKEN dulu.");
+      return;
+    }
+
+    setBusy(true);
+    setMessage("");
+
+    try {
+      const body = {
+        token: adminToken,
+        uid: user.uid,
+        role
+      };
+
+      if (premiumDays > 0) {
+        body.premiumDays = premiumDays;
+      }
+
+      const res = await fetch("/api/admin-user", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${adminToken}`
+        },
+        body: JSON.stringify(body)
+      });
+
+      const json = await res.json();
+
+      if (!json.ok) {
+        setMessage(json.error || "Gagal update user");
+        return;
+      }
+
+      setMessage(`User ${user.email || user.uid} updated to ${role}.`);
+      await loadUsers();
+    } catch (err) {
+      setMessage(err.message || String(err));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <section className="adminPanel card">
+      <div className="sectionTitle">
+        <div>
+          <span className="pill mini"><Settings size={14} /> ADMIN PANEL</span>
+          <h3>Premium User Management</h3>
+          <span>Atur role FREE / PREMIUM / ADMIN tanpa edit Firebase manual.</span>
+        </div>
+        <button type="button" onClick={loadUsers} disabled={busy}>
+          <RefreshCcw size={16} className={busy ? "spin" : ""} /> Refresh Users
+        </button>
+      </div>
+
+      <div className="adminControls">
+        <label>
+          Admin Token
+          <input
+            value={adminToken}
+            onChange={(event) => saveToken(event.target.value)}
+            type="password"
+            placeholder="Isi ADMIN_ACTION_TOKEN Cloudflare"
+          />
+        </label>
+        <label>
+          Search User
+          <input
+            value={query}
+            onChange={(event) => setQuery(event.target.value)}
+            placeholder="Cari email / UID / role"
+          />
+        </label>
+      </div>
+
+      {message && <div className="adminMessage">{message}</div>}
+
+      <div className="adminTable">
+        <div className="adminHead">
+          <span>User</span>
+          <span>Role</span>
+          <span>Premium Until</span>
+          <span>Action</span>
+        </div>
+
+        {filteredUsers.map((user) => (
+          <div className="adminRow" key={user.uid}>
+            <div>
+              <strong>{user.email || "-"}</strong>
+              <small>{user.uid}</small>
+            </div>
+            <b className={`roleBadge ${user.role || "free"}`}>{(user.role || "free").toUpperCase()}</b>
+            <span>{user.premiumUntil || "-"}</span>
+            <div className="adminActions">
+              <button type="button" onClick={() => updateUser(user, "premium", 7)}>Premium 7D</button>
+              <button type="button" onClick={() => updateUser(user, "premium", 30)}>Premium 30D</button>
+              <button type="button" onClick={() => updateUser(user, "free")}>Free</button>
+              <button type="button" onClick={() => updateUser(user, "admin")}>Admin</button>
+            </div>
+          </div>
+        ))}
+
+        {!filteredUsers.length && (
+          <div className="emptyHistory">Belum ada user atau token admin belum diisi.</div>
+        )}
+      </div>
+    </section>
   );
 }
 
