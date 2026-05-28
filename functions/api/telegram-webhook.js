@@ -45,13 +45,16 @@ export async function onRequest({ request, env }) {
     replyText = await buildSignalMessage(env);
   } else if (command === "/history") {
     replyText = await buildHistoryMessage(env);
+  } else if (command === "/scalp_history" || command === "/scalphistory") {
+    replyText = await buildScalpHistoryMessage(env);
   } else {
     replyText = [
       "🤖 <b>Command tidak dikenal.</b>",
       "",
       "Pakai:",
       "/signal - lihat sinyal terbaru",
-      "/history - 5 CALL terakhir",
+      "/history - 5 MAIN CALL terakhir",
+      "/scalp_history - 5 SCALP M1 valid terakhir",
       "/status - cek koneksi bot",
       "/help - panduan bot"
     ].join("\n");
@@ -109,6 +112,47 @@ function buildHelpMessage() {
     "/help - bantuan",
     "",
     "<i>Demo first. XAUUSD galak, risk management wajib.</i>"
+  ].join("\n");
+}
+
+
+
+async function buildScalpHistoryMessage(env) {
+  const dbUrl = (env.FIREBASE_DATABASE_URL || "").replace(/\/$/, "");
+  if (!dbUrl) return "❌ Firebase belum diset.";
+
+  const raw = await fbGet(dbUrl, "/xauusd/scalpHistory");
+  const list = Object.values(raw || {})
+    .filter(Boolean)
+    .sort((a, b) => String(b.createdAt || "").localeCompare(String(a.createdAt || "")));
+
+  if (!list.length) {
+    return "⚡ Belum ada SCALP M1 valid yang tersimpan. History hanya masuk saat SCALP BUY/SELL valid, bukan SCALP WAIT.";
+  }
+
+  const stats = buildHistoryStats(list);
+  const top = list.slice(0, 5);
+
+  const rows = top.map((x, i) => {
+    const icon = x.result === "WIN" ? "✅" : x.result === "LOSS" ? "❌" : x.result === "BE" ? "➖" : "🟡";
+    return [
+      `${i + 1}. ${icon} <b>${escapeHtml(x.signal || "-")}</b> ${escapeHtml(x.status || "OPEN")}`,
+      `Entry ${x.entry} | SL ${x.sl || "-"} | TP ${x.tp || "-"}`,
+      `Score ${x.score ?? x.confidence ?? "-"}% | Pattern ${escapeHtml(humanize(x.pattern))}`,
+      `${escapeHtml(x.createdAt || "-")}`
+    ].join("\n");
+  }).join("\n\n");
+
+  return [
+    "⚡ <b>SCALP M1 Valid History</b>",
+    "",
+    `<b>Total:</b> ${stats.total} | <b>Open:</b> ${stats.open} | <b>Closed:</b> ${stats.closed}`,
+    `<b>Win:</b> ${stats.wins} | <b>Loss:</b> ${stats.losses} | <b>BE:</b> ${stats.be}`,
+    `<b>Win Rate:</b> ${stats.winRate}%`,
+    "",
+    rows,
+    "",
+    "<i>Hanya SCALP BUY/SELL valid yang disimpan. SCALP WAIT tidak disimpan biar Firebase hemat.</i>"
   ].join("\n");
 }
 
@@ -486,6 +530,9 @@ function buildM1StructureEngulfingScalp(candles, closes, context = {}) {
   const resistance = structure.resistance;
   const zoneBuffer = Math.max(atrValue * 0.35, close * 0.00008);
 
+  const supportTouchCandle = findLastTouchCandle(candles, support, "support", zoneBuffer);
+  const resistanceTouchCandle = findLastTouchCandle(candles, resistance, "resistance", zoneBuffer);
+
   const nearSupport =
     Number.isFinite(support) &&
     last.low <= support + zoneBuffer &&
@@ -540,8 +587,10 @@ function buildM1StructureEngulfingScalp(candles, closes, context = {}) {
     zone = "SUPPORT";
     pattern = "BULLISH_ENGULFING";
 
-    // SL di bawah support + ATR dikit
-    sl = support - atrValue * 0.18;
+    // SL M1 scalping:
+    // di bawah low candle yang menyentuh support + buffer 1.5 ATR
+    const touchLow = Number(supportTouchCandle?.low || support);
+    sl = touchLow - atrValue * 1.5;
     const risk = Math.abs(close - sl);
     tp = close + risk * 1.25;
   } else if (sellValid) {
@@ -550,8 +599,10 @@ function buildM1StructureEngulfingScalp(candles, closes, context = {}) {
     zone = "RESISTANCE";
     pattern = "BEARISH_ENGULFING";
 
-    // SL di atas resistance + ATR dikit
-    sl = resistance + atrValue * 0.18;
+    // SL M1 scalping:
+    // di atas high candle yang menyentuh resistance + buffer 1.5 ATR
+    const touchHigh = Number(resistanceTouchCandle?.high || resistance);
+    sl = touchHigh + atrValue * 1.5;
     const risk = Math.abs(sl - close);
     tp = close - risk * 1.25;
   } else {
@@ -573,6 +624,17 @@ function buildM1StructureEngulfingScalp(candles, closes, context = {}) {
     tp: round(tp),
     support: round(support),
     resistance: round(resistance),
+    supportTouchCandle: supportTouchCandle ? {
+      time: supportTouchCandle.time,
+      low: round(supportTouchCandle.low),
+      high: round(supportTouchCandle.high)
+    } : null,
+    resistanceTouchCandle: resistanceTouchCandle ? {
+      time: resistanceTouchCandle.time,
+      low: round(resistanceTouchCandle.low),
+      high: round(resistanceTouchCandle.high)
+    } : null,
+    slMethod: "touch_candle_plus_1_5_atr",
     supportTime: structure.supportTime || null,
     resistanceTime: structure.resistanceTime || null,
     supportSource: structure.supportSource || "LAST_M1_SWING_LOW",
@@ -721,6 +783,36 @@ function buildM1ScalpingLegacy(candles, closes, context = {}) {
   };
 }
 
+
+function findLastTouchCandle(candles, level, side, zoneBuffer) {
+  const price = Number(level);
+  if (!Number.isFinite(price)) return null;
+
+  const lookback = candles.slice(-18);
+
+  for (let i = lookback.length - 1; i >= 0; i--) {
+    const c = lookback[i];
+
+    if (side === "support") {
+      const touchedSupport =
+        Number(c.low) <= price + zoneBuffer &&
+        Number(c.high) >= price - zoneBuffer;
+
+      if (touchedSupport) return c;
+    }
+
+    if (side === "resistance") {
+      const touchedResistance =
+        Number(c.high) >= price - zoneBuffer &&
+        Number(c.low) <= price + zoneBuffer;
+
+      if (touchedResistance) return c;
+    }
+  }
+
+  return null;
+}
+
 function detectM1StructureZones(candles, atrValue) {
   const swingHighs = [];
   const swingLows = [];
@@ -867,11 +959,11 @@ function buildStructureScalpReason(data) {
   const confirmations = data.checklist.length ? data.checklist.slice(0, 5).join(" • ") : "belum ada setup valid";
 
   if (data.action === "SCALP_BUY") {
-    return `🚀 M1 scalp BUY valid. Harga mantul dari last swing low M1 + bullish engulfing kebaca. BUY power ${buy}/100 vs SELL ${sell}/100. Quick plan aktif, tetap jaga SL. Konfirmasi: ${confirmations}.`;
+    return `🚀 M1 scalp BUY valid. Harga mantul dari last swing low M1 + bullish engulfing kebaca. BUY power ${buy}/100 vs SELL ${sell}/100. Quick plan aktif. SL pakai candle touch + 1.5 ATR biar nggak gampang kesenggol. Konfirmasi: ${confirmations}.`;
   }
 
   if (data.action === "SCALP_SELL") {
-    return `🔻 M1 scalp SELL valid. Harga reject dari last swing high M1 + bearish engulfing kebaca. SELL power ${sell}/100 vs BUY ${buy}/100. Quick plan aktif, tetap jaga SL. Konfirmasi: ${confirmations}.`;
+    return `🔻 M1 scalp SELL valid. Harga reject dari last swing high M1 + bearish engulfing kebaca. SELL power ${sell}/100 vs BUY ${buy}/100. Quick plan aktif. SL pakai candle touch + 1.5 ATR biar nggak gampang kesenggol. Konfirmasi: ${confirmations}.`;
   }
 
   if (data.nearSupport && !data.bullishEngulfing) {

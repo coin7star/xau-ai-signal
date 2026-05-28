@@ -23,12 +23,13 @@ export default function App() {
   const [signal, setSignal] = useState(null);
   const [aiAnalysis, setAiAnalysis] = useState(null);
   const [callHistory, setCallHistory] = useState({ stats: null, history: [] });
+  const [scalpHistory, setScalpHistory] = useState({ stats: null, history: [] });
   const [adminToken, setAdminToken] = useState(() => localStorage.getItem("xau_admin_token") || "");
   const [loading, setLoading] = useState(false);
   const [lastUpdate, setLastUpdate] = useState("-");
   const [chartError, setChartError] = useState("");
 
-  async function loadData({ includeChart = false, includeHistory = false } = {}) {
+  async function loadData({ includeChart = false, includeHistory = false, includeScalpHistory = false } = {}) {
     try {
       setLoading(true);
 
@@ -42,7 +43,11 @@ export default function App() {
         requests.push(fetch(`/api/call-history?ts=${Date.now()}`, { cache: "no-store" }).then((r) => r.json()).catch(() => ({ stats: null, history: [] })));
       }
 
-      const [marketJson, signalJson, aiJson, historyJson] = await Promise.all(requests);
+      if (includeScalpHistory) {
+        requests.push(fetch(`/api/scalp-history?ts=${Date.now()}`, { cache: "no-store" }).then((r) => r.json()).catch(() => ({ stats: null, history: [] })));
+      }
+
+      const [marketJson, signalJson, aiJson, historyJson, scalpHistoryJson] = await Promise.all(requests);
 
       setMarket((previous) => {
         if (includeChart) return marketJson;
@@ -59,6 +64,10 @@ export default function App() {
 
       if (includeHistory && historyJson) {
         setCallHistory(historyJson);
+      }
+
+      if (includeScalpHistory && scalpHistoryJson) {
+        setScalpHistory(scalpHistoryJson);
       }
 
       setLastUpdate(new Date().toLocaleTimeString("id-ID"));
@@ -79,6 +88,10 @@ export default function App() {
 
   async function loadHistoryData() {
     return loadData({ includeChart: false, includeHistory: true });
+  }
+
+  async function loadScalpHistoryData() {
+    return loadData({ includeChart: false, includeScalpHistory: true });
   }
 
   async function updateCallResult(id, result) {
@@ -107,22 +120,51 @@ export default function App() {
     }
   }
 
+
+  async function updateScalpResult(id, result) {
+    if (!id) return;
+
+    try {
+      const res = await fetch("/api/scalp-history", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          ...(adminToken ? { Authorization: `Bearer ${adminToken}` } : {})
+        },
+        body: JSON.stringify({ id, result, token: adminToken })
+      });
+
+      const json = await res.json();
+
+      if (!json.ok) {
+        alert(json.error || "Gagal update SCALP result");
+        return;
+      }
+
+      await loadScalpHistoryData();
+    } catch (err) {
+      alert(err.message || String(err));
+    }
+  }
+
   function saveAdminToken(value) {
     setAdminToken(value);
     localStorage.setItem("xau_admin_token", value);
   }
 
   useEffect(() => {
-    loadData({ includeChart: true, includeHistory: true });
+    loadData({ includeChart: true, includeHistory: true, includeScalpHistory: true });
 
     const liteInterval = setInterval(loadLiteData, 12000);
     const chartInterval = setInterval(loadChartData, 45000);
     const historyInterval = setInterval(loadHistoryData, 60000);
+    const scalpHistoryInterval = setInterval(loadScalpHistoryData, 90000);
 
     return () => {
       clearInterval(liteInterval);
       clearInterval(chartInterval);
       clearInterval(historyInterval);
+      clearInterval(scalpHistoryInterval);
     };
   }, []);
 
@@ -276,6 +318,7 @@ export default function App() {
     reason: "Menunggu data M1."
   };
   const historyStats = callHistory?.stats || {};
+  const scalpStats = scalpHistory?.stats || {};
   const telegramStatus = signal?.telegram?.ok ? "Telegram OK" : signal?.telegram?.skipped || "Telegram standby";
 
   return (
@@ -299,7 +342,7 @@ export default function App() {
             Setelah webhook diset, Telegram bot bisa membalas command langsung dari Firebase dan signal terbaru.
           </p>
           <div className="actions">
-            <button onClick={() => loadData({ includeChart: true, includeHistory: true })} disabled={loading}><RefreshCcw size={16} /> {loading ? "Loading..." : "Refresh"}</button>
+            <button onClick={() => loadData({ includeChart: true, includeHistory: true, includeScalpHistory: true })} disabled={loading}><RefreshCcw size={16} /> {loading ? "Loading..." : "Refresh"}</button>
             <a href="/api/telegram-set-webhook" target="_blank" rel="noreferrer">Set Webhook</a>
           </div>
         </div>
@@ -362,7 +405,7 @@ export default function App() {
 
         <div className="scalpGrid">
           <Metric label="Scalp Entry" value={scalping.entry || "-"} note="Area acuan kalau scalp sudah valid" />
-          <Metric label="Scalp SL" value={scalping.sl || "-"} note="Safety line dari ATR + swing M1" />
+          <Metric label="Scalp SL" value={scalping.sl || "-"} note="SL dari candle touch S/R + 1.5 ATR" />
           <Metric label="Scalp TP" value={scalping.tp || "-"} note="Target cepat RR 1 : 1.25" />
           <Metric label="EMA 5/13" value={`${scalping.ema5 || "-"} / ${scalping.ema13 || "-"}`} note="EMA cepat buat baca gas/rem M1" />
           <Metric label="Scalp Strength" value={`${scalping.score || 0}/100`} note="Minimal 58/100 untuk SCALP BUY/SELL" />
@@ -430,6 +473,59 @@ export default function App() {
 
           {(!callHistory?.history || callHistory.history.length === 0) && (
             <div className="emptyHistory">Belum ada CALL valid. History otomatis muncul saat signal BUY/SELL CALL.</div>
+          )}
+        </div>
+      </section>
+
+
+      <section className="historyPanel card scalpHistoryPanel">
+        <div className="sectionTitle">
+          <div>
+            <h3>SCALP M1 Valid History</h3>
+            <span>Cuma SCALP BUY/SELL valid yang disimpan. SCALP WAIT tidak masuk biar Firebase tetap hemat.</span>
+          </div>
+          <div className="historyStats">
+            <b>Total {scalpStats.total || 0}</b>
+            <b>Open {scalpStats.open || 0}</b>
+            <b>Win {scalpStats.wins || 0}</b>
+            <b>Loss {scalpStats.losses || 0}</b>
+            <b>BE {scalpStats.be || 0}</b>
+            <em>WR {scalpStats.winRate || 0}%</em>
+          </div>
+        </div>
+
+        <div className="historyTable">
+          <div className="historyHead">
+            <span>Time</span>
+            <span>Signal</span>
+            <span>Entry</span>
+            <span>SL / TP</span>
+            <span>Score</span>
+            <span>Result</span>
+            <span>Action</span>
+          </div>
+
+          {(scalpHistory?.history || []).slice(0, 10).map((item) => (
+            <div className="historyRow" key={item.id}>
+              <span>{formatHistoryTime(item.createdAt || item.candleTime)}</span>
+              <strong className={String(item.signal || "").toLowerCase()}>{item.signal}</strong>
+              <span>{item.entry}</span>
+              <span>{item.sl || "-"} / {item.tp || "-"}</span>
+              <span>{item.score ?? item.confidence ?? "-"}%</span>
+              <span className={`resultBadge ${(item.result || item.status || "OPEN").toLowerCase()}`}>
+                {item.result || item.status || "OPEN"}
+              </span>
+              <div className="historyActions">
+                <button type="button" onClick={() => updateScalpResult(item.id, "WIN")}>WIN</button>
+                <button type="button" onClick={() => updateScalpResult(item.id, "LOSS")}>LOSS</button>
+                <button type="button" onClick={() => updateScalpResult(item.id, "BE")}>BE</button>
+                <button type="button" onClick={() => updateScalpResult(item.id, "OPEN")}>OPEN</button>
+              </div>
+            </div>
+          ))}
+
+          {(!scalpHistory?.history || scalpHistory.history.length === 0) && (
+            <div className="emptyHistory">Belum ada SCALP BUY/SELL valid. History akan muncul otomatis saat scalp mode valid.</div>
           )}
         </div>
       </section>

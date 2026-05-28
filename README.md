@@ -1,43 +1,47 @@
-# XAU Firebase Bandwidth Saver Full Fix
+# XAU Scalp Valid History Full Fix
 
-Masalah:
-- Firebase RTDB downloads cepat naik karena web sering mengambil JSON candle besar.
-- Auto refresh sebelumnya mengambil /api/market full chart terlalu sering.
+Update:
+- Menambahkan SCALP M1 Valid History.
+- Yang disimpan hanya:
+  - SCALP BUY valid
+  - SCALP SELL valid
+- Yang tidak disimpan:
+  - SCALP WAIT
+  - bias belum matang
+  - candle biasa
+  - full candle chart
 
-Fix hemat bandwidth:
-1. Endpoint /api/market sekarang punya mode:
-   - /api/market?mode=lite
-     Data kecil saja: symbol, bid, ask, time, candle count.
-   - /api/market?mode=chart&m1=90&m15=60
-     Data chart, tapi candle dibatasi.
+Tujuan:
+- History scalp tetap ada untuk tracking.
+- Firebase RTDB tetap hemat.
+- Data dibatasi 50 scalp valid terakhir.
 
-2. Web refresh dipisah:
-   - Lite/price/signal refresh: 12 detik
-   - Chart candle refresh: 45 detik
-   - History refresh: 60 detik
+Endpoint baru:
+- GET /api/scalp-history
+- POST /api/scalp-history
 
-3. Candle yang dikirim ke chart diperkecil:
-   - M1: 90 candle
-   - M15: 60 candle
+Telegram:
+- Command baru:
+  /scalp_history
+- Menampilkan 5 scalp valid terakhir.
 
-4. Cache header ditambahkan:
-   - lite cache sekitar 6 detik
-   - chart cache sekitar 20 detik
-   - history cache sekitar 30 detik
+Web:
+- Section baru:
+  SCALP M1 Valid History
+- Bisa manual result:
+  WIN / LOSS / BE / OPEN
 
-5. Semua strategi tetap:
-   - Main CALL
-   - Fresh OB M15
-   - M1 last swing structure scalping
-   - Telegram command
-   - CALL history
+Admin token:
+- Tetap pakai ENV:
+  ADMIN_ACTION_TOKEN
 
 MQ5:
 - Tidak perlu update.
 
 File berubah:
-- functions/api/market.js
-- functions/api/call-history.js
+- functions/api/signal.js
+- functions/api/scalp-history.js
+- functions/api/telegram-webhook.js
 - src/App.jsx
 - package.json
 
@@ -46,6 +50,6 @@ Cara pakai:
 2. Commit changes.
 3. Tunggu Cloudflare deploy.
 4. Refresh web.
-5. Cek:
-   /api/market?mode=lite
-   /api/market?mode=chart&m1=90&m15=60
+5. Test:
+   /api/scalp-history
+   Telegram: /scalp_history

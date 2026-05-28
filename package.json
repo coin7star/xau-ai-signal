@@ -1,6 +1,6 @@
 {
-  "name": "xau-ai-signal-firebase-bandwidth-saver",
-  "version": "3.8.0",
+  "name": "xau-ai-signal-scalp-valid-history",
+  "version": "3.8.2",
   "type": "module",
   "scripts": {
     "dev": "vite",
