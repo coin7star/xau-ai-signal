@@ -646,12 +646,14 @@ export default function App() {
                 {item.result || item.status || "OPEN"}
               </span>
               {isAdmin && (
+              {isAdmin && (
               <div className="historyActions">
                 <button type="button" onClick={() => updateCallResult(item.id, "WIN")}>WIN</button>
                 <button type="button" onClick={() => updateCallResult(item.id, "LOSS")}>LOSS</button>
                 <button type="button" onClick={() => updateCallResult(item.id, "BE")}>BE</button>
                 <button type="button" onClick={() => updateCallResult(item.id, "OPEN")}>OPEN</button>
               </div>
+            )}
             )}
             </div>
           ))}
@@ -666,8 +668,13 @@ export default function App() {
       <section className="historyPanel card scalpHistoryPanel">
         <div className="sectionTitle">
           <div>
-            <h3>SCALP M1 Valid History</h3>
+            <h3>{isAdmin ? "SCALP M1 Valid History & Manual Result" : "SCALP M1 Valid Performance"}</h3>
             <span>Cuma SCALP BUY/SELL valid yang disimpan. SCALP WAIT tidak masuk biar Firebase tetap hemat.</span>
+        {!isAdmin && (
+          <div className="premiumViewerNote scalpViewerNote">
+            Premium view: kamu bisa lihat result SCALP M1 dan winrate. Update WIN/LOSS/BE hanya bisa dilakukan admin.
+          </div>
+        )}
           </div>
           <div className="historyStats">
             <b>Total {scalpStats.total || 0}</b>
@@ -700,12 +707,14 @@ export default function App() {
               <span className={`resultBadge ${(item.result || item.status || "OPEN").toLowerCase()}`}>
                 {item.result || item.status || "OPEN"}
               </span>
+              {isAdmin && (
               <div className="historyActions">
                 <button type="button" onClick={() => updateScalpResult(item.id, "WIN")}>WIN</button>
                 <button type="button" onClick={() => updateScalpResult(item.id, "LOSS")}>LOSS</button>
                 <button type="button" onClick={() => updateScalpResult(item.id, "BE")}>BE</button>
                 <button type="button" onClick={() => updateScalpResult(item.id, "OPEN")}>OPEN</button>
               </div>
+            )}
             </div>
           ))}
 

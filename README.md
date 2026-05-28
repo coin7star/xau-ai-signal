@@ -1,23 +1,22 @@
-# XAU History Performance Admin Only Actions Full Fix
+# XAU History + Scalp Admin Only Actions Hotfix
 
-Update:
-- Premium user tetap bisa melihat CALL History dan Performance.
-- Premium user bisa melihat:
-  - Total / Open / Win / Loss / BE / WR
-  - Entry
-  - SL / TP
-  - Probability
-  - Result
-- Premium user tidak bisa update WIN/LOSS/BE.
-- Admin tetap bisa melihat tombol Manual Win/Loss.
-- Admin token input disembunyikan dari premium user.
-- Judul card otomatis:
-  - Admin: CALL History & Manual Win/Loss
-  - Premium: CALL History & Performance
+Masalah:
+- Premium user masih melihat Admin token di CALL History.
+- Premium user masih melihat tombol WIN/LOSS/BE/OPEN di SCALP M1 Valid History.
+
+Fix:
+- Admin token box hanya render kalau role admin.
+- ACTION header hanya render kalau role admin.
+- Semua tombol update result CALL dan SCALP hanya render kalau role admin.
+- Premium user hanya bisa lihat history/result/winrate.
+- SCALP title otomatis:
+  - Admin: SCALP M1 Valid History & Manual Result
+  - Premium: SCALP M1 Valid Performance
+- Tambah viewer note untuk premium user.
 
 Tujuan:
-- History dan winrate jadi fitur premium untuk membangun trust.
-- Result tetap aman karena cuma admin yang bisa edit.
+- Premium user bisa lihat performa.
+- Hanya admin yang bisa edit result.
 
 File berubah:
 - src/App.jsx

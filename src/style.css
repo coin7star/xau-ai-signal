@@ -1201,3 +1201,34 @@
     grid-template-columns: 1fr;
   }
 }
+
+
+/* Admin-only history action safety net */
+.historyRow.viewerMode .historyActions,
+.historyRow.viewerMode .callActions,
+.historyRow.viewerMode .scalpActions {
+  display: none !important;
+}
+
+.historyHead.viewerMode,
+.historyRow.viewerMode {
+  grid-template-columns: 1fr 1fr 1fr 1fr 1fr !important;
+}
+
+.historyHead.adminMode,
+.historyRow.adminMode {
+  grid-template-columns: 1fr 1fr 1fr 1fr 1fr 1.35fr !important;
+}
+
+.scalpViewerNote {
+  margin-top: 12px;
+}
+
+@media(max-width: 900px) {
+  .historyHead.viewerMode,
+  .historyRow.viewerMode,
+  .historyHead.adminMode,
+  .historyRow.adminMode {
+    grid-template-columns: 1fr !important;
+  }
+}
