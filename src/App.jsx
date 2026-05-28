@@ -353,6 +353,7 @@ export default function App() {
   const premiumActive = isPremiumProfile(authProfile);
   const roleLabel = authProfile?.role?.toUpperCase?.() || "FREE";
   const isAdmin = authProfile?.role === "admin";
+  const premiumInfo = getPremiumInfo(authProfile);
 
   if (authLoading) {
     return (
@@ -399,6 +400,9 @@ export default function App() {
         <div className="navActions">
           <div className="live"><Radio size={14} /> {telegramStatus}</div>
           <div className="accountBadge"><User size={15} /> {roleLabel}</div>
+          <div className={`premiumExpiryBadge ${premiumInfo.expired ? "expired" : ""}`}>
+            <Shield size={15} /> {premiumInfo.label}
+          </div>
           {isAdmin && (
             <button className="navBtn" type="button" onClick={() => setShowAdminPanel((value) => !value)}>
               <Settings size={16} /> Admin
@@ -652,6 +656,93 @@ export default function App() {
 
 
 
+
+
+function formatPremiumUntil(user) {
+  if (!user?.premiumUntil) return "-";
+
+  const expiry = new Date(user.premiumUntil);
+  const diffMs = expiry.getTime() - Date.now();
+  const daysLeft = Math.ceil(diffMs / (1000 * 60 * 60 * 24));
+  const dateText = expiry.toLocaleDateString("id-ID", {
+    day: "2-digit",
+    month: "short",
+    year: "numeric"
+  });
+
+  if (user.role === "admin") return `Admin · ${dateText}`;
+  if (diffMs <= 0) return `Expired · ${dateText}`;
+
+  return `${dateText} · ${daysLeft} hari`;
+}
+
+
+function getPremiumInfo(profile) {
+  if (!profile) {
+    return {
+      label: "FREE",
+      detail: "Belum ada akses premium",
+      dateText: "-",
+      expired: true
+    };
+  }
+
+  if (profile.role === "admin") {
+    return {
+      label: "ADMIN ACCESS",
+      detail: "Akses admin aktif tanpa batas normal",
+      dateText: "Lifetime admin",
+      expired: false
+    };
+  }
+
+  const until = profile.premiumUntil || profile.expiredAt || null;
+
+  if (profile.role !== "premium") {
+    return {
+      label: "FREE",
+      detail: "Belum ada akses premium",
+      dateText: "-",
+      expired: true
+    };
+  }
+
+  if (!until) {
+    return {
+      label: "PREMIUM EXPIRED",
+      detail: "Tanggal expired belum diset",
+      dateText: "-",
+      expired: true
+    };
+  }
+
+  const expiry = new Date(until);
+  const diffMs = expiry.getTime() - Date.now();
+  const daysLeft = Math.ceil(diffMs / (1000 * 60 * 60 * 24));
+  const dateText = expiry.toLocaleDateString("id-ID", {
+    day: "2-digit",
+    month: "short",
+    year: "numeric"
+  });
+
+  if (diffMs <= 0) {
+    return {
+      label: "PREMIUM EXPIRED",
+      detail: `Paket expired pada ${dateText}`,
+      dateText,
+      expired: true
+    };
+  }
+
+  return {
+    label: daysLeft <= 1 ? "Sisa 1 hari" : `Sisa ${daysLeft} hari`,
+    detail: `Premium aktif sampai ${dateText}`,
+    dateText,
+    expired: false
+  };
+}
+
+
 function AdminPanel({ adminToken, setAdminToken }) {
   const [users, setUsers] = useState([]);
   const [busy, setBusy] = useState(false);
@@ -798,7 +889,7 @@ function AdminPanel({ adminToken, setAdminToken }) {
               <small>{user.uid}</small>
             </div>
             <b className={`roleBadge ${user.role || "free"}`}>{(user.role || "free").toUpperCase()}</b>
-            <span>{user.premiumUntil || "-"}</span>
+            <span>{formatPremiumUntil(user)}</span>
             <div className="adminActions">
               <button type="button" onClick={() => updateUser(user, "premium", 7)}>Premium 7D</button>
               <button type="button" onClick={() => updateUser(user, "premium", 30)}>Premium 30D</button>

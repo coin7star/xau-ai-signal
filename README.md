@@ -1,30 +1,39 @@
-# XAU Admin Panel + Logout Step 1 Full Fix
+# XAU Premium Expiry Display Full Fix
 
 Update:
-- Web dashboard sekarang punya menu Logout yang jelas di navbar.
-- Jika akun role admin, muncul tombol Admin di navbar.
-- Admin Panel bisa:
-  - Load semua user
-  - Search user by email / UID / role
-  - Set Premium 7 hari
-  - Set Premium 30 hari
-  - Set Free
-  - Set Admin
+- User premium sekarang bisa lihat masa aktif paket di dashboard.
+- Navbar menampilkan:
+  - Role user
+  - Sisa hari premium / ADMIN ACCESS / PREMIUM EXPIRED
+- Dashboard menampilkan Account Status card:
+  - email user
+  - role
+  - detail masa aktif
+  - tanggal expired
+- Admin Panel juga menampilkan tanggal premiumUntil lebih jelas:
+  - tanggal expired
+  - sisa hari
+  - expired kalau sudah lewat
 
-Syarat:
-- Akun kamu harus role: "admin"
-- Cloudflare ENV wajib ada:
-  ADMIN_ACTION_TOKEN=token_admin_kamu
-  FIREBASE_DATABASE_URL=database_url_kamu
+Contoh tampilan user:
+- PREMIUM
+- Sisa 29 hari
+- Expired: 30 Jun 2026
 
-Cara pakai Admin Panel:
-1. Login pakai akun admin.
-2. Klik tombol Admin di navbar.
-3. Isi ADMIN_ACTION_TOKEN.
-4. Klik Refresh Users.
-5. Klik Premium 7D / Premium 30D / Free / Admin pada user.
+Untuk admin:
+- ADMIN ACCESS
+- Expired: Lifetime admin
 
-Catatan:
-- MQ5 tidak perlu update.
-- Telegram auto alert MAIN CALL tetap aman.
-- Step ini cuma merapikan pengelolaan premium user.
+MQ5:
+- Tidak perlu update.
+
+File berubah:
+- src/App.jsx
+- src/style.css
+- package.json
+
+Cara pakai:
+1. Upload replace semua ke GitHub.
+2. Commit changes.
+3. Tunggu Cloudflare deploy.
+4. Refresh web.

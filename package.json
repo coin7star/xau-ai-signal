@@ -1,6 +1,6 @@
 {
-  "name": "xau-ai-signal-admin-panel-logout-step1",
-  "version": "5.1.0",
+  "name": "xau-ai-signal-premium-expiry-display",
+  "version": "5.1.1",
   "type": "module",
   "scripts": {
     "dev": "vite",
