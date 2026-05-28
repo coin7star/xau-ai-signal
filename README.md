@@ -1,36 +1,31 @@
-# XAU M1 Scalping Mode Full Fix
+# XAU Telegram Scalping Signal Sync Full Fix
 
-Update:
-- Strategi utama tetap ada:
-  RSI + MFI + EMA 9/20 + Fresh OB M15.
-- Ditambah mode baru:
-  M1 Scalping Mode.
-- Scalping tidak menghapus strategi lama.
-- Scalping tampil di dashboard sebagai sinyal cepat sambil menunggu CALL utama.
+Masalah:
+- Web sudah deploy, tapi Telegram /signal belum menampilkan Scalping M1.
+- Penyebab: telegram-webhook.js masih format lama Fresh OB dan belum insert blok scalping.
 
-Rule Scalping M1:
-- EMA 5 / EMA 13 untuk trigger cepat.
-- Break high/low 12 candle M1.
-- RSI + MFI sebagai filter momentum.
-- Volume spike sebagai bonus score.
-- SL pakai ATR + recent swing M1.
-- TP pakai RR cepat 1 : 1.25.
+Fix:
+- /signal Telegram sekarang pasti menampilkan:
+  Scalping M1: SCALP BUY / SCALP SELL / SCALP WAIT
+  Entry
+  SL
+  TP
+  Reason
+- /api/signal juga tetap membawa strategy.scalping.
+- MQ5 tidak perlu update.
 
-Catatan:
-- Telegram CALL utama tetap pakai strategi utama.
-- Scalping ditampilkan di web dan /signal Telegram sebagai informasi cepat.
-- MQ5 tidak perlu update karena candle M1 sudah dikirim.
-
-File berubah:
-- functions/api/signal.js
+File penting yang wajib ter-upload:
 - functions/api/telegram-webhook.js
+- functions/api/signal.js
 - src/App.jsx
 - src/style.css
-- package.json
 
 Cara pakai:
-1. Upload replace semua ke GitHub.
+1. Upload replace semua file ke GitHub.
 2. Commit changes.
-3. Tunggu deploy Cloudflare sukses.
-4. Refresh web.
-5. Cek panel M1 Scalping Mode.
+3. Tunggu Cloudflare deploy sukses.
+4. Test:
+   https://xau-ai-signal.pages.dev/api/signal
+   cari: strategy.scalping
+5. Test Telegram:
+   /signal
