@@ -1,6 +1,6 @@
 {
-  "name": "xau-ai-signal-chart-ema-ob-lines",
-  "version": "2.4.0",
+  "name": "xau-ai-signal-fresh-ob-lines-only",
+  "version": "2.5.0",
   "type": "module",
   "scripts": {
     "dev": "vite",

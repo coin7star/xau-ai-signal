@@ -504,6 +504,7 @@ function buildObZone(data, bos, origin, direction, atr14) {
     status: "active",
     mitigated: false,
     invalidated: false,
+    fresh: true,
     strength: round(strength),
     reason: `${bos.type} M15 setelah origin candle ${direction === "bullish" ? "bearish" : "bullish"}`
   };
@@ -515,19 +516,25 @@ function updateObStatus(data, ob, direction, atr14) {
   let invalidated = false;
   let mitigatedTime = null;
   let invalidatedTime = null;
-  const afterOrigin = data.filter((c) => timeToNum(c.time) > timeToNum(ob.originTime));
 
-  for (const c of afterOrigin) {
+  // Fresh OB dihitung setelah BOS selesai, bukan sejak origin candle.
+  // Jadi candle displacement/BOS tidak langsung bikin OB dianggap mitigated.
+  const afterBos = data.filter((c) => timeToNum(c.time) > timeToNum(ob.bosTime));
+
+  for (const c of afterBos) {
     const touched = c.low <= ob.high && c.high >= ob.low;
+
     if (touched) {
       mitigated = true;
       mitigatedTime = mitigatedTime || c.time;
     }
+
     if (direction === "bullish" && c.close < ob.low - atr14 * 0.1) {
       invalidated = true;
       invalidatedTime = c.time;
       break;
     }
+
     if (direction === "bearish" && c.close > ob.high + atr14 * 0.1) {
       invalidated = true;
       invalidatedTime = c.time;
@@ -539,8 +546,18 @@ function updateObStatus(data, ob, direction, atr14) {
   else if (mitigated) status = "mitigated";
   else status = "active";
 
-  return { ...ob, status, mitigated, invalidated, mitigatedTime, invalidatedTime };
+  return {
+    ...ob,
+    status,
+    mitigated,
+    invalidated,
+    mitigatedTime,
+    invalidatedTime,
+    fresh: status === "active"
+  };
 }
+
+
 
 function timeToNum(value) {
   const raw = String(value || "").replace(/\./g, "-").replace(" ", "T");

@@ -84,8 +84,8 @@ export default function App() {
   }, [tvM15]);
 
   useEffect(() => {
-    const bullish = signal?.strategy?.orderBlock?.bullish || null;
-    const bearish = signal?.strategy?.orderBlock?.bearish || null;
+    const bullish = getFreshOb(signal?.strategy?.orderBlock?.bullish);
+    const bearish = getFreshOb(signal?.strategy?.orderBlock?.bearish);
 
     if (seriesM1Ref.current) {
       addObLines(seriesM1Ref.current, obLinesM1Ref, bullish, bearish);
@@ -302,6 +302,19 @@ function parseMt5Time(value) {
 }
 
 
+function getFreshOb(ob) {
+  if (!ob) return null;
+  if (ob.status !== "active") return null;
+  if (ob.mitigated || ob.invalidated) return null;
+
+  const low = Number(ob.low);
+  const high = Number(ob.high);
+
+  if (!Number.isFinite(low) || !Number.isFinite(high)) return null;
+
+  return ob;
+}
+
 function buildEMAData(candles, period) {
   if (!Array.isArray(candles) || candles.length === 0) return [];
 
@@ -352,7 +365,7 @@ function addObLines(series, linesRef, bullish, bearish) {
       lineWidth: 1,
       lineStyle: 2,
       axisLabelVisible: true,
-      title: "Bull OB Low"
+      title: "M15 Fresh Bull OB Low"
     });
 
     const bullHigh = series.createPriceLine({
@@ -361,7 +374,7 @@ function addObLines(series, linesRef, bullish, bearish) {
       lineWidth: 1,
       lineStyle: 2,
       axisLabelVisible: true,
-      title: "Bull OB High"
+      title: "M15 Fresh Bull OB High"
     });
 
     newLines.push({ series, line: bullLow }, { series, line: bullHigh });
@@ -374,7 +387,7 @@ function addObLines(series, linesRef, bullish, bearish) {
       lineWidth: 1,
       lineStyle: 2,
       axisLabelVisible: true,
-      title: "Bear OB Low"
+      title: "M15 Fresh Bear OB Low"
     });
 
     const bearHigh = series.createPriceLine({
@@ -383,7 +396,7 @@ function addObLines(series, linesRef, bullish, bearish) {
       lineWidth: 1,
       lineStyle: 2,
       axisLabelVisible: true,
-      title: "Bear OB High"
+      title: "M15 Fresh Bear OB High"
     });
 
     newLines.push({ series, line: bearLow }, { series, line: bearHigh });
