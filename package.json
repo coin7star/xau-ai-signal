@@ -1,6 +1,6 @@
 {
-  "name": "xau-ai-signal-ui-ob-value-card",
-  "version": "2.9.0",
+  "name": "xau-ai-signal-premium-call-history",
+  "version": "3.0.0",
   "type": "module",
   "scripts": {
     "dev": "vite",

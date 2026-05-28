@@ -14,10 +14,12 @@ export async function onRequest({ env }) {
   const signal = buildSignal(candles, candlesM15, market);
 
   const telegram = await maybeSendTelegramAlert(env, dbUrl, signal, market);
+  const callHistory = await maybeSaveCallHistory(env, dbUrl, signal, market);
 
   return json({
     ...signal,
-    telegram
+    telegram,
+    callHistory
   });
 }
 
@@ -221,10 +223,107 @@ export function buildSignal(candles, candlesM15, market) {
       orderBlock: { bullish: bullOb, bearish: bearOb },
       buyScore: round(buyScore),
       sellScore: round(sellScore),
-      score: round(score)
+      score: round(score),
+      probability: buildProbability(signalLabel, callStage, buyScore, sellScore, {
+        rsiBuyOk,
+        rsiSellOk,
+        mfiBuyOk,
+        mfiSellOk,
+        obBuyOk,
+        obSellOk,
+        bullishCrossNow,
+        bearishCrossNow,
+        readyBuy,
+        readySell
+      })
     }
   };
 }
+
+
+async function maybeSaveCallHistory(env, dbUrl, signal, market) {
+  if (!dbUrl) return { ok: false, skipped: "firebase-env-missing" };
+
+  const isCall = signal.callStage === "CALL" && (signal.signal === "BUY" || signal.signal === "SELL");
+  if (!isCall) return { ok: false, skipped: "not-call-signal" };
+
+  const callId = [
+    market?.symbol || signal.pair || "XAUUSD",
+    signal.signal,
+    signal.candleTime || market?.serverTime || market?.receivedAt || Date.now()
+  ]
+    .join("_")
+    .replaceAll(" ", "_")
+    .replaceAll(":", "-")
+    .replaceAll(".", "-")
+    .replaceAll("/", "-");
+
+  const existing = await fbGet(dbUrl, `/xauusd/callHistory/${callId}`);
+  if (existing?.id === callId) {
+    return { ok: true, skipped: "duplicate-call", callId };
+  }
+
+  const payload = {
+    id: callId,
+    pair: market?.symbol || signal.pair || "XAUUSD",
+    signal: signal.signal,
+    signalLabel: signal.signalLabel || signal.signal,
+    callStage: signal.callStage,
+    entry: signal.entry,
+    sl: signal.sl,
+    tp: signal.tp,
+    confidence: signal.confidence,
+    probability: signal.strategy?.probability || null,
+    reason: signal.reason || "",
+    candleTime: signal.candleTime || null,
+    serverTime: market?.serverTime || null,
+    createdAt: new Date().toISOString(),
+    status: "OPEN",
+    result: null,
+    closedAt: null,
+    note: "",
+    strategySnapshot: {
+      rsi: signal.strategy?.rsi ?? null,
+      mfi: signal.strategy?.mfi ?? null,
+      ema9: signal.strategy?.ema9 ?? null,
+      ema20: signal.strategy?.ema20 ?? null,
+      emaCross: signal.strategy?.emaCross ?? null,
+      orderBlock: signal.strategy?.orderBlock ?? null,
+      confirmation: signal.strategy?.confirmation ?? null,
+      buyScore: signal.strategy?.buyScore ?? null,
+      sellScore: signal.strategy?.sellScore ?? null
+    }
+  };
+
+  await fbPut(dbUrl, `/xauusd/callHistory/${callId}`, payload);
+
+  return { ok: true, callId };
+}
+
+function buildProbability(signalLabel, callStage, buyScore, sellScore, flags = {}) {
+  const dominantScore = Math.max(Number(buyScore || 0), Number(sellScore || 0));
+  const raw = Math.min(100, Math.max(0, dominantScore));
+
+  let label = "LOW";
+  if (raw >= 80) label = "HIGH";
+  else if (raw >= 65) label = "MEDIUM";
+
+  const checklist = [
+    flags.rsiBuyOk || flags.rsiSellOk ? "RSI cocok" : "RSI belum cocok",
+    flags.mfiBuyOk || flags.mfiSellOk ? "MFI cocok" : "MFI belum cocok",
+    flags.bullishCrossNow || flags.bearishCrossNow ? "EMA cross valid" : flags.readyBuy || flags.readySell ? "EMA ready" : "EMA belum trigger",
+    flags.obBuyOk || flags.obSellOk ? "OB M15 cocok" : "OB M15 belum cocok"
+  ];
+
+  return {
+    score: Math.round(raw),
+    label,
+    callQuality: callStage === "CALL" ? "VALID_CALL" : callStage === "READY" ? "READY_ONLY" : "WAIT",
+    checklist,
+    note: `${signalLabel || "WAIT"} probability ${Math.round(raw)}% (${label})`
+  };
+}
+
 
 async function maybeSendTelegramAlert(env, dbUrl, signal, market) {
   const enabled = String(env.TELEGRAM_ALERT_ENABLED || "true").toLowerCase() !== "false";

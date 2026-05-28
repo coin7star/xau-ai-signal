@@ -21,6 +21,8 @@ export default function App() {
   const [market, setMarket] = useState(null);
   const [signal, setSignal] = useState(null);
   const [aiAnalysis, setAiAnalysis] = useState(null);
+  const [callHistory, setCallHistory] = useState({ stats: null, history: [] });
+  const [adminToken, setAdminToken] = useState(() => localStorage.getItem("xau_admin_token") || "");
   const [loading, setLoading] = useState(false);
   const [lastUpdate, setLastUpdate] = useState("-");
   const [chartError, setChartError] = useState("");
@@ -28,20 +30,53 @@ export default function App() {
   async function loadData() {
     try {
       setLoading(true);
-      const [marketJson, signalJson, aiJson] = await Promise.all([
+      const [marketJson, signalJson, aiJson, historyJson] = await Promise.all([
         fetch(`/api/market?ts=${Date.now()}`, { cache: "no-store" }).then((r) => r.json()),
         fetch(`/api/signal?ts=${Date.now()}`, { cache: "no-store" }).then((r) => r.json()),
-        fetch(`/api/ai-analysis?ts=${Date.now()}`, { cache: "no-store" }).then((r) => r.json())
+        fetch(`/api/ai-analysis?ts=${Date.now()}`, { cache: "no-store" }).then((r) => r.json()),
+        fetch(`/api/call-history?ts=${Date.now()}`, { cache: "no-store" }).then((r) => r.json()).catch(() => ({ stats: null, history: [] }))
       ]);
       setMarket(marketJson);
       setSignal(signalJson);
       setAiAnalysis(aiJson);
+      setCallHistory(historyJson);
       setLastUpdate(new Date().toLocaleTimeString("id-ID"));
     } catch (err) {
       setMarket({ ok: false, message: err.message, candles: [], candlesM15: [] });
     } finally {
       setLoading(false);
     }
+  }
+
+  async function updateCallResult(id, result) {
+    if (!id) return;
+
+    try {
+      const res = await fetch("/api/call-history", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          ...(adminToken ? { Authorization: `Bearer ${adminToken}` } : {})
+        },
+        body: JSON.stringify({ id, result, token: adminToken })
+      });
+
+      const json = await res.json();
+
+      if (!json.ok) {
+        alert(json.error || "Gagal update CALL result");
+        return;
+      }
+
+      await loadData();
+    } catch (err) {
+      alert(err.message || String(err));
+    }
+  }
+
+  function saveAdminToken(value) {
+    setAdminToken(value);
+    localStorage.setItem("xau_admin_token", value);
   }
 
   useEffect(() => {
@@ -174,6 +209,12 @@ export default function App() {
   const freshBearOb = getFreshOb(signal?.strategy?.orderBlock?.bearish);
   const obCardValue = formatObCardValue(freshBullOb, freshBearOb);
   const obCardNote = formatObCardNote(freshBullOb, freshBearOb, smc);
+  const probability = signal?.strategy?.probability || {
+    score: signal?.confidence || 0,
+    label: signal?.confidence >= 80 ? "HIGH" : signal?.confidence >= 65 ? "MEDIUM" : "LOW",
+    checklist: []
+  };
+  const historyStats = callHistory?.stats || {};
   const telegramStatus = signal?.telegram?.ok ? "Telegram OK" : signal?.telegram?.skipped || "Telegram standby";
 
   return (
@@ -240,6 +281,70 @@ export default function App() {
           <Metric label="MFI 14" value={signal?.strategy?.mfi ?? "-"} note={`BUY ${confirmation.mfiBuyOk ? "OK" : "-"} · SELL ${confirmation.mfiSellOk ? "OK" : "-"}`} />
           <Metric label="EMA Cross" value={humanize(signal?.strategy?.emaCross)} note={signal?.strategy?.crossAlert?.message || "-"} />
           <Metric label="Fresh OB M15" value={obCardValue} note={obCardNote} />
+          <Metric label="Probability" value={`${probability.score || 0}% · ${probability.label || "LOW"}`} note={(probability.checklist || []).join(" · ") || "Menunggu score"} />
+        </div>
+      </section>
+
+
+      <section className="historyPanel card">
+        <div className="sectionTitle">
+          <div>
+            <h3>CALL History & Manual Win/Loss</h3>
+            <span>Auto-save saat CALL valid. Kamu bisa tandai hasil manual untuk track performa.</span>
+          </div>
+          <div className="historyStats">
+            <b>Total {historyStats.total || 0}</b>
+            <b>Open {historyStats.open || 0}</b>
+            <b>Win {historyStats.wins || 0}</b>
+            <b>Loss {historyStats.losses || 0}</b>
+            <b>BE {historyStats.be || 0}</b>
+            <em>WR {historyStats.winRate || 0}%</em>
+          </div>
+        </div>
+
+        <div className="adminTokenBox">
+          <span>Admin token untuk update Win/Loss</span>
+          <input
+            value={adminToken}
+            onChange={(event) => saveAdminToken(event.target.value)}
+            placeholder="Isi ADMIN_ACTION_TOKEN Cloudflare"
+            type="password"
+          />
+        </div>
+
+        <div className="historyTable">
+          <div className="historyHead">
+            <span>Time</span>
+            <span>Signal</span>
+            <span>Entry</span>
+            <span>SL / TP</span>
+            <span>Prob</span>
+            <span>Result</span>
+            <span>Action</span>
+          </div>
+
+          {(callHistory?.history || []).slice(0, 12).map((item) => (
+            <div className="historyRow" key={item.id}>
+              <span>{formatHistoryTime(item.createdAt || item.candleTime)}</span>
+              <strong className={String(item.signal || "").toLowerCase()}>{item.signal}</strong>
+              <span>{item.entry}</span>
+              <span>{item.sl || "-"} / {item.tp || "-"}</span>
+              <span>{item.probability?.score ?? item.confidence ?? "-"}%</span>
+              <span className={`resultBadge ${(item.result || item.status || "OPEN").toLowerCase()}`}>
+                {item.result || item.status || "OPEN"}
+              </span>
+              <div className="historyActions">
+                <button type="button" onClick={() => updateCallResult(item.id, "WIN")}>WIN</button>
+                <button type="button" onClick={() => updateCallResult(item.id, "LOSS")}>LOSS</button>
+                <button type="button" onClick={() => updateCallResult(item.id, "BE")}>BE</button>
+                <button type="button" onClick={() => updateCallResult(item.id, "OPEN")}>OPEN</button>
+              </div>
+            </div>
+          ))}
+
+          {(!callHistory?.history || callHistory.history.length === 0) && (
+            <div className="emptyHistory">Belum ada CALL valid. History otomatis muncul saat signal BUY/SELL CALL.</div>
+          )}
         </div>
       </section>
 
@@ -441,6 +546,21 @@ function formatShortTime(value) {
   const raw = String(value);
   const parts = raw.split(" ");
   return parts[1] || raw;
+}
+
+
+function formatHistoryTime(value) {
+  if (!value) return "-";
+  try {
+    return new Date(value).toLocaleString("id-ID", {
+      day: "2-digit",
+      month: "2-digit",
+      hour: "2-digit",
+      minute: "2-digit"
+    });
+  } catch {
+    return String(value);
+  }
 }
 
 function Metric({ label, value, note }) {

@@ -43,12 +43,15 @@ export async function onRequest({ request, env }) {
     replyText = await buildStatusMessage(env);
   } else if (command === "/signal") {
     replyText = await buildSignalMessage(env);
+  } else if (command === "/history") {
+    replyText = await buildHistoryMessage(env);
   } else {
     replyText = [
       "🤖 <b>Command tidak dikenal.</b>",
       "",
       "Pakai:",
       "/signal - lihat sinyal terbaru",
+      "/history - 5 CALL terakhir",
       "/status - cek koneksi bot",
       "/help - panduan bot"
     ].join("\n");
@@ -80,6 +83,7 @@ function buildStartMessage() {
     "",
     "<b>Command:</b>",
     "/signal - cek sinyal terbaru",
+    "/history - 5 CALL terakhir",
     "/status - cek koneksi bot",
     "/help - panduan",
     "",
@@ -100,12 +104,62 @@ function buildHelpMessage() {
     "",
     "<b>Command:</b>",
     "/signal - sinyal terbaru",
+    "/history - 5 CALL terakhir",
     "/status - status koneksi",
     "/help - bantuan",
     "",
     "<i>Bukan financial advice.</i>"
   ].join("\n");
 }
+
+
+async function buildHistoryMessage(env) {
+  const dbUrl = (env.FIREBASE_DATABASE_URL || "").replace(/\/$/, "");
+  if (!dbUrl) return "❌ Firebase belum diset.";
+
+  const raw = await fbGet(dbUrl, "/xauusd/callHistory");
+  const list = Object.values(raw || {})
+    .filter(Boolean)
+    .sort((a, b) => String(b.createdAt || "").localeCompare(String(a.createdAt || "")));
+
+  if (!list.length) {
+    return "📒 Belum ada CALL history. History otomatis terisi saat CALL BUY/SELL valid.";
+  }
+
+  const stats = buildHistoryStats(list);
+  const top = list.slice(0, 5);
+
+  const rows = top.map((x, i) => {
+    const icon = x.result === "WIN" ? "✅" : x.result === "LOSS" ? "❌" : x.result === "BE" ? "➖" : "🟡";
+    return [
+      `${i + 1}. ${icon} <b>${escapeHtml(x.signal || "-")}</b> ${escapeHtml(x.status || "OPEN")}`,
+      `Entry ${x.entry} | SL ${x.sl || "-"} | TP ${x.tp || "-"}`,
+      `Prob ${x.probability?.score ?? x.confidence ?? "-"}% | ${escapeHtml(x.createdAt || "-")}`
+    ].join("\n");
+  }).join("\n\n");
+
+  return [
+    "📒 <b>CALL History</b>",
+    "",
+    `<b>Total:</b> ${stats.total} | <b>Open:</b> ${stats.open} | <b>Closed:</b> ${stats.closed}`,
+    `<b>Win:</b> ${stats.wins} | <b>Loss:</b> ${stats.losses} | <b>BE:</b> ${stats.be}`,
+    `<b>Win Rate:</b> ${stats.winRate}%`,
+    "",
+    rows
+  ].join("\n");
+}
+
+function buildHistoryStats(list) {
+  const closed = list.filter((x) => x.status === "CLOSED");
+  const wins = closed.filter((x) => x.result === "WIN").length;
+  const losses = closed.filter((x) => x.result === "LOSS").length;
+  const be = closed.filter((x) => x.result === "BE").length;
+  const totalClosed = closed.length;
+  const winRate = totalClosed > 0 ? Number(((wins / totalClosed) * 100).toFixed(1)) : 0;
+  const open = list.filter((x) => x.status !== "CLOSED").length;
+  return { total: list.length, open, closed: totalClosed, wins, losses, be, winRate };
+}
+
 
 async function buildStatusMessage(env) {
   const dbUrl = (env.FIREBASE_DATABASE_URL || "").replace(/\/$/, "");
