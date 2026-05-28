@@ -1,52 +1,48 @@
-# XAU Multi-user Telegram Alert Step 3 Full Fix
+# XAU Admin Panel Advanced Step 4 Full Fix
 
-Step 3:
-- MAIN CALL valid sekarang dikirim ke banyak Telegram user premium/admin.
-- Sistem tetap mengirim ke chat utama lama dari ENV TELEGRAM_CHAT_ID.
-- Sistem juga mengirim ke semua user yang:
-  - role = premium dan premiumUntil masih aktif
-  - atau role = admin
-  - status active
-  - telegramConnected = true
-  - telegramChatId ada
+Step 4:
+- Admin Panel lanjutan untuk management premium.
 
-Flow:
-1. User premium connect Telegram di Step 2.
-2. users/{uid}/telegramConnected = true.
-3. MAIN CALL BUY/SELL valid muncul.
-4. /api/signal memanggil maybeSendTelegramAlert.
-5. Alert dikirim ke:
-   - TELEGRAM_CHAT_ID default jika ada
-   - semua premium/admin connected users
-6. Duplicate alert dicegah pakai alertKey:
-   pair + signal + callStage + candleTime.
+Fitur baru:
+- Statistik user:
+  - Total User
+  - Premium Active
+  - Expired
+  - Admin
+  - Telegram Connected
+  - Free
+- Filter:
+  - All Role
+  - Free
+  - Premium Active
+  - Premium Expired
+  - Admin
+  - Telegram Connected / Not Connected
+- Custom premium:
+  - +7D
+  - +30D
+  - +Custom Days
+  - Set custom expired date
+- Telegram status per user:
+  - Connected / Not Connected
+  - username / chat id saved
+- Broadcast Telegram:
+  - Premium/Admin Connected
+  - All Connected
+  - Admin Connected
 
-Delivery log:
-- Disimpan di:
-  xauusd/telegram/deliveryLogs/{alertKey}/{chatId}
-- Last alert:
-  xauusd/telegram/lastAlert
+Endpoint baru:
+- POST /api/admin-broadcast-telegram
 
-Return JSON /api/signal sekarang berisi:
-telegram: {
-  ok,
-  mode: "multi-user-premium-alert",
-  totalRecipients,
-  successCount,
-  failedCount,
-  recipients
-}
+Log broadcast:
+- xauusd/telegram/broadcastLogs/{date}
 
 ENV wajib:
-- TELEGRAM_BOT_TOKEN
+- ADMIN_ACTION_TOKEN
 - FIREBASE_DATABASE_URL
-
-ENV opsional:
-- TELEGRAM_CHAT_ID
-  Tetap dipakai untuk chat/channel utama lama.
+- TELEGRAM_BOT_TOKEN untuk broadcast
 
 Catatan:
-- User expired otomatis tidak dapat alert.
-- User free tidak dapat alert.
-- User belum connect Telegram tidak dapat alert.
+- Step 3 multi-user alert tetap jalan.
 - MQ5 tidak perlu update.
+- Payment gateway belum masuk, itu Step 6.

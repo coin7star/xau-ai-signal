@@ -1,6 +1,6 @@
 {
-  "name": "xau-ai-signal-multi-user-telegram-alert-step3",
-  "version": "5.5.0",
+  "name": "xau-ai-signal-admin-panel-advanced-step4",
+  "version": "5.6.0",
   "type": "module",
   "scripts": {
     "dev": "vite",

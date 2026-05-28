@@ -950,10 +950,33 @@ function AdminPanel({ adminToken, setAdminToken }) {
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState("");
   const [query, setQuery] = useState("");
+  const [roleFilter, setRoleFilter] = useState("all");
+  const [telegramFilter, setTelegramFilter] = useState("all");
+  const [customDays, setCustomDays] = useState(30);
+  const [customDate, setCustomDate] = useState("");
+  const [broadcastText, setBroadcastText] = useState("");
+  const [broadcastTarget, setBroadcastTarget] = useState("premium_connected");
+
+  const stats = useMemo(() => buildAdminStats(users), [users]);
 
   const filteredUsers = users.filter((user) => {
     const text = `${user.email || ""} ${user.uid || ""} ${user.role || ""}`.toLowerCase();
-    return text.includes(query.toLowerCase());
+    const matchSearch = text.includes(query.toLowerCase());
+    const role = user.role || "free";
+    const premiumActive = isAdminPremiumActive(user);
+    const expired = role === "premium" && !premiumActive;
+
+    let matchRole = true;
+    if (roleFilter === "free") matchRole = role === "free";
+    if (roleFilter === "premium") matchRole = role === "premium" && premiumActive;
+    if (roleFilter === "expired") matchRole = expired;
+    if (roleFilter === "admin") matchRole = role === "admin";
+
+    let matchTelegram = true;
+    if (telegramFilter === "connected") matchTelegram = Boolean(user.telegramConnected && user.telegramChatId);
+    if (telegramFilter === "not_connected") matchTelegram = !user.telegramConnected || !user.telegramChatId;
+
+    return matchSearch && matchRole && matchTelegram;
   });
 
   useEffect(() => {
@@ -996,7 +1019,7 @@ function AdminPanel({ adminToken, setAdminToken }) {
     }
   }
 
-  async function updateUser(user, role, premiumDays = 0) {
+  async function updateUser(user, role, premiumDays = 0, premiumUntil = "") {
     if (!adminToken) {
       setMessage("Isi ADMIN_ACTION_TOKEN dulu.");
       return;
@@ -1012,9 +1035,8 @@ function AdminPanel({ adminToken, setAdminToken }) {
         role
       };
 
-      if (premiumDays > 0) {
-        body.premiumDays = premiumDays;
-      }
+      if (premiumDays > 0) body.premiumDays = premiumDays;
+      if (premiumUntil) body.premiumUntil = premiumUntil;
 
       const res = await fetch("/api/admin-user", {
         method: "POST",
@@ -1041,20 +1063,91 @@ function AdminPanel({ adminToken, setAdminToken }) {
     }
   }
 
+  async function broadcastTelegram() {
+    if (!adminToken) {
+      setMessage("Isi ADMIN_ACTION_TOKEN dulu.");
+      return;
+    }
+
+    if (!broadcastText.trim()) {
+      setMessage("Isi pesan broadcast dulu.");
+      return;
+    }
+
+    setBusy(true);
+    setMessage("");
+
+    try {
+      const res = await fetch("/api/admin-broadcast-telegram", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${adminToken}`
+        },
+        body: JSON.stringify({
+          token: adminToken,
+          text: broadcastText,
+          target: broadcastTarget
+        })
+      });
+
+      const json = await res.json();
+
+      if (!json.ok) {
+        setMessage(json.error || "Broadcast gagal.");
+        return;
+      }
+
+      setMessage(`Broadcast selesai. Success ${json.successCount}/${json.totalRecipients}, failed ${json.failedCount}.`);
+    } catch (err) {
+      setMessage(err.message || String(err));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  function applyCustomDays(user) {
+    const days = Number(customDays || 0);
+    if (!days || days < 1) {
+      setMessage("Custom days minimal 1.");
+      return;
+    }
+    updateUser(user, "premium", days);
+  }
+
+  function applyCustomDate(user) {
+    if (!customDate) {
+      setMessage("Isi custom date dulu.");
+      return;
+    }
+
+    const until = new Date(`${customDate}T23:59:59.000Z`).toISOString();
+    updateUser(user, "premium", 0, until);
+  }
+
   return (
     <section className="adminPanel card">
       <div className="sectionTitle">
         <div>
-          <span className="pill mini"><Settings size={14} /> ADMIN PANEL</span>
-          <h3>Premium User Management</h3>
-          <span>Atur role FREE / PREMIUM / ADMIN tanpa edit Firebase manual.</span>
+          <span className="pill mini"><Settings size={14} /> ADMIN PANEL STEP 4</span>
+          <h3>Advanced Premium Management</h3>
+          <span>Filter user, custom premium, Telegram status, dan broadcast ke premium connected.</span>
         </div>
         <button type="button" onClick={loadUsers} disabled={busy}>
           <RefreshCcw size={16} className={busy ? "spin" : ""} /> Refresh Users
         </button>
       </div>
 
-      <div className="adminControls">
+      <div className="adminStatsGrid">
+        <AdminStat label="Total User" value={stats.total} />
+        <AdminStat label="Premium Active" value={stats.premiumActive} />
+        <AdminStat label="Expired" value={stats.expired} />
+        <AdminStat label="Admin" value={stats.admin} />
+        <AdminStat label="Telegram Connected" value={stats.telegramConnected} />
+        <AdminStat label="Free" value={stats.free} />
+      </div>
+
+      <div className="adminControls advanced">
         <label>
           Admin Token
           <input
@@ -1072,29 +1165,96 @@ function AdminPanel({ adminToken, setAdminToken }) {
             placeholder="Cari email / UID / role"
           />
         </label>
+        <label>
+          Role Filter
+          <select value={roleFilter} onChange={(event) => setRoleFilter(event.target.value)}>
+            <option value="all">All Role</option>
+            <option value="free">Free</option>
+            <option value="premium">Premium Active</option>
+            <option value="expired">Premium Expired</option>
+            <option value="admin">Admin</option>
+          </select>
+        </label>
+        <label>
+          Telegram Filter
+          <select value={telegramFilter} onChange={(event) => setTelegramFilter(event.target.value)}>
+            <option value="all">All Telegram</option>
+            <option value="connected">Connected</option>
+            <option value="not_connected">Not Connected</option>
+          </select>
+        </label>
+      </div>
+
+      <div className="adminCustomTools">
+        <label>
+          Custom Premium Days
+          <input
+            type="number"
+            min="1"
+            value={customDays}
+            onChange={(event) => setCustomDays(event.target.value)}
+          />
+        </label>
+        <label>
+          Custom Expired Date
+          <input
+            type="date"
+            value={customDate}
+            onChange={(event) => setCustomDate(event.target.value)}
+          />
+        </label>
+      </div>
+
+      <div className="adminBroadcastBox">
+        <div>
+          <span className="pill mini"><Bot size={14} /> BROADCAST</span>
+          <h4>Broadcast Telegram</h4>
+          <p>Kirim pesan ke user Telegram yang sudah connect. Pakai ini untuk pengumuman maintenance, update strategi, atau promo.</p>
+        </div>
+        <select value={broadcastTarget} onChange={(event) => setBroadcastTarget(event.target.value)}>
+          <option value="premium_connected">Premium/Admin Connected</option>
+          <option value="all_connected">All Connected</option>
+          <option value="admin_connected">Admin Connected</option>
+        </select>
+        <textarea
+          value={broadcastText}
+          onChange={(event) => setBroadcastText(event.target.value)}
+          placeholder="Contoh: XAU AI update malam ini. Alert tetap aktif, dashboard maintenance 5 menit."
+        />
+        <button type="button" onClick={broadcastTelegram} disabled={busy}>
+          Send Broadcast
+        </button>
       </div>
 
       {message && <div className="adminMessage">{message}</div>}
 
-      <div className="adminTable">
-        <div className="adminHead">
+      <div className="adminTable advanced">
+        <div className="adminHead advanced">
           <span>User</span>
           <span>Role</span>
-          <span>Premium Until</span>
+          <span>Premium</span>
+          <span>Telegram</span>
           <span>Action</span>
         </div>
 
         {filteredUsers.map((user) => (
-          <div className="adminRow" key={user.uid}>
+          <div className="adminRow advanced" key={user.uid}>
             <div>
               <strong>{user.email || "-"}</strong>
               <small>{user.uid}</small>
+              <small>Created: {formatShortDateTime(user.createdAt)}</small>
             </div>
-            <b className={`roleBadge ${user.role || "free"}`}>{(user.role || "free").toUpperCase()}</b>
+            <b className={`roleBadge ${user.role || "free"}`}>{getRoleStatusLabel(user)}</b>
             <span>{formatPremiumUntil(user)}</span>
-            <div className="adminActions">
-              <button type="button" onClick={() => updateUser(user, "premium", 7)}>Premium 7D</button>
-              <button type="button" onClick={() => updateUser(user, "premium", 30)}>Premium 30D</button>
+            <div className={`telegramMiniStatus ${user.telegramConnected ? "connected" : ""}`}>
+              <b>{user.telegramConnected ? "Connected" : "Not Connected"}</b>
+              <small>{user.telegramUsername ? `@${user.telegramUsername}` : user.telegramChatId ? "Chat ID saved" : "-"}</small>
+            </div>
+            <div className="adminActions advanced">
+              <button type="button" onClick={() => updateUser(user, "premium", 7)}>+7D</button>
+              <button type="button" onClick={() => updateUser(user, "premium", 30)}>+30D</button>
+              <button type="button" onClick={() => applyCustomDays(user)}>+Custom Days</button>
+              <button type="button" onClick={() => applyCustomDate(user)}>Set Date</button>
               <button type="button" onClick={() => updateUser(user, "free")}>Free</button>
               <button type="button" onClick={() => updateUser(user, "admin")}>Admin</button>
             </div>
@@ -1102,11 +1262,59 @@ function AdminPanel({ adminToken, setAdminToken }) {
         ))}
 
         {!filteredUsers.length && (
-          <div className="emptyHistory">Belum ada user atau token admin belum diisi.</div>
+          <div className="emptyHistory">Belum ada user sesuai filter, atau token admin belum diisi.</div>
         )}
       </div>
     </section>
   );
+}
+
+function AdminStat({ label, value }) {
+  return (
+    <div className="adminStatCard">
+      <span>{label}</span>
+      <b>{value}</b>
+    </div>
+  );
+}
+
+function buildAdminStats(users) {
+  const stats = {
+    total: users.length,
+    free: 0,
+    premiumActive: 0,
+    expired: 0,
+    admin: 0,
+    telegramConnected: 0
+  };
+
+  users.forEach((user) => {
+    if (user.telegramConnected && user.telegramChatId) stats.telegramConnected += 1;
+    if (user.role === "admin") {
+      stats.admin += 1;
+    } else if (user.role === "premium") {
+      if (isAdminPremiumActive(user)) stats.premiumActive += 1;
+      else stats.expired += 1;
+    } else {
+      stats.free += 1;
+    }
+  });
+
+  return stats;
+}
+
+function isAdminPremiumActive(user) {
+  if (!user) return false;
+  if (user.role === "admin") return true;
+  if (user.role !== "premium") return false;
+  const until = user.premiumUntil || user.expiredAt || null;
+  if (!until) return false;
+  return new Date(until).getTime() > Date.now();
+}
+
+function getRoleStatusLabel(user) {
+  if (user.role === "premium" && !isAdminPremiumActive(user)) return "EXPIRED";
+  return (user.role || "free").toUpperCase();
 }
 
 
