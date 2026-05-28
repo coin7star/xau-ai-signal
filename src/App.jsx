@@ -372,7 +372,7 @@ function addObLines(series, linesRef, bullish, bearish) {
       lineWidth: 1,
       lineStyle: 2,
       axisLabelVisible: true,
-      title: "M15 Active Bull OB Low"
+      title: "M15 Bull OB Low"
     });
 
     const bullHigh = series.createPriceLine({
@@ -381,7 +381,7 @@ function addObLines(series, linesRef, bullish, bearish) {
       lineWidth: 1,
       lineStyle: 2,
       axisLabelVisible: true,
-      title: "M15 Active Bull OB High"
+      title: "M15 Bull OB High"
     });
 
     newLines.push({ series, line: bullLow }, { series, line: bullHigh });
@@ -394,7 +394,7 @@ function addObLines(series, linesRef, bullish, bearish) {
       lineWidth: 1,
       lineStyle: 2,
       axisLabelVisible: true,
-      title: "M15 Active Bear OB Low"
+      title: "M15 Bear OB Low"
     });
 
     const bearHigh = series.createPriceLine({
@@ -403,7 +403,7 @@ function addObLines(series, linesRef, bullish, bearish) {
       lineWidth: 1,
       lineStyle: 2,
       axisLabelVisible: true,
-      title: "M15 Active Bear OB High"
+      title: "M15 Bear OB High"
     });
 
     newLines.push({ series, line: bearLow }, { series, line: bearHigh });

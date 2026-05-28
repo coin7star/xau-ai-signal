@@ -397,22 +397,44 @@ function clean(candles) {
     .filter((c) => Number.isFinite(c.open) && Number.isFinite(c.high) && Number.isFinite(c.low) && Number.isFinite(c.close));
 }
 
+
 function detectSmcOrderBlockV2(candles) {
-  const data = candles.slice(-140);
+  const data = candles.slice(-180);
   const atr14 = atr(data, 14);
+
   const swings = detectSwings(data, 2);
   const bosEvents = detectBosEvents(data, swings, atr14);
+
   let bullish = null;
   let bearish = null;
 
+  // Method 1: SMC BOS klasik.
   for (const bos of bosEvents) {
     if (bos.type === "BULLISH_BOS") {
       const origin = findOriginCandle(data, bos.index, "bullish");
-      if (origin) bullish = buildObZone(data, bos, origin, "bullish", atr14);
+      if (origin) bullish = buildObZone(data, bos, origin, "bullish", atr14, "SMC_BOS");
     }
+
     if (bos.type === "BEARISH_BOS") {
       const origin = findOriginCandle(data, bos.index, "bearish");
-      if (origin) bearish = buildObZone(data, bos, origin, "bearish", atr14);
+      if (origin) bearish = buildObZone(data, bos, origin, "bearish", atr14, "SMC_BOS");
+    }
+  }
+
+  // Method 2: visual impulse breakout OB.
+  // Ini menangkap kasus seperti screenshot:
+  // candle terakhir sebelum impulse naik/turun yang break resistance/support terdekat.
+  const impulseOb = detectImpulseBreakoutOrderBlock(data, atr14);
+
+  if (impulseOb?.bullish) {
+    if (!bullish || timeToNum(impulseOb.bullish.bosTime) >= timeToNum(bullish.bosTime || bullish.originTime)) {
+      bullish = impulseOb.bullish;
+    }
+  }
+
+  if (impulseOb?.bearish) {
+    if (!bearish || timeToNum(impulseOb.bearish.bosTime) >= timeToNum(bearish.bosTime || bearish.originTime)) {
+      bearish = impulseOb.bearish;
     }
   }
 
@@ -420,14 +442,113 @@ function detectSmcOrderBlockV2(candles) {
   bearish = bearish ? updateObStatus(data, bearish, "bearish", atr14) : null;
 
   return {
-    version: "SMC_OB_V2_M15",
+    version: "SMC_OB_V3_IMPULSE_BREAKOUT",
     timeframe: "M15",
     swingLookback: 2,
     bosCount: bosEvents.length,
-    lastBos: bosEvents[bosEvents.length - 1] || null,
+    lastBos: bosEvents[bosEvents.length - 1] || impulseOb?.lastBreakout || null,
     bullish,
     bearish
   };
+}
+
+function detectImpulseBreakoutOrderBlock(data, atr14) {
+  let bullish = null;
+  let bearish = null;
+  let lastBreakout = null;
+
+  // Mulai dari candle ke-25 supaya ada cukup resistance/support history.
+  for (let i = 25; i < data.length; i++) {
+    const c = data[i];
+    const prevWindow = data.slice(Math.max(0, i - 20), i);
+    if (prevWindow.length < 10) continue;
+
+    const recentHigh = Math.max(...prevWindow.map((x) => x.high));
+    const recentLow = Math.min(...prevWindow.map((x) => x.low));
+    const body = Math.abs(c.close - c.open);
+    const range = Math.max(0.01, c.high - c.low);
+
+    const isStrongBull = c.close > c.open && body >= atr14 * 0.35 && body / range >= 0.45;
+    const isStrongBear = c.close < c.open && body >= atr14 * 0.35 && body / range >= 0.45;
+
+    const bullishBreak = isStrongBull && c.close > recentHigh + atr14 * 0.03;
+    const bearishBreak = isStrongBear && c.close < recentLow - atr14 * 0.03;
+
+    if (bullishBreak) {
+      const origin = findLastOppositeOrigin(data, i, "bullish", atr14);
+      if (origin) {
+        const bos = {
+          type: "BULLISH_BREAKOUT",
+          index: i,
+          time: c.time,
+          breakPrice: round(recentHigh),
+          close: round(c.close),
+          brokenSwingTime: null
+        };
+        bullish = buildObZone(data, bos, origin, "bullish", atr14, "IMPULSE_BREAKOUT");
+        lastBreakout = bos;
+      }
+    }
+
+    if (bearishBreak) {
+      const origin = findLastOppositeOrigin(data, i, "bearish", atr14);
+      if (origin) {
+        const bos = {
+          type: "BEARISH_BREAKOUT",
+          index: i,
+          time: c.time,
+          breakPrice: round(recentLow),
+          close: round(c.close),
+          brokenSwingTime: null
+        };
+        bearish = buildObZone(data, bos, origin, "bearish", atr14, "IMPULSE_BREAKOUT");
+        lastBreakout = bos;
+      }
+    }
+  }
+
+  return { bullish, bearish, lastBreakout };
+}
+
+function findLastOppositeOrigin(data, breakIndex, direction, atr14) {
+  const start = Math.max(0, breakIndex - 16);
+  const end = breakIndex - 1;
+  let best = null;
+
+  for (let i = end; i >= start; i--) {
+    const c = data[i];
+    const body = Math.abs(c.close - c.open);
+    const range = Math.max(0.01, c.high - c.low);
+    const bodyRatio = body / range;
+
+    // Bullish OB = candle bearish terakhir sebelum impulse bullish.
+    if (direction === "bullish" && c.close < c.open) {
+      best = { ...c, bodyRatio: round(bodyRatio), originIndex: i };
+      break;
+    }
+
+    // Bearish OB = candle bullish terakhir sebelum impulse bearish.
+    if (direction === "bearish" && c.close > c.open) {
+      best = { ...c, bodyRatio: round(bodyRatio), originIndex: i };
+      break;
+    }
+  }
+
+  // Fallback kalau tidak ada candle opposite yang jelas:
+  // ambil candle kecil sebelum impulse sebagai base.
+  if (!best) {
+    for (let i = end; i >= start; i--) {
+      const c = data[i];
+      const range = Math.max(0.01, c.high - c.low);
+      const body = Math.abs(c.close - c.open);
+      if (body <= atr14 * 0.45 || body / range <= 0.45) {
+        best = { ...c, bodyRatio: round(body / range), originIndex: i };
+        break;
+      }
+    }
+  }
+
+  return best;
 }
 
 function detectSwings(data, wing = 2) {
@@ -460,33 +581,56 @@ function detectBosEvents(data, swings, atr14) {
     const c = data[i];
 
     if (lastHigh && i > lastHigh.index + 1 && c.close > lastHigh.price + atr14 * 0.05) {
-      events.push({ type: "BULLISH_BOS", index: i, time: c.time, breakPrice: round(lastHigh.price), close: round(c.close), brokenSwingTime: lastHigh.time });
+      events.push({
+        type: "BULLISH_BOS",
+        index: i,
+        time: c.time,
+        breakPrice: round(lastHigh.price),
+        close: round(c.close),
+        brokenSwingTime: lastHigh.time
+      });
       lastHigh = null;
     }
 
     if (lastLow && i > lastLow.index + 1 && c.close < lastLow.price - atr14 * 0.05) {
-      events.push({ type: "BEARISH_BOS", index: i, time: c.time, breakPrice: round(lastLow.price), close: round(c.close), brokenSwingTime: lastLow.time });
+      events.push({
+        type: "BEARISH_BOS",
+        index: i,
+        time: c.time,
+        breakPrice: round(lastLow.price),
+        close: round(c.close),
+        brokenSwingTime: lastLow.time
+      });
       lastLow = null;
     }
   }
+
   return events;
 }
 
 function findOriginCandle(data, bosIndex, direction) {
   const start = Math.max(0, bosIndex - 12);
   const end = bosIndex - 1;
+
   for (let i = end; i >= start; i--) {
     const c = data[i];
     const body = Math.abs(c.close - c.open);
     const range = Math.max(0.01, c.high - c.low);
     const bodyRatio = body / range;
-    if (direction === "bullish" && c.close < c.open) return { ...c, bodyRatio: round(bodyRatio), originIndex: i };
-    if (direction === "bearish" && c.close > c.open) return { ...c, bodyRatio: round(bodyRatio), originIndex: i };
+
+    if (direction === "bullish" && c.close < c.open) {
+      return { ...c, bodyRatio: round(bodyRatio), originIndex: i };
+    }
+
+    if (direction === "bearish" && c.close > c.open) {
+      return { ...c, bodyRatio: round(bodyRatio), originIndex: i };
+    }
   }
+
   return null;
 }
 
-function buildObZone(data, bos, origin, direction, atr14) {
+function buildObZone(data, bos, origin, direction, atr14, method = "SMC_BOS") {
   const displacement = Math.abs(data[bos.index].close - origin.close);
   const displacementAtr = displacement / Math.max(0.01, atr14);
   const strength = Math.min(95, Math.max(45, 45 + displacementAtr * 14 + origin.bodyRatio * 20));
@@ -495,6 +639,7 @@ function buildObZone(data, bos, origin, direction, atr14) {
     type: direction === "bullish" ? "Bullish OB M15" : "Bearish OB M15",
     direction,
     timeframe: "M15",
+    method,
     low: round(origin.low),
     high: round(origin.high),
     originTime: origin.time,
@@ -506,7 +651,7 @@ function buildObZone(data, bos, origin, direction, atr14) {
     invalidated: false,
     fresh: true,
     strength: round(strength),
-    reason: `${bos.type} M15 setelah origin candle ${direction === "bullish" ? "bearish" : "bullish"}`
+    reason: `${bos.type} M15 ${method} setelah origin candle ${direction === "bullish" ? "bearish/base" : "bullish/base"}`
   };
 }
 
@@ -517,28 +662,41 @@ function updateObStatus(data, ob, direction, atr14) {
   let mitigatedTime = null;
   let invalidatedTime = null;
 
-  // Fresh OB dihitung setelah BOS selesai, bukan sejak origin candle.
-  // Jadi candle displacement/BOS tidak langsung bikin OB dianggap mitigated.
+  const low = Number(ob.low);
+  const high = Number(ob.high);
+  const mid = (low + high) / 2;
+
   const afterBos = data.filter((c) => timeToNum(c.time) > timeToNum(ob.bosTime));
 
   for (const c of afterBos) {
-    const touched = c.low <= ob.high && c.high >= ob.low;
+    if (direction === "bullish") {
+      const retracedToHalfOb = c.low <= mid;
 
-    if (touched) {
-      mitigated = true;
-      mitigatedTime = mitigatedTime || c.time;
+      if (retracedToHalfOb) {
+        mitigated = true;
+        mitigatedTime = mitigatedTime || c.time;
+      }
+
+      if (c.close < low - atr14 * 0.1) {
+        invalidated = true;
+        invalidatedTime = c.time;
+        break;
+      }
     }
 
-    if (direction === "bullish" && c.close < ob.low - atr14 * 0.1) {
-      invalidated = true;
-      invalidatedTime = c.time;
-      break;
-    }
+    if (direction === "bearish") {
+      const retracedToHalfOb = c.high >= mid;
 
-    if (direction === "bearish" && c.close > ob.high + atr14 * 0.1) {
-      invalidated = true;
-      invalidatedTime = c.time;
-      break;
+      if (retracedToHalfOb) {
+        mitigated = true;
+        mitigatedTime = mitigatedTime || c.time;
+      }
+
+      if (c.close > high + atr14 * 0.1) {
+        invalidated = true;
+        invalidatedTime = c.time;
+        break;
+      }
     }
   }
 
@@ -553,10 +711,10 @@ function updateObStatus(data, ob, direction, atr14) {
     invalidated,
     mitigatedTime,
     invalidatedTime,
-    fresh: status === "active"
+    fresh: status === "active",
+    mitigationRule: "50pct_ob_retrace_after_bos"
   };
 }
-
 
 
 function timeToNum(value) {

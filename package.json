@@ -1,6 +1,6 @@
 {
-  "name": "xau-ai-signal-ob-mitigation-50pct",
-  "version": "2.6.0",
+  "name": "xau-ai-signal-ob-impulse-breakout",
+  "version": "2.7.0",
   "type": "module",
   "scripts": {
     "dev": "vite",
