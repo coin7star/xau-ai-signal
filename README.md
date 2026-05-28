@@ -1,29 +1,33 @@
-# XAU Telegram Disable Old Commands Hardfix
+# XAU Telegram Webhook Clean Rebuild Full Fix
 
-Masalah:
-- /signal masih membalas data panjang walaupun sudah deploy command clean.
-- Penyebab: routing webhook lama masih kepakai.
+Masalah sebelumnya:
+- Deploy gagal karena telegram-webhook.js error:
+  Unexpected ")" line 57.
+- Itu karena sisa patch function lama nyangkut.
 
-Hardfix:
-- onRequest telegram-webhook.js diganti total.
-- Command aktif:
-  /start
-  /status
-  /help
+Fix:
+- functions/api/telegram-webhook.js diganti full clean file.
+- Syntax sudah dicek dengan node --check:
+  OK
+
+Command aktif:
+- /start
+- /status
+- /help
 
 Command lama:
-  /signal
-  /history
-  /scalp_history
-  /scalphistory
+- /signal
+- /history
+- /scalp_history
+- /scalphistory
 
-Sekarang command lama TIDAK membaca Firebase / RTDB lagi.
+Sekarang command lama tidak membaca RTDB/Firebase lagi.
 Command lama cuma redirect ke tombol Mini App:
 🚀 Open XAU AI Dashboard
 
 Auto alert:
-- MAIN CALL alert tetap jalan.
-- Update ini hanya mengubah balasan command manual.
+- MAIN CALL alert tetap jalan dari endpoint /api/signal.
+- File ini hanya handle command manual Telegram.
 
 ENV opsional:
 DASHBOARD_URL=https://xau-ai-signal.pages.dev
@@ -41,12 +45,8 @@ File berubah:
 - package.json
 
 Cara pakai:
-1. Upload replace semua file ke GitHub.
+1. Upload replace semua ke GitHub.
 2. Commit changes.
-3. Tunggu Cloudflare deploy sukses.
-4. Test:
-   /signal
-   /history
-   /scalp_history
-
-Harusnya tidak muncul Signal Radar panjang lagi.
+3. Tunggu Cloudflare deploy.
+4. Test /signal.
+5. Harusnya cuma redirect ke dashboard, bukan Signal Radar panjang.
