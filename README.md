@@ -1,16 +1,26 @@
-# XAU AI Signal Gen Z
+# XAU AI Signal Firebase Full Fix
 
-Cloudflare Pages + Functions + KV + Groq AI + MT5 poller.
+Versi ini mengganti Cloudflare KV jadi Firebase Realtime Database.
 
-Build settings Cloudflare Pages:
+Flow:
+MT5 -> Cloudflare Pages Functions -> Firebase RTDB -> Web Dashboard
+
+Cloudflare Pages:
 - Framework preset: None
 - Build command: npm run build
 - Build output directory: dist
 - Root directory: kosong
 
-ENV optional:
-- AI_API_KEY
-- AI_MODEL
+ENV wajib:
+- FIREBASE_DATABASE_URL
+- MT5_INGEST_TOKEN
 
-KV binding optional:
-- SIGNALS_KV
+Firebase Realtime Database rules demo:
+{
+  "rules": {
+    "xauusd": {
+      ".read": true,
+      ".write": true
+    }
+  }
+}

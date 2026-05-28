@@ -1,7 +1,6 @@
 {
-  "name": "xau-ai-signal-genz",
-  "version": "1.1.0",
-  "private": true,
+  "name": "xau-ai-signal-firebase",
+  "version": "1.2.0",
   "type": "module",
   "scripts": {
     "dev": "vite",
@@ -13,7 +12,8 @@
     "vite": "latest",
     "react": "latest",
     "react-dom": "latest",
-    "lucide-react": "latest"
+    "lucide-react": "latest",
+    "recharts": "latest"
   },
   "devDependencies": {}
 }
