@@ -108,7 +108,7 @@ function buildHelpMessage() {
     "/status - status koneksi",
     "/help - bantuan",
     "",
-    "<i>Bukan financial advice.</i>"
+    "<i>Demo first. XAUUSD galak, risk management wajib.</i>"
   ].join("\n");
 }
 
@@ -218,33 +218,33 @@ async function buildSignalMessage(env) {
   const emoji = signal.signal === "BUY" ? "🟢" : signal.signal === "SELL" ? "🔴" : signal.callStage === "READY" ? "🟡" : "⚪";
 
   return [
-    `${emoji} <b>XAUUSD Latest Signal</b>`,
+    `${emoji} <b>XAUUSD Signal Radar</b>`,
     "",
-    `<b>Status:</b> ${escapeHtml(signal.signalLabel || signal.signal)} (${escapeHtml(signal.callStage)})`,
-    `<b>Confidence:</b> ${signal.confidence}%`,
-    `<b>Entry:</b> ${signal.entry}`,
-    `<b>SL:</b> ${signal.sl || "-"}`,
-    `<b>TP:</b> ${signal.tp || "-"}`,
+    `<b>Status:</b> ${escapeHtml(signal.signalLabel || signal.signal)} · ${escapeHtml(signal.callStage)}`,
+    `<b>Main Confidence:</b> ${signal.confidence}%`,
+    `<b>Area Entry:</b> ${signal.entry}`,
+    `<b>Safety SL:</b> ${signal.sl || "-"}`,
+    `<b>Target TP:</b> ${signal.tp || "-"}`,
     "",
-    `<b>RSI:</b> ${s.rsi ?? "-"} | <b>MFI:</b> ${s.mfi ?? "-"}`,
-    `<b>EMA9/20:</b> ${s.ema9 ?? "-"} / ${s.ema20 ?? "-"}`,
-    `<b>EMA:</b> ${escapeHtml(humanize(s.emaCross))}`,
+    `<b>Momentum:</b> RSI ${s.rsi ?? "-"} · MFI ${s.mfi ?? "-"}`,
+    `<b>Trend EMA 9/20:</b> ${s.ema9 ?? "-"} / ${s.ema20 ?? "-"}`,
+    `<b>EMA Status:</b> ${escapeHtml(humanize(s.emaCross))}`,
     "",
-    `<b>Scalping M1:</b> ${escapeHtml(s.scalping?.label || "SCALP WAIT")} (${s.scalping?.confidence || 0}%)`,
-    `Entry ${s.scalping?.entry || "-"} | SL ${s.scalping?.sl || "-"} | TP ${s.scalping?.tp || "-"}`,
-    `Reason: ${escapeHtml(s.scalping?.reason || "Menunggu momentum M1.")}`,
+    `⚡ <b>M1 Scalping:</b> ${escapeHtml(s.scalping?.label || "SCALP WAIT")} · ${s.scalping?.confidence || 0}%`,
+    `Quick plan: Entry ${s.scalping?.entry || "-"} · SL ${s.scalping?.sl || "-"} · TP ${s.scalping?.tp || "-"}`,
+    `Note: ${escapeHtml(s.scalping?.reason || "M1 belum kasih momentum yang cakep.")}`,
     "",
-    `<b>Fresh OB M15:</b>`,
-    `Bullish: ${escapeHtml(formatOb(obBull))}`,
-    `Bearish: ${escapeHtml(formatOb(obBear))}`,
+    `🎯 <b>Fresh OB M15:</b>`,
+    `Demand/Bullish: ${escapeHtml(formatOb(obBull))}`,
+    `Supply/Bearish: ${escapeHtml(formatOb(obBear))}`,
     "",
-    `<b>Konfirmasi:</b>`,
-    `BUY: RSI ${c.rsiBuyOk ? "✅" : "❌"} | MFI ${c.mfiBuyOk ? "✅" : "❌"} | OB ${c.obBuyOk ? "✅" : "❌"}`,
-    `SELL: RSI ${c.rsiSellOk ? "✅" : "❌"} | MFI ${c.mfiSellOk ? "✅" : "❌"} | OB ${c.obSellOk ? "✅" : "❌"}`,
+    `✅ <b>Checklist Setup:</b>`,
+    `BUY side: RSI ${c.rsiBuyOk ? "✅" : "❌"} · MFI ${c.mfiBuyOk ? "✅" : "❌"} · OB ${c.obBuyOk ? "✅" : "❌"}`,
+    `SELL side: RSI ${c.rsiSellOk ? "✅" : "❌"} · MFI ${c.mfiSellOk ? "✅" : "❌"} · OB ${c.obSellOk ? "✅" : "❌"}`,
     "",
-    `<b>Reason:</b> ${escapeHtml(signal.reason || "-")}`,
+    `🧠 <b>Main AI Note:</b> ${escapeHtml(signal.reason || "-")}`,
     "",
-    "<i>Bukan financial advice.</i>"
+    "<i>Demo first. XAUUSD galak, risk management wajib.</i>"
   ].join("\n");
 }
 
@@ -573,22 +573,21 @@ function buildScalpReason(action, buyScore, sellScore, checklist) {
   const sell = Math.round(sellScore);
   const dominant = buy >= sell ? "BUY" : "SELL";
   const dominantScore = Math.max(buy, sell);
-  const triggerText = "Trigger minimal 58/100 untuk muncul SCALP BUY/SELL.";
-  const confirmations = checklist.length ? checklist.slice(0, 4).join(", ") : "konfirmasi belum kuat";
+  const confirmations = checklist.length ? checklist.slice(0, 4).join(" • ") : "belum ada konfirmasi kuat";
 
   if (action === "SCALP_BUY") {
-    return `Scalp Bias: BUY kuat. BUY Strength ${buy}/100, SELL Strength ${sell}/100. Status sudah valid SCALP BUY. Konfirmasi: ${confirmations}.`;
+    return `🚀 M1 scalp lagi gas ke BUY. BUY power ${buy}/100 vs SELL ${sell}/100. Setup sudah valid buat SCALP BUY, tapi tetap pakai risk tipis. Konfirmasi: ${confirmations}.`;
   }
 
   if (action === "SCALP_SELL") {
-    return `Scalp Bias: SELL kuat. SELL Strength ${sell}/100, BUY Strength ${buy}/100. Status sudah valid SCALP SELL. Konfirmasi: ${confirmations}.`;
+    return `🔻 M1 scalp lagi berat ke SELL. SELL power ${sell}/100 vs BUY ${buy}/100. Setup sudah valid buat SCALP SELL, jangan lupa jaga SL. Konfirmasi: ${confirmations}.`;
   }
 
   if (dominantScore >= 45) {
-    return `Scalp Bias: ${dominant} mulai terbentuk, tapi belum valid entry. BUY Strength ${buy}/100, SELL Strength ${sell}/100. ${triggerText} Konfirmasi saat ini: ${confirmations}.`;
+    return `👀 Bias M1 mulai condong ${dominant}, tapi belum cukup matang buat entry. BUY power ${buy}/100, SELL power ${sell}/100. Tunggu power minimal 58/100 biar keluar SCALP BUY/SELL. Yang kebaca: ${confirmations}.`;
   }
 
-  return `Scalp Bias: belum jelas. BUY Strength ${buy}/100, SELL Strength ${sell}/100. ${triggerText} Tunggu momentum M1 lebih kuat.`;
+  return `😴 M1 masih kalem, belum ada momentum cakep. BUY power ${buy}/100, SELL power ${sell}/100. Tunggu candle yang lebih niat dulu, jangan maksa entry.`;
 }
 
 

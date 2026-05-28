@@ -1,32 +1,27 @@
-# XAU Scalping Wording User Friendly Full Fix
+# XAU GenZ Telegram Copywriting Full Fix
 
-Masalah:
-- Teks sebelumnya: "BUY 32 vs SELL 14" bisa bikin user bingung.
-- User bisa salah paham itu jumlah order, padahal itu score internal.
+Update:
+- Wording Telegram /signal dibuat lebih enak dibaca dan tidak polos.
+- Wording scalping di web juga dibuat lebih user-friendly.
+- Teks BUY Strength / SELL Strength tetap ada, tapi dijelaskan dengan gaya lebih natural.
 
-Fix:
-- Teks scalping sekarang user-friendly:
-  - Scalp Bias: BUY mulai terbentuk / SELL mulai terbentuk / belum jelas
-  - BUY Strength xx/100
-  - SELL Strength xx/100
-  - Trigger minimal 58/100 untuk SCALP BUY/SELL
-  - Konfirmasi yang sedang aktif
-- Panel web ditambah:
-  - Scalp Strength xx/100
-- Telegram /signal ikut pakai wording baru.
+Contoh baru:
+- XAUUSD Signal Radar
+- M1 Scalping: SCALP WAIT · 45%
+- Bias M1 mulai condong BUY, tapi belum cukup matang buat entry.
+- Tunggu power minimal 58/100 biar keluar SCALP BUY/SELL.
+- Demo first. XAUUSD galak, risk management wajib.
 
 MQ5 tidak perlu update.
 
-File yang berubah:
-- functions/api/signal.js
+File berubah:
 - functions/api/telegram-webhook.js
+- functions/api/signal.js
 - src/App.jsx
-- src/style.css
 - package.json
 
 Cara pakai:
 1. Upload replace semua ke GitHub.
 2. Commit changes.
 3. Tunggu Cloudflare deploy sukses.
-4. Refresh web.
-5. Test Telegram /signal.
+4. Test Telegram /signal.

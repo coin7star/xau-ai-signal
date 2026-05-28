@@ -300,7 +300,7 @@ export default function App() {
       <section className={`scalpPanel card ${String(scalping.action || "WAIT").toLowerCase()}`}>
         <div className="strategyHeader">
           <div>
-            <span className="pill mini"><Zap size={14} /> M1 SCALPING MODE</span>
+            <span className="pill mini"><Zap size={14} /> M1 SCALP RADAR</span>
             <h3>{scalping.label || "SCALP WAIT"}</h3>
           </div>
           <div className={`biasBadge ${scalping.action === "SCALP_BUY" ? "buy" : scalping.action === "SCALP_SELL" ? "sell" : "wait"}`}>
@@ -309,15 +309,15 @@ export default function App() {
         </div>
 
         <div className="scalpGrid">
-          <Metric label="Scalp Entry" value={scalping.entry || "-"} note="Harga acuan kalau status SCALP valid" />
-          <Metric label="Scalp SL" value={scalping.sl || "-"} note="Stop loss cepat dari ATR + swing M1" />
+          <Metric label="Scalp Entry" value={scalping.entry || "-"} note="Area acuan kalau scalp sudah valid" />
+          <Metric label="Scalp SL" value={scalping.sl || "-"} note="Safety line dari ATR + swing M1" />
           <Metric label="Scalp TP" value={scalping.tp || "-"} note="Target cepat RR 1 : 1.25" />
-          <Metric label="EMA 5/13" value={`${scalping.ema5 || "-"} / ${scalping.ema13 || "-"}`} note="EMA cepat untuk baca momentum M1" />
+          <Metric label="EMA 5/13" value={`${scalping.ema5 || "-"} / ${scalping.ema13 || "-"}`} note="EMA cepat buat baca gas/rem M1" />
           <Metric label="Scalp Strength" value={`${scalping.score || 0}/100`} note="Minimal 58/100 untuk SCALP BUY/SELL" />
         </div>
 
         <p className="scalpReason">{scalping.reason}</p>
-        <p className="scalpWarning">Scalping ini sinyal cepat untuk pantauan. CALL utama tetap pakai RSI + MFI + EMA 9/20 + Fresh OB M15.</p>
+        <p className="scalpWarning">Mode scalp ini buat pantauan cepat. CALL utama tetap lebih saklek: RSI + MFI + EMA 9/20 + Fresh OB M15.</p>
       </section>
 
       <section className="historyPanel card">
