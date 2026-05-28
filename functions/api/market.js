@@ -1,32 +1,36 @@
-export async function onRequest(context) {
-  const { request, env } = context;
+const H = {
+  "Content-Type": "application/json",
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
+  "Access-Control-Allow-Headers": "Content-Type, Authorization"
+};
 
-  const headers = {
-    "Content-Type": "application/json",
-    "Access-Control-Allow-Origin": "*",
-    "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
-    "Access-Control-Allow-Headers": "Content-Type, Authorization"
-  };
-
+export async function onRequest({ request, env }) {
   if (request.method === "OPTIONS") {
-    return new Response(null, { status: 204, headers });
+    return new Response(null, { status: 204, headers: H });
   }
 
-  if (!env.SIGNALS_KV) {
-    return json({ ok: false, error: "KV binding SIGNALS_KV belum aktif" }, 500, headers);
+  const dbUrl = (env.FIREBASE_DATABASE_URL || "").replace(/\/$/, "");
+
+  if (!dbUrl) {
+    return j({
+      ok: false,
+      error: "ENV FIREBASE_DATABASE_URL belum diset"
+    }, 500);
   }
 
   if (request.method === "GET") {
-    const raw = await env.SIGNALS_KV.get("market:XAUUSD:latest");
-    if (!raw) {
-      return json({
+    const data = await fbGet(dbUrl, "/xauusd/latest");
+
+    if (!data) {
+      return j({
         ok: false,
         mode: "waiting-mt5-data",
-        message: "Belum ada data dari MT5. Jalankan EA XAU_Web_Data_Sender dulu."
-      }, 200, headers);
+        message: "Belum ada data MT5 di Firebase."
+      });
     }
 
-    return new Response(raw, { status: 200, headers });
+    return j(data);
   }
 
   if (request.method === "POST") {
@@ -34,23 +38,36 @@ export async function onRequest(context) {
 
     try {
       body = await request.json();
-    } catch (err) {
-      return json({ ok: false, error: "Body JSON tidak valid" }, 400, headers);
+    } catch {
+      return j({
+        ok: false,
+        error: "Body JSON tidak valid"
+      }, 400);
     }
 
-    const tokenFromMt5 = body.token || "";
-    const tokenFromEnv = env.MT5_INGEST_TOKEN || "";
+    const envToken = env.MT5_INGEST_TOKEN || "";
+    const mt5Token = body.token || "";
 
-    if (!tokenFromEnv) {
-      return json({ ok: false, error: "ENV MT5_INGEST_TOKEN belum diset di Cloudflare" }, 500, headers);
+    if (!envToken) {
+      return j({
+        ok: false,
+        error: "ENV MT5_INGEST_TOKEN belum diset"
+      }, 500);
     }
 
-    if (tokenFromMt5 !== tokenFromEnv) {
-      return json({ ok: false, error: "Unauthorized: token MT5 salah" }, 401, headers);
+    if (mt5Token !== envToken) {
+      return j({
+        ok: false,
+        error: "Unauthorized: token MT5 salah"
+      }, 401);
     }
 
     const symbol = body.symbol || "XAUUSD";
-    const data = {
+    const candles = Array.isArray(body.candles)
+      ? body.candles.slice(-300)
+      : [];
+
+    const payload = {
       ok: true,
       source: "mt5",
       symbol,
@@ -60,27 +77,56 @@ export async function onRequest(context) {
       digits: Number(body.digits || 2),
       serverTime: body.serverTime || null,
       receivedAt: new Date().toISOString(),
-      candles: Array.isArray(body.candles) ? body.candles.slice(-300) : []
+      candles
     };
 
-    await env.SIGNALS_KV.put("market:XAUUSD:latest", JSON.stringify(data));
-    await env.SIGNALS_KV.put(`market:${symbol}:latest`, JSON.stringify(data));
+    await fbPut(dbUrl, "/xauusd/latest", payload);
 
-    return json({
+    return j({
       ok: true,
-      message: "Market data saved to KV",
+      message: "Market data saved to Firebase",
       symbol,
-      candleCount: data.candles.length,
-      receivedAt: data.receivedAt
-    }, 200, headers);
+      candleCount: candles.length,
+      receivedAt: payload.receivedAt
+    });
   }
 
-  return json({ ok: false, error: `Method ${request.method} not allowed` }, 405, headers);
+  return j({
+    ok: false,
+    error: `Method ${request.method} not allowed`
+  }, 405);
 }
 
-function json(payload, status = 200, headers = {}) {
+async function fbGet(dbUrl, path) {
+  const res = await fetch(`${dbUrl}${path}.json`);
+
+  if (!res.ok) {
+    return null;
+  }
+
+  return await res.json();
+}
+
+async function fbPut(dbUrl, path, data) {
+  const res = await fetch(`${dbUrl}${path}.json`, {
+    method: "PUT",
+    headers: {
+      "Content-Type": "application/json"
+    },
+    body: JSON.stringify(data)
+  });
+
+  if (!res.ok) {
+    const text = await res.text();
+    throw new Error(`Firebase PUT failed: ${res.status} ${text}`);
+  }
+
+  return await res.json();
+}
+
+function j(payload, status = 200) {
   return new Response(JSON.stringify(payload, null, 2), {
     status,
-    headers
+    headers: H
   });
 }
