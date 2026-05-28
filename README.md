@@ -1,48 +1,28 @@
-# XAU Telegram Connect Step 2 Full Fix
+# XAU Telegram Connect Card Visible Fix
 
-Step 2:
-- Premium user bisa connect akun Telegram masing-masing.
-- Dashboard punya card Telegram Connect.
-- User generate kode dari web.
-- User kirim /connect KODE ke bot Telegram.
-- Bot simpan telegramChatId ke users/{uid}.
+Masalah:
+- Akun ADMIN/PREMIUM sudah masuk dashboard.
+- Tapi card Generate Connect Code tidak muncul di web.
 
-Endpoint baru:
-- GET /api/telegram-connect-code?uid=...
-- POST /api/telegram-connect-code
-- POST /api/telegram-disconnect
+Fix:
+- TelegramConnectPanel dipasang tegas tepat setelah navbar/header.
+- Card hanya muncul untuk role premium/admin.
+- Loader status Telegram dipanggil setelah user premium masuk.
+- Endpoint Step 2 tetap ada:
+  GET/POST /api/telegram-connect-code
+  POST /api/telegram-disconnect
 
-Command bot baru:
-- /connect KODE
-- /disconnect
-- /me
-
-Data baru di Firebase:
-- telegramConnectCodes/{code}
-- users/{uid}/telegramChatId
-- users/{uid}/telegramUsername
-- users/{uid}/telegramConnected
-- users/{uid}/telegramConnectedAt
-
-Flow test:
-1. Login dashboard sebagai user premium/admin.
-2. Scroll ke card Telegram Alert.
-3. Klik Generate Connect Code.
-4. Copy command /connect XAU-xxxxxx.
-5. Kirim command ke bot Telegram.
-6. Klik Refresh Status di dashboard.
-7. Status harus Connected.
+Cara test:
+1. Upload replace semua ke GitHub.
+2. Commit.
+3. Tunggu Cloudflare deploy.
+4. Login pakai akun admin/premium.
+5. Tepat di bawah navbar harus muncul card:
+   Connect Telegram Premium
+6. Klik Generate Connect Code.
+7. Kirim /connect XAU-xxxxxx ke bot.
+8. Klik Refresh Status.
 
 Catatan:
-- Step ini belum kirim auto alert ke semua premium user.
-- Multi-user Telegram alert lanjut Step 3.
-- Auto alert utama lama tetap aman.
-- MQ5 tidak perlu update.
-
-BotFather command list disarankan:
-start - Buka dashboard XAU AI
-connect - Hubungkan Telegram premium
-disconnect - Putuskan Telegram
-me - Cek koneksi Telegram
-status - Cek status bot
-help - Panduan penggunaan
+- Kalau card belum muncul, hard refresh browser / Mini App.
+- Multi-user alert tetap Step 3.

@@ -1,6 +1,6 @@
 {
-  "name": "xau-ai-signal-telegram-connect-step2",
-  "version": "5.4.0",
+  "name": "xau-ai-signal-telegram-connect-card-visible",
+  "version": "5.4.1",
   "type": "module",
   "scripts": {
     "dev": "vite",

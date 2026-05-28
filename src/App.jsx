@@ -443,6 +443,14 @@ export default function App() {
         </div>
       </header>
 
+      <TelegramConnectPanel
+        user={authUser}
+        profile={authProfile}
+        telegramConnect={telegramConnect}
+        onRefresh={loadTelegramConnectStatus}
+      />
+
+
       {isAdmin && showAdminPanel && (
         <AdminPanel adminToken={adminToken} setAdminToken={setAdminToken} />
       )}
