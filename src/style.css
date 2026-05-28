@@ -1169,3 +1169,35 @@
     align-items: flex-start;
   }
 }
+
+
+.premiumViewerNote {
+  margin: 14px 0;
+  padding: 13px 15px;
+  border-radius: 16px;
+  background: rgba(61,214,255,.10);
+  border: 1px solid rgba(61,214,255,.18);
+  color: #b9f3ff;
+  font-weight: 900;
+  line-height: 1.5;
+}
+
+/* Premium viewer mode: table lebih ringkas tanpa kolom ACTION */
+.historyHead.viewerMode,
+.historyRow.viewerMode {
+  grid-template-columns: 1fr 1fr 1fr 1fr 1fr;
+}
+
+.historyHead.adminMode,
+.historyRow.adminMode {
+  grid-template-columns: 1fr 1fr 1fr 1fr 1fr 1.35fr;
+}
+
+@media(max-width: 900px) {
+  .historyHead.viewerMode,
+  .historyRow.viewerMode,
+  .historyHead.adminMode,
+  .historyRow.adminMode {
+    grid-template-columns: 1fr;
+  }
+}

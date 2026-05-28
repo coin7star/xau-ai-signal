@@ -601,8 +601,8 @@ export default function App() {
       <section className="historyPanel card">
         <div className="sectionTitle">
           <div>
-            <h3>CALL History & Manual Win/Loss</h3>
-            <span>Auto-save saat CALL valid. Kamu bisa tandai hasil manual untuk track performa.</span>
+            <h3>{isAdmin ? "CALL History & Manual Win/Loss" : "CALL History & Performance"}</h3>
+            <span>{isAdmin ? "Auto-save saat CALL valid. Admin bisa tandai hasil manual untuk track performa." : "Riwayat CALL valid dan performa signal. Result hanya bisa diupdate oleh admin."}</span>
           </div>
           <div className="historyStats">
             <b>Total {historyStats.total || 0}</b>
@@ -625,7 +625,7 @@ export default function App() {
         </div>
 
         <div className="historyTable">
-          <div className="historyHead">
+          <div className={`historyHead ${isAdmin ? "adminMode" : "viewerMode"}` }>
             <span>Time</span>
             <span>Signal</span>
             <span>Entry</span>
@@ -636,7 +636,7 @@ export default function App() {
           </div>
 
           {(callHistory?.history || []).slice(0, 12).map((item) => (
-            <div className="historyRow" key={item.id}>
+            <div className={`historyRow ${isAdmin ? "adminMode" : "viewerMode"}` } key={item.id}>
               <span>{formatHistoryTime(item.createdAt || item.candleTime)}</span>
               <strong className={String(item.signal || "").toLowerCase()}>{item.signal}</strong>
               <span>{item.entry}</span>
@@ -645,12 +645,14 @@ export default function App() {
               <span className={`resultBadge ${(item.result || item.status || "OPEN").toLowerCase()}`}>
                 {item.result || item.status || "OPEN"}
               </span>
+              {isAdmin && (
               <div className="historyActions">
                 <button type="button" onClick={() => updateCallResult(item.id, "WIN")}>WIN</button>
                 <button type="button" onClick={() => updateCallResult(item.id, "LOSS")}>LOSS</button>
                 <button type="button" onClick={() => updateCallResult(item.id, "BE")}>BE</button>
                 <button type="button" onClick={() => updateCallResult(item.id, "OPEN")}>OPEN</button>
               </div>
+            )}
             </div>
           ))}
 
@@ -678,7 +680,7 @@ export default function App() {
         </div>
 
         <div className="historyTable">
-          <div className="historyHead">
+          <div className={`historyHead ${isAdmin ? "adminMode" : "viewerMode"}` }>
             <span>Time</span>
             <span>Signal</span>
             <span>Entry</span>
@@ -689,7 +691,7 @@ export default function App() {
           </div>
 
           {(scalpHistory?.history || []).slice(0, 10).map((item) => (
-            <div className="historyRow" key={item.id}>
+            <div className={`historyRow ${isAdmin ? "adminMode" : "viewerMode"}` } key={item.id}>
               <span>{formatHistoryTime(item.createdAt || item.candleTime)}</span>
               <strong className={String(item.signal || "").toLowerCase()}>{item.signal}</strong>
               <span>{item.entry}</span>
