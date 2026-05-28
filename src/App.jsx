@@ -184,6 +184,9 @@ export default function App() {
     localStorage.setItem("xau_admin_token", value);
   }
 
+  const mt5Status = getMt5Status(market);
+  const shouldPauseHeavyRefresh = mt5Status.isStale;
+
   useEffect(() => {
     const unsubscribe = listenAuth(async (user) => {
       setAuthLoading(true);
@@ -409,13 +412,11 @@ export default function App() {
   const historyStats = callHistory?.stats || {};
   const scalpStats = scalpHistory?.stats || {};
   const telegramStatus = signal?.telegram?.ok ? "Telegram OK" : signal?.telegram?.skipped || "Telegram standby";
-  const mt5Status = getMt5Status(market);
-  const shouldPauseHeavyRefresh = mt5Status.isStale;
   const premiumActive = isPremiumProfile(authProfile);
   const roleLabel = authProfile?.role?.toUpperCase?.() || "FREE";
   const isAdmin = authProfile?.role === "admin";
   const premiumInfo = getPremiumInfo(authProfile);
-  const emailVerified = Boolean(authUser?.emailVerified || authProfile?.emailVerified);
+  const emailVerified = Boolean(authUser?.emailVerified || authProfile?.emailVerified || authProfile?.emailCodeVerified);
 
   if (authLoading) {
     return (

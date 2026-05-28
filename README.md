@@ -1,32 +1,26 @@
-# XAU MT5 Stale Auto Pause Refresh Fix
+# XAU MT5 Stale Blank Screen Hotfix
 
-Update:
-- Web otomatis mendeteksi MT5/VPS offline atau data stale.
-- Kalau receivedAt market lebih dari 3 menit:
-  - chart refresh dipause
-  - history refresh dipause
-  - scalp history refresh dipause
-  - lite check diperlambat dari 12 detik ke 60 detik
-- Tujuan: hemat Firebase RTDB Downloads saat MT5/VPS mati.
-- Jika MT5 hidup lagi, lite check akan mendeteksi update dan auto refresh normal kembali.
-- Ada banner:
-  MT5 / VPS OFFLINE MODE
-- Ada tombol Manual Refresh.
+Masalah:
+- Setelah update MT5/VPS stale auto pause, web blank.
+- Penyebab: shouldPauseHeavyRefresh dipakai di useEffect sebelum variabel mt5Status dibuat.
+- React kena runtime error, layar jadi kosong.
 
-Mode refresh:
-- MT5 live:
-  lite 12s, chart 45s, history 60s, scalp 90s
-- MT5 stale/offline:
-  lite 60s only, heavy refresh paused
+Fix:
+- mt5Status dan shouldPauseHeavyRefresh dipindah ke atas sebelum useEffect auto-refresh.
+- Duplicate declaration di bagian bawah dihapus.
+- Fitur hemat RTDB tetap jalan:
+  - MT5 live: refresh normal
+  - MT5 stale > 3 menit: heavy refresh pause, lite check 60s
 
 File berubah:
 - src/App.jsx
-- src/style.css
 - package.json
+
+Cara pakai:
+1. Upload replace semua ke GitHub.
+2. Commit.
+3. Tunggu Cloudflare deploy.
+4. Hard refresh browser / close-open Telegram Mini App.
 
 MQ5:
 - Tidak perlu update.
-
-Catatan:
-- Threshold stale: 3 menit.
-- Data lama tetap tampil, tapi refresh berat dipause.
