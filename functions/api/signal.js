@@ -3,7 +3,9 @@ export async function onRequest({ env }) {
   let market = null;
 
   if (dbUrl) {
-    const res = await fetch(`${dbUrl}/xauusd/latest.json`);
+    const res = await fetch(`${dbUrl}/xauusd/latest.json?ts=${Date.now()}`, {
+      headers: { "Cache-Control": "no-cache" }
+    });
     if (res.ok) market = await res.json();
   }
 
@@ -14,10 +16,25 @@ export async function onRequest({ env }) {
 }
 
 function buildSignal(candles, market) {
-  const closes = candles.map((c) => Number(c.close)).filter(Number.isFinite);
-  const last = candles[candles.length - 1];
+  const cleanCandles = candles
+    .map((c) => ({
+      time: c.time,
+      open: Number(c.open),
+      high: Number(c.high),
+      low: Number(c.low),
+      close: Number(c.close)
+    }))
+    .filter((c) =>
+      Number.isFinite(c.open) &&
+      Number.isFinite(c.high) &&
+      Number.isFinite(c.low) &&
+      Number.isFinite(c.close)
+    );
 
-  if (!last || closes.length < 30) {
+  const closes = cleanCandles.map((c) => c.close);
+  const last = cleanCandles[cleanCandles.length - 1];
+
+  if (!last || closes.length < 35) {
     return {
       ok: true,
       pair: "XAUUSD",
@@ -26,10 +43,11 @@ function buildSignal(candles, market) {
       sl: 0,
       tp: 0,
       confidence: 50,
-      reason: "Menunggu minimal 30 candle untuk RSI, EMA Cross 9/20, dan Order Block.",
+      reason: "Menunggu minimal 35 candle untuk RSI Wilder, EMA Cross 9/20, dan Order Block.",
       mode: market ? "firebase-mt5-data" : "waiting-mt5",
       strategy: {
         rsi: null,
+        rsiMethod: "Wilder RSI 14 seperti MT5 iRSI",
         ema9: null,
         ema20: null,
         emaCross: "WAIT",
@@ -43,14 +61,14 @@ function buildSignal(candles, market) {
   const ema20 = ema(closes, 20);
   const prevEma9 = ema(closes.slice(0, -1), 9);
   const prevEma20 = ema(closes.slice(0, -1), 20);
-  const rsi14 = rsi(closes, 14);
-  const atr14 = atr(candles, 14);
+  const rsi14 = rsiWilder(closes, 14);
+  const atr14 = atr(cleanCandles, 14);
 
   const close = Number(last.close);
   const high = Number(last.high);
   const low = Number(last.low);
 
-  const orderBlock = detectOrderBlock(candles);
+  const orderBlock = detectOrderBlock(cleanCandles);
   const bullOb = orderBlock.bullish;
   const bearOb = orderBlock.bearish;
 
@@ -87,19 +105,19 @@ function buildSignal(candles, market) {
 
   if (rsi14 >= 55 && rsi14 <= 72) {
     buyScore += 20;
-    reasons.push(`RSI ${round(rsi14)} mendukung BUY.`);
+    reasons.push(`RSI Wilder ${round(rsi14)} mendukung BUY.`);
   }
   if (rsi14 <= 45 && rsi14 >= 28) {
     sellScore += 20;
-    reasons.push(`RSI ${round(rsi14)} mendukung SELL.`);
+    reasons.push(`RSI Wilder ${round(rsi14)} mendukung SELL.`);
   }
   if (rsi14 > 72) {
     sellScore += 8;
-    reasons.push(`RSI ${round(rsi14)} mulai overbought, hati-hati BUY.`);
+    reasons.push(`RSI Wilder ${round(rsi14)} mulai overbought, hati-hati BUY.`);
   }
   if (rsi14 < 28) {
     buyScore += 8;
-    reasons.push(`RSI ${round(rsi14)} mulai oversold, hati-hati SELL.`);
+    reasons.push(`RSI Wilder ${round(rsi14)} mulai oversold, hati-hati SELL.`);
   }
 
   if (nearBullOB) {
@@ -115,7 +133,8 @@ function buildSignal(candles, market) {
   if (close < low + atr14 * 0.35) sellScore += 8;
 
   let finalSignal = "WAIT";
-  let score = Math.max(buyScore, sellScore);
+  const score = Math.max(buyScore, sellScore);
+
   if (buyScore >= 55 && buyScore > sellScore + 8) finalSignal = "BUY";
   else if (sellScore >= 55 && sellScore > buyScore + 8) finalSignal = "SELL";
 
@@ -147,6 +166,7 @@ function buildSignal(candles, market) {
     mode: "firebase-mt5-data",
     strategy: {
       rsi: round(rsi14),
+      rsiMethod: "Wilder RSI 14 seperti MT5 iRSI",
       ema9: round(ema9),
       ema20: round(ema20),
       emaCross,
@@ -170,28 +190,40 @@ function ema(values, period) {
   return result;
 }
 
-function rsi(values, period = 14) {
+function rsiWilder(values, period = 14) {
   if (values.length <= period) return 50;
 
-  let gains = 0;
-  let losses = 0;
+  let gainSum = 0;
+  let lossSum = 0;
 
-  for (let i = values.length - period; i < values.length; i++) {
+  for (let i = 1; i <= period; i++) {
     const diff = values[i] - values[i - 1];
-    if (diff >= 0) gains += diff;
-    else losses += Math.abs(diff);
+    if (diff >= 0) gainSum += diff;
+    else lossSum += Math.abs(diff);
   }
 
-  const avgGain = gains / period;
-  const avgLoss = losses / period;
+  let avgGain = gainSum / period;
+  let avgLoss = lossSum / period;
+
+  for (let i = period + 1; i < values.length; i++) {
+    const diff = values[i] - values[i - 1];
+    const gain = diff > 0 ? diff : 0;
+    const loss = diff < 0 ? Math.abs(diff) : 0;
+
+    avgGain = (avgGain * (period - 1) + gain) / period;
+    avgLoss = (avgLoss * (period - 1) + loss) / period;
+  }
 
   if (avgLoss === 0) return 100;
+  if (avgGain === 0) return 0;
+
   const rs = avgGain / avgLoss;
   return 100 - 100 / (1 + rs);
 }
 
 function atr(candles, period = 14) {
   if (candles.length < 2) return 1;
+
   const slice = candles.slice(-period - 1);
   const trs = [];
 
@@ -220,7 +252,6 @@ function detectOrderBlock(candles) {
 
   for (let i = 3; i < scan.length - 3; i++) {
     const c = scan[i];
-    const next1 = scan[i + 1];
     const next2 = scan[i + 2];
 
     const open = Number(c.open);
@@ -264,7 +295,8 @@ function json(payload) {
   return new Response(JSON.stringify(payload, null, 2), {
     headers: {
       "Content-Type": "application/json",
-      "Access-Control-Allow-Origin": "*"
+      "Access-Control-Allow-Origin": "*",
+      "Cache-Control": "no-store"
     }
   });
 }

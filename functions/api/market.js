@@ -11,14 +11,10 @@ export async function onRequest({ request, env }) {
   }
 
   const dbUrl = (env.FIREBASE_DATABASE_URL || "").replace(/\/$/, "");
-
-  if (!dbUrl) {
-    return j({ ok: false, error: "ENV FIREBASE_DATABASE_URL belum diset" }, 500);
-  }
+  if (!dbUrl) return j({ ok: false, error: "ENV FIREBASE_DATABASE_URL belum diset" }, 500);
 
   if (request.method === "GET") {
     const data = await fbGet(dbUrl, "/xauusd/latest");
-
     if (!data) {
       return j({
         ok: false,
@@ -26,13 +22,11 @@ export async function onRequest({ request, env }) {
         message: "Belum ada data MT5 di Firebase."
       });
     }
-
     return j(data);
   }
 
   if (request.method === "POST") {
     let body;
-
     try {
       body = await request.json();
     } catch {
@@ -42,13 +36,8 @@ export async function onRequest({ request, env }) {
     const envToken = env.MT5_INGEST_TOKEN || "";
     const mt5Token = body.token || "";
 
-    if (!envToken) {
-      return j({ ok: false, error: "ENV MT5_INGEST_TOKEN belum diset" }, 500);
-    }
-
-    if (mt5Token !== envToken) {
-      return j({ ok: false, error: "Unauthorized: token MT5 salah" }, 401);
-    }
+    if (!envToken) return j({ ok: false, error: "ENV MT5_INGEST_TOKEN belum diset" }, 500);
+    if (mt5Token !== envToken) return j({ ok: false, error: "Unauthorized: token MT5 salah" }, 401);
 
     const symbol = body.symbol || "XAUUSD";
     const candles = Array.isArray(body.candles) ? body.candles.slice(-500) : [];
@@ -92,17 +81,10 @@ async function fbPut(dbUrl, path, data) {
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(data)
   });
-
-  if (!res.ok) {
-    throw new Error(await res.text());
-  }
-
+  if (!res.ok) throw new Error(await res.text());
   return await res.json();
 }
 
 function j(payload, status = 200) {
-  return new Response(JSON.stringify(payload, null, 2), {
-    status,
-    headers: H
-  });
+  return new Response(JSON.stringify(payload, null, 2), { status, headers: H });
 }

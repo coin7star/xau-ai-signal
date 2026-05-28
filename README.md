@@ -1,13 +1,10 @@
-# XAU AI Signal Strategy Clean Full Fix
+# XAU Final Chart RSI Fix
 
 Fix:
-- wrangler.toml benar
-- package.json benar
-- tidak ada import recharts
-- chart pakai lightweight-charts
-- signal pakai RSI 14, EMA Cross 9/20, dan Order Block sederhana
+- Tidak ada markdown backtick di App.jsx.
+- Chart container selalu muncul dari awal, jadi lightweight-charts bisa init.
+- Candle data di-set ulang tiap refresh.
+- RSI pakai Wilder style seperti MT5 iRSI.
+- API JSON no-store biar lebih realtime.
 
-Deploy:
-1. Upload semua isi ZIP ke GitHub, replace semua file lama.
-2. Commit changes.
-3. Cloudflare Pages > Deployments > Retry deployment.
+Upload replace semua file ke GitHub, lalu retry deploy Cloudflare.
