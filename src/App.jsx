@@ -354,7 +354,7 @@ export default function App() {
   const roleLabel = authProfile?.role?.toUpperCase?.() || "FREE";
   const isAdmin = authProfile?.role === "admin";
   const premiumInfo = getPremiumInfo(authProfile);
-  const emailVerified = Boolean(authUser?.emailVerified || authProfile?.emailVerified || authProfile?.emailCodeVerified);
+  const emailVerified = Boolean(authUser?.emailVerified || authProfile?.emailVerified);
 
   if (authLoading) {
     return (
@@ -972,15 +972,14 @@ function AuthScreen() {
 function VerifyEmailScreen({ user, onLogout, onVerified }) {
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState("");
-  const [otpCode, setOtpCode] = useState("");
 
-  async function handleResendLink() {
+  async function handleResend() {
     setBusy(true);
     setMessage("");
 
     try {
       await sendVerificationEmail(user);
-      setMessage("Link verifikasi Firebase sudah dikirim ulang. Cek inbox/spam email kamu.");
+      setMessage("Link verifikasi sudah dikirim ulang. Cek inbox/spam email kamu.");
     } catch (err) {
       setMessage(cleanAuthError(err));
     } finally {
@@ -988,73 +987,13 @@ function VerifyEmailScreen({ user, onLogout, onVerified }) {
     }
   }
 
-  async function handleSendCode() {
-    setBusy(true);
-    setMessage("");
-
-    try {
-      const res = await fetch("/api/send-email-code", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ uid: user?.uid, email: user?.email })
-      });
-
-      const json = await res.json();
-
-      if (!json.ok) {
-        setMessage(json.error || "Gagal kirim kode verifikasi.");
-        return;
-      }
-
-      setMessage("Kode 6 digit sudah dikirim ke email. Cek inbox/spam.");
-    } catch (err) {
-      setMessage(err.message || String(err));
-    } finally {
-      setBusy(false);
-    }
-  }
-
-  async function handleVerifyCode() {
-    setBusy(true);
-    setMessage("");
-
-    try {
-      const code = otpCode.replace(/\D/g, "");
-
-      if (code.length !== 6) {
-        setMessage("Kode harus 6 digit angka.");
-        return;
-      }
-
-      const res = await fetch("/api/verify-email-code", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ uid: user?.uid, code })
-      });
-
-      const json = await res.json();
-
-      if (!json.ok) {
-        setMessage(json.error || "Kode salah atau expired.");
-        return;
-      }
-
-      setMessage("Email berhasil diverifikasi. Membuka dashboard...");
-      await onVerified();
-    } catch (err) {
-      setMessage(err.message || String(err));
-    } finally {
-      setBusy(false);
-    }
-  }
-
-  async function handleCheckLink() {
+  async function handleCheck() {
     setBusy(true);
     setMessage("");
 
     try {
       await onVerified();
-      setMessage("Status dicek. Kalau sudah verifikasi via link, dashboard akan terbuka otomatis.");
+      setMessage("Status dicek. Kalau sudah verifikasi, dashboard akan terbuka otomatis. Kalau belum, cek email dulu.");
     } catch (err) {
       setMessage(cleanAuthError(err));
     } finally {
@@ -1068,39 +1007,22 @@ function VerifyEmailScreen({ user, onLogout, onVerified }) {
         <div className="logo big"><Lock size={30} /></div>
         <span className="pill mini"><Shield size={14} /> EMAIL VERIFICATION</span>
         <h1>Verifikasi Email Dulu</h1>
-        <p>Pilih salah satu: klik link verifikasi Firebase, atau pakai kode 6 digit biar lebih aman buat user yang ragu buka link.</p>
+        <p>Akun kamu sudah dibuat, tapi email perlu diverifikasi dulu untuk mencegah spam akun.</p>
 
         <div className="paywallUser">
           <b>{user?.email}</b>
           <span>Status: Email belum verified</span>
-          <span>Kode berlaku 10 menit setelah dikirim.</span>
-        </div>
-
-        <div className="otpBox">
-          <label>Kode Verifikasi 6 Digit</label>
-          <input
-            value={otpCode}
-            onChange={(event) => setOtpCode(event.target.value.replace(/\D/g, "").slice(0, 6))}
-            placeholder="123456"
-            inputMode="numeric"
-            maxLength={6}
-          />
-          <button type="button" onClick={handleVerifyCode} disabled={busy}>
-            Verifikasi Kode
-          </button>
+          <span>Cek inbox atau folder spam.</span>
         </div>
 
         {message && <div className="authError info">{message}</div>}
 
-        <div className="paywallActions three">
-          <button type="button" onClick={handleSendCode} disabled={busy}>
-            Kirim Kode
+        <div className="paywallActions">
+          <button type="button" onClick={handleResend} disabled={busy}>
+            {busy ? "Loading..." : "Kirim Ulang Link"}
           </button>
-          <button type="button" onClick={handleResendLink} disabled={busy}>
-            Kirim Link
-          </button>
-          <button type="button" onClick={handleCheckLink} disabled={busy}>
-            Cek Status
+          <button type="button" onClick={handleCheck} disabled={busy}>
+            Saya Sudah Verifikasi
           </button>
         </div>
 
@@ -1108,9 +1030,7 @@ function VerifyEmailScreen({ user, onLogout, onVerified }) {
           Logout
         </button>
 
-        <p className="miniNote">
-          Saran: pakai kode 6 digit untuk user yang tidak berani klik link. Kalau pakai link, klik link di email lalu tekan <b>Cek Status</b>.
-        </p>
+        <p className="miniNote">Setelah klik link verifikasi di email, balik ke halaman ini lalu tekan <b>Saya Sudah Verifikasi</b>.</p>
       </section>
     </main>
   );
