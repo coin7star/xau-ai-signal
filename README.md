@@ -1,23 +1,24 @@
-# XAU Fresh OB Lines Only Full Fix
+# XAU OB Mitigation 50% Full Fix
 
-Update:
-- Garis OB M15 tetap digambar di chart M1 dan chart M15.
-- Yang digambar hanya OB M15 fresh / active.
-- Kalau OB status mitigated atau invalid, garis OB otomatis tidak tampil.
-- Label garis OB sekarang lebih jelas:
-  - M15 Fresh Bull OB Low
-  - M15 Fresh Bull OB High
-  - M15 Fresh Bear OB Low
-  - M15 Fresh Bear OB High
-- Logika status OB dirapikan:
-  - mitigated/invalid baru dicek setelah BOS
-  - candle origin/displacement tidak langsung bikin OB dianggap mitigated
-- MQ5 tidak perlu update.
+Masalah yang diperbaiki:
+- OB fresh kadang hilang terlalu cepat karena wick/sentuhan kecil langsung dianggap mitigated.
+- Sekarang OB baru dianggap mitigated jika harga retrace minimal sampai 50% area OB setelah BOS.
+- Kalau OB masih active/fresh, garis OB tetap muncul di chart M1 dan chart M15.
+- Kalau OB invalid atau sudah retrace 50% zona, garis disembunyikan.
+
+Rule baru:
+- Bullish OB mitigated jika candle setelah BOS punya low <= midpoint zona OB.
+- Bearish OB mitigated jika candle setelah BOS punya high >= midpoint zona OB.
+- Invalid tetap:
+  - Bullish OB invalid jika close tembus bawah low OB.
+  - Bearish OB invalid jika close tembus atas high OB.
+
+MQ5 tidak perlu update.
 
 File yang berubah:
-- src/App.jsx
 - functions/api/signal.js
 - functions/api/telegram-webhook.js
+- src/App.jsx
 - package.json
 
 Cara pakai:

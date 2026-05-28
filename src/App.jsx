@@ -304,8 +304,13 @@ function parseMt5Time(value) {
 
 function getFreshOb(ob) {
   if (!ob) return null;
+  if (ob.invalidated || ob.status === "invalid") return null;
+
+  // Tampilkan hanya OB fresh/active.
+  // Mitigated disembunyikan, tapi mitigated sekarang dihitung lebih fair:
+  // harus retrace minimal 50% zona OB setelah BOS.
   if (ob.status !== "active") return null;
-  if (ob.mitigated || ob.invalidated) return null;
+  if (ob.mitigated) return null;
 
   const low = Number(ob.low);
   const high = Number(ob.high);
@@ -314,6 +319,8 @@ function getFreshOb(ob) {
 
   return ob;
 }
+
+
 
 function buildEMAData(candles, period) {
   if (!Array.isArray(candles) || candles.length === 0) return [];
@@ -365,7 +372,7 @@ function addObLines(series, linesRef, bullish, bearish) {
       lineWidth: 1,
       lineStyle: 2,
       axisLabelVisible: true,
-      title: "M15 Fresh Bull OB Low"
+      title: "M15 Active Bull OB Low"
     });
 
     const bullHigh = series.createPriceLine({
@@ -374,7 +381,7 @@ function addObLines(series, linesRef, bullish, bearish) {
       lineWidth: 1,
       lineStyle: 2,
       axisLabelVisible: true,
-      title: "M15 Fresh Bull OB High"
+      title: "M15 Active Bull OB High"
     });
 
     newLines.push({ series, line: bullLow }, { series, line: bullHigh });
@@ -387,7 +394,7 @@ function addObLines(series, linesRef, bullish, bearish) {
       lineWidth: 1,
       lineStyle: 2,
       axisLabelVisible: true,
-      title: "M15 Fresh Bear OB Low"
+      title: "M15 Active Bear OB Low"
     });
 
     const bearHigh = series.createPriceLine({
@@ -396,7 +403,7 @@ function addObLines(series, linesRef, bullish, bearish) {
       lineWidth: 1,
       lineStyle: 2,
       axisLabelVisible: true,
-      title: "M15 Fresh Bear OB High"
+      title: "M15 Active Bear OB High"
     });
 
     newLines.push({ series, line: bearLow }, { series, line: bearHigh });
