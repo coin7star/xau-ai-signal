@@ -1,15 +1,24 @@
-# XAU MFI RSI EMA OB M15 Two Chart Full Fix
+# XAU Telegram CALL Alert Full Fix
 
-Update:
-- Tambah MFI 14.
-- CALL BUY/SELL hanya saat RSI + MFI + EMA 9/20 + area OB M15 cocok.
-- READY muncul kalau EMA mendekati cross dan konfirmasi RSI/MFI/OB cocok.
-- Web tambah 2 chart:
-  1. Live M1 Candlestick Chart
-  2. Live M15 Order Block Chart
-- AI Analysis membaca RSI, MFI, EMA, dan OB M15.
-- EA tetap v2.1 kirim candle M1 dan M15.
+Fitur:
+- Kirim Telegram otomatis saat CALL BUY / CALL SELL valid.
+- Anti-spam: menyimpan last alert key di Firebase.
+- Endpoint test Telegram: /api/telegram-test
+- READY alert default mati. Bisa aktif dengan TELEGRAM_READY_ALERT_ENABLED=true.
 
-Penting:
-- Upload replace semua ke GitHub.
-- Update juga EA MQ5 terbaru, compile, pasang ulang di chart XAUUSD+.
+ENV Cloudflare:
+- TELEGRAM_BOT_TOKEN
+- TELEGRAM_CHAT_ID
+- TELEGRAM_ALERT_ENABLED=true
+- TELEGRAM_READY_ALERT_ENABLED=false
+
+Cara BotFather:
+1. Telegram buka @BotFather
+2. /newbot
+3. Buat nama bot
+4. Simpan token dari BotFather
+5. Chat bot kamu dulu dengan pesan bebas: /start
+6. Ambil chat_id pakai:
+   https://api.telegram.org/botTOKEN_KAMU/getUpdates
+7. Masukkan chat_id ke ENV Cloudflare.
+8. Buka /api/telegram-test untuk test.
