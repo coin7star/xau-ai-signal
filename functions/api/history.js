@@ -1,14 +1,8 @@
-export async function onRequest(context) {
-  const env = context.env || {};
-  let history = [];
-  if (env.SIGNALS_KV) {
-    history = JSON.parse((await env.SIGNALS_KV.get("history")) || "[]");
-  }
-  return new Response(JSON.stringify({ history }, null, 2), {
-    headers: {
-      "Content-Type": "application/json",
-      "Access-Control-Allow-Origin": "*",
-      "Cache-Control": "no-store",
-    },
-  });
+export async function onRequest({ env }) {
+  const dbUrl = (env.FIREBASE_DATABASE_URL || "").replace(/\/$/, "");
+  if (!dbUrl) return j({ ok: false, history: [] });
+  const res = await fetch(`${dbUrl}/xauusd/latest.json`);
+  const latest = res.ok ? await res.json() : null;
+  return j({ ok: true, history: latest ? [latest] : [] });
 }
+function j(payload){ return new Response(JSON.stringify(payload, null, 2), { headers: { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" } }); }

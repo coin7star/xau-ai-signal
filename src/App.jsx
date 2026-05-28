@@ -1,150 +1,167 @@
 import { useEffect, useMemo, useState } from "react";
-import { Activity, Bot, ChevronUp, CircleDollarSign, Gauge, Radio, RefreshCcw, ShieldCheck, Sparkles, Zap } from "lucide-react";
-
-const fallbackSignal = {
-  pair: "XAUUSD",
-  signal: "WAIT",
-  entry: "-",
-  sl: "-",
-  tp: "-",
-  confidence: "0%",
-  reason: "Klik Generate Signal untuk meminta analisa AI terbaru.",
-  mode: "manual",
-  time: new Date().toISOString(),
-};
-
-function classNames(...items) {
-  return items.filter(Boolean).join(" ");
-}
+import { Activity, Bot, Database, Radio, RefreshCcw, Shield, TrendingDown, TrendingUp, Zap } from "lucide-react";
+import { ResponsiveContainer, ComposedChart, Bar, Line, XAxis, YAxis, Tooltip, CartesianGrid, ReferenceLine } from "recharts";
 
 export default function App() {
-  const [signal, setSignal] = useState(fallbackSignal);
-  const [history, setHistory] = useState([]);
+  const [market, setMarket] = useState(null);
+  const [signal, setSignal] = useState(null);
   const [loading, setLoading] = useState(false);
-  const [toast, setToast] = useState("Ready to cook XAUUSD signal 🔥");
+  const [lastUpdate, setLastUpdate] = useState("-");
 
-  const signalTone = useMemo(() => {
-    if (signal.signal === "BUY") return "buy";
-    if (signal.signal === "SELL") return "sell";
-    return "wait";
-  }, [signal.signal]);
-
-  async function loadHistory() {
+  async function loadAll() {
     try {
-      const res = await fetch("/api/history");
-      const data = await res.json();
-      if (Array.isArray(data.history)) setHistory(data.history);
-    } catch {
-      setHistory([]);
-    }
-  }
-
-  async function generateSignal() {
-    setLoading(true);
-    setToast("AI lagi baca market gold...");
-    try {
-      const res = await fetch("/api/signal?fresh=1");
-      const data = await res.json();
-      setSignal(data);
-      setToast(`${data.signal} ${data.pair} confidence ${data.confidence}`);
-      await loadHistory();
-    } catch (error) {
-      setToast("Gagal ambil signal. Cek API / Cloudflare Functions.");
+      setLoading(true);
+      const [m, s] = await Promise.all([
+        fetch("/api/market?ts=" + Date.now()).then((r) => r.json()),
+        fetch("/api/signal?ts=" + Date.now()).then((r) => r.json())
+      ]);
+      setMarket(m);
+      setSignal(s);
+      setLastUpdate(new Date().toLocaleTimeString("id-ID"));
+    } catch (err) {
+      setMarket({ ok: false, message: err.message, candles: [] });
     } finally {
       setLoading(false);
     }
   }
 
   useEffect(() => {
-    generateSignal();
+    loadAll();
+    const t = setInterval(loadAll, 5000);
+    return () => clearInterval(t);
   }, []);
 
-  return (
-    <main className="page-shell">
-      <div className="orb orb-one" />
-      <div className="orb orb-two" />
+  const candles = market?.candles || [];
+  const lastCandle = candles[candles.length - 1];
 
-      <nav className="navbar">
+  const chartData = useMemo(() => {
+    return candles.slice(-90).map((c, i) => {
+      const open = Number(c.open);
+      const close = Number(c.close);
+      const high = Number(c.high);
+      const low = Number(c.low);
+      return {
+        idx: i + 1,
+        time: String(c.time || "").slice(11, 16),
+        open,
+        close,
+        high,
+        low,
+        wick: [low, high],
+        body: [Math.min(open, close), Math.max(open, close)],
+        colorType: close >= open ? "bull" : "bear",
+        volume: Number(c.volume || 0)
+      };
+    });
+  }, [candles]);
+
+  const isBuy = signal?.signal === "BUY";
+  const isSell = signal?.signal === "SELL";
+  const spread = market?.ask && market?.bid ? Math.abs(Number(market.ask) - Number(market.bid)).toFixed(2) : "-";
+
+  return (
+    <main className="page">
+      <header className="nav">
         <div className="brand">
-          <div className="brand-icon"><Sparkles size={22} /></div>
+          <div className="logo"><Bot size={22} /></div>
           <div>
             <b>XAU AI Signal</b>
-            <span>Gold trading assistant</span>
+            <span>MT5 → Firebase realtime</span>
           </div>
         </div>
-        <div className="nav-pill"><Radio size={16} /> Cloudflare Live</div>
-      </nav>
+        <div className="live"><Radio size={14} /> Firebase Live</div>
+      </header>
 
-      <section className="hero-grid">
-        <div className="hero-card glass">
-          <div className="eyebrow"><Bot size={16} /> AI CALL SIGNAL GEN Z</div>
-          <h1>Dashboard sinyal XAUUSD yang nggak polos-polos amat 😭</h1>
+      <section className="hero">
+        <div className="intro card">
+          <span className="pill"><Zap size={15} /> LIVE GOLD DATA</span>
+          <h1>XAUUSD live dashboard dari MT5 kamu 🚀</h1>
           <p>
-            Web ini jadi pusat sinyal AI untuk XAUUSD. MT5 nanti tinggal polling endpoint
-            <code>/api/signal</code> dari Cloudflare Pages Functions.
+            Data candle real sudah masuk dari MetaTrader ke Firebase. Web ini auto-refresh tiap 5 detik.
           </p>
-          <div className="hero-actions">
-            <button className="primary-btn" onClick={generateSignal} disabled={loading}>
-              {loading ? <RefreshCcw className="spin" size={18} /> : <Zap size={18} />}
-              {loading ? "Generating..." : "Generate Signal"}
+          <div className="actions">
+            <button onClick={loadAll} disabled={loading}>
+              <RefreshCcw size={16} /> {loading ? "Loading..." : "Refresh"}
             </button>
-            <a className="ghost-btn" href="/api/signal" target="_blank">Test API</a>
+            <a href="/api/market" target="_blank">Open JSON</a>
           </div>
-          <div className="toast">{toast}</div>
         </div>
 
-        <div className={classNames("signal-card glass", signalTone)}>
-          <div className="signal-top">
-            <span>{signal.pair || "XAUUSD"}</span>
-            <small>{new Date(signal.time || Date.now()).toLocaleString()}</small>
+        <div className={`signalBox card ${isBuy ? "buy" : isSell ? "sell" : "wait"}`}>
+          <div className="signalTop">
+            <b>{market?.symbol || "XAUUSD"}</b>
+            <span>{lastUpdate}</span>
           </div>
-          <div className="signal-main">
-            <h2>{signal.signal || "WAIT"}</h2>
-            <div className="confidence"><Gauge size={18} /> {signal.confidence || "0%"}</div>
+          <h2>{signal?.signal || "WAIT"}</h2>
+          <div className="confidence">{signal?.confidence || 0}% confidence</div>
+          <div className="priceGrid">
+            <div><small>Entry</small><strong>{signal?.entry || "-"}</strong></div>
+            <div><small>Stop Loss</small><strong>{signal?.sl || "-"}</strong></div>
+            <div><small>Take Profit</small><strong>{signal?.tp || "-"}</strong></div>
           </div>
-          <div className="price-grid">
-            <div><span>Entry</span><b>{signal.entry}</b></div>
-            <div><span>Stop Loss</span><b>{signal.sl}</b></div>
-            <div><span>Take Profit</span><b>{signal.tp}</b></div>
-          </div>
-          <p className="reason">{signal.reason}</p>
+          <p>{signal?.reason || "Menunggu candle MT5..."}</p>
         </div>
       </section>
 
-      <section className="stats-grid">
-        <div className="mini-card glass"><Activity /><span>Mode</span><b>{signal.mode || "AI"}</b></div>
-        <div className="mini-card glass"><ShieldCheck /><span>Risk</span><b>Demo First</b></div>
-        <div className="mini-card glass"><CircleDollarSign /><span>Pair</span><b>XAUUSD</b></div>
-        <div className="mini-card glass"><ChevronUp /><span>Version</span><b>v1.1</b></div>
+      <section className="stats">
+        <Info icon={<Database />} label="Store" value="Firebase RTDB" />
+        <Info icon={<Activity />} label="Candle" value={`${candles.length} data`} />
+        <Info icon={<Shield />} label="Spread" value={spread} />
+        <Info icon={isBuy ? <TrendingUp /> : <TrendingDown />} label="Last Close" value={lastCandle?.close || "-"} />
       </section>
 
-      <section className="history-card glass">
-        <div className="section-title">
-          <h3>Signal History</h3>
-          <button onClick={loadHistory}>Refresh</button>
+      <section className="chartWrap card">
+        <div className="sectionTitle">
+          <div>
+            <h3>Realtime MT5 Candle Chart</h3>
+            <span>{market?.symbol || "XAUUSD"} · {market?.timeframe || "M1"} · Bid {market?.bid || "-"}</span>
+          </div>
+          <div className="statusDot"><span></span> Auto refresh 5s</div>
         </div>
-        <div className="table-wrap">
-          <table>
-            <thead>
-              <tr><th>Time</th><th>Pair</th><th>Signal</th><th>Entry</th><th>SL</th><th>TP</th><th>Conf</th></tr>
-            </thead>
-            <tbody>
-              {(history.length ? history : [signal]).slice(0, 10).map((item, index) => (
-                <tr key={index}>
-                  <td>{new Date(item.time || Date.now()).toLocaleTimeString()}</td>
-                  <td>{item.pair || "XAUUSD"}</td>
-                  <td><span className={classNames("badge", (item.signal || "WAIT").toLowerCase())}>{item.signal}</span></td>
-                  <td>{item.entry}</td><td>{item.sl}</td><td>{item.tp}</td><td>{item.confidence}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+
+        {chartData.length > 0 ? (
+          <ResponsiveContainer width="100%" height={420}>
+            <ComposedChart data={chartData} margin={{ top: 20, right: 25, left: 5, bottom: 10 }}>
+              <CartesianGrid strokeDasharray="3 3" opacity={0.18} />
+              <XAxis dataKey="time" tick={{ fill: "#aab6d3", fontSize: 12 }} interval="preserveStartEnd" />
+              <YAxis domain={["dataMin - 2", "dataMax + 2"]} tick={{ fill: "#aab6d3", fontSize: 12 }} width={78} />
+              <Tooltip content={<CustomTooltip />} />
+              <ReferenceLine y={Number(lastCandle?.close || 0)} strokeDasharray="4 4" opacity={0.65} />
+              <Bar dataKey="wick" fill="#93f8ff" barSize={2} radius={[2, 2, 2, 2]} />
+              <Bar dataKey="body" fill="#9bf6ff" barSize={9} radius={[4, 4, 4, 4]} />
+              <Line type="monotone" dataKey="close" strokeWidth={2} dot={false} opacity={0.75} />
+            </ComposedChart>
+          </ResponsiveContainer>
+        ) : (
+          <div className="empty">{market?.message || "Belum ada candle. Jalankan EA MT5 dulu."}</div>
+        )}
       </section>
 
-      <footer>
-        Bukan financial advice. Test demo dulu, XAUUSD galak bro 😭
-      </footer>
+      <footer>Bukan financial advice. Demo first, XAUUSD galak bro 😭</footer>
     </main>
+  );
+}
+
+function CustomTooltip({ active, payload }) {
+  if (!active || !payload?.length) return null;
+  const d = payload[0]?.payload;
+  return (
+    <div className="tooltip">
+      <b>{d.time}</b>
+      <span>Open: {d.open}</span>
+      <span>High: {d.high}</span>
+      <span>Low: {d.low}</span>
+      <span>Close: {d.close}</span>
+    </div>
+  );
+}
+
+function Info({ icon, label, value }) {
+  return (
+    <div className="info card">
+      <span className="infoIcon">{icon}</span>
+      <small>{label}</small>
+      <strong>{value}</strong>
+    </div>
   );
 }
