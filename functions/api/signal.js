@@ -154,6 +154,8 @@ function buildSignal(candles, market) {
     ? Math.min(62, Math.max(45, Math.round(score)))
     : Math.min(94, Math.max(60, Math.round(score)));
 
+  const trendBias = ema9 > ema20 ? "Bullish" : ema9 < ema20 ? "Bearish" : "Netral";
+
   return {
     ok: true,
     pair: "XAUUSD",
@@ -165,6 +167,7 @@ function buildSignal(candles, market) {
     reason: reasons.slice(0, 5).join(" "),
     mode: "firebase-mt5-data",
     strategy: {
+      trendBias,
       rsi: round(rsi14),
       rsiMethod: "Wilder RSI 14 seperti MT5 iRSI",
       ema9: round(ema9),
@@ -267,7 +270,7 @@ function detectOrderBlock(candles) {
 
     if (bearishCandle && nextMoveUp) {
       bullish = {
-        type: "BULLISH_OB",
+        type: "Bullish OB",
         low: round(low),
         high: round(high),
         originTime: c.time || null
@@ -276,7 +279,7 @@ function detectOrderBlock(candles) {
 
     if (bullishCandle && nextMoveDown) {
       bearish = {
-        type: "BEARISH_OB",
+        type: "Bearish OB",
         low: round(low),
         high: round(high),
         originTime: c.time || null

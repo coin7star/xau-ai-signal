@@ -1,6 +1,6 @@
 {
-  "name": "xau-ai-signal-final-chart-rsi",
-  "version": "1.6.3",
+  "name": "xau-ai-signal-clean-seo",
+  "version": "1.7.0",
   "type": "module",
   "scripts": {
     "dev": "vite",

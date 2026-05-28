@@ -70,7 +70,9 @@ export async function onRequest({ request, env }) {
 }
 
 async function fbGet(dbUrl, path) {
-  const res = await fetch(`${dbUrl}${path}.json`);
+  const res = await fetch(`${dbUrl}${path}.json?ts=${Date.now()}`, {
+    headers: { "Cache-Control": "no-cache" }
+  });
   if (!res.ok) return null;
   return await res.json();
 }
@@ -86,5 +88,8 @@ async function fbPut(dbUrl, path, data) {
 }
 
 function j(payload, status = 200) {
-  return new Response(JSON.stringify(payload, null, 2), { status, headers: H });
+  return new Response(JSON.stringify(payload, null, 2), {
+    status,
+    headers: { ...H, "Cache-Control": "no-store" }
+  });
 }

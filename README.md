@@ -1,10 +1,10 @@
-# XAU Final Chart RSI Fix
+# XAU UI Clean SEO Full Fix
 
 Fix:
-- Tidak ada markdown backtick di App.jsx.
-- Chart container selalu muncul dari awal, jadi lightweight-charts bisa init.
-- Candle data di-set ulang tiap refresh.
-- RSI pakai Wilder style seperti MT5 iRSI.
-- API JSON no-store biar lebih realtime.
+- UI strategy dibuat lebih rapi, tidak banyak card kecil.
+- Ringkasan teknikal hanya 3 metric utama.
+- Detail Order Block disembunyikan di dropdown.
+- Meta SEO tag ditambah di index.html.
+- Chart dan API tetap sama.
 
-Upload replace semua file ke GitHub, lalu retry deploy Cloudflare.
+Upload replace semua ke GitHub, commit, lalu retry deploy Cloudflare.
