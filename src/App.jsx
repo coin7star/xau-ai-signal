@@ -10,6 +10,14 @@ export default function App() {
   const seriesM1Ref = useRef(null);
   const seriesM15Ref = useRef(null);
 
+  const ema9M1Ref = useRef(null);
+  const ema20M1Ref = useRef(null);
+  const ema9M15Ref = useRef(null);
+  const ema20M15Ref = useRef(null);
+
+  const obLinesM1Ref = useRef([]);
+  const obLinesM15Ref = useRef([]);
+
   const [market, setMarket] = useState(null);
   const [signal, setSignal] = useState(null);
   const [aiAnalysis, setAiAnalysis] = useState(null);
@@ -61,6 +69,33 @@ export default function App() {
   useEffect(() => updateChart(seriesM1Ref.current, chartM1Ref.current, tvM1), [tvM1]);
   useEffect(() => updateChart(seriesM15Ref.current, chartM15Ref.current, tvM15), [tvM15]);
 
+  useEffect(() => {
+    if (ema9M1Ref.current && ema20M1Ref.current && tvM1.length > 0) {
+      ema9M1Ref.current.setData(buildEMAData(tvM1, 9));
+      ema20M1Ref.current.setData(buildEMAData(tvM1, 20));
+    }
+  }, [tvM1]);
+
+  useEffect(() => {
+    if (ema9M15Ref.current && ema20M15Ref.current && tvM15.length > 0) {
+      ema9M15Ref.current.setData(buildEMAData(tvM15, 9));
+      ema20M15Ref.current.setData(buildEMAData(tvM15, 20));
+    }
+  }, [tvM15]);
+
+  useEffect(() => {
+    const bullish = signal?.strategy?.orderBlock?.bullish || null;
+    const bearish = signal?.strategy?.orderBlock?.bearish || null;
+
+    if (seriesM1Ref.current) {
+      addObLines(seriesM1Ref.current, obLinesM1Ref, bullish, bearish);
+    }
+
+    if (seriesM15Ref.current) {
+      addObLines(seriesM15Ref.current, obLinesM15Ref, bullish, bearish);
+    }
+  }, [signal]);
+
   function initChart(type) {
     const boxRef = type === "M1" ? chartM1BoxRef : chartM15BoxRef;
     const chartRef = type === "M1" ? chartM1Ref : chartM15Ref;
@@ -81,8 +116,31 @@ export default function App() {
         upColor: "#19f28f", downColor: "#ff4d6d", borderUpColor: "#19f28f", borderDownColor: "#ff4d6d",
         wickUpColor: "#77ffd0", wickDownColor: "#ff9aac", priceFormat: { type: "price", precision: 2, minMove: 0.01 }
       });
+
+      const ema9Series = chart.addLineSeries({
+        color: "#facc15",
+        lineWidth: 2,
+        priceLineVisible: false,
+        lastValueVisible: true
+      });
+
+      const ema20Series = chart.addLineSeries({
+        color: "#60a5fa",
+        lineWidth: 2,
+        priceLineVisible: false,
+        lastValueVisible: true
+      });
+
       chartRef.current = chart;
       seriesRef.current = series;
+
+      if (type === "M1") {
+        ema9M1Ref.current = ema9Series;
+        ema20M1Ref.current = ema20Series;
+      } else {
+        ema9M15Ref.current = ema9Series;
+        ema20M15Ref.current = ema20Series;
+      }
       const resizeObserver = new ResizeObserver(() => {
         if (!boxRef.current || !chartRef.current) return;
         chartRef.current.applyOptions({ width: boxRef.current.clientWidth || 900 });
@@ -184,7 +242,15 @@ export default function App() {
       <section className="chartWrap card">
         <div className="sectionTitle">
           <div><h3>Live M1 Candlestick Chart</h3><span>{market?.symbol || "XAUUSD"} · M1 · Bid {market?.bid || "-"} · Spread {spread}</span></div>
-          <div className="legend"><b><i className="bullDot"></i> Bullish</b><b><i className="bearDot"></i> Bearish</b><em><span></span> Auto refresh 12s</em></div>
+          <div className="legend">
+            <b><i className="bullDot"></i> Bullish</b>
+            <b><i className="bearDot"></i> Bearish</b>
+            <b><i className="ema9Dot"></i> EMA 9</b>
+            <b><i className="ema20Dot"></i> EMA 20</b>
+            <b><i className="obBullDot"></i> Bull OB</b>
+            <b><i className="obBearDot"></i> Bear OB</b>
+            <em><span></span> Auto refresh 12s</em>
+          </div>
         </div>
         {chartError && <div className="chartError">Chart error: {chartError}</div>}
         <div className="tvChart" ref={chartM1BoxRef}></div>
@@ -193,7 +259,15 @@ export default function App() {
       <section className="chartWrap card">
         <div className="sectionTitle">
           <div><h3>Live M15 Order Block Chart</h3><span>{market?.symbol || "XAUUSD"} · M15 · OB validation chart</span></div>
-          <div className="legend"><b><i className="bullDot"></i> Bullish</b><b><i className="bearDot"></i> Bearish</b><em><span></span> OB M15</em></div>
+          <div className="legend">
+            <b><i className="bullDot"></i> Bullish</b>
+            <b><i className="bearDot"></i> Bearish</b>
+            <b><i className="ema9Dot"></i> EMA 9</b>
+            <b><i className="ema20Dot"></i> EMA 20</b>
+            <b><i className="obBullDot"></i> Bull OB</b>
+            <b><i className="obBearDot"></i> Bear OB</b>
+            <em><span></span> OB M15</em>
+          </div>
         </div>
         <div className="tvChart small" ref={chartM15BoxRef}></div>
       </section>
@@ -225,6 +299,97 @@ function parseMt5Time(value) {
   if (!parts) return null;
   const [, y, mo, d, h, mi, s = "00"] = parts;
   return Math.floor(new Date(Number(y), Number(mo) - 1, Number(d), Number(h), Number(mi), Number(s)).getTime() / 1000);
+}
+
+
+function buildEMAData(candles, period) {
+  if (!Array.isArray(candles) || candles.length === 0) return [];
+
+  const k = 2 / (period + 1);
+  let ema = Number(candles[0].close);
+
+  return candles
+    .map((candle, index) => {
+      const close = Number(candle.close);
+
+      if (!Number.isFinite(close) || !Number.isFinite(candle.time)) return null;
+
+      if (index === 0) {
+        ema = close;
+      } else {
+        ema = close * k + ema * (1 - k);
+      }
+
+      return {
+        time: candle.time,
+        value: Number(ema.toFixed(2))
+      };
+    })
+    .filter(Boolean);
+}
+
+function clearObLines(linesRef) {
+  if (!linesRef.current) return;
+
+  linesRef.current.forEach(({ series, line }) => {
+    try {
+      series.removePriceLine(line);
+    } catch {}
+  });
+
+  linesRef.current = [];
+}
+
+function addObLines(series, linesRef, bullish, bearish) {
+  clearObLines(linesRef);
+
+  const newLines = [];
+
+  if (bullish && Number.isFinite(Number(bullish.low)) && Number.isFinite(Number(bullish.high))) {
+    const bullLow = series.createPriceLine({
+      price: Number(bullish.low),
+      color: "#22c55e",
+      lineWidth: 1,
+      lineStyle: 2,
+      axisLabelVisible: true,
+      title: "Bull OB Low"
+    });
+
+    const bullHigh = series.createPriceLine({
+      price: Number(bullish.high),
+      color: "#22c55e",
+      lineWidth: 1,
+      lineStyle: 2,
+      axisLabelVisible: true,
+      title: "Bull OB High"
+    });
+
+    newLines.push({ series, line: bullLow }, { series, line: bullHigh });
+  }
+
+  if (bearish && Number.isFinite(Number(bearish.low)) && Number.isFinite(Number(bearish.high))) {
+    const bearLow = series.createPriceLine({
+      price: Number(bearish.low),
+      color: "#ef4444",
+      lineWidth: 1,
+      lineStyle: 2,
+      axisLabelVisible: true,
+      title: "Bear OB Low"
+    });
+
+    const bearHigh = series.createPriceLine({
+      price: Number(bearish.high),
+      color: "#ef4444",
+      lineWidth: 1,
+      lineStyle: 2,
+      axisLabelVisible: true,
+      title: "Bear OB High"
+    });
+
+    newLines.push({ series, line: bearLow }, { series, line: bearHigh });
+  }
+
+  linesRef.current = newLines;
 }
 
 function Metric({ label, value, note }) { return <div className="metric"><small>{label}</small><strong>{value || "-"}</strong><span>{note}</span></div>; }

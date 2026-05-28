@@ -1,6 +1,6 @@
 {
-  "name": "xau-ai-signal-telegram-webhook-commands",
-  "version": "2.3.0",
+  "name": "xau-ai-signal-chart-ema-ob-lines",
+  "version": "2.4.0",
   "type": "module",
   "scripts": {
     "dev": "vite",
