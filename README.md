@@ -1,45 +1,36 @@
-# XAU Premium CALL History + Probability Full Fix
+# XAU M1 Scalping Mode Full Fix
 
-Fitur baru:
-- History CALL otomatis tersimpan ke Firebase saat signal CALL BUY/SELL valid.
-- Win/Loss manual dari web:
-  - WIN
-  - LOSS
-  - BE
-  - OPEN
-- Statistik performa:
-  - Total CALL
-  - Open
-  - Closed
-  - Win
-  - Loss
-  - BE
-  - Win Rate
-- Probability Score:
-  - tampil di UI Confirmation Snapshot
-  - tersimpan di CALL history
-  - ikut tampil di endpoint /api/signal
-- Telegram command /history:
-  - tampilkan 5 CALL terakhir dan statistik singkat
+Update:
+- Strategi utama tetap ada:
+  RSI + MFI + EMA 9/20 + Fresh OB M15.
+- Ditambah mode baru:
+  M1 Scalping Mode.
+- Scalping tidak menghapus strategi lama.
+- Scalping tampil di dashboard sebagai sinyal cepat sambil menunggu CALL utama.
 
-Endpoint baru:
-- GET /api/call-history
-- POST /api/call-history
-
-ENV baru:
-- ADMIN_ACTION_TOKEN=buat_token_admin_bebas
-
-Cara pakai:
-1. Upload replace semua file ke GitHub.
-2. Tambah ENV Cloudflare:
-   ADMIN_ACTION_TOKEN=token_bebas_kamu
-3. Deploy.
-4. Di web, isi Admin token yang sama.
-5. Saat CALL BUY/SELL muncul, history otomatis masuk.
-6. Klik WIN / LOSS / BE manual setelah tahu hasil trade.
-7. Telegram bisa test:
-   /history
+Rule Scalping M1:
+- EMA 5 / EMA 13 untuk trigger cepat.
+- Break high/low 12 candle M1.
+- RSI + MFI sebagai filter momentum.
+- Volume spike sebagai bonus score.
+- SL pakai ATR + recent swing M1.
+- TP pakai RR cepat 1 : 1.25.
 
 Catatan:
-- MQ5 tidak perlu update.
-- Untuk jual/premium nanti, ini sudah jadi dasar tracking performa.
+- Telegram CALL utama tetap pakai strategi utama.
+- Scalping ditampilkan di web dan /signal Telegram sebagai informasi cepat.
+- MQ5 tidak perlu update karena candle M1 sudah dikirim.
+
+File berubah:
+- functions/api/signal.js
+- functions/api/telegram-webhook.js
+- src/App.jsx
+- src/style.css
+- package.json
+
+Cara pakai:
+1. Upload replace semua ke GitHub.
+2. Commit changes.
+3. Tunggu deploy Cloudflare sukses.
+4. Refresh web.
+5. Cek panel M1 Scalping Mode.

@@ -395,6 +395,15 @@ function buildSignal(candles, candlesM15, market) {
       ? Math.min(95, Math.max(68, Math.round(score)))
       : Math.min(60, Math.max(45, Math.round(score)));
 
+  const scalping = buildM1ScalpingStrategy(m1, closes, {
+    ema9,
+    ema20,
+    rsi14,
+    mfi14,
+    atr14,
+    close
+  });
+
   return {
     signal,
     signalLabel,
@@ -405,6 +414,7 @@ function buildSignal(candles, candlesM15, market) {
     tp: round(tp),
     reason,
     strategy: {
+      scalping,
       rsi: round(rsi14),
       mfi: round(mfi14),
       ema9: round(ema9),
@@ -426,6 +436,146 @@ function buildSignal(candles, candlesM15, market) {
     }
   };
 }
+
+
+function buildM1ScalpingStrategy(candles, closes, context = {}) {
+  const last = candles[candles.length - 1];
+  if (!last || closes.length < 30) {
+    return {
+      mode: "M1_SCALPING",
+      action: "WAIT",
+      label: "WAIT",
+      score: 0,
+      confidence: 0,
+      entry: 0,
+      sl: 0,
+      tp: 0,
+      reason: "Menunggu minimal 30 candle M1 untuk scalping.",
+      checklist: []
+    };
+  }
+
+  const ema5 = ema(closes, 5);
+  const ema13 = ema(closes, 13);
+  const prevEma5 = ema(closes.slice(0, -1), 5);
+  const prevEma13 = ema(closes.slice(0, -1), 13);
+  const atrValue = Number(context.atr14 || atr(candles, 14) || 1);
+  const close = Number(context.close || last.close);
+
+  const recent = candles.slice(-12, -1);
+  const recentHigh = Math.max(...recent.map((c) => c.high));
+  const recentLow = Math.min(...recent.map((c) => c.low));
+
+  const volumes = candles.slice(-21, -1).map((c) => Number(c.volume || 0));
+  const avgVolume = volumes.length ? volumes.reduce((a, b) => a + b, 0) / volumes.length : 0;
+  const volumeSpike = Number(last.volume || 0) >= avgVolume * 1.15;
+
+  const bullishCross = prevEma5 <= prevEma13 && ema5 > ema13;
+  const bearishCross = prevEma5 >= prevEma13 && ema5 < ema13;
+  const bullishTrend = ema5 > ema13 && close > ema9Safe(context.ema9, ema5);
+  const bearishTrend = ema5 < ema13 && close < ema9Safe(context.ema9, ema5);
+
+  const breakoutUp = close > recentHigh + atrValue * 0.03;
+  const breakoutDown = close < recentLow - atrValue * 0.03;
+
+  const rsi = Number(context.rsi14 || rsiWilder(closes, 14));
+  const mfiValue = Number(context.mfi14 || mfi(candles, 14));
+
+  const rsiBuy = rsi >= 50 && rsi <= 74;
+  const rsiSell = rsi <= 50 && rsi >= 26;
+  const mfiBuy = mfiValue >= 50 && mfiValue <= 82;
+  const mfiSell = mfiValue <= 50 && mfiValue >= 18;
+
+  let buyScore = 0;
+  let sellScore = 0;
+  const checklist = [];
+
+  if (bullishCross) { buyScore += 24; checklist.push("EMA5 cross up EMA13"); }
+  if (bearishCross) { sellScore += 24; checklist.push("EMA5 cross down EMA13"); }
+
+  if (bullishTrend) { buyScore += 18; checklist.push("Trend M1 bullish"); }
+  if (bearishTrend) { sellScore += 18; checklist.push("Trend M1 bearish"); }
+
+  if (breakoutUp) { buyScore += 18; checklist.push("Break high 12 candle M1"); }
+  if (breakoutDown) { sellScore += 18; checklist.push("Break low 12 candle M1"); }
+
+  if (rsiBuy) { buyScore += 14; checklist.push("RSI support BUY"); }
+  if (rsiSell) { sellScore += 14; checklist.push("RSI support SELL"); }
+
+  if (mfiBuy) { buyScore += 14; checklist.push("MFI support BUY"); }
+  if (mfiSell) { sellScore += 14; checklist.push("MFI support SELL"); }
+
+  if (volumeSpike) {
+    buyScore += bullishTrend || breakoutUp ? 8 : 0;
+    sellScore += bearishTrend || breakoutDown ? 8 : 0;
+    checklist.push("Volume spike");
+  }
+
+  let action = "WAIT";
+  let label = "SCALP WAIT";
+  let score = Math.max(buyScore, sellScore);
+
+  const buyValid = buyScore >= 58 && buyScore > sellScore + 8;
+  const sellValid = sellScore >= 58 && sellScore > buyScore + 8;
+
+  if (buyValid) {
+    action = "SCALP_BUY";
+    label = "SCALP BUY";
+  } else if (sellValid) {
+    action = "SCALP_SELL";
+    label = "SCALP SELL";
+  }
+
+  let sl = 0;
+  let tp = 0;
+
+  if (action === "SCALP_BUY") {
+    sl = Math.min(recentLow, close - atrValue * 0.9);
+    tp = close + Math.abs(close - sl) * 1.25;
+  }
+
+  if (action === "SCALP_SELL") {
+    sl = Math.max(recentHigh, close + atrValue * 0.9);
+    tp = close - Math.abs(sl - close) * 1.25;
+  }
+
+  return {
+    mode: "M1_SCALPING",
+    action,
+    label,
+    score: Math.round(score),
+    confidence: Math.min(88, Math.max(45, Math.round(score))),
+    entry: round(close),
+    sl: round(sl),
+    tp: round(tp),
+    ema5: round(ema5),
+    ema13: round(ema13),
+    recentHigh: round(recentHigh),
+    recentLow: round(recentLow),
+    volumeSpike,
+    avgVolume: round(avgVolume),
+    reason: buildScalpReason(action, buyScore, sellScore, checklist),
+    checklist: checklist.slice(0, 7)
+  };
+}
+
+function ema9Safe(value, fallback) {
+  const n = Number(value);
+  return Number.isFinite(n) && n > 0 ? n : fallback;
+}
+
+function buildScalpReason(action, buyScore, sellScore, checklist) {
+  if (action === "SCALP_BUY") {
+    return `Scalping M1 condong BUY. Score BUY ${Math.round(buyScore)} vs SELL ${Math.round(sellScore)}. ${checklist.slice(0, 4).join(", ")}.`;
+  }
+
+  if (action === "SCALP_SELL") {
+    return `Scalping M1 condong SELL. Score SELL ${Math.round(sellScore)} vs BUY ${Math.round(buyScore)}. ${checklist.slice(0, 4).join(", ")}.`;
+  }
+
+  return `Scalping M1 masih WAIT. BUY ${Math.round(buyScore)} vs SELL ${Math.round(sellScore)}. Tunggu momentum lebih jelas.`;
+}
+
 
 function emptyStrategy() {
   return {

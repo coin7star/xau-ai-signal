@@ -214,6 +214,15 @@ export default function App() {
     label: signal?.confidence >= 80 ? "HIGH" : signal?.confidence >= 65 ? "MEDIUM" : "LOW",
     checklist: []
   };
+  const scalping = signal?.strategy?.scalping || {
+    label: "SCALP WAIT",
+    confidence: 0,
+    action: "WAIT",
+    entry: "-",
+    sl: "-",
+    tp: "-",
+    reason: "Menunggu data M1."
+  };
   const historyStats = callHistory?.stats || {};
   const telegramStatus = signal?.telegram?.ok ? "Telegram OK" : signal?.telegram?.skipped || "Telegram standby";
 
@@ -282,9 +291,33 @@ export default function App() {
           <Metric label="EMA Cross" value={humanize(signal?.strategy?.emaCross)} note={signal?.strategy?.crossAlert?.message || "-"} />
           <Metric label="Fresh OB M15" value={obCardValue} note={obCardNote} />
           <Metric label="Probability" value={`${probability.score || 0}% · ${probability.label || "LOW"}`} note={(probability.checklist || []).join(" · ") || "Menunggu score"} />
+          <Metric label="M1 Scalp" value={`${scalping.label || "SCALP WAIT"}`} note={`${scalping.confidence || 0}% · ${scalping.action || "WAIT"}`} />
         </div>
       </section>
 
+
+
+      <section className={`scalpPanel card ${String(scalping.action || "WAIT").toLowerCase()}`}>
+        <div className="strategyHeader">
+          <div>
+            <span className="pill mini"><Zap size={14} /> M1 SCALPING MODE</span>
+            <h3>{scalping.label || "SCALP WAIT"}</h3>
+          </div>
+          <div className={`biasBadge ${scalping.action === "SCALP_BUY" ? "buy" : scalping.action === "SCALP_SELL" ? "sell" : "wait"}`}>
+            {scalping.confidence || 0}% scalp
+          </div>
+        </div>
+
+        <div className="scalpGrid">
+          <Metric label="Scalp Entry" value={scalping.entry || "-"} note="Entry cepat M1" />
+          <Metric label="Scalp SL" value={scalping.sl || "-"} note="ATR + swing M1" />
+          <Metric label="Scalp TP" value={scalping.tp || "-"} note="RR cepat 1 : 1.25" />
+          <Metric label="EMA 5/13" value={`${scalping.ema5 || "-"} / ${scalping.ema13 || "-"}`} note="Trigger scalping M1" />
+        </div>
+
+        <p className="scalpReason">{scalping.reason}</p>
+        <p className="scalpWarning">Scalping ini sinyal cepat untuk pantauan. CALL utama tetap pakai RSI + MFI + EMA 9/20 + Fresh OB M15.</p>
+      </section>
 
       <section className="historyPanel card">
         <div className="sectionTitle">
