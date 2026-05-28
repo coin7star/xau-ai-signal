@@ -1,1 +1,19 @@
-Full fix candlestick warna merah/hijau. Upload replace semua ke GitHub, commit, lalu retry deploy Cloudflare.
+{
+  "name": "xau-ai-signal-lightweight-charts",
+  "version": "1.5.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "@vitejs/plugin-react": "latest",
+    "vite": "latest",
+    "react": "latest",
+    "react-dom": "latest",
+    "lucide-react": "latest",
+    "lightweight-charts": "latest"
+  },
+  "devDependencies": {}
+}
