@@ -1,25 +1,29 @@
-# XAU History Admin Only Safe Buildfix
+# XAU Cloudflare NPM Install Fix
 
 Masalah:
-- Build sebelumnya gagal karena JSX rusak di App.jsx.
-- Error: Expected ',' or '}' but found '&&'.
+- Cloudflare gagal sebelum build:
+  npm error Exit handler never called!
+- Error terjadi saat:
+  npm clean-install --progress=false
+- Ini bug/issue di npm Cloudflare worker, bukan error React/Vite project.
 
 Fix:
-- Patch ulang dari versi stable.
-- CALL History:
-  - Premium: lihat history/performance saja.
-  - Admin: bisa manual WIN/LOSS/BE/OPEN.
-- SCALP M1 History:
-  - Premium: lihat performance saja.
-  - Admin: bisa manual WIN/LOSS/BE/OPEN.
-- Admin token input hanya muncul untuk admin.
-- Kolom Action hanya muncul untuk admin.
-- Sudah dites `npm run build` dan berhasil.
+- package-lock.json dihapus dari ZIP ini.
+- .npmrc ditambah:
+  package-lock=false
+  progress=false
+  audit=false
+  fund=false
+- Tujuan: Cloudflare pakai npm install biasa, bukan npm clean-install.
 
-File berubah:
-- src/App.jsx
-- src/style.css
-- package.json
+Cara pakai:
+1. Upload replace semua file ke GitHub.
+2. Pastikan package-lock.json lama di GitHub ikut terhapus.
+3. Commit.
+4. Deploy ulang Cloudflare.
+5. Kalau masih stuck, aktifkan Build cache Cloudflare.
 
-MQ5:
-- Tidak perlu update.
+Penting:
+- Jangan upload node_modules.
+- Jangan upload dist.
+- MQ5 tidak perlu update.
