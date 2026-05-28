@@ -1,6 +1,6 @@
 {
-  "name": "xau-ai-signal-support-resistance-touch2",
-  "version": "3.6.0",
+  "name": "xau-ai-signal-m1-last-swing-structure",
+  "version": "3.7.0",
   "type": "module",
   "scripts": {
     "dev": "vite",

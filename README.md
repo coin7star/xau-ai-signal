@@ -1,41 +1,36 @@
-# XAU Support Resistance Touch-2 Full Fix
+# XAU M1 Last Swing Structure Full Fix
 
-Update baru:
-1. M1 scalping tetap pakai rules lama sebagai legacy (tidak dihapus).
-2. Rules scalping aktif sekarang lebih ketat:
-   - BUY hanya saat harga dekat support struktur M1
-   - Harus muncul bullish engulfing
-   - Support yang dipakai maksimal 2 kali sentuhan
-   - SL di bawah support + ATR sedikit
-   - TP RR 1 : 1.25
+Update rules scalping:
+- Rules scalping lama tetap disimpan sebagai legacy.
+- Rules scalping aktif diganti:
+  - Support = last swing low M1 di struktur terakhir.
+  - Resistance = last swing high M1 di struktur terakhir.
+  - BUY valid kalau harga dekat last swing low M1 + bullish engulfing.
+  - SELL valid kalau harga dekat last swing high M1 + bearish engulfing.
+  - SL BUY di bawah support + ATR sedikit.
+  - SL SELL di atas resistance + ATR sedikit.
+  - TP tetap RR 1 : 1.25.
 
-   - SELL hanya saat harga dekat resistance struktur M1
-   - Harus muncul bearish engulfing
-   - Resistance yang dipakai maksimal 2 kali sentuhan
-   - SL di atas resistance + ATR sedikit
-   - TP RR 1 : 1.25
+Yang dihapus dari active rule:
+- Filter maksimal 2x sentuhan.
+- Cluster support/resistance.
 
-3. Di chart M1 sekarang ditambah garis:
-   - M1 Support
-   - M1 Resistance
-
-4. Fresh OB M15 tetap tampil seperti sebelumnya.
+Chart:
+- Garis M1 Support tetap tampil, sekarang dari last swing low M1.
+- Garis M1 Resistance tetap tampil, sekarang dari last swing high M1.
 
 MQ5:
 - Tidak perlu update.
-- Karena update ini hanya ubah backend signal + tampilan web.
-- MQ5 tetap kirim candle seperti biasa.
 
 File berubah:
-- src/App.jsx
-- src/style.css
 - functions/api/signal.js
 - functions/api/telegram-webhook.js
+- src/App.jsx
 - package.json
 
 Cara pakai:
-1. Upload replace semua isi zip ke repo GitHub.
+1. Upload replace semua ke GitHub.
 2. Commit changes.
-3. Tunggu deploy Cloudflare selesai.
-4. Refresh website.
-5. Test /api/signal dan Telegram /signal.
+3. Tunggu Cloudflare deploy.
+4. Refresh web.
+5. Cek /api/signal dan Telegram /signal.

@@ -329,7 +329,7 @@ export default function App() {
         </div>
 
         <p className="scalpReason">{scalping.reason}</p>
-        <p className="scalpWarning">Mode scalp baru pakai struktur M1: buy di support maksimal 2 sentuhan + bullish engulfing, sell di resistance maksimal 2 sentuhan + bearish engulfing. CALL utama tetap lebih saklek.</p>
+        <p className="scalpWarning">Mode scalp baru pakai struktur M1: buy di last swing low M1 + bullish engulfing, sell di last swing high M1 + bearish engulfing. CALL utama tetap lebih saklek.</p>
       </section>
 
       <section className="historyPanel card">

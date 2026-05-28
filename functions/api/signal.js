@@ -292,8 +292,6 @@ function buildM1StructureEngulfingScalp(candles, closes, context = {}) {
   const structure = detectM1StructureZones(recent, atrValue);
   const support = structure.support;
   const resistance = structure.resistance;
-  const supportTouches = Number(structure.supportTouches || 0);
-  const resistanceTouches = Number(structure.resistanceTouches || 0);
   const zoneBuffer = Math.max(atrValue * 0.35, close * 0.00008);
 
   const nearSupport =
@@ -321,10 +319,8 @@ function buildM1StructureEngulfingScalp(candles, closes, context = {}) {
   let sellScore = 0;
   const checklist = [];
 
-  if (nearSupport) { buyScore += 28; checklist.push(`Harga di area support M1 (${supportTouches || 1} sentuhan)`); }
-  if (nearResistance) { sellScore += 28; checklist.push(`Harga di area resistance M1 (${resistanceTouches || 1} sentuhan)`); }
-  if (supportTouches === 2) { buyScore += 6; checklist.push("Support M1 fresh maksimal 2 sentuhan"); }
-  if (resistanceTouches === 2) { sellScore += 6; checklist.push("Resistance M1 fresh maksimal 2 sentuhan"); }
+  if (nearSupport) { buyScore += 34; checklist.push("Harga di area last swing low M1"); }
+  if (nearResistance) { sellScore += 34; checklist.push("Harga di area last swing high M1"); }
 
   if (bullishEngulfing) { buyScore += 34; checklist.push("Bullish engulfing valid"); }
   if (bearishEngulfing) { sellScore += 34; checklist.push("Bearish engulfing valid"); }
@@ -335,8 +331,8 @@ function buildM1StructureEngulfingScalp(candles, closes, context = {}) {
   if (mfiBuyOk) { buyScore += 10; checklist.push("MFI aman untuk BUY"); }
   if (mfiSellOk) { sellScore += 10; checklist.push("MFI aman untuk SELL"); }
 
-  const buyValid = nearSupport && bullishEngulfing && supportTouches <= 2 && buyScore >= 58;
-  const sellValid = nearResistance && bearishEngulfing && resistanceTouches <= 2 && sellScore >= 58;
+  const buyValid = nearSupport && bullishEngulfing && buyScore >= 58;
+  const sellValid = nearResistance && bearishEngulfing && sellScore >= 58;
 
   let action = "WAIT";
   let label = "SCALP WAIT";
@@ -385,8 +381,10 @@ function buildM1StructureEngulfingScalp(candles, closes, context = {}) {
     tp: round(tp),
     support: round(support),
     resistance: round(resistance),
-    supportTouches,
-    resistanceTouches,
+    supportTime: structure.supportTime || null,
+    resistanceTime: structure.resistanceTime || null,
+    supportSource: structure.supportSource || "LAST_M1_SWING_LOW",
+    resistanceSource: structure.resistanceSource || "LAST_M1_SWING_HIGH",
     zone,
     pattern,
     atr: round(atrValue),
@@ -401,8 +399,6 @@ function buildM1StructureEngulfingScalp(candles, closes, context = {}) {
       sellScore,
       support,
       resistance,
-      supportTouches,
-      resistanceTouches,
       nearSupport,
       nearResistance,
       bullishEngulfing,
@@ -537,8 +533,10 @@ function detectM1StructureZones(candles, atrValue) {
   const swingHighs = [];
   const swingLows = [];
   const lastClose = Number(candles[candles.length - 1]?.close || 0);
-  const tolerance = Math.max(atrValue * 0.22, lastClose * 0.00005);
 
+  // Cari swing high/low struktur M1 terakhir.
+  // Support = swing low terakhir di bawah harga sekarang.
+  // Resistance = swing high terakhir di atas harga sekarang.
   for (let i = 2; i < candles.length - 2; i++) {
     const c = candles[i];
     const left = candles.slice(i - 2, i);
@@ -547,30 +545,55 @@ function detectM1StructureZones(candles, atrValue) {
     const isHigh = left.every((x) => c.high >= x.high) && right.every((x) => c.high >= x.high);
     const isLow = left.every((x) => c.low <= x.low) && right.every((x) => c.low <= x.low);
 
-    if (isHigh) swingHighs.push(c.high);
-    if (isLow) swingLows.push(c.low);
+    if (isHigh) {
+      swingHighs.push({
+        price: c.high,
+        time: c.time,
+        index: i
+      });
+    }
+
+    if (isLow) {
+      swingLows.push({
+        price: c.low,
+        time: c.time,
+        index: i
+      });
+    }
   }
 
-  const supportClusters = clusterStructureLevels(
-    swingLows.filter((x) => x <= lastClose + atrValue * 0.8),
-    tolerance
-  );
+  const supportsBelow = swingLows.filter((x) => x.price <= lastClose);
+  const resistancesAbove = swingHighs.filter((x) => x.price >= lastClose);
 
-  const resistanceClusters = clusterStructureLevels(
-    swingHighs.filter((x) => x >= lastClose - atrValue * 0.8),
-    tolerance
-  );
+  const lastSupport = supportsBelow.length
+    ? supportsBelow[supportsBelow.length - 1]
+    : swingLows.length
+      ? swingLows[swingLows.length - 1]
+      : {
+          price: Math.min(...candles.slice(-20).map((c) => c.low)),
+          time: candles[candles.length - 1]?.time || null,
+          index: candles.length - 1
+        };
 
-  const supportPick = pickNearestFreshStructure(supportClusters, lastClose, "support");
-  const resistancePick = pickNearestFreshStructure(resistanceClusters, lastClose, "resistance");
+  const lastResistance = resistancesAbove.length
+    ? resistancesAbove[resistancesAbove.length - 1]
+    : swingHighs.length
+      ? swingHighs[swingHighs.length - 1]
+      : {
+          price: Math.max(...candles.slice(-20).map((c) => c.high)),
+          time: candles[candles.length - 1]?.time || null,
+          index: candles.length - 1
+        };
 
   return {
-    support: supportPick?.price ?? Math.min(...candles.slice(-20).map((c) => c.low)),
-    resistance: resistancePick?.price ?? Math.max(...candles.slice(-20).map((c) => c.high)),
-    supportTouches: supportPick?.touches ?? 1,
-    resistanceTouches: resistancePick?.touches ?? 1,
-    supportIsFresh: Boolean(supportPick),
-    resistanceIsFresh: Boolean(resistancePick),
+    support: lastSupport.price,
+    resistance: lastResistance.price,
+    supportTime: lastSupport.time || null,
+    resistanceTime: lastResistance.time || null,
+    supportIndex: lastSupport.index,
+    resistanceIndex: lastResistance.index,
+    supportSource: "LAST_M1_SWING_LOW",
+    resistanceSource: "LAST_M1_SWING_HIGH",
     swingLowCount: swingLows.length,
     swingHighCount: swingHighs.length
   };
@@ -652,19 +675,19 @@ function buildStructureScalpReason(data) {
   const confirmations = data.checklist.length ? data.checklist.slice(0, 5).join(" • ") : "belum ada setup valid";
 
   if (data.action === "SCALP_BUY") {
-    return `🚀 M1 scalp BUY valid. Harga mantul dari support M1 fresh (${data.supportTouches || 1} sentuhan) + bullish engulfing kebaca. BUY power ${buy}/100 vs SELL ${sell}/100. Quick plan aktif, tetap jaga SL. Konfirmasi: ${confirmations}.`;
+    return `🚀 M1 scalp BUY valid. Harga mantul dari last swing low M1 + bullish engulfing kebaca. BUY power ${buy}/100 vs SELL ${sell}/100. Quick plan aktif, tetap jaga SL. Konfirmasi: ${confirmations}.`;
   }
 
   if (data.action === "SCALP_SELL") {
-    return `🔻 M1 scalp SELL valid. Harga reject dari resistance M1 fresh (${data.resistanceTouches || 1} sentuhan) + bearish engulfing kebaca. SELL power ${sell}/100 vs BUY ${buy}/100. Quick plan aktif, tetap jaga SL. Konfirmasi: ${confirmations}.`;
+    return `🔻 M1 scalp SELL valid. Harga reject dari last swing high M1 + bearish engulfing kebaca. SELL power ${sell}/100 vs BUY ${buy}/100. Quick plan aktif, tetap jaga SL. Konfirmasi: ${confirmations}.`;
   }
 
   if (data.nearSupport && !data.bullishEngulfing) {
-    return `👀 Harga lagi dekat support M1 fresh (${data.supportTouches || 1} sentuhan), tapi belum ada bullish engulfing. BUY power ${buy}/100. Tunggu candle reversal yang lebih jelas.`;
+    return `👀 Harga lagi dekat last swing low M1, tapi belum ada bullish engulfing. BUY power ${buy}/100. Tunggu candle reversal yang lebih jelas.`;
   }
 
   if (data.nearResistance && !data.bearishEngulfing) {
-    return `👀 Harga lagi dekat resistance M1 fresh (${data.resistanceTouches || 1} sentuhan), tapi belum ada bearish engulfing. SELL power ${sell}/100. Tunggu candle reject yang lebih jelas.`;
+    return `👀 Harga lagi dekat last swing high M1, tapi belum ada bearish engulfing. SELL power ${sell}/100. Tunggu candle reject yang lebih jelas.`;
   }
 
   if (data.bullishEngulfing && !data.nearSupport) {
@@ -675,7 +698,7 @@ function buildStructureScalpReason(data) {
     return `⚠️ Bearish engulfing muncul, tapi posisinya belum di area resistance M1. Tunggu area struktur biar nggak entry nanggung.`;
   }
 
-  return `😴 M1 scalp masih nunggu setup. Rule baru butuh engulfing di area support/resistance M1 fresh maksimal 2 sentuhan. Support ${round(data.support)} (${data.supportTouches || 1}x), Resistance ${round(data.resistance)} (${data.resistanceTouches || 1}x).`;
+  return `😴 M1 scalp masih nunggu setup. Rule aktif butuh engulfing di area last swing low/high M1. Support ${round(data.support)}, Resistance ${round(data.resistance)}.`;
 }
 
 function ema9Safe(value, fallback) {
