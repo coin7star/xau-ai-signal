@@ -22,6 +22,7 @@ export default function App() {
   const [signal, setSignal] = useState(null);
   const [loading, setLoading] = useState(false);
   const [lastUpdate, setLastUpdate] = useState("-");
+  const [chartError, setChartError] = useState("");
 
   async function loadAll() {
     try {
@@ -60,66 +61,78 @@ export default function App() {
   useEffect(() => {
     if (!chartBoxRef.current) return;
 
-    const chart = createChart(chartBoxRef.current, {
-      width: chartBoxRef.current.clientWidth,
-      height: 470,
-      layout: {
-        background: { type: ColorType.Solid, color: "transparent" },
-        textColor: "#aeb9d8"
-      },
-      grid: {
-        vertLines: { color: "rgba(255,255,255,0.075)" },
-        horzLines: { color: "rgba(255,255,255,0.075)" }
-      },
-      rightPriceScale: {
-        borderColor: "rgba(255,255,255,0.14)",
-        scaleMargins: { top: 0.12, bottom: 0.12 }
-      },
-      timeScale: {
-        borderColor: "rgba(255,255,255,0.14)",
-        timeVisible: true,
-        secondsVisible: false
-      },
-      crosshair: { mode: CrosshairMode.Normal }
-    });
+    try {
+      const chart = createChart(chartBoxRef.current, {
+        width: chartBoxRef.current.clientWidth || 900,
+        height: 470,
+        layout: {
+          background: { type: ColorType.Solid, color: "transparent" },
+          textColor: "#aeb9d8"
+        },
+        grid: {
+          vertLines: { color: "rgba(255,255,255,0.08)" },
+          horzLines: { color: "rgba(255,255,255,0.08)" }
+        },
+        rightPriceScale: {
+          borderColor: "rgba(255,255,255,0.14)",
+          scaleMargins: { top: 0.12, bottom: 0.12 }
+        },
+        timeScale: {
+          borderColor: "rgba(255,255,255,0.14)",
+          timeVisible: true,
+          secondsVisible: false
+        },
+        crosshair: { mode: CrosshairMode.Normal }
+      });
 
-    const candleSeries = chart.addCandlestickSeries({
-      upColor: "#19f28f",
-      downColor: "#ff4d6d",
-      borderUpColor: "#19f28f",
-      borderDownColor: "#ff4d6d",
-      wickUpColor: "#77ffd0",
-      wickDownColor: "#ff9aac",
-      priceFormat: {
-        type: "price",
-        precision: 2,
-        minMove: 0.01
-      }
-    });
+      const candleSeries = chart.addCandlestickSeries({
+        upColor: "#19f28f",
+        downColor: "#ff4d6d",
+        borderUpColor: "#19f28f",
+        borderDownColor: "#ff4d6d",
+        wickUpColor: "#77ffd0",
+        wickDownColor: "#ff9aac",
+        priceFormat: {
+          type: "price",
+          precision: 2,
+          minMove: 0.01
+        }
+      });
 
-    chartRef.current = chart;
-    candleSeriesRef.current = candleSeries;
+      chartRef.current = chart;
+      candleSeriesRef.current = candleSeries;
+      setChartError("");
 
-    const ro = new ResizeObserver(() => {
-      if (!chartBoxRef.current || !chartRef.current) return;
-      chartRef.current.applyOptions({ width: chartBoxRef.current.clientWidth });
-    });
+      const ro = new ResizeObserver(() => {
+        if (!chartBoxRef.current || !chartRef.current) return;
+        chartRef.current.applyOptions({
+          width: chartBoxRef.current.clientWidth || 900
+        });
+      });
 
-    ro.observe(chartBoxRef.current);
+      ro.observe(chartBoxRef.current);
 
-    return () => {
-      ro.disconnect();
-      chart.remove();
-      chartRef.current = null;
-      candleSeriesRef.current = null;
-    };
+      return () => {
+        ro.disconnect();
+        chart.remove();
+        chartRef.current = null;
+        candleSeriesRef.current = null;
+      };
+    } catch (err) {
+      setChartError(err.message || String(err));
+    }
   }, []);
 
   useEffect(() => {
     if (!candleSeriesRef.current || !chartRef.current || !tvCandles.length) return;
 
-    candleSeriesRef.current.setData(tvCandles);
-    chartRef.current.timeScale().fitContent();
+    try {
+      candleSeriesRef.current.setData(tvCandles);
+      chartRef.current.timeScale().fitContent();
+      setChartError("");
+    } catch (err) {
+      setChartError(err.message || String(err));
+    }
   }, [tvCandles]);
 
   return (
@@ -140,7 +153,7 @@ export default function App() {
           <span className="pill"><Zap size={15} /> STRATEGY ENGINE</span>
           <h1>RSI + EMA Cross 9/20 + Order Block 🔥</h1>
           <p>
-            Sinyal sekarang bukan candle random lagi. Backend membaca candle MT5, menghitung RSI, EMA 9/20, dan area order block.
+            Sinyal membaca candle MT5, menghitung RSI, EMA 9/20, dan area order block. Chart sudah pakai lightweight-charts versi stabil.
           </p>
           <div className="actions">
             <button onClick={loadAll} disabled={loading}>
@@ -174,7 +187,7 @@ export default function App() {
       </section>
 
       <section className="strategyGrid">
-        <StrategyCard title="RSI 14" value={signal?.strategy?.rsi ?? "-"} desc="55-72 BUY bias, 28-45 SELL bias" />
+        <StrategyCard title="RSI 14" value={signal?.strategy?.rsi ?? "-"} desc="Wilder RSI seperti MT5 iRSI" />
         <StrategyCard title="EMA 9" value={signal?.strategy?.ema9 ?? "-"} desc="Fast moving average" />
         <StrategyCard title="EMA 20" value={signal?.strategy?.ema20 ?? "-"} desc="Slow moving average" />
         <StrategyCard title="EMA Cross" value={signal?.strategy?.emaCross ?? "-"} desc="Cross dan trend filter" />
@@ -199,6 +212,8 @@ export default function App() {
             <em><span></span> Auto refresh 5s</em>
           </div>
         </div>
+
+        {chartError && <div className="chartError">Chart error: {chartError}</div>}
 
         {tvCandles.length > 0 ? (
           <div className="tvChart" ref={chartBoxRef}></div>
@@ -242,8 +257,10 @@ function candlesToTradingView(candles) {
 
 function parseMt5Time(value) {
   if (!value) return null;
+
   const normalized = String(value).replace(/\./g, "-").replace(" ", "T");
   const ms = Date.parse(normalized);
+
   if (Number.isNaN(ms)) return null;
   return Math.floor(ms / 1000);
 }

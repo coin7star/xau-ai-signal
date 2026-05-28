@@ -1,6 +1,6 @@
 {
   "name": "xau-ai-signal-strategy-clean",
-  "version": "1.6.1",
+  "version": "1.6.2",
   "type": "module",
   "scripts": {
     "dev": "vite",
@@ -13,7 +13,7 @@
     "react": "latest",
     "react-dom": "latest",
     "lucide-react": "latest",
-    "lightweight-charts": "latest"
+    "lightweight-charts": "4.2.3"
   },
   "devDependencies": {}
 }
