@@ -1,6 +1,6 @@
 {
-  "name": "xau-ai-signal-email-verification-antispam",
-  "version": "5.2.0",
+  "name": "xau-ai-signal-email-verification-export-fix",
+  "version": "5.2.1",
   "type": "module",
   "scripts": {
     "dev": "vite",
