@@ -1,17 +1,13 @@
-# XAU AI Analysis Sync Full Fix
+# XAU SMC Order Block v2 Full Fix
 
-Fitur baru:
-- /api/ai-analysis
-- AI membaca signal internal, RSI, EMA Cross 9/20, Order Block, candle MT5 terbaru
-- UI menampilkan AI Market Analysis
-- Fallback analysis tetap jalan kalau AI_API_KEY belum diset
+Upgrade:
+- SMC Order Block v2
+- Detect swing high / swing low
+- Detect BOS bullish / bearish
+- Cari origin candle sebelum BOS
+- Status OB: active, mitigated, invalid
+- Strength score OB
+- AI Analysis sudah membaca SMC v2
+- MT5 default kirim 140 candle
 
-ENV Cloudflare:
-- FIREBASE_DATABASE_URL
-- MT5_INGEST_TOKEN
-- AI_API_KEY
-- AI_MODEL
-- AI_BASE_URL optional
-
-Default AI_BASE_URL:
-https://api.groq.com/openai/v1/chat/completions
+Upload replace semua ke GitHub, commit, lalu retry deploy Cloudflare.

@@ -3,7 +3,6 @@ import { createChart, ColorType, CrosshairMode } from "lightweight-charts";
 import {
   Activity,
   Bot,
-  Brain,
   Database,
   Radio,
   RefreshCcw,
@@ -30,7 +29,6 @@ export default function App() {
   async function loadData() {
     try {
       setLoading(true);
-
       const [marketJson, signalJson, aiJson] = await Promise.all([
         fetch(`/api/market?ts=${Date.now()}`, { cache: "no-store" }).then((r) => r.json()),
         fetch(`/api/signal?ts=${Date.now()}`, { cache: "no-store" }).then((r) => r.json()),
@@ -60,9 +58,7 @@ export default function App() {
 
   const isBuy = signal?.signal === "BUY";
   const isSell = signal?.signal === "SELL";
-  const spread = market?.ask && market?.bid
-    ? Math.abs(Number(market.ask) - Number(market.bid)).toFixed(2)
-    : "-";
+  const spread = market?.ask && market?.bid ? Math.abs(Number(market.ask) - Number(market.bid)).toFixed(2) : "-";
 
   useEffect(() => {
     if (!chartContainerRef.current || chartRef.current) return;
@@ -98,11 +94,7 @@ export default function App() {
         borderDownColor: "#ff4d6d",
         wickUpColor: "#77ffd0",
         wickDownColor: "#ff9aac",
-        priceFormat: {
-          type: "price",
-          precision: 2,
-          minMove: 0.01
-        }
+        priceFormat: { type: "price", precision: 2, minMove: 0.01 }
       });
 
       chartRef.current = chart;
@@ -110,9 +102,7 @@ export default function App() {
 
       const resizeObserver = new ResizeObserver(() => {
         if (!chartContainerRef.current || !chartRef.current) return;
-        chartRef.current.applyOptions({
-          width: chartContainerRef.current.clientWidth || 900
-        });
+        chartRef.current.applyOptions({ width: chartContainerRef.current.clientWidth || 900 });
       });
 
       resizeObserver.observe(chartContainerRef.current);
@@ -146,6 +136,7 @@ export default function App() {
   const signalTone = isBuy ? "buy" : isSell ? "sell" : "wait";
   const readableSignal = signal?.signal || "WAIT";
   const trendBias = signal?.strategy?.trendBias || "-";
+  const smc = signal?.strategy?.smc;
 
   return (
     <main className="page">
@@ -154,7 +145,7 @@ export default function App() {
           <div className="logo"><Bot size={22} /></div>
           <div>
             <b>XAU AI Signal</b>
-            <span>AI Analysis · MT5 realtime</span>
+            <span>SMC Order Block v2 · AI Analysis</span>
           </div>
         </div>
         <div className="live"><Radio size={14} /> Firebase Live</div>
@@ -162,11 +153,11 @@ export default function App() {
 
       <section className="hero cleanHero">
         <div className="intro card">
-          <span className="pill"><Zap size={15} /> XAUUSD AI STRATEGY</span>
-          <h1>AI analysis sinkron dengan sinyal XAUUSD.</h1>
+          <span className="pill"><Zap size={15} /> SMC ORDER BLOCK V2</span>
+          <h1>Order Block lebih pintar: BOS, status, strength.</h1>
           <p>
-            AI membaca sinyal internal, RSI, EMA Cross 9/20, Order Block, dan candle MT5 terbaru.
-            Kalau API key belum diset, sistem otomatis pakai fallback analysis.
+            Sistem sekarang cari swing high/low, deteksi Break of Structure, cari origin candle,
+            lalu validasi apakah OB masih active, mitigated, atau invalid.
           </p>
           <div className="actions">
             <button onClick={loadData} disabled={loading}>
@@ -194,26 +185,10 @@ export default function App() {
       </section>
 
       <section className="overview card">
-        <div className="overviewItem">
-          <Database size={18} />
-          <small>Data source</small>
-          <strong>Firebase RTDB</strong>
-        </div>
-        <div className="overviewItem">
-          <Activity size={18} />
-          <small>Candle</small>
-          <strong>{candles.length} data</strong>
-        </div>
-        <div className="overviewItem">
-          <Shield size={18} />
-          <small>Spread</small>
-          <strong>{spread}</strong>
-        </div>
-        <div className="overviewItem">
-          {isSell ? <TrendingDown size={18} /> : <TrendingUp size={18} />}
-          <small>Last close</small>
-          <strong>{lastCandle?.close || "-"}</strong>
-        </div>
+        <div className="overviewItem"><Database size={18} /><small>Data source</small><strong>Firebase RTDB</strong></div>
+        <div className="overviewItem"><Activity size={18} /><small>Candle</small><strong>{candles.length} data</strong></div>
+        <div className="overviewItem"><Shield size={18} /><small>Spread</small><strong>{spread}</strong></div>
+        <div className="overviewItem">{isSell ? <TrendingDown size={18} /> : <TrendingUp size={18} />}<small>Last close</small><strong>{lastCandle?.close || "-"}</strong></div>
       </section>
 
       <section className="aiPanel card">
@@ -234,8 +209,8 @@ export default function App() {
       <section className="strategyPanel card">
         <div className="strategyHeader">
           <div>
-            <span className="pill mini"><Target size={14} /> STRATEGY SNAPSHOT</span>
-            <h3>Ringkasan teknikal</h3>
+            <span className="pill mini"><Target size={14} /> SMC SNAPSHOT</span>
+            <h3>Ringkasan struktur market</h3>
           </div>
           <div className={`biasBadge ${signalTone}`}>{trendBias}</div>
         </div>
@@ -243,15 +218,20 @@ export default function App() {
         <div className="strategyCleanGrid">
           <Metric label="RSI 14" value={signal?.strategy?.rsi ?? "-"} note="Wilder RSI seperti MT5" />
           <Metric label="EMA Cross" value={humanize(signal?.strategy?.emaCross)} note={`EMA9 ${signal?.strategy?.ema9 ?? "-"} · EMA20 ${signal?.strategy?.ema20 ?? "-"}`} />
-          <Metric label="Score" value={`${signal?.strategy?.buyScore ?? "-"} / ${signal?.strategy?.sellScore ?? "-"}`} note="Buy score / Sell score" />
+          <Metric label="Last BOS" value={humanize(smc?.lastBos?.type)} note={`BOS count ${smc?.bosCount ?? 0}`} />
+        </div>
+
+        <div className="obV2Grid">
+          <ObV2 title="Bullish OB v2" data={signal?.strategy?.orderBlock?.bullish} />
+          <ObV2 title="Bearish OB v2" data={signal?.strategy?.orderBlock?.bearish} />
         </div>
 
         <details className="detailsBox">
-          <summary>Lihat detail Order Block & indikator</summary>
+          <summary>Lihat detail indikator</summary>
           <div className="detailsGrid">
-            <InfoLine label="Bullish Order Block" value={formatOb(signal?.strategy?.orderBlock?.bullish)} />
-            <InfoLine label="Bearish Order Block" value={formatOb(signal?.strategy?.orderBlock?.bearish)} />
-            <InfoLine label="RSI Method" value={signal?.strategy?.rsiMethod || "-"} />
+            <InfoLine label="Buy / Sell Score" value={`${signal?.strategy?.buyScore ?? "-"} / ${signal?.strategy?.sellScore ?? "-"}`} />
+            <InfoLine label="SMC Version" value={smc?.version || "-"} />
+            <InfoLine label="Last BOS Time" value={smc?.lastBos?.time || "-"} />
             <InfoLine label="Mode" value={signal?.mode || "-"} />
           </div>
         </details>
@@ -271,13 +251,10 @@ export default function App() {
         </div>
 
         {chartError && <div className="chartError">Chart error: {chartError}</div>}
-
         <div className="tvChart" ref={chartContainerRef}></div>
 
         {tvCandles.length === 0 && (
-          <div className="chartEmpty">
-            Belum ada candle valid. Cek /api/market apakah candles sudah masuk.
-          </div>
+          <div className="chartEmpty">Belum ada candle valid. Cek /api/market apakah candles sudah masuk.</div>
         )}
       </section>
 
@@ -307,13 +284,7 @@ function candlesToTradingView(candles) {
       return item;
     })
     .filter(Boolean)
-    .filter((c) =>
-      Number.isFinite(c.time) &&
-      Number.isFinite(c.open) &&
-      Number.isFinite(c.high) &&
-      Number.isFinite(c.low) &&
-      Number.isFinite(c.close)
-    )
+    .filter((c) => Number.isFinite(c.time) && Number.isFinite(c.open) && Number.isFinite(c.high) && Number.isFinite(c.low) && Number.isFinite(c.close))
     .sort((a, b) => a.time - b.time);
 }
 
@@ -322,31 +293,31 @@ function parseMt5Time(value) {
   const raw = String(value).trim();
   const normalized = raw.replace(/\./g, "-").replace(" ", "T");
   const ms = Date.parse(normalized);
-
   if (!Number.isNaN(ms)) return Math.floor(ms / 1000);
-
   const parts = raw.match(/^(\d{4})[.\-](\d{2})[.\-](\d{2})\s+(\d{2}):(\d{2})(?::(\d{2}))?$/);
   if (!parts) return null;
-
   const [, y, mo, d, h, mi, s = "00"] = parts;
   return Math.floor(new Date(Number(y), Number(mo) - 1, Number(d), Number(h), Number(mi), Number(s)).getTime() / 1000);
 }
 
 function Metric({ label, value, note }) {
-  return (
-    <div className="metric">
-      <small>{label}</small>
-      <strong>{value}</strong>
-      <span>{note}</span>
-    </div>
-  );
+  return <div className="metric"><small>{label}</small><strong>{value || "-"}</strong><span>{note}</span></div>;
 }
 
 function InfoLine({ label, value }) {
+  return <div className="infoLine"><span>{label}</span><strong>{value || "-"}</strong></div>;
+}
+
+function ObV2({ title, data }) {
+  const tone = data?.status === "active" ? "active" : data?.status === "mitigated" ? "mitigated" : "invalid";
   return (
-    <div className="infoLine">
-      <span>{label}</span>
-      <strong>{value}</strong>
+    <div className={`obV2 ${tone}`}>
+      <div>
+        <small>{title}</small>
+        <strong>{data ? `${data.low} - ${data.high}` : "-"}</strong>
+      </div>
+      <span>{data?.status || "not found"}</span>
+      <p>{data ? `Strength ${data.strength}% · ${data.reason}` : "Belum terdeteksi."}</p>
     </div>
   );
 }
@@ -356,14 +327,6 @@ function humanize(value) {
   return String(value).replaceAll("_", " ");
 }
 
-function formatOb(ob) {
-  if (!ob) return "Belum terdeteksi";
-  return `${ob.low} - ${ob.high} · ${ob.originTime || "-"}`;
-}
-
 function formatAiText(text) {
-  return String(text)
-    .split("\n")
-    .filter(Boolean)
-    .map((line, index) => <p key={index}>{line}</p>);
+  return String(text).split("\n").filter(Boolean).map((line, index) => <p key={index}>{line}</p>);
 }

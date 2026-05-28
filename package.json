@@ -1,6 +1,6 @@
 {
-  "name": "xau-ai-signal-ai-analysis-sync",
-  "version": "1.8.0",
+  "name": "xau-ai-signal-smc-ob-v2",
+  "version": "1.9.0",
   "type": "module",
   "scripts": {
     "dev": "vite",

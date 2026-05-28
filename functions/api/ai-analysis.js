@@ -1,28 +1,16 @@
-const H = {
-  "Content-Type": "application/json",
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
-  "Access-Control-Allow-Headers": "Content-Type, Authorization"
-};
-
-export async function onRequest({ request, env }) {
-  if (request.method === "OPTIONS") {
-    return new Response(null, { status: 204, headers: H });
-  }
-
+export async function onRequest({ env }) {
   const dbUrl = (env.FIREBASE_DATABASE_URL || "").replace(/\/$/, "");
-  if (!dbUrl) {
-    return json({ ok: false, error: "ENV FIREBASE_DATABASE_URL belum diset" }, 500);
+  let market = null;
+
+  if (dbUrl) {
+    const res = await fetch(`${dbUrl}/xauusd/latest.json?ts=${Date.now()}`, {
+      headers: { "Cache-Control": "no-cache" }
+    });
+    if (res.ok) market = await res.json();
   }
 
-  const marketRes = await fetch(`${dbUrl}/xauusd/latest.json?ts=${Date.now()}`, {
-    headers: { "Cache-Control": "no-cache" }
-  });
-
-  const market = marketRes.ok ? await marketRes.json() : null;
   const candles = Array.isArray(market?.candles) ? market.candles : [];
   const signal = buildSignal(candles, market);
-
   const fallback = buildFallbackAnalysis(market, signal);
 
   if (!env.AI_API_KEY) {
@@ -81,6 +69,7 @@ EMA20: ${signal.strategy?.ema20}
 EMA Cross: ${signal.strategy?.emaCross}
 Buy Score: ${signal.strategy?.buyScore}
 Sell Score: ${signal.strategy?.sellScore}
+SMC: ${JSON.stringify(signal.strategy?.smc || null)}
 Bullish OB: ${JSON.stringify(signal.strategy?.orderBlock?.bullish || null)}
 Bearish OB: ${JSON.stringify(signal.strategy?.orderBlock?.bearish || null)}
 Recent candles: ${JSON.stringify(candles)}
@@ -88,6 +77,7 @@ Recent candles: ${JSON.stringify(candles)}
 Format wajib:
 Bias:
 Alasan:
+SMC/Order Block:
 Area penting:
 Rencana:
 Risiko:
@@ -102,83 +92,56 @@ Risiko:
     body: JSON.stringify({
       model,
       messages: [
-        {
-          role: "system",
-          content: "Kamu analis market XAUUSD. Jawab ringkas, tidak halu, dan selalu sebut ini bukan financial advice."
-        },
-        {
-          role: "user",
-          content: prompt
-        }
+        { role: "system", content: "Kamu analis market XAUUSD. Jawab ringkas, tidak halu, dan selalu sebut ini bukan financial advice." },
+        { role: "user", content: prompt }
       ],
       temperature: 0.35,
-      max_tokens: 450
+      max_tokens: 500
     })
   });
 
-  if (!res.ok) {
-    const text = await res.text();
-    throw new Error(`AI request failed: ${res.status} ${text}`);
-  }
-
+  if (!res.ok) throw new Error(`AI request failed: ${res.status} ${await res.text()}`);
   const data = await res.json();
   return data?.choices?.[0]?.message?.content || "";
 }
 
 function normalizeAiText(text) {
-  return String(text || "").trim().slice(0, 2400);
+  return String(text || "").trim().slice(0, 2600);
 }
 
 function buildFallbackAnalysis(market, signal) {
   const s = signal?.strategy || {};
-  const obBull = s?.orderBlock?.bullish;
-  const obBear = s?.orderBlock?.bearish;
+  const bull = s?.orderBlock?.bullish;
+  const bear = s?.orderBlock?.bearish;
 
   const bias = signal.signal === "BUY"
-    ? "Bias condong BUY selama harga bertahan di atas area support terdekat."
+    ? "Bias condong BUY selama candle tetap di atas area support/OB aktif."
     : signal.signal === "SELL"
-      ? "Bias condong SELL selama harga tertahan di bawah resistance terdekat."
+      ? "Bias condong SELL selama candle tertahan di bawah resistance/OB aktif."
       : "Bias masih WAIT karena konfirmasi belum cukup kuat.";
-
-  const obText = [
-    obBull ? `Bullish OB ${obBull.low} - ${obBull.high}` : "Bullish OB belum jelas",
-    obBear ? `Bearish OB ${obBear.low} - ${obBear.high}` : "Bearish OB belum jelas"
-  ].join(". ");
 
   return [
     `Bias: ${bias}`,
-    `Alasan: RSI ${s.rsi ?? "-"}, EMA Cross ${humanize(s.emaCross)}, Buy Score ${s.buyScore ?? "-"} vs Sell Score ${s.sellScore ?? "-"}.`,
-    `Area penting: ${obText}.`,
-    `Rencana: Ikuti sinyal ${signal.signal} hanya jika candle berikutnya tetap mendukung struktur market.`,
-    `Risiko: XAUUSD volatil, gunakan lot kecil dan anggap ini bukan financial advice.`
+    `Alasan: RSI ${s.rsi ?? "-"}, EMA Cross ${String(s.emaCross || "-").replaceAll("_", " ")}, Buy Score ${s.buyScore ?? "-"} vs Sell Score ${s.sellScore ?? "-"}.`,
+    `SMC/Order Block: Last BOS ${s.smc?.lastBos?.type || "-"}, total BOS ${s.smc?.bosCount ?? 0}.`,
+    `Area penting: Bullish OB ${formatOb(bull)}. Bearish OB ${formatOb(bear)}.`,
+    `Rencana: Ikuti sinyal ${signal.signal} hanya jika candle berikutnya tetap valid terhadap OB dan struktur BOS.`,
+    `Risiko: XAUUSD volatil. Ini bukan financial advice.`
   ].join("\n");
 }
 
-function humanize(value) {
-  if (!value) return "-";
-  return String(value).replaceAll("_", " ");
+function formatOb(ob) {
+  if (!ob) return "belum jelas";
+  return `${ob.low}-${ob.high} (${ob.status}, strength ${ob.strength}%)`;
 }
 
-function buildSignal(candles, market) {
-  const cleanCandles = candles
-    .map((c) => ({
-      time: c.time,
-      open: Number(c.open),
-      high: Number(c.high),
-      low: Number(c.low),
-      close: Number(c.close)
-    }))
-    .filter((c) =>
-      Number.isFinite(c.open) &&
-      Number.isFinite(c.high) &&
-      Number.isFinite(c.low) &&
-      Number.isFinite(c.close)
-    );
 
+export function buildSignal(candles, market) {
+  const cleanCandles = clean(candles);
   const closes = cleanCandles.map((c) => c.close);
   const last = cleanCandles[cleanCandles.length - 1];
 
-  if (!last || closes.length < 35) {
+  if (!last || closes.length < 50) {
     return {
       ok: true,
       pair: "XAUUSD",
@@ -187,14 +150,16 @@ function buildSignal(candles, market) {
       sl: 0,
       tp: 0,
       confidence: 50,
-      reason: "Menunggu minimal 35 candle.",
+      reason: "Menunggu minimal 50 candle untuk RSI, EMA Cross 9/20, dan SMC Order Block v2.",
       mode: market ? "firebase-mt5-data" : "waiting-mt5",
       strategy: {
         trendBias: "Netral",
         rsi: null,
+        rsiMethod: "Wilder RSI 14 seperti MT5 iRSI",
         ema9: null,
         ema20: null,
         emaCross: "WAIT",
+        smc: null,
         orderBlock: null,
         buyScore: 0,
         sellScore: 0,
@@ -210,16 +175,16 @@ function buildSignal(candles, market) {
   const rsi14 = rsiWilder(closes, 14);
   const atr14 = atr(cleanCandles, 14);
 
-  const close = Number(last.close);
-  const high = Number(last.high);
-  const low = Number(last.low);
+  const close = last.close;
+  const high = last.high;
+  const low = last.low;
 
-  const orderBlock = detectOrderBlock(cleanCandles);
-  const bullOb = orderBlock.bullish;
-  const bearOb = orderBlock.bearish;
+  const smc = detectSmcOrderBlockV2(cleanCandles);
+  const bullOb = smc?.bullish;
+  const bearOb = smc?.bearish;
 
-  const nearBullOB = bullOb && close >= bullOb.low - atr14 * 0.3 && close <= bullOb.high + atr14 * 0.8;
-  const nearBearOB = bearOb && close <= bearOb.high + atr14 * 0.3 && close >= bearOb.low - atr14 * 0.8;
+  const nearBullOB = bullOb && bullOb.status !== "invalid" && close >= bullOb.low - atr14 * 0.35 && close <= bullOb.high + atr14 * 0.85;
+  const nearBearOB = bearOb && bearOb.status !== "invalid" && close <= bearOb.high + atr14 * 0.35 && close >= bearOb.low - atr14 * 0.85;
 
   let emaCross = "NEUTRAL";
   if (prevEma9 <= prevEma20 && ema9 > ema20) emaCross = "BULLISH_CROSS";
@@ -231,28 +196,34 @@ function buildSignal(candles, market) {
   let sellScore = 0;
   const reasons = [];
 
-  if (ema9 > ema20) { buyScore += 25; reasons.push("EMA 9 di atas EMA 20, trend pendek bullish."); }
-  if (ema9 < ema20) { sellScore += 25; reasons.push("EMA 9 di bawah EMA 20, trend pendek bearish."); }
+  if (ema9 > ema20) { buyScore += 22; reasons.push("EMA 9 di atas EMA 20, trend pendek bullish."); }
+  if (ema9 < ema20) { sellScore += 22; reasons.push("EMA 9 di bawah EMA 20, trend pendek bearish."); }
 
-  if (emaCross === "BULLISH_CROSS") { buyScore += 25; reasons.push("EMA 9 baru cross ke atas EMA 20."); }
-  if (emaCross === "BEARISH_CROSS") { sellScore += 25; reasons.push("EMA 9 baru cross ke bawah EMA 20."); }
+  if (emaCross === "BULLISH_CROSS") { buyScore += 24; reasons.push("EMA 9 baru cross ke atas EMA 20."); }
+  if (emaCross === "BEARISH_CROSS") { sellScore += 24; reasons.push("EMA 9 baru cross ke bawah EMA 20."); }
 
-  if (rsi14 >= 55 && rsi14 <= 72) { buyScore += 20; reasons.push(`RSI Wilder ${round(rsi14)} mendukung BUY.`); }
-  if (rsi14 <= 45 && rsi14 >= 28) { sellScore += 20; reasons.push(`RSI Wilder ${round(rsi14)} mendukung SELL.`); }
+  if (rsi14 >= 55 && rsi14 <= 72) { buyScore += 16; reasons.push(`RSI Wilder ${round(rsi14)} mendukung BUY.`); }
+  if (rsi14 <= 45 && rsi14 >= 28) { sellScore += 16; reasons.push(`RSI Wilder ${round(rsi14)} mendukung SELL.`); }
   if (rsi14 > 72) { sellScore += 8; reasons.push(`RSI Wilder ${round(rsi14)} mulai overbought.`); }
   if (rsi14 < 28) { buyScore += 8; reasons.push(`RSI Wilder ${round(rsi14)} mulai oversold.`); }
 
-  if (nearBullOB) { buyScore += 22; reasons.push("Harga dekat bullish order block."); }
-  if (nearBearOB) { sellScore += 22; reasons.push("Harga dekat bearish order block."); }
+  if (smc?.lastBos?.type === "BULLISH_BOS") { buyScore += 18; reasons.push("SMC mendeteksi Bullish BOS."); }
+  if (smc?.lastBos?.type === "BEARISH_BOS") { sellScore += 18; reasons.push("SMC mendeteksi Bearish BOS."); }
 
-  if (close > high - atr14 * 0.35) buyScore += 8;
-  if (close < low + atr14 * 0.35) sellScore += 8;
+  if (nearBullOB) { buyScore += 20; reasons.push(`Harga dekat Bullish OB v2 (${bullOb.status}).`); }
+  if (nearBearOB) { sellScore += 20; reasons.push(`Harga dekat Bearish OB v2 (${bearOb.status}).`); }
+
+  if (bullOb?.status === "active") buyScore += Math.min(10, bullOb.strength / 10);
+  if (bearOb?.status === "active") sellScore += Math.min(10, bearOb.strength / 10);
+
+  if (close > high - atr14 * 0.35) buyScore += 6;
+  if (close < low + atr14 * 0.35) sellScore += 6;
 
   let finalSignal = "WAIT";
   const score = Math.max(buyScore, sellScore);
 
-  if (buyScore >= 55 && buyScore > sellScore + 8) finalSignal = "BUY";
-  else if (sellScore >= 55 && sellScore > buyScore + 8) finalSignal = "SELL";
+  if (buyScore >= 58 && buyScore > sellScore + 8) finalSignal = "BUY";
+  else if (sellScore >= 58 && sellScore > buyScore + 8) finalSignal = "SELL";
 
   const entry = close;
   let sl = 0;
@@ -280,20 +251,249 @@ function buildSignal(candles, market) {
     sl: round(sl),
     tp: round(tp),
     confidence,
-    reason: reasons.slice(0, 5).join(" "),
+    reason: reasons.slice(0, 6).join(" "),
     mode: "firebase-mt5-data",
     strategy: {
       trendBias,
       rsi: round(rsi14),
+      rsiMethod: "Wilder RSI 14 seperti MT5 iRSI",
       ema9: round(ema9),
       ema20: round(ema20),
       emaCross,
-      orderBlock,
+      smc,
+      orderBlock: {
+        bullish: bullOb,
+        bearish: bearOb
+      },
       buyScore: round(buyScore),
       sellScore: round(sellScore),
       score: round(score)
     }
   };
+}
+
+function clean(candles) {
+  return (candles || [])
+    .map((c, index) => ({
+      index,
+      time: c.time,
+      open: Number(c.open),
+      high: Number(c.high),
+      low: Number(c.low),
+      close: Number(c.close)
+    }))
+    .filter((c) =>
+      Number.isFinite(c.open) &&
+      Number.isFinite(c.high) &&
+      Number.isFinite(c.low) &&
+      Number.isFinite(c.close)
+    );
+}
+
+function detectSmcOrderBlockV2(candles) {
+  const data = candles.slice(-140);
+  const atr14 = atr(data, 14);
+  const swings = detectSwings(data, 2);
+  const bosEvents = detectBosEvents(data, swings, atr14);
+
+  let bullish = null;
+  let bearish = null;
+
+  for (const bos of bosEvents) {
+    if (bos.type === "BULLISH_BOS") {
+      const origin = findOriginCandle(data, bos.index, "bullish");
+      if (origin) bullish = buildObZone(data, bos, origin, "bullish", atr14);
+    }
+
+    if (bos.type === "BEARISH_BOS") {
+      const origin = findOriginCandle(data, bos.index, "bearish");
+      if (origin) bearish = buildObZone(data, bos, origin, "bearish", atr14);
+    }
+  }
+
+  bullish = bullish ? updateObStatus(data, bullish, "bullish", atr14) : null;
+  bearish = bearish ? updateObStatus(data, bearish, "bearish", atr14) : null;
+
+  const lastBos = bosEvents[bosEvents.length - 1] || null;
+
+  return {
+    version: "SMC_OB_V2",
+    swingLookback: 2,
+    bosCount: bosEvents.length,
+    lastBos,
+    bullish,
+    bearish
+  };
+}
+
+function detectSwings(data, wing = 2) {
+  const swings = [];
+
+  for (let i = wing; i < data.length - wing; i++) {
+    let isHigh = true;
+    let isLow = true;
+
+    for (let j = i - wing; j <= i + wing; j++) {
+      if (j === i) continue;
+      if (data[i].high <= data[j].high) isHigh = false;
+      if (data[i].low >= data[j].low) isLow = false;
+    }
+
+    if (isHigh) swings.push({ type: "swingHigh", index: i, price: data[i].high, time: data[i].time });
+    if (isLow) swings.push({ type: "swingLow", index: i, price: data[i].low, time: data[i].time });
+  }
+
+  return swings;
+}
+
+function detectBosEvents(data, swings, atr14) {
+  const events = [];
+  let lastHigh = null;
+  let lastLow = null;
+
+  for (let i = 0; i < data.length; i++) {
+    const swingAtI = swings.filter((s) => s.index === i);
+    for (const s of swingAtI) {
+      if (s.type === "swingHigh") lastHigh = s;
+      if (s.type === "swingLow") lastLow = s;
+    }
+
+    const c = data[i];
+
+    if (lastHigh && i > lastHigh.index + 1 && c.close > lastHigh.price + atr14 * 0.05) {
+      events.push({
+        type: "BULLISH_BOS",
+        index: i,
+        time: c.time,
+        breakPrice: round(lastHigh.price),
+        close: round(c.close),
+        brokenSwingTime: lastHigh.time
+      });
+      lastHigh = null;
+    }
+
+    if (lastLow && i > lastLow.index + 1 && c.close < lastLow.price - atr14 * 0.05) {
+      events.push({
+        type: "BEARISH_BOS",
+        index: i,
+        time: c.time,
+        breakPrice: round(lastLow.price),
+        close: round(c.close),
+        brokenSwingTime: lastLow.time
+      });
+      lastLow = null;
+    }
+  }
+
+  return events;
+}
+
+function findOriginCandle(data, bosIndex, direction) {
+  const start = Math.max(0, bosIndex - 12);
+  const end = bosIndex - 1;
+  let candidate = null;
+
+  for (let i = end; i >= start; i--) {
+    const c = data[i];
+    const body = Math.abs(c.close - c.open);
+    const range = Math.max(0.01, c.high - c.low);
+    const bodyRatio = body / range;
+
+    if (direction === "bullish") {
+      const isBear = c.close < c.open;
+      if (isBear) {
+        candidate = { ...c, bodyRatio: round(bodyRatio), originIndex: i };
+        break;
+      }
+    }
+
+    if (direction === "bearish") {
+      const isBull = c.close > c.open;
+      if (isBull) {
+        candidate = { ...c, bodyRatio: round(bodyRatio), originIndex: i };
+        break;
+      }
+    }
+  }
+
+  return candidate;
+}
+
+function buildObZone(data, bos, origin, direction, atr14) {
+  const displacement = Math.abs(data[bos.index].close - origin.close);
+  const displacementAtr = displacement / Math.max(0.01, atr14);
+
+  const strength = Math.min(95, Math.max(45,
+    45 +
+    displacementAtr * 14 +
+    origin.bodyRatio * 20
+  ));
+
+  return {
+    type: direction === "bullish" ? "Bullish OB v2" : "Bearish OB v2",
+    direction,
+    low: round(origin.low),
+    high: round(origin.high),
+    originTime: origin.time,
+    bosTime: bos.time,
+    bosType: bos.type,
+    breakPrice: bos.breakPrice,
+    status: "active",
+    mitigated: false,
+    invalidated: false,
+    strength: round(strength),
+    reason: `${bos.type} setelah origin candle ${direction === "bullish" ? "bearish" : "bullish"}`
+  };
+}
+
+function updateObStatus(data, ob, direction, atr14) {
+  let status = "active";
+  let mitigated = false;
+  let invalidated = false;
+  let mitigatedTime = null;
+  let invalidatedTime = null;
+
+  const afterOrigin = data.filter((c) => timeToNum(c.time) > timeToNum(ob.originTime));
+
+  for (const c of afterOrigin) {
+    const touched = c.low <= ob.high && c.high >= ob.low;
+
+    if (touched) {
+      mitigated = true;
+      mitigatedTime = mitigatedTime || c.time;
+    }
+
+    if (direction === "bullish" && c.close < ob.low - atr14 * 0.1) {
+      invalidated = true;
+      invalidatedTime = c.time;
+      break;
+    }
+
+    if (direction === "bearish" && c.close > ob.high + atr14 * 0.1) {
+      invalidated = true;
+      invalidatedTime = c.time;
+      break;
+    }
+  }
+
+  if (invalidated) status = "invalid";
+  else if (mitigated) status = "mitigated";
+  else status = "active";
+
+  return {
+    ...ob,
+    status,
+    mitigated,
+    invalidated,
+    mitigatedTime,
+    invalidatedTime
+  };
+}
+
+function timeToNum(value) {
+  const raw = String(value || "").replace(/\./g, "-").replace(" ", "T");
+  const n = Date.parse(raw);
+  return Number.isNaN(n) ? 0 : n;
 }
 
 function ema(values, period) {
@@ -308,13 +508,16 @@ function rsiWilder(values, period = 14) {
   if (values.length <= period) return 50;
   let gainSum = 0;
   let lossSum = 0;
+
   for (let i = 1; i <= period; i++) {
     const diff = values[i] - values[i - 1];
     if (diff >= 0) gainSum += diff;
     else lossSum += Math.abs(diff);
   }
+
   let avgGain = gainSum / period;
   let avgLoss = lossSum / period;
+
   for (let i = period + 1; i < values.length; i++) {
     const diff = values[i] - values[i - 1];
     const gain = diff > 0 ? diff : 0;
@@ -322,6 +525,7 @@ function rsiWilder(values, period = 14) {
     avgGain = (avgGain * (period - 1) + gain) / period;
     avgLoss = (avgLoss * (period - 1) + loss) / period;
   }
+
   if (avgLoss === 0) return 100;
   if (avgGain === 0) return 0;
   const rs = avgGain / avgLoss;
@@ -332,53 +536,31 @@ function atr(candles, period = 14) {
   if (candles.length < 2) return 1;
   const slice = candles.slice(-period - 1);
   const trs = [];
+
   for (let i = 1; i < slice.length; i++) {
     const current = slice[i];
     const prev = slice[i - 1];
-    const high = Number(current.high);
-    const low = Number(current.low);
-    const prevClose = Number(prev.close);
-    trs.push(Math.max(high - low, Math.abs(high - prevClose), Math.abs(low - prevClose)));
+    trs.push(Math.max(
+      current.high - current.low,
+      Math.abs(current.high - prev.close),
+      Math.abs(current.low - prev.close)
+    ));
   }
+
   const sum = trs.reduce((a, b) => a + b, 0);
   return trs.length ? sum / trs.length : 1;
-}
-
-function detectOrderBlock(candles) {
-  const scan = candles.slice(-80);
-  let bullish = null;
-  let bearish = null;
-
-  for (let i = 3; i < scan.length - 3; i++) {
-    const c = scan[i];
-    const next2 = scan[i + 2];
-    const open = Number(c.open);
-    const close = Number(c.close);
-    const high = Number(c.high);
-    const low = Number(c.low);
-    const nextMoveUp = Number(next2.close) > high;
-    const nextMoveDown = Number(next2.close) < low;
-    const bearishCandle = close < open;
-    const bullishCandle = close > open;
-
-    if (bearishCandle && nextMoveUp) {
-      bullish = { type: "Bullish OB", low: round(low), high: round(high), originTime: c.time || null };
-    }
-    if (bullishCandle && nextMoveDown) {
-      bearish = { type: "Bearish OB", low: round(low), high: round(high), originTime: c.time || null };
-    }
-  }
-
-  return { bullish, bearish };
 }
 
 function round(n) {
   return Number(Number(n || 0).toFixed(2));
 }
 
-function json(payload, status = 200) {
+function json(payload) {
   return new Response(JSON.stringify(payload, null, 2), {
-    status,
-    headers: { ...H, "Cache-Control": "no-store" }
+    headers: {
+      "Content-Type": "application/json",
+      "Access-Control-Allow-Origin": "*",
+      "Cache-Control": "no-store"
+    }
   });
 }
