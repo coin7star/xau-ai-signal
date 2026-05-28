@@ -569,3 +569,118 @@
   color: #b9f3ff;
   border-color: rgba(61,214,255,.22);
 }
+
+
+.telegramConnectPanel {
+  margin-bottom: 22px;
+  padding: 24px;
+}
+
+.telegramConnectHeader {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 18px;
+  margin-bottom: 18px;
+}
+
+.telegramConnectHeader h3 {
+  margin: 10px 0 6px;
+  font-size: clamp(22px, 3vw, 32px);
+}
+
+.telegramConnectHeader p {
+  margin: 0;
+  color: #9fb0d6;
+}
+
+.telegramStatusBadge {
+  padding: 10px 14px;
+  border-radius: 999px;
+  background: rgba(255,77,109,.12);
+  color: #ffc2cc;
+  border: 1px solid rgba(255,77,109,.22);
+  font-weight: 1000;
+}
+
+.telegramStatusBadge.connected {
+  background: rgba(34,255,170,.12);
+  color: #a6ffd8;
+  border-color: rgba(34,255,170,.22);
+}
+
+.telegramConnectGrid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 14px;
+}
+
+.telegramConnectBox {
+  padding: 18px;
+  border-radius: 20px;
+  background: rgba(0,0,0,.24);
+  border: 1px solid rgba(255,255,255,.08);
+}
+
+.telegramConnectBox span {
+  display: block;
+  color: #9fb0d6;
+  font-size: 12px;
+  margin-bottom: 8px;
+}
+
+.telegramConnectBox b {
+  display: block;
+  font-size: 20px;
+  word-break: break-word;
+}
+
+.telegramConnectBox small {
+  display: block;
+  margin-top: 8px;
+  color: #9fb0d6;
+  line-height: 1.5;
+}
+
+.commandBox b {
+  color: #ffe879;
+}
+
+.telegramActions {
+  margin-top: 16px;
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.telegramActions button {
+  border: 1px solid rgba(255,255,255,.12);
+  background: rgba(255,255,255,.08);
+  color: #f8fbff;
+  border-radius: 14px;
+  padding: 12px 14px;
+  font-weight: 1000;
+  cursor: pointer;
+}
+
+.telegramActions button:first-child {
+  background: linear-gradient(135deg,#67e8f9,#c084fc);
+  color: #06111f;
+  border: 0;
+}
+
+.telegramActions button.danger {
+  background: rgba(255,77,109,.12);
+  color: #ffd1d8;
+  border-color: rgba(255,77,109,.24);
+}
+
+@media(max-width: 900px) {
+  .telegramConnectHeader {
+    flex-direction: column;
+  }
+
+  .telegramConnectGrid {
+    grid-template-columns: 1fr;
+  }
+}

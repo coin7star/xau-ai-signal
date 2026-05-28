@@ -1,6 +1,6 @@
 {
-  "name": "xau-ai-signal-email-verification-export-fix",
-  "version": "5.2.1",
+  "name": "xau-ai-signal-telegram-connect-step2",
+  "version": "5.4.0",
   "type": "module",
   "scripts": {
     "dev": "vite",

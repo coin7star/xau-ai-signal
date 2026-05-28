@@ -33,6 +33,7 @@ export default function App() {
   const [authProfile, setAuthProfile] = useState(null);
   const [authLoading, setAuthLoading] = useState(true);
   const [showAdminPanel, setShowAdminPanel] = useState(false);
+  const [telegramConnect, setTelegramConnect] = useState(null);
 
   async function loadData({ includeChart = false, includeHistory = false, includeScalpHistory = false } = {}) {
     try {
@@ -93,6 +94,21 @@ export default function App() {
 
   async function loadHistoryData() {
     return loadData({ includeChart: false, includeHistory: true });
+  }
+
+
+  async function loadTelegramConnectStatus() {
+    if (!authUser?.uid) return;
+
+    try {
+      const res = await fetch(`/api/telegram-connect-code?uid=${encodeURIComponent(authUser.uid)}&ts=${Date.now()}`, {
+        cache: "no-store"
+      });
+      const json = await res.json();
+      if (json.ok) setTelegramConnect(json);
+    } catch {
+      // silent
+    }
   }
 
   async function loadScalpHistoryData() {
@@ -184,6 +200,7 @@ export default function App() {
     if (!authUser || !isPremiumProfile(authProfile)) return;
 
     loadData({ includeChart: true, includeHistory: true, includeScalpHistory: true });
+    loadTelegramConnectStatus();
 
     const liteInterval = setInterval(loadLiteData, 12000);
     const chartInterval = setInterval(loadChartData, 45000);
@@ -752,6 +769,133 @@ function getPremiumInfo(profile) {
     dateText,
     expired: false
   };
+}
+
+
+
+function TelegramConnectPanel({ user, profile, telegramConnect, onRefresh }) {
+  const [busy, setBusy] = useState(false);
+  const [message, setMessage] = useState("");
+  const connected = Boolean(telegramConnect?.telegramConnected);
+
+  async function generateCode() {
+    setBusy(true);
+    setMessage("");
+
+    try {
+      const res = await fetch("/api/telegram-connect-code", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ uid: user?.uid })
+      });
+
+      const json = await res.json();
+
+      if (!json.ok) {
+        setMessage(json.error || "Gagal generate kode Telegram.");
+        return;
+      }
+
+      setMessage(`Kode dibuat. Kirim ${json.instruction} ke bot Telegram.`);
+      await onRefresh();
+    } catch (err) {
+      setMessage(err.message || String(err));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function disconnectTelegram() {
+    setBusy(true);
+    setMessage("");
+
+    try {
+      const res = await fetch("/api/telegram-disconnect", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ uid: user?.uid })
+      });
+
+      const json = await res.json();
+
+      if (!json.ok) {
+        setMessage(json.error || "Gagal disconnect Telegram.");
+        return;
+      }
+
+      setMessage("Telegram disconnected.");
+      await onRefresh();
+    } catch (err) {
+      setMessage(err.message || String(err));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <section className="telegramConnectPanel card">
+      <div className="telegramConnectHeader">
+        <div>
+          <span className="pill mini"><Bot size={14} /> TELEGRAM ALERT</span>
+          <h3>Connect Telegram Premium</h3>
+          <p>Hubungkan akun dashboard ini ke bot Telegram biar nanti bisa dapat alert premium per-user.</p>
+        </div>
+        <div className={`telegramStatusBadge ${connected ? "connected" : ""}`}>
+          {connected ? "Connected" : "Not Connected"}
+        </div>
+      </div>
+
+      <div className="telegramConnectGrid">
+        <div className="telegramConnectBox">
+          <span>Status</span>
+          <b>{connected ? "Telegram Connected" : "Belum connect"}</b>
+          <small>{connected ? `Chat ID: ${telegramConnect?.telegramChatId || "-"}` : "Generate kode lalu kirim ke bot."}</small>
+        </div>
+
+        <div className="telegramConnectBox">
+          <span>Connect Code</span>
+          <b>{telegramConnect?.telegramCode || "-"}</b>
+          <small>{telegramConnect?.telegramCodeExpiresAt ? `Expired: ${formatShortDateTime(telegramConnect.telegramCodeExpiresAt)}` : "Kode aktif 15 menit."}</small>
+        </div>
+
+        <div className="telegramConnectBox commandBox">
+          <span>Command ke Bot</span>
+          <b>{telegramConnect?.telegramCode ? `/connect ${telegramConnect.telegramCode}` : "/connect XAU-123456"}</b>
+          <small>Kirim command ini ke bot Telegram XAU AI.</small>
+        </div>
+      </div>
+
+      {message && <div className="adminMessage">{message}</div>}
+
+      <div className="telegramActions">
+        <button type="button" onClick={generateCode} disabled={busy}>
+          {busy ? "Loading..." : "Generate Connect Code"}
+        </button>
+        <button type="button" onClick={onRefresh} disabled={busy}>
+          Refresh Status
+        </button>
+        {connected && (
+          <button type="button" className="danger" onClick={disconnectTelegram} disabled={busy}>
+            Disconnect
+          </button>
+        )}
+      </div>
+
+      <p className="miniNote">
+        Step ini hanya connect akun ke Telegram. Multi-user auto alert akan aktif di Step 3.
+      </p>
+    </section>
+  );
+}
+
+function formatShortDateTime(value) {
+  if (!value) return "-";
+  return new Date(value).toLocaleString("id-ID", {
+    day: "2-digit",
+    month: "short",
+    hour: "2-digit",
+    minute: "2-digit"
+  });
 }
 
 

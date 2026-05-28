@@ -14,7 +14,7 @@ export async function onRequest({ request, env }) {
     return json({
       ok: true,
       message: "Telegram webhook ready. Use POST only.",
-      mode: "miniapp-first"
+      mode: "miniapp-first-connect"
     });
   }
 
@@ -34,13 +34,20 @@ export async function onRequest({ request, env }) {
   }
 
   const text = String(message?.text || "").trim();
-  const command = text.split(" ")[0].toLowerCase();
+  const [commandRaw, ...args] = text.split(/\s+/);
+  const command = String(commandRaw || "").toLowerCase();
 
   let replyText = "";
-  const replyMarkup = buildDashboardKeyboard(env);
+  let replyMarkup = buildDashboardKeyboard(env);
 
   if (command === "/start") {
     replyText = buildStartMessage();
+  } else if (command === "/connect") {
+    replyText = await handleConnect(env, message, args);
+  } else if (command === "/disconnect") {
+    replyText = await handleDisconnect(env, message);
+  } else if (command === "/me") {
+    replyText = await handleMe(env, message);
   } else if (command === "/status") {
     replyText = await buildStatusMessage(env);
   } else if (command === "/help") {
@@ -56,8 +63,131 @@ export async function onRequest({ request, env }) {
   return json({
     ok: true,
     handled: command || "text",
-    mode: "miniapp-first"
+    mode: "miniapp-first-connect"
   });
+}
+
+async function handleConnect(env, message, args) {
+  const dbUrl = (env.FIREBASE_DATABASE_URL || "").replace(/\/$/, "");
+  if (!dbUrl) return "❌ Firebase belum diset.";
+
+  const code = String(args[0] || "").trim().toUpperCase();
+
+  if (!code || !code.startsWith("XAU-")) {
+    return [
+      "🔗 <b>Connect Telegram</b>",
+      "",
+      "Format:",
+      "<code>/connect XAU-123456</code>",
+      "",
+      "Ambil kode dari dashboard premium kamu, bagian Telegram Alert."
+    ].join("\n");
+  }
+
+  const record = await fbGet(dbUrl, `/telegramConnectCodes/${code}`);
+
+  if (!record || record.used) {
+    return "❌ Kode tidak ditemukan atau sudah dipakai. Generate kode baru dari dashboard.";
+  }
+
+  if (Date.now() > new Date(record.expiresAt).getTime()) {
+    return "⏰ Kode sudah expired. Generate kode baru dari dashboard.";
+  }
+
+  const user = await fbGet(dbUrl, `/users/${record.uid}`);
+
+  if (!user) {
+    return "❌ User tidak ditemukan.";
+  }
+
+  if (!isPremium(user)) {
+    return "🔒 Akun ini belum premium aktif. Aktifkan premium dulu baru connect Telegram.";
+  }
+
+  const now = new Date().toISOString();
+  const chat = message.chat || {};
+  const from = message.from || {};
+
+  await fbPatch(dbUrl, `/users/${record.uid}`, {
+    telegramConnected: true,
+    telegramChatId: String(chat.id),
+    telegramUsername: from.username || chat.username || "",
+    telegramFirstName: from.first_name || chat.first_name || "",
+    telegramConnectedAt: now,
+    telegramConnectCode: null,
+    telegramConnectExpiresAt: null,
+    updatedAt: now
+  });
+
+  await fbPatch(dbUrl, `/telegramConnectCodes/${code}`, {
+    used: true,
+    usedAt: now,
+    chatId: String(chat.id)
+  });
+
+  return [
+    "✅ <b>Telegram Connected</b>",
+    "",
+    `Akun: <b>${escapeHtml(user.email || "-")}</b>`,
+    `Role: <b>${escapeHtml(user.role || "-")}</b>`,
+    "",
+    "Mulai sekarang akun ini sudah terhubung ke Telegram.",
+    "Auto alert premium siap dipakai untuk step berikutnya."
+  ].join("\n");
+}
+
+async function handleDisconnect(env, message) {
+  const dbUrl = (env.FIREBASE_DATABASE_URL || "").replace(/\/$/, "");
+  if (!dbUrl) return "❌ Firebase belum diset.";
+
+  const chatId = String(message.chat?.id || "");
+  const usersRaw = await fbGet(dbUrl, "/users");
+  const users = Object.values(usersRaw || {});
+  const user = users.find((item) => String(item.telegramChatId || "") === chatId);
+
+  if (!user?.uid) {
+    return "ℹ️ Telegram ini belum connect ke akun XAU AI mana pun.";
+  }
+
+  await fbPatch(dbUrl, `/users/${user.uid}`, {
+    telegramConnected: false,
+    telegramChatId: null,
+    telegramUsername: null,
+    telegramFirstName: null,
+    telegramConnectedAt: null,
+    updatedAt: new Date().toISOString()
+  });
+
+  return "✅ Telegram berhasil disconnect dari akun XAU AI.";
+}
+
+async function handleMe(env, message) {
+  const dbUrl = (env.FIREBASE_DATABASE_URL || "").replace(/\/$/, "");
+  if (!dbUrl) return "❌ Firebase belum diset.";
+
+  const chatId = String(message.chat?.id || "");
+  const usersRaw = await fbGet(dbUrl, "/users");
+  const users = Object.values(usersRaw || {});
+  const user = users.find((item) => String(item.telegramChatId || "") === chatId);
+
+  if (!user) {
+    return [
+      "👤 <b>Telegram Status</b>",
+      "",
+      "Belum terhubung ke akun XAU AI.",
+      "Buka dashboard, generate kode, lalu kirim:",
+      "<code>/connect XAU-123456</code>"
+    ].join("\n");
+  }
+
+  return [
+    "👤 <b>Telegram Status</b>",
+    "",
+    `Email: <b>${escapeHtml(user.email || "-")}</b>`,
+    `Role: <b>${escapeHtml(user.role || "-")}</b>`,
+    `Premium until: <b>${escapeHtml(user.premiumUntil || "-")}</b>`,
+    `Connected: <b>${user.telegramConnected ? "YES" : "NO"}</b>`
+  ].join("\n");
 }
 
 function buildStartMessage() {
@@ -71,9 +201,12 @@ function buildStartMessage() {
     "• M1 Scalp Radar",
     "• Fresh OB M15",
     "• CALL History",
-    "• SCALP Valid History",
+    "• Telegram Connect",
     "",
-    "<i>Auto alert MAIN CALL tetap masuk ke chat ini.</i>"
+    "<b>Telegram Connect:</b>",
+    "Buka dashboard → Generate Code → kirim <code>/connect KODE</code> ke bot ini.",
+    "",
+    "<i>Auto alert MAIN CALL tetap masuk ke chat utama. Multi-user alert lanjut Step 3.</i>"
   ].join("\n");
 }
 
@@ -83,14 +216,14 @@ function buildHelpMessage() {
     "",
     "<b>Command aktif:</b>",
     "/start - buka dashboard Mini App",
+    "/connect KODE - hubungkan Telegram ke akun premium",
+    "/disconnect - putuskan Telegram dari akun",
+    "/me - cek koneksi Telegram",
     "/status - cek koneksi bot",
     "/help - panduan penggunaan",
     "",
     "<b>Dashboard Mini App:</b>",
     "Gunakan tombol di bawah untuk melihat signal, chart, history, dan scalp radar.",
-    "",
-    "<b>Catatan:</b>",
-    "Command /signal, /history, dan /scalp_history sudah dipindahkan ke dashboard supaya bot tidak spam dan Firebase lebih hemat.",
     "",
     "<i>Demo first. XAUUSD galak, risk management wajib.</i>"
   ].join("\n");
@@ -132,10 +265,8 @@ async function buildStatusMessage(env) {
     `<b>Firebase:</b> ${escapeHtml(firebaseStatus)}`,
     `<b>Dashboard:</b> ${escapeHtml(dashboardUrl)}`,
     "",
-    "<b>Mode:</b> Mini App First",
-    "<b>Auto Alert:</b> MAIN CALL tetap aktif",
-    "",
-    "<i>Command data panjang sudah diarahkan ke dashboard.</i>"
+    "<b>Mode:</b> Mini App First + Telegram Connect",
+    "<b>Auto Alert:</b> MAIN CALL tetap aktif"
   ].join("\n");
 }
 
@@ -154,9 +285,16 @@ function buildDashboardKeyboard(env) {
   };
 }
 
+function isPremium(user) {
+  if (!user) return false;
+  if (user.role === "admin") return true;
+  if (user.role !== "premium") return false;
+  if (!user.premiumUntil && !user.expiredAt) return false;
+  return new Date(user.premiumUntil || user.expiredAt).getTime() > Date.now();
+}
+
 async function sendTelegramMessage(env, chatId, text, replyMarkup = null) {
   const token = env.TELEGRAM_BOT_TOKEN || "";
-
   if (!token || !chatId) return;
 
   const payload = {
@@ -166,9 +304,7 @@ async function sendTelegramMessage(env, chatId, text, replyMarkup = null) {
     disable_web_page_preview: true
   };
 
-  if (replyMarkup) {
-    payload.reply_markup = replyMarkup;
-  }
+  if (replyMarkup) payload.reply_markup = replyMarkup;
 
   await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
     method: "POST",
@@ -181,9 +317,17 @@ async function fbGet(dbUrl, path) {
   const res = await fetch(`${dbUrl}${path}.json?ts=${Date.now()}`, {
     headers: { "Cache-Control": "no-cache" }
   });
-
   if (!res.ok) return null;
+  return await res.json();
+}
 
+async function fbPatch(dbUrl, path, data) {
+  const res = await fetch(`${dbUrl}${path}.json`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(data)
+  });
+  if (!res.ok) throw new Error(await res.text());
   return await res.json();
 }
 
