@@ -1,19 +1,13 @@
-{
-  "name": "xau-ai-signal-lightweight-charts",
-  "version": "1.5.0",
-  "type": "module",
-  "scripts": {
-    "dev": "vite",
-    "build": "vite build",
-    "preview": "vite preview"
-  },
-  "dependencies": {
-    "@vitejs/plugin-react": "latest",
-    "vite": "latest",
-    "react": "latest",
-    "react-dom": "latest",
-    "lucide-react": "latest",
-    "lightweight-charts": "latest"
-  },
-  "devDependencies": {}
-}
+# XAU AI Signal Strategy Clean Full Fix
+
+Fix:
+- wrangler.toml benar
+- package.json benar
+- tidak ada import recharts
+- chart pakai lightweight-charts
+- signal pakai RSI 14, EMA Cross 9/20, dan Order Block sederhana
+
+Deploy:
+1. Upload semua isi ZIP ke GitHub, replace semua file lama.
+2. Commit changes.
+3. Cloudflare Pages > Deployments > Retry deployment.

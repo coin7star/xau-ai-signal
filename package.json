@@ -1,6 +1,6 @@
 {
-  "name": "xau-ai-signal-lightweight-charts",
-  "version": "1.5.0",
+  "name": "xau-ai-signal-strategy-clean",
+  "version": "1.6.1",
   "type": "module",
   "scripts": {
     "dev": "vite",
@@ -14,5 +14,6 @@
     "react-dom": "latest",
     "lucide-react": "latest",
     "lightweight-charts": "latest"
-  }
+  },
+  "devDependencies": {}
 }

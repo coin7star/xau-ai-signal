@@ -1,8 +1,23 @@
-import { useEffect, useMemo, useState } from "react";
-import { Activity, Bot, Database, Radio, RefreshCcw, Shield, TrendingDown, TrendingUp, Zap } from "lucide-react";
-import { ResponsiveContainer, ComposedChart, Bar, Line, XAxis, YAxis, Tooltip, CartesianGrid, ReferenceLine, Cell } from "recharts";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { createChart, ColorType, CrosshairMode } from "lightweight-charts";
+import {
+  Activity,
+  Bot,
+  Brain,
+  Database,
+  Radio,
+  RefreshCcw,
+  Shield,
+  TrendingDown,
+  TrendingUp,
+  Zap
+} from "lucide-react";
 
 export default function App() {
+  const chartRef = useRef(null);
+  const chartBoxRef = useRef(null);
+  const candleSeriesRef = useRef(null);
+
   const [market, setMarket] = useState(null);
   const [signal, setSignal] = useState(null);
   const [loading, setLoading] = useState(false);
@@ -11,10 +26,12 @@ export default function App() {
   async function loadAll() {
     try {
       setLoading(true);
+
       const [m, s] = await Promise.all([
         fetch("/api/market?ts=" + Date.now()).then((r) => r.json()),
         fetch("/api/signal?ts=" + Date.now()).then((r) => r.json())
       ]);
+
       setMarket(m);
       setSignal(s);
       setLastUpdate(new Date().toLocaleTimeString("id-ID"));
@@ -32,35 +49,78 @@ export default function App() {
   }, []);
 
   const candles = market?.candles || [];
+  const tvCandles = useMemo(() => candlesToTradingView(candles), [candles]);
   const lastCandle = candles[candles.length - 1];
-
-  const chartData = useMemo(() => {
-    return candles.slice(-90).map((c, i) => {
-      const open = Number(c.open);
-      const close = Number(c.close);
-      const high = Number(c.high);
-      const low = Number(c.low);
-      const isBull = close >= open;
-      return {
-        idx: i + 1,
-        time: String(c.time || "").slice(11, 16),
-        open,
-        close,
-        high,
-        low,
-        wick: [low, high],
-        body: [Math.min(open, close), Math.max(open, close)],
-        isBull,
-        candleColor: isBull ? "#19f28f" : "#ff4d6d",
-        wickColor: isBull ? "#77ffd0" : "#ff9aac",
-        volume: Number(c.volume || 0)
-      };
-    });
-  }, [candles]);
-
   const isBuy = signal?.signal === "BUY";
   const isSell = signal?.signal === "SELL";
-  const spread = market?.ask && market?.bid ? Math.abs(Number(market.ask) - Number(market.bid)).toFixed(2) : "-";
+  const spread = market?.ask && market?.bid
+    ? Math.abs(Number(market.ask) - Number(market.bid)).toFixed(2)
+    : "-";
+
+  useEffect(() => {
+    if (!chartBoxRef.current) return;
+
+    const chart = createChart(chartBoxRef.current, {
+      width: chartBoxRef.current.clientWidth,
+      height: 470,
+      layout: {
+        background: { type: ColorType.Solid, color: "transparent" },
+        textColor: "#aeb9d8"
+      },
+      grid: {
+        vertLines: { color: "rgba(255,255,255,0.075)" },
+        horzLines: { color: "rgba(255,255,255,0.075)" }
+      },
+      rightPriceScale: {
+        borderColor: "rgba(255,255,255,0.14)",
+        scaleMargins: { top: 0.12, bottom: 0.12 }
+      },
+      timeScale: {
+        borderColor: "rgba(255,255,255,0.14)",
+        timeVisible: true,
+        secondsVisible: false
+      },
+      crosshair: { mode: CrosshairMode.Normal }
+    });
+
+    const candleSeries = chart.addCandlestickSeries({
+      upColor: "#19f28f",
+      downColor: "#ff4d6d",
+      borderUpColor: "#19f28f",
+      borderDownColor: "#ff4d6d",
+      wickUpColor: "#77ffd0",
+      wickDownColor: "#ff9aac",
+      priceFormat: {
+        type: "price",
+        precision: 2,
+        minMove: 0.01
+      }
+    });
+
+    chartRef.current = chart;
+    candleSeriesRef.current = candleSeries;
+
+    const ro = new ResizeObserver(() => {
+      if (!chartBoxRef.current || !chartRef.current) return;
+      chartRef.current.applyOptions({ width: chartBoxRef.current.clientWidth });
+    });
+
+    ro.observe(chartBoxRef.current);
+
+    return () => {
+      ro.disconnect();
+      chart.remove();
+      chartRef.current = null;
+      candleSeriesRef.current = null;
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!candleSeriesRef.current || !chartRef.current || !tvCandles.length) return;
+
+    candleSeriesRef.current.setData(tvCandles);
+    chartRef.current.timeScale().fitContent();
+  }, [tvCandles]);
 
   return (
     <main className="page">
@@ -69,7 +129,7 @@ export default function App() {
           <div className="logo"><Bot size={22} /></div>
           <div>
             <b>XAU AI Signal</b>
-            <span>MT5 → Firebase realtime</span>
+            <span>RSI · EMA Cross 9/20 · Order Block</span>
           </div>
         </div>
         <div className="live"><Radio size={14} /> Firebase Live</div>
@@ -77,16 +137,16 @@ export default function App() {
 
       <section className="hero">
         <div className="intro card">
-          <span className="pill"><Zap size={15} /> REAL CANDLE COLOR</span>
-          <h1>Candlestick merah hijau dari MT5 🔥</h1>
+          <span className="pill"><Zap size={15} /> STRATEGY ENGINE</span>
+          <h1>RSI + EMA Cross 9/20 + Order Block 🔥</h1>
           <p>
-            Candle bullish tampil hijau, bearish tampil merah. Data tetap realtime dari MetaTrader → Firebase → Web.
+            Sinyal sekarang bukan candle random lagi. Backend membaca candle MT5, menghitung RSI, EMA 9/20, dan area order block.
           </p>
           <div className="actions">
             <button onClick={loadAll} disabled={loading}>
               <RefreshCcw size={16} /> {loading ? "Loading..." : "Refresh"}
             </button>
-            <a href="/api/market" target="_blank">Open JSON</a>
+            <a href="/api/signal" target="_blank">Open Signal JSON</a>
           </div>
         </div>
 
@@ -113,10 +173,24 @@ export default function App() {
         <Info icon={isBuy ? <TrendingUp /> : <TrendingDown />} label="Last Close" value={lastCandle?.close || "-"} />
       </section>
 
+      <section className="strategyGrid">
+        <StrategyCard title="RSI 14" value={signal?.strategy?.rsi ?? "-"} desc="55-72 BUY bias, 28-45 SELL bias" />
+        <StrategyCard title="EMA 9" value={signal?.strategy?.ema9 ?? "-"} desc="Fast moving average" />
+        <StrategyCard title="EMA 20" value={signal?.strategy?.ema20 ?? "-"} desc="Slow moving average" />
+        <StrategyCard title="EMA Cross" value={signal?.strategy?.emaCross ?? "-"} desc="Cross dan trend filter" />
+        <StrategyCard title="Buy Score" value={signal?.strategy?.buyScore ?? "-"} desc="Skor konfirmasi BUY" />
+        <StrategyCard title="Sell Score" value={signal?.strategy?.sellScore ?? "-"} desc="Skor konfirmasi SELL" />
+      </section>
+
+      <section className="obGrid">
+        <OrderBlock title="Bullish Order Block" data={signal?.strategy?.orderBlock?.bullish} />
+        <OrderBlock title="Bearish Order Block" data={signal?.strategy?.orderBlock?.bearish} />
+      </section>
+
       <section className="chartWrap card">
         <div className="sectionTitle">
           <div>
-            <h3>Realtime MT5 Candlestick</h3>
+            <h3>TradingView Lightweight Candlestick</h3>
             <span>{market?.symbol || "XAUUSD"} · {market?.timeframe || "M1"} · Bid {market?.bid || "-"}</span>
           </div>
           <div className="legend">
@@ -126,30 +200,8 @@ export default function App() {
           </div>
         </div>
 
-        {chartData.length > 0 ? (
-          <ResponsiveContainer width="100%" height={430}>
-            <ComposedChart data={chartData} margin={{ top: 20, right: 25, left: 5, bottom: 10 }}>
-              <CartesianGrid strokeDasharray="3 3" opacity={0.18} />
-              <XAxis dataKey="time" tick={{ fill: "#aab6d3", fontSize: 12 }} interval="preserveStartEnd" />
-              <YAxis domain={["dataMin - 2", "dataMax + 2"]} tick={{ fill: "#aab6d3", fontSize: 12 }} width={78} />
-              <Tooltip content={<CustomTooltip />} />
-              <ReferenceLine y={Number(lastCandle?.close || 0)} strokeDasharray="4 4" opacity={0.65} />
-
-              <Bar dataKey="wick" barSize={2} radius={[2, 2, 2, 2]}>
-                {chartData.map((entry, index) => (
-                  <Cell key={`wick-${index}`} fill={entry.wickColor} />
-                ))}
-              </Bar>
-
-              <Bar dataKey="body" barSize={10} radius={[4, 4, 4, 4]}>
-                {chartData.map((entry, index) => (
-                  <Cell key={`body-${index}`} fill={entry.candleColor} />
-                ))}
-              </Bar>
-
-              <Line type="monotone" dataKey="close" stroke="#9bdcff" strokeWidth={2} dot={false} opacity={0.45} />
-            </ComposedChart>
-          </ResponsiveContainer>
+        {tvCandles.length > 0 ? (
+          <div className="tvChart" ref={chartBoxRef}></div>
         ) : (
           <div className="empty">{market?.message || "Belum ada candle. Jalankan EA MT5 dulu."}</div>
         )}
@@ -160,19 +212,40 @@ export default function App() {
   );
 }
 
-function CustomTooltip({ active, payload }) {
-  if (!active || !payload?.length) return null;
-  const d = payload[0]?.payload;
-  return (
-    <div className={`tooltip ${d.isBull ? "tipBull" : "tipBear"}`}>
-      <b>{d.time} · {d.isBull ? "Bullish" : "Bearish"}</b>
-      <span>Open: {d.open}</span>
-      <span>High: {d.high}</span>
-      <span>Low: {d.low}</span>
-      <span>Close: {d.close}</span>
-      <span>Volume: {d.volume}</span>
-    </div>
-  );
+function candlesToTradingView(candles) {
+  const seen = new Set();
+
+  return (candles || [])
+    .map((c, index) => {
+      const timestamp = parseMt5Time(c.time);
+      const key = timestamp || index;
+
+      if (seen.has(key)) return null;
+      seen.add(key);
+
+      return {
+        time: timestamp || Math.floor(Date.now() / 1000) + index,
+        open: Number(c.open),
+        high: Number(c.high),
+        low: Number(c.low),
+        close: Number(c.close)
+      };
+    })
+    .filter(Boolean)
+    .filter((c) =>
+      Number.isFinite(c.open) &&
+      Number.isFinite(c.high) &&
+      Number.isFinite(c.low) &&
+      Number.isFinite(c.close)
+    );
+}
+
+function parseMt5Time(value) {
+  if (!value) return null;
+  const normalized = String(value).replace(/\./g, "-").replace(" ", "T");
+  const ms = Date.parse(normalized);
+  if (Number.isNaN(ms)) return null;
+  return Math.floor(ms / 1000);
 }
 
 function Info({ icon, label, value }) {
@@ -181,6 +254,36 @@ function Info({ icon, label, value }) {
       <span className="infoIcon">{icon}</span>
       <small>{label}</small>
       <strong>{value}</strong>
+    </div>
+  );
+}
+
+function StrategyCard({ title, value, desc }) {
+  return (
+    <div className="strategyCard card">
+      <Brain size={18} />
+      <small>{title}</small>
+      <strong>{value}</strong>
+      <span>{desc}</span>
+    </div>
+  );
+}
+
+function OrderBlock({ title, data }) {
+  return (
+    <div className="obCard card">
+      <small>{title}</small>
+      {data ? (
+        <>
+          <strong>{data.low} - {data.high}</strong>
+          <span>{data.originTime || "-"}</span>
+        </>
+      ) : (
+        <>
+          <strong>-</strong>
+          <span>Belum terdeteksi</span>
+        </>
+      )}
     </div>
   );
 }
