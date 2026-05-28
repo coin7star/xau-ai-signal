@@ -395,7 +395,7 @@ export default function App() {
       <section className={`scalpPanel card ${String(scalping.action || "WAIT").toLowerCase()}`}>
         <div className="strategyHeader">
           <div>
-            <span className="pill mini"><Zap size={14} /> M1 STRUCTURE SCALP</span>
+            <span className="pill mini"><Zap size={14} /> M1 SR + EMA SCALP</span>
             <h3>{scalping.label || "SCALP WAIT"}</h3>
           </div>
           <div className={`biasBadge ${scalping.action === "SCALP_BUY" ? "buy" : scalping.action === "SCALP_SELL" ? "sell" : "wait"}`}>

@@ -1,6 +1,6 @@
 {
-  "name": "xau-ai-signal-scalp-valid-history",
-  "version": "3.8.2",
+  "name": "xau-ai-signal-scalp-no-legacy-clean",
+  "version": "4.0.2",
   "type": "module",
   "scripts": {
     "dev": "vite",

@@ -1,48 +1,43 @@
-# XAU Scalp Valid History Full Fix
+# XAU Scalp No Legacy Clean Full Fix
 
 Update:
-- Menambahkan SCALP M1 Valid History.
-- Yang disimpan hanya:
-  - SCALP BUY valid
-  - SCALP SELL valid
-- Yang tidak disimpan:
-  - SCALP WAIT
-  - bias belum matang
-  - candle biasa
-  - full candle chart
+- Legacy Scalp Backup sudah dihapus.
+- Active scalp sekarang cuma 1 rules:
+  SR + Engulfing + EMA 9/20 Filter.
 
-Tujuan:
-- History scalp tetap ada untuk tracking.
-- Firebase RTDB tetap hemat.
-- Data dibatasi 50 scalp valid terakhir.
+Rules aktif SCALP M1:
 
-Endpoint baru:
-- GET /api/scalp-history
-- POST /api/scalp-history
+BUY valid kalau:
+1. EMA 9 > EMA 20
+2. Harga dekat support M1 / last swing low
+3. Ada bullish engulfing
+4. Score minimal 70/100
+5. SL = low candle touch support - 1.5 ATR
+6. TP = RR 1 : 1.25
 
-Telegram:
-- Command baru:
-  /scalp_history
-- Menampilkan 5 scalp valid terakhir.
+SELL valid kalau:
+1. EMA 9 < EMA 20
+2. Harga dekat resistance M1 / last swing high
+3. Ada bearish engulfing
+4. Score minimal 70/100
+5. SL = high candle touch resistance + 1.5 ATR
+6. TP = RR 1 : 1.25
 
-Web:
-- Section baru:
-  SCALP M1 Valid History
-- Bisa manual result:
-  WIN / LOSS / BE / OPEN
-
-Admin token:
-- Tetap pakai ENV:
-  ADMIN_ACTION_TOKEN
+Yang tetap:
+- Main CALL strategy
+- Fresh OB M15
+- Scalp valid history
+- Firebase bandwidth saver
+- Telegram /signal
+- Telegram /scalp_history
+- Win/Loss manual
 
 MQ5:
 - Tidak perlu update.
 
 File berubah:
 - functions/api/signal.js
-- functions/api/scalp-history.js
 - functions/api/telegram-webhook.js
-- src/App.jsx
 - package.json
 
 Cara pakai:
@@ -50,6 +45,4 @@ Cara pakai:
 2. Commit changes.
 3. Tunggu Cloudflare deploy.
 4. Refresh web.
-5. Test:
-   /api/scalp-history
-   Telegram: /scalp_history
+5. Test /api/signal dan Telegram /signal.
