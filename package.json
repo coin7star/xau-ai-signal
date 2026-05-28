@@ -1,6 +1,6 @@
 {
-  "name": "xau-ai-signal-ob-m15-ema-ready-cross",
-  "version": "2.0.0",
+  "name": "xau-ai-signal-mfi-rsi-ema-ob-m15",
+  "version": "2.1.0",
   "type": "module",
   "scripts": {
     "dev": "vite",

@@ -1,15 +1,15 @@
-# XAU Strategy OB M15 + EMA Ready Cross Full Fix
+# XAU MFI RSI EMA OB M15 Two Chart Full Fix
 
-Strategi baru:
-- Order Block pakai timeframe M15 dari EA.
-- Signal utama pakai EMA 9/20 timeframe M1.
-- Kalau EMA 9 mendekati EMA 20 dan gap mengecil: READY BUY / READY SELL.
-- BUY / SELL baru keluar saat EMA 9 benar-benar cross EMA 20.
-- AI Analysis sudah baca status READY/CALL.
-- MT5 EA v2 kirim candles M1 dan candlesM15.
+Update:
+- Tambah MFI 14.
+- CALL BUY/SELL hanya saat RSI + MFI + EMA 9/20 + area OB M15 cocok.
+- READY muncul kalau EMA mendekati cross dan konfirmasi RSI/MFI/OB cocok.
+- Web tambah 2 chart:
+  1. Live M1 Candlestick Chart
+  2. Live M15 Order Block Chart
+- AI Analysis membaca RSI, MFI, EMA, dan OB M15.
+- EA tetap v2.1 kirim candle M1 dan M15.
 
 Penting:
-- Setelah upload web, update juga EA MQ5 terbaru di MetaEditor.
-- Compile EA.
-- Pasang EA di chart XAUUSD+.
-- Pastikan TOKEN sama dengan MT5_INGEST_TOKEN.
+- Upload replace semua ke GitHub.
+- Update juga EA MQ5 terbaru, compile, pasang ulang di chart XAUUSD+.

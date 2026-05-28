@@ -15,9 +15,12 @@ import {
 } from "lucide-react";
 
 export default function App() {
-  const chartContainerRef = useRef(null);
-  const chartRef = useRef(null);
-  const candleSeriesRef = useRef(null);
+  const chartM1Ref = useRef(null);
+  const chartM15Ref = useRef(null);
+  const chartM1BoxRef = useRef(null);
+  const chartM15BoxRef = useRef(null);
+  const seriesM1Ref = useRef(null);
+  const seriesM15Ref = useRef(null);
 
   const [market, setMarket] = useState(null);
   const [signal, setSignal] = useState(null);
@@ -40,7 +43,7 @@ export default function App() {
       setAiAnalysis(aiJson);
       setLastUpdate(new Date().toLocaleTimeString("id-ID"));
     } catch (err) {
-      setMarket({ ok: false, message: err.message, candles: [] });
+      setMarket({ ok: false, message: err.message, candles: [], candlesM15: [] });
     } finally {
       setLoading(false);
     }
@@ -52,9 +55,11 @@ export default function App() {
     return () => clearInterval(interval);
   }, []);
 
-  const candles = Array.isArray(market?.candles) ? market.candles : [];
-  const tvCandles = useMemo(() => candlesToTradingView(candles), [candles]);
-  const lastCandle = candles[candles.length - 1];
+  const candlesM1 = Array.isArray(market?.candles) ? market.candles : [];
+  const candlesM15 = Array.isArray(market?.candlesM15) ? market.candlesM15 : [];
+  const tvM1 = useMemo(() => candlesToTradingView(candlesM1), [candlesM1]);
+  const tvM15 = useMemo(() => candlesToTradingView(candlesM15), [candlesM15]);
+  const lastCandle = candlesM1[candlesM1.length - 1];
 
   const isBuy = signal?.signal === "BUY";
   const isSell = signal?.signal === "SELL";
@@ -62,12 +67,29 @@ export default function App() {
   const spread = market?.ask && market?.bid ? Math.abs(Number(market.ask) - Number(market.bid)).toFixed(2) : "-";
 
   useEffect(() => {
-    if (!chartContainerRef.current || chartRef.current) return;
+    initChart("M1");
+    initChart("M15");
+  }, []);
+
+  useEffect(() => {
+    updateChart(seriesM1Ref.current, chartM1Ref.current, tvM1);
+  }, [tvM1]);
+
+  useEffect(() => {
+    updateChart(seriesM15Ref.current, chartM15Ref.current, tvM15);
+  }, [tvM15]);
+
+  function initChart(type) {
+    const boxRef = type === "M1" ? chartM1BoxRef : chartM15BoxRef;
+    const chartRef = type === "M1" ? chartM1Ref : chartM15Ref;
+    const seriesRef = type === "M1" ? seriesM1Ref : seriesM15Ref;
+
+    if (!boxRef.current || chartRef.current) return;
 
     try {
-      const chart = createChart(chartContainerRef.current, {
-        width: chartContainerRef.current.clientWidth || 900,
-        height: 500,
+      const chart = createChart(boxRef.current, {
+        width: boxRef.current.clientWidth || 900,
+        height: type === "M1" ? 500 : 420,
         layout: { background: { type: ColorType.Solid, color: "#070b17" }, textColor: "#cbd5e1" },
         grid: { vertLines: { color: "rgba(255,255,255,0.06)" }, horzLines: { color: "rgba(255,255,255,0.06)" } },
         crosshair: { mode: CrosshairMode.Normal },
@@ -75,7 +97,7 @@ export default function App() {
         timeScale: { borderColor: "rgba(255,255,255,0.12)", timeVisible: true, secondsVisible: false }
       });
 
-      const candleSeries = chart.addCandlestickSeries({
+      const series = chart.addCandlestickSeries({
         upColor: "#19f28f",
         downColor: "#ff4d6d",
         borderUpColor: "#19f28f",
@@ -86,44 +108,38 @@ export default function App() {
       });
 
       chartRef.current = chart;
-      candleSeriesRef.current = candleSeries;
+      seriesRef.current = series;
 
       const resizeObserver = new ResizeObserver(() => {
-        if (!chartContainerRef.current || !chartRef.current) return;
-        chartRef.current.applyOptions({ width: chartContainerRef.current.clientWidth || 900 });
+        if (!boxRef.current || !chartRef.current) return;
+        chartRef.current.applyOptions({ width: boxRef.current.clientWidth || 900 });
       });
 
-      resizeObserver.observe(chartContainerRef.current);
+      resizeObserver.observe(boxRef.current);
       setChartError("");
-
-      return () => {
-        resizeObserver.disconnect();
-        chart.remove();
-        chartRef.current = null;
-        candleSeriesRef.current = null;
-      };
     } catch (err) {
       setChartError(err.message || String(err));
     }
-  }, []);
+  }
 
-  useEffect(() => {
-    if (!candleSeriesRef.current || !chartRef.current) return;
+  function updateChart(series, chart, data) {
+    if (!series || !chart) return;
     try {
-      if (tvCandles.length > 0) {
-        candleSeriesRef.current.setData(tvCandles);
-        chartRef.current.timeScale().fitContent();
+      if (data.length > 0) {
+        series.setData(data);
+        chart.timeScale().fitContent();
         setChartError("");
       }
     } catch (err) {
       setChartError(err.message || String(err));
     }
-  }, [tvCandles]);
+  }
 
   const signalTone = isBuy ? "buy" : isSell ? "sell" : isReady ? "ready" : "wait";
   const readableSignal = signal?.signalLabel || signal?.signal || "WAIT";
   const trendBias = signal?.strategy?.trendBias || "-";
   const smc = signal?.strategy?.smc;
+  const confirmation = signal?.strategy?.confirmation || {};
 
   return (
     <main className="page">
@@ -132,7 +148,7 @@ export default function App() {
           <div className="logo"><Bot size={22} /></div>
           <div>
             <b>XAU AI Signal</b>
-            <span>OB M15 · EMA Ready Cross</span>
+            <span>RSI · MFI · EMA 9/20 · OB M15</span>
           </div>
         </div>
         <div className="live"><Radio size={14} /> Firebase Live</div>
@@ -140,11 +156,11 @@ export default function App() {
 
       <section className="hero cleanHero">
         <div className="intro card">
-          <span className="pill"><Zap size={15} /> OB M15 + EMA READY</span>
-          <h1>Siap-siap dulu, call saat EMA benar-benar cross.</h1>
+          <span className="pill"><Zap size={15} /> FULL CONFIRMATION</span>
+          <h1>Call hanya saat RSI + MFI + EMA + OB M15 cocok.</h1>
           <p>
-            Order Block sekarang pakai timeframe M15. EMA 9/20 tetap membaca M1:
-            saat mendekati cross muncul READY, saat cross baru keluar BUY/SELL.
+            Strategi sekarang lebih selektif: EMA 9/20 untuk trigger, RSI dan MFI untuk konfirmasi momentum,
+            lalu Order Block M15 untuk area validasi.
           </p>
           <div className="actions">
             <button onClick={loadData} disabled={loading}>
@@ -173,8 +189,8 @@ export default function App() {
 
       <section className="overview card">
         <div className="overviewItem"><Database size={18} /><small>Data source</small><strong>Firebase RTDB</strong></div>
-        <div className="overviewItem"><Activity size={18} /><small>M1 Candle</small><strong>{candles.length} data</strong></div>
-        <div className="overviewItem"><Shield size={18} /><small>M15 OB</small><strong>{market?.candlesM15?.length || 0} data</strong></div>
+        <div className="overviewItem"><Activity size={18} /><small>M1 Candle</small><strong>{candlesM1.length} data</strong></div>
+        <div className="overviewItem"><Shield size={18} /><small>M15 Candle</small><strong>{candlesM15.length} data</strong></div>
         <div className="overviewItem">{isSell ? <TrendingDown size={18} /> : <TrendingUp size={18} />}<small>Last close</small><strong>{lastCandle?.close || "-"}</strong></div>
       </section>
 
@@ -196,16 +212,17 @@ export default function App() {
       <section className="strategyPanel card">
         <div className="strategyHeader">
           <div>
-            <span className="pill mini"><Target size={14} /> CROSS SNAPSHOT</span>
-            <h3>EMA ready cross + OB M15</h3>
+            <span className="pill mini"><Target size={14} /> CONFIRMATION SNAPSHOT</span>
+            <h3>RSI + MFI + EMA + OB M15</h3>
           </div>
           <div className={`biasBadge ${signalTone}`}>{trendBias}</div>
         </div>
 
-        <div className="strategyCleanGrid">
+        <div className="strategyCleanGrid four">
+          <Metric label="RSI 14" value={signal?.strategy?.rsi ?? "-"} note={`BUY ${confirmation.rsiBuyOk ? "OK" : "-"} · SELL ${confirmation.rsiSellOk ? "OK" : "-"}`} />
+          <Metric label="MFI 14" value={signal?.strategy?.mfi ?? "-"} note={`BUY ${confirmation.mfiBuyOk ? "OK" : "-"} · SELL ${confirmation.mfiSellOk ? "OK" : "-"}`} />
           <Metric label="EMA Cross" value={humanize(signal?.strategy?.emaCross)} note={signal?.strategy?.crossAlert?.message || "-"} />
-          <Metric label="EMA Gap" value={signal?.strategy?.emaGap ?? "-"} note={`Threshold ${signal?.strategy?.emaGapThreshold ?? "-"}`} />
-          <Metric label="Last BOS M15" value={humanize(smc?.lastBos?.type)} note={`BOS count ${smc?.bosCount ?? 0}`} />
+          <Metric label="OB M15" value={`BUY ${confirmation.obBuyOk ? "OK" : "-"} · SELL ${confirmation.obSellOk ? "OK" : "-"}`} note={`BOS ${humanize(smc?.lastBos?.type)}`} />
         </div>
 
         <div className="obV2Grid">
@@ -216,8 +233,8 @@ export default function App() {
         <details className="detailsBox">
           <summary>Lihat detail indikator</summary>
           <div className="detailsGrid">
-            <InfoLine label="RSI 14" value={signal?.strategy?.rsi ?? "-"} />
             <InfoLine label="EMA9 / EMA20" value={`${signal?.strategy?.ema9 ?? "-"} / ${signal?.strategy?.ema20 ?? "-"}`} />
+            <InfoLine label="EMA Gap / Threshold" value={`${signal?.strategy?.emaGap ?? "-"} / ${signal?.strategy?.emaGapThreshold ?? "-"}`} />
             <InfoLine label="Buy / Sell Score" value={`${signal?.strategy?.buyScore ?? "-"} / ${signal?.strategy?.sellScore ?? "-"}`} />
             <InfoLine label="OB Timeframe" value={signal?.strategy?.obTimeframe || "M15"} />
           </div>
@@ -228,7 +245,7 @@ export default function App() {
         <div className="sectionTitle">
           <div>
             <h3>Live M1 Candlestick Chart</h3>
-            <span>{market?.symbol || "XAUUSD"} · {market?.timeframe || "M1"} · Bid {market?.bid || "-"} · Spread {spread}</span>
+            <span>{market?.symbol || "XAUUSD"} · M1 · Bid {market?.bid || "-"} · Spread {spread}</span>
           </div>
           <div className="legend">
             <b><i className="bullDot"></i> Bullish</b>
@@ -238,10 +255,26 @@ export default function App() {
         </div>
 
         {chartError && <div className="chartError">Chart error: {chartError}</div>}
-        <div className="tvChart" ref={chartContainerRef}></div>
+        <div className="tvChart" ref={chartM1BoxRef}></div>
+      </section>
 
-        {tvCandles.length === 0 && (
-          <div className="chartEmpty">Belum ada candle valid. Cek /api/market apakah candles sudah masuk.</div>
+      <section className="chartWrap card">
+        <div className="sectionTitle">
+          <div>
+            <h3>Live M15 Order Block Chart</h3>
+            <span>{market?.symbol || "XAUUSD"} · M15 · OB validation chart</span>
+          </div>
+          <div className="legend">
+            <b><i className="bullDot"></i> Bullish</b>
+            <b><i className="bearDot"></i> Bearish</b>
+            <em><span></span> OB M15</em>
+          </div>
+        </div>
+
+        <div className="tvChart small" ref={chartM15BoxRef}></div>
+
+        {tvM15.length === 0 && (
+          <div className="chartEmpty">Belum ada candle M15 valid. Pastikan EA terbaru sudah dipasang.</div>
         )}
       </section>
 

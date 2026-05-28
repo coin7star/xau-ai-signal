@@ -56,12 +56,13 @@ export function buildSignal(candles, candlesM15, market) {
       ok: true,
       pair: "XAUUSD",
       signal: "WAIT",
+      signalLabel: "WAIT",
       callStage: "WAITING_DATA",
       entry: round(market?.bid || 0),
       sl: 0,
       tp: 0,
       confidence: 50,
-      reason: "Menunggu minimal 50 candle M1 untuk EMA ready/cross. OB M15 butuh data M15 dari EA.",
+      reason: "Menunggu minimal 50 candle M1. Strategi butuh RSI + MFI + EMA 9/20 + OB M15.",
       mode: market ? "firebase-mt5-data" : "waiting-mt5",
       strategy: emptyStrategy()
     };
@@ -75,6 +76,7 @@ export function buildSignal(candles, candlesM15, market) {
   const prev2Ema20 = ema(closes.slice(0, -2), 20);
 
   const rsi14 = rsiWilder(closes, 14);
+  const mfi14 = mfi(m1, 14);
   const atr14 = atr(m1, 14);
   const close = last.close;
 
@@ -94,6 +96,17 @@ export function buildSignal(candles, candlesM15, market) {
   const readyBuy = !bullishCrossNow && ema9 < ema20 && gap <= gapThreshold && gapClosing;
   const readySell = !bearishCrossNow && ema9 > ema20 && gap <= gapThreshold && gapClosing;
 
+  const rsiBuyOk = rsi14 >= 50 && rsi14 <= 72;
+  const rsiSellOk = rsi14 <= 50 && rsi14 >= 28;
+  const mfiBuyOk = mfi14 >= 50 && mfi14 <= 80;
+  const mfiSellOk = mfi14 <= 50 && mfi14 >= 20;
+
+  const nearBullOB = bullOb && bullOb.status !== "invalid" && close >= bullOb.low - atr14 * 0.45 && close <= bullOb.high + atr14 * 1.0;
+  const nearBearOB = bearOb && bearOb.status !== "invalid" && close <= bearOb.high + atr14 * 0.45 && close >= bearOb.low - atr14 * 1.0;
+
+  const obBuyOk = Boolean(nearBullOB);
+  const obSellOk = Boolean(nearBearOB);
+
   let emaCross = "NEUTRAL";
   if (bullishCrossNow) emaCross = "BULLISH_CROSS";
   else if (bearishCrossNow) emaCross = "BEARISH_CROSS";
@@ -106,67 +119,58 @@ export function buildSignal(candles, candlesM15, market) {
   let sellScore = 0;
   const reasons = [];
 
-  if (ema9 > ema20) buyScore += 18;
-  if (ema9 < ema20) sellScore += 18;
+  if (bullishCrossNow) { buyScore += 34; reasons.push("EMA 9 sudah cross ke atas EMA 20."); }
+  if (bearishCrossNow) { sellScore += 34; reasons.push("EMA 9 sudah cross ke bawah EMA 20."); }
 
-  if (bullishCrossNow) {
-    buyScore += 40;
-    reasons.push("EMA 9 sudah cross ke atas EMA 20. Ini baru valid untuk CALL BUY.");
-  }
+  if (readyBuy) { buyScore += 18; reasons.push("EMA 9 mendekati bullish cross. Siap-siap BUY, tunggu cross."); }
+  if (readySell) { sellScore += 18; reasons.push("EMA 9 mendekati bearish cross. Siap-siap SELL, tunggu cross."); }
 
-  if (bearishCrossNow) {
-    sellScore += 40;
-    reasons.push("EMA 9 sudah cross ke bawah EMA 20. Ini baru valid untuk CALL SELL.");
-  }
+  if (rsiBuyOk) { buyScore += 16; reasons.push(`RSI ${round(rsi14)} cocok untuk BUY.`); }
+  if (rsiSellOk) { sellScore += 16; reasons.push(`RSI ${round(rsi14)} cocok untuk SELL.`); }
 
-  if (readyBuy) {
-    buyScore += 22;
-    reasons.push("EMA 9 mendekati EMA 20 dari bawah. Siap-siap BUY, tapi belum entry sebelum cross.");
-  }
+  if (mfiBuyOk) { buyScore += 16; reasons.push(`MFI ${round(mfi14)} mendukung arus beli.`); }
+  if (mfiSellOk) { sellScore += 16; reasons.push(`MFI ${round(mfi14)} mendukung arus jual.`); }
 
-  if (readySell) {
-    sellScore += 22;
-    reasons.push("EMA 9 mendekati EMA 20 dari atas. Siap-siap SELL, tapi belum entry sebelum cross.");
-  }
+  if (obBuyOk) { buyScore += 18; reasons.push(`Harga dekat Bullish OB M15 (${bullOb.status}).`); }
+  if (obSellOk) { sellScore += 18; reasons.push(`Harga dekat Bearish OB M15 (${bearOb.status}).`); }
 
-  if (rsi14 >= 50 && rsi14 <= 72) buyScore += 12;
-  if (rsi14 <= 50 && rsi14 >= 28) sellScore += 12;
-
-  if (smc?.lastBos?.type === "BULLISH_BOS") buyScore += 12;
-  if (smc?.lastBos?.type === "BEARISH_BOS") sellScore += 12;
-
-  if (bullOb?.status === "active" || bullOb?.status === "mitigated") buyScore += Math.min(12, (bullOb.strength || 0) / 9);
-  if (bearOb?.status === "active" || bearOb?.status === "mitigated") sellScore += Math.min(12, (bearOb.strength || 0) / 9);
+  if (smc?.lastBos?.type === "BULLISH_BOS") buyScore += 8;
+  if (smc?.lastBos?.type === "BEARISH_BOS") sellScore += 8;
 
   let finalSignal = "WAIT";
   let callStage = "WAIT";
   let signalLabel = "WAIT";
-  const score = Math.max(buyScore, sellScore);
 
-  if (readyBuy && buyScore >= sellScore) {
+  const buyAllMatch = bullishCrossNow && rsiBuyOk && mfiBuyOk && obBuyOk;
+  const sellAllMatch = bearishCrossNow && rsiSellOk && mfiSellOk && obSellOk;
+  const readyBuyAllMatch = readyBuy && rsiBuyOk && mfiBuyOk && obBuyOk;
+  const readySellAllMatch = readySell && rsiSellOk && mfiSellOk && obSellOk;
+
+  if (readyBuyAllMatch) {
     finalSignal = "READY_BUY";
     callStage = "READY";
     signalLabel = "SIAP-SIAP BUY";
-  }
-
-  if (readySell && sellScore >= buyScore) {
+  } else if (readySellAllMatch) {
     finalSignal = "READY_SELL";
     callStage = "READY";
     signalLabel = "SIAP-SIAP SELL";
   }
 
-  if (bullishCrossNow && buyScore >= 55 && buyScore > sellScore + 6) {
+  if (buyAllMatch) {
     finalSignal = "BUY";
     callStage = "CALL";
     signalLabel = "BUY";
-  }
-
-  if (bearishCrossNow && sellScore >= 55 && sellScore > buyScore + 6) {
+  } else if (sellAllMatch) {
     finalSignal = "SELL";
     callStage = "CALL";
     signalLabel = "SELL";
   }
 
+  if (finalSignal === "WAIT") {
+    reasons.push("Belum call karena RSI + MFI + EMA 9/20 + area OB M15 belum cocok semua.");
+  }
+
+  const score = Math.max(buyScore, sellScore);
   let sl = 0;
   let tp = 0;
 
@@ -179,17 +183,12 @@ export function buildSignal(candles, candlesM15, market) {
   }
 
   const confidence = callStage === "READY"
-    ? Math.min(80, Math.max(55, Math.round(score)))
+    ? Math.min(82, Math.max(58, Math.round(score)))
     : callStage === "CALL"
-      ? Math.min(94, Math.max(62, Math.round(score)))
+      ? Math.min(95, Math.max(68, Math.round(score)))
       : Math.min(60, Math.max(45, Math.round(score)));
 
   const trendBias = ema9 > ema20 ? "Bullish" : ema9 < ema20 ? "Bearish" : "Netral";
-  const obTf = "M15";
-
-  if (!reasons.length) {
-    reasons.push("Belum ada EMA cross valid. Sistem menunggu EMA 9 mendekati atau crossing EMA 20.");
-  }
 
   if (m15.length < 50) {
     reasons.push("OB M15 belum aktif karena data M15 belum cukup. Pastikan EA terbaru sudah dipasang.");
@@ -205,18 +204,32 @@ export function buildSignal(candles, candlesM15, market) {
     sl: round(sl),
     tp: round(tp),
     confidence,
-    reason: reasons.slice(0, 6).join(" "),
+    reason: reasons.slice(0, 7).join(" "),
     mode: "firebase-mt5-data",
     strategy: {
       trendBias,
       rsi: round(rsi14),
       rsiMethod: "Wilder RSI 14 seperti MT5 iRSI",
+      mfi: round(mfi14),
+      mfiMethod: "Money Flow Index 14 dari candle volume MT5",
       ema9: round(ema9),
       ema20: round(ema20),
       emaGap: round(gap),
       emaGapThreshold: round(gapThreshold),
       emaGapClosing: gapClosing,
       emaCross,
+      confirmation: {
+        buyAllMatch,
+        sellAllMatch,
+        readyBuyAllMatch,
+        readySellAllMatch,
+        rsiBuyOk,
+        rsiSellOk,
+        mfiBuyOk,
+        mfiSellOk,
+        obBuyOk,
+        obSellOk
+      },
       crossAlert: {
         status: callStage,
         message: buildCrossMessage(finalSignal, emaCross),
@@ -225,7 +238,7 @@ export function buildSignal(candles, candlesM15, market) {
         bullishCrossNow,
         bearishCrossNow
       },
-      obTimeframe: obTf,
+      obTimeframe: "M15",
       smc,
       orderBlock: { bullish: bullOb, bearish: bearOb },
       buyScore: round(buyScore),
@@ -239,13 +252,14 @@ function emptyStrategy() {
   return {
     trendBias: "Netral",
     rsi: null,
-    rsiMethod: "Wilder RSI 14 seperti MT5 iRSI",
+    mfi: null,
     ema9: null,
     ema20: null,
     emaGap: null,
     emaGapThreshold: null,
     emaGapClosing: false,
     emaCross: "WAIT",
+    confirmation: {},
     crossAlert: {
       status: "WAITING_DATA",
       message: "Menunggu data candle.",
@@ -264,11 +278,11 @@ function emptyStrategy() {
 }
 
 function buildCrossMessage(signal, emaCross) {
-  if (signal === "BUY") return "EMA sudah cross bullish. CALL BUY aktif.";
-  if (signal === "SELL") return "EMA sudah cross bearish. CALL SELL aktif.";
-  if (signal === "READY_BUY") return "EMA mendekati bullish cross. Siap-siap BUY, tunggu cross.";
-  if (signal === "READY_SELL") return "EMA mendekati bearish cross. Siap-siap SELL, tunggu cross.";
-  return `Belum ada call. Status EMA: ${emaCross}`;
+  if (signal === "BUY") return "RSI + MFI + EMA cross bullish + OB M15 cocok. CALL BUY aktif.";
+  if (signal === "SELL") return "RSI + MFI + EMA cross bearish + OB M15 cocok. CALL SELL aktif.";
+  if (signal === "READY_BUY") return "Semua konfirmasi mendukung. EMA mendekati bullish cross, siap-siap BUY.";
+  if (signal === "READY_SELL") return "Semua konfirmasi mendukung. EMA mendekati bearish cross, siap-siap SELL.";
+  return `Belum call. Status EMA: ${emaCross}`;
 }
 
 
@@ -283,8 +297,9 @@ Kamu adalah AI analis XAUUSD untuk dashboard trading.
 Strategi utama:
 1. Order Block pakai timeframe M15.
 2. EMA 9/20 pakai M1.
-3. Saat EMA mendekati cross, beri alert siap-siap.
-4. BUY/SELL hanya valid saat EMA benar-benar cross.
+3. RSI dan MFI harus cocok dengan arah signal.
+4. CALL BUY/SELL hanya valid kalau RSI + MFI + EMA Cross + area OB M15 cocok.
+5. Kalau EMA baru mendekati cross dan semua konfirmasi cocok, beri status siap-siap.
 Jawab singkat, bahasa Indonesia santai tapi profesional. Jangan memberi janji profit.
 
 Pair: ${market?.symbol || "XAUUSD"}
@@ -297,10 +312,11 @@ Entry: ${signal.entry}
 SL: ${signal.sl}
 TP: ${signal.tp}
 RSI: ${signal.strategy?.rsi}
+MFI: ${signal.strategy?.mfi}
 EMA9: ${signal.strategy?.ema9}
 EMA20: ${signal.strategy?.ema20}
-EMA Gap: ${signal.strategy?.emaGap}
 EMA Cross: ${signal.strategy?.emaCross}
+Confirmation: ${JSON.stringify(signal.strategy?.confirmation || null)}
 Cross Alert: ${JSON.stringify(signal.strategy?.crossAlert || null)}
 M15 SMC: ${JSON.stringify(signal.strategy?.smc || null)}
 Bullish OB M15: ${JSON.stringify(signal.strategy?.orderBlock?.bullish || null)}
@@ -310,7 +326,7 @@ Recent M15 candles: ${JSON.stringify(candlesM15)}
 
 Format wajib:
 Status:
-Alasan:
+Konfirmasi:
 OB M15:
 EMA Alert:
 Rencana:
@@ -330,7 +346,7 @@ Risiko:
         { role: "user", content: prompt }
       ],
       temperature: 0.35,
-      max_tokens: 500
+      max_tokens: 520
     })
   });
 
@@ -340,20 +356,21 @@ Risiko:
 }
 
 function normalizeAiText(text) {
-  return String(text || "").trim().slice(0, 2600);
+  return String(text || "").trim().slice(0, 2700);
 }
 
 function buildFallbackAnalysis(market, signal) {
   const s = signal?.strategy || {};
+  const c = s.confirmation || {};
   const bull = s?.orderBlock?.bullish;
   const bear = s?.orderBlock?.bearish;
 
   return [
     `Status: ${signal.signalLabel || signal.signal} (${signal.callStage}).`,
-    `Alasan: ${signal.reason}`,
+    `Konfirmasi: RSI ${s.rsi ?? "-"}, MFI ${s.mfi ?? "-"}, EMA ${String(s.emaCross || "-").replaceAll("_", " ")}. BUY match: ${c.buyAllMatch ? "ya" : "belum"}, SELL match: ${c.sellAllMatch ? "ya" : "belum"}.`,
     `OB M15: Bullish ${formatOb(bull)}. Bearish ${formatOb(bear)}.`,
     `EMA Alert: ${s.crossAlert?.message || "-"}`,
-    `Rencana: Untuk strategi ini, call BUY/SELL baru valid saat EMA 9/20 benar-benar cross. Jika baru READY, cukup siap-siap dan tunggu konfirmasi.`,
+    `Rencana: Call hanya valid kalau RSI + MFI + EMA 9/20 + area OB M15 cocok semua.`,
     `Risiko: XAUUSD volatil. Ini bukan financial advice.`
   ].join("\n");
 }
@@ -371,7 +388,8 @@ function clean(candles) {
       open: Number(c.open),
       high: Number(c.high),
       low: Number(c.low),
-      close: Number(c.close)
+      close: Number(c.close),
+      volume: Number(c.volume || 0)
     }))
     .filter((c) => Number.isFinite(c.open) && Number.isFinite(c.high) && Number.isFinite(c.low) && Number.isFinite(c.close));
 }
@@ -557,6 +575,32 @@ function rsiWilder(values, period = 14) {
   if (avgGain === 0) return 0;
   const rs = avgGain / avgLoss;
   return 100 - 100 / (1 + rs);
+}
+
+function mfi(candles, period = 14) {
+  if (candles.length <= period) return 50;
+
+  let positiveFlow = 0;
+  let negativeFlow = 0;
+  const slice = candles.slice(-period - 1);
+
+  for (let i = 1; i < slice.length; i++) {
+    const current = slice[i];
+    const previous = slice[i - 1];
+
+    const currentTp = (current.high + current.low + current.close) / 3;
+    const previousTp = (previous.high + previous.low + previous.close) / 3;
+    const moneyFlow = currentTp * Math.max(1, current.volume || 1);
+
+    if (currentTp > previousTp) positiveFlow += moneyFlow;
+    else if (currentTp < previousTp) negativeFlow += moneyFlow;
+  }
+
+  if (negativeFlow === 0 && positiveFlow === 0) return 50;
+  if (negativeFlow === 0) return 100;
+
+  const moneyRatio = positiveFlow / negativeFlow;
+  return 100 - 100 / (1 + moneyRatio);
 }
 
 function atr(candles, period = 14) {
