@@ -1,39 +1,52 @@
-# XAU Telegram Connect Security LV1 Full Fix
+# XAU Multi-user Telegram Alert Step 3 Full Fix
 
-Update:
-- Telegram Connect Security Level 1.
-- Warning jelas di dashboard:
-  Jangan share kode connect.
-- Kode connect:
-  - aktif 15 menit
-  - sekali pakai
-  - hanya untuk user premium/admin
-- Generate kode baru akan otomatis invalidate kode lama.
-- Disconnect tetap tersedia.
+Step 3:
+- MAIN CALL valid sekarang dikirim ke banyak Telegram user premium/admin.
+- Sistem tetap mengirim ke chat utama lama dari ENV TELEGRAM_CHAT_ID.
+- Sistem juga mengirim ke semua user yang:
+  - role = premium dan premiumUntil masih aktif
+  - atau role = admin
+  - status active
+  - telegramConnected = true
+  - telegramChatId ada
 
-Risiko yang dicegah:
-- Kalau user generate kode berkali-kali, kode lama tidak bisa dipakai lagi.
-- User diberi warning bahwa siapa pun yang memakai kode bisa connect Telegram ke akun tersebut.
+Flow:
+1. User premium connect Telegram di Step 2.
+2. users/{uid}/telegramConnected = true.
+3. MAIN CALL BUY/SELL valid muncul.
+4. /api/signal memanggil maybeSendTelegramAlert.
+5. Alert dikirim ke:
+   - TELEGRAM_CHAT_ID default jika ada
+   - semua premium/admin connected users
+6. Duplicate alert dicegah pakai alertKey:
+   pair + signal + callStage + candleTime.
 
-Roadmap tambahan:
-- Level 2 nanti:
-  Connect Approval.
-  Orang kirim /connect KODE → status pending → pemilik akun approve dari dashboard.
+Delivery log:
+- Disimpan di:
+  xauusd/telegram/deliveryLogs/{alertKey}/{chatId}
+- Last alert:
+  xauusd/telegram/lastAlert
 
-File berubah:
-- functions/api/telegram-connect-code.js
-- functions/api/telegram-webhook.js
-- src/App.jsx
-- src/style.css
-- package.json
+Return JSON /api/signal sekarang berisi:
+telegram: {
+  ok,
+  mode: "multi-user-premium-alert",
+  totalRecipients,
+  successCount,
+  failedCount,
+  recipients
+}
 
-Cara test:
-1. Login premium/admin.
-2. Generate Connect Code.
-3. Generate lagi.
-4. Kode pertama harus invalid.
-5. Kode kedua bisa dipakai /connect.
-6. Setelah connect, status Connected.
+ENV wajib:
+- TELEGRAM_BOT_TOKEN
+- FIREBASE_DATABASE_URL
 
-MQ5:
-- Tidak perlu update.
+ENV opsional:
+- TELEGRAM_CHAT_ID
+  Tetap dipakai untuk chat/channel utama lama.
+
+Catatan:
+- User expired otomatis tidak dapat alert.
+- User free tidak dapat alert.
+- User belum connect Telegram tidak dapat alert.
+- MQ5 tidak perlu update.

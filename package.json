@@ -1,6 +1,6 @@
 {
-  "name": "xau-ai-signal-telegram-connect-security-lv1",
-  "version": "5.4.3",
+  "name": "xau-ai-signal-multi-user-telegram-alert-step3",
+  "version": "5.5.0",
   "type": "module",
   "scripts": {
     "dev": "vite",

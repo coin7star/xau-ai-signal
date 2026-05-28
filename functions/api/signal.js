@@ -793,7 +793,7 @@ async function maybeSendTelegramAlert(env, dbUrl, signal, market) {
   const readyEnabled = String(env.TELEGRAM_READY_ALERT_ENABLED || "false").toLowerCase() === "true";
 
   if (!enabled) return { ok: false, skipped: "telegram-disabled" };
-  if (!env.TELEGRAM_BOT_TOKEN || !env.TELEGRAM_CHAT_ID) return { ok: false, skipped: "telegram-env-missing" };
+  if (!env.TELEGRAM_BOT_TOKEN) return { ok: false, skipped: "telegram-bot-token-missing" };
   if (!dbUrl) return { ok: false, skipped: "firebase-env-missing" };
 
   const isCall = signal.callStage === "CALL" && (signal.signal === "BUY" || signal.signal === "SELL");
@@ -815,20 +815,141 @@ async function maybeSendTelegramAlert(env, dbUrl, signal, market) {
   }
 
   const message = buildTelegramMessage(signal, market);
-  const sent = await sendTelegram(env.TELEGRAM_BOT_TOKEN, env.TELEGRAM_CHAT_ID, message);
+  const recipients = await getTelegramAlertRecipients(env, dbUrl);
+  const results = [];
 
-  if (sent.ok) {
+  if (!recipients.length) {
+    return {
+      ok: false,
+      skipped: "no-telegram-recipients",
+      alertKey
+    };
+  }
+
+  for (const recipient of recipients) {
+    const sent = await sendTelegram(env.TELEGRAM_BOT_TOKEN, recipient.chatId, message);
+
+    results.push({
+      uid: recipient.uid || null,
+      email: recipient.email || null,
+      source: recipient.source,
+      chatId: maskChatId(recipient.chatId),
+      ok: sent.ok,
+      status: sent.status
+    });
+
+    await fbPut(dbUrl, `/xauusd/telegram/deliveryLogs/${safeKey(alertKey)}/${safeKey(recipient.chatId)}`, {
+      alertKey,
+      signal: signal.signal,
+      callStage: signal.callStage,
+      uid: recipient.uid || null,
+      email: recipient.email || null,
+      source: recipient.source,
+      chatId: maskChatId(recipient.chatId),
+      ok: sent.ok,
+      status: sent.status,
+      response: sent.response || null,
+      sentAt: new Date().toISOString()
+    });
+  }
+
+  const successCount = results.filter((item) => item.ok).length;
+  const failedCount = results.length - successCount;
+
+  if (successCount > 0) {
     await fbPut(dbUrl, "/xauusd/telegram/lastAlert", {
       alertKey,
       signal: signal.signal,
       callStage: signal.callStage,
       candleTime: signal.candleTime || null,
+      totalRecipients: results.length,
+      successCount,
+      failedCount,
       sentAt: new Date().toISOString()
     });
   }
 
-  return { ok: sent.ok, alertKey, status: sent.status, response: sent.response };
+  return {
+    ok: successCount > 0,
+    alertKey,
+    mode: "multi-user-premium-alert",
+    totalRecipients: results.length,
+    successCount,
+    failedCount,
+    recipients: results
+  };
 }
+
+async function getTelegramAlertRecipients(env, dbUrl) {
+  const recipients = [];
+  const seen = new Set();
+
+  // Chat utama lama tetap dipakai supaya alert ke admin/channel lama tidak hilang.
+  if (env.TELEGRAM_CHAT_ID) {
+    const chatId = String(env.TELEGRAM_CHAT_ID);
+    recipients.push({
+      source: "default-env-chat",
+      uid: null,
+      email: "default",
+      chatId
+    });
+    seen.add(chatId);
+  }
+
+  const usersRaw = await fbGet(dbUrl, "/users");
+  const users = Object.values(usersRaw || {}).filter(Boolean);
+
+  for (const user of users) {
+    if (!isActivePremiumForTelegram(user)) continue;
+    if (!user.telegramConnected || !user.telegramChatId) continue;
+
+    const chatId = String(user.telegramChatId);
+
+    if (seen.has(chatId)) continue;
+
+    recipients.push({
+      source: "premium-user",
+      uid: user.uid || null,
+      email: user.email || null,
+      chatId
+    });
+
+    seen.add(chatId);
+  }
+
+  return recipients;
+}
+
+function isActivePremiumForTelegram(user) {
+  if (!user) return false;
+  if (user.status && user.status !== "active") return false;
+  if (user.role === "admin") return true;
+  if (user.role !== "premium") return false;
+
+  const until = user.premiumUntil || user.expiredAt || null;
+  if (!until) return false;
+
+  return new Date(until).getTime() > Date.now();
+}
+
+function safeKey(value) {
+  return String(value || "empty")
+    .replaceAll(".", "_")
+    .replaceAll("#", "_")
+    .replaceAll("$", "_")
+    .replaceAll("[", "_")
+    .replaceAll("]", "_")
+    .replaceAll("/", "_")
+    .replaceAll("|", "_");
+}
+
+function maskChatId(value) {
+  if (!value) return "";
+  const text = String(value);
+  if (text.length <= 4) return "****";
+  return `${text.slice(0, 2)}****${text.slice(-2)}`;
+}
+
 
 function buildTelegramMessage(signal, market) {
   const s = signal.strategy || {};

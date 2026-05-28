@@ -928,7 +928,7 @@ function TelegramConnectPanel({ user, profile, telegramConnect, onRefresh }) {
       </div>
 
       <p className="miniNote">
-        Setelah status Connected, akun ini sudah siap menerima alert premium. Multi-user auto alert lanjut Step 3.
+        Setelah status Connected, akun premium/admin ini siap menerima auto alert MAIN CALL via Telegram.
       </p>
     </section>
   );
