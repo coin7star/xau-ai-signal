@@ -1,6 +1,6 @@
 {
-  "name": "xau-ai-signal-telegram-miniapp-command-clean",
-  "version": "4.1.0",
+  "name": "xau-ai-signal-telegram-disable-old-commands",
+  "version": "4.1.1",
   "type": "module",
   "scripts": {
     "dev": "vite",
