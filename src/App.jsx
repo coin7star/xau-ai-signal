@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { createChart, ColorType, CrosshairMode } from "lightweight-charts";
-import { Activity, Bot, Database, Radio, RefreshCcw, Shield, Sparkles, Target, TrendingDown, TrendingUp, Zap } from "lucide-react";
+import { Activity, Bot, Database, Lock, LogOut, Radio, RefreshCcw, Shield, Sparkles, Target, TrendingDown, TrendingUp, User, Zap } from "lucide-react";
+import { ensureUserProfile, getUserProfile, hasFirebaseClientConfig, isPremiumProfile, listenAuth, loginWithEmail, loginWithGoogle, logout, registerWithEmail } from "./firebaseClient";
 
 export default function App() {
   const chartM1Ref = useRef(null);
@@ -28,6 +29,9 @@ export default function App() {
   const [loading, setLoading] = useState(false);
   const [lastUpdate, setLastUpdate] = useState("-");
   const [chartError, setChartError] = useState("");
+  const [authUser, setAuthUser] = useState(null);
+  const [authProfile, setAuthProfile] = useState(null);
+  const [authLoading, setAuthLoading] = useState(true);
 
   async function loadData({ includeChart = false, includeHistory = false, includeScalpHistory = false } = {}) {
     try {
@@ -153,6 +157,31 @@ export default function App() {
   }
 
   useEffect(() => {
+    const unsubscribe = listenAuth(async (user) => {
+      setAuthLoading(true);
+
+      try {
+        if (!user) {
+          setAuthUser(null);
+          setAuthProfile(null);
+          return;
+        }
+
+        setAuthUser(user);
+        const profile = await ensureUserProfile(user);
+        const freshProfile = await getUserProfile(user.uid);
+        setAuthProfile(freshProfile || profile);
+      } finally {
+        setAuthLoading(false);
+      }
+    });
+
+    return unsubscribe;
+  }, []);
+
+  useEffect(() => {
+    if (!authUser || !isPremiumProfile(authProfile)) return;
+
     loadData({ includeChart: true, includeHistory: true, includeScalpHistory: true });
 
     const liteInterval = setInterval(loadLiteData, 12000);
@@ -166,7 +195,7 @@ export default function App() {
       clearInterval(historyInterval);
       clearInterval(scalpHistoryInterval);
     };
-  }, []);
+  }, [authUser, authProfile?.role, authProfile?.premiumUntil]);
 
   const candlesM1 = Array.isArray(market?.candles) ? market.candles : [];
   const candlesM15 = Array.isArray(market?.candlesM15) ? market.candlesM15 : [];
@@ -320,6 +349,40 @@ export default function App() {
   const historyStats = callHistory?.stats || {};
   const scalpStats = scalpHistory?.stats || {};
   const telegramStatus = signal?.telegram?.ok ? "Telegram OK" : signal?.telegram?.skipped || "Telegram standby";
+  const premiumActive = isPremiumProfile(authProfile);
+  const roleLabel = authProfile?.role?.toUpperCase?.() || "FREE";
+
+  if (authLoading) {
+    return (
+      <main className="page authPage">
+        <section className="authCard card">
+          <div className="logo big"><Shield size={28} /></div>
+          <h1>Loading XAU AI...</h1>
+          <p>Sedang cek login dan akses premium.</p>
+        </section>
+      </main>
+    );
+  }
+
+  if (!hasFirebaseClientConfig) {
+    return (
+      <main className="page authPage">
+        <section className="authCard card">
+          <div className="logo big"><Shield size={28} /></div>
+          <h1>Firebase Auth belum diset</h1>
+          <p>Isi ENV VITE_FIREBASE_API_KEY, VITE_FIREBASE_AUTH_DOMAIN, VITE_FIREBASE_DATABASE_URL, VITE_FIREBASE_PROJECT_ID, dan VITE_FIREBASE_APP_ID di Cloudflare Pages.</p>
+        </section>
+      </main>
+    );
+  }
+
+  if (!authUser) {
+    return <AuthScreen />;
+  }
+
+  if (!premiumActive) {
+    return <PaywallScreen user={authUser} profile={authProfile} onLogout={logout} />;
+  }
 
   return (
     <main className="page">
@@ -568,6 +631,96 @@ export default function App() {
       <footer>Bukan financial advice. Demo first, XAUUSD galak bro 😭</footer>
     </main>
   );
+}
+
+
+function AuthScreen() {
+  const [mode, setMode] = useState("login");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+
+  async function handleSubmit(event) {
+    event.preventDefault();
+    setError("");
+    setBusy(true);
+    try {
+      if (mode === "register") await registerWithEmail(email, password);
+      else await loginWithEmail(email, password);
+    } catch (err) { setError(cleanAuthError(err)); }
+    finally { setBusy(false); }
+  }
+
+  async function handleGoogle() {
+    setError("");
+    setBusy(true);
+    try { await loginWithGoogle(); }
+    catch (err) { setError(cleanAuthError(err)); }
+    finally { setBusy(false); }
+  }
+
+  return (
+    <main className="page authPage">
+      <section className="authCard card">
+        <div className="logo big"><Bot size={30} /></div>
+        <span className="pill mini"><Lock size={14} /> Premium Access</span>
+        <h1>XAU AI Signal</h1>
+        <p>Login dulu buat akses dashboard premium, MAIN CALL, M1 Scalp Radar, Fresh OB M15, dan history signal.</p>
+        <form className="authForm" onSubmit={handleSubmit}>
+          <label>Email</label>
+          <input value={email} onChange={(event) => setEmail(event.target.value)} type="email" placeholder="email kamu" required />
+          <label>Password</label>
+          <input value={password} onChange={(event) => setPassword(event.target.value)} type="password" placeholder="minimal 6 karakter" required />
+          {error && <div className="authError">{error}</div>}
+          <button type="submit" disabled={busy}>{busy ? "Loading..." : mode === "register" ? "Create Account" : "Login"}</button>
+          <button type="button" className="ghostBtn" onClick={handleGoogle} disabled={busy}>Login with Google</button>
+        </form>
+        <button className="linkBtn" type="button" onClick={() => setMode(mode === "login" ? "register" : "login")}>{mode === "login" ? "Belum punya akun? Register" : "Sudah punya akun? Login"}</button>
+      </section>
+    </main>
+  );
+}
+
+function PaywallScreen({ user, profile, onLogout }) {
+  return (
+    <main className="page authPage">
+      <section className="authCard paywallCard card">
+        <div className="logo big"><Lock size={30} /></div>
+        <span className="pill mini"><Shield size={14} /> FREE ACCOUNT</span>
+        <h1>Upgrade ke Premium</h1>
+        <p>Akun kamu sudah login, tapi belum punya akses premium aktif.</p>
+        <div className="paywallUser">
+          <b>{user?.email}</b>
+          <span>UID: {user?.uid}</span>
+          <span>Role: {(profile?.role || "free").toUpperCase()}</span>
+          <span>Premium until: {profile?.premiumUntil || "-"}</span>
+        </div>
+        <div className="premiumFeatures">
+          <b>Premium unlock:</b>
+          <span>✅ Live dashboard XAU AI</span>
+          <span>✅ MAIN CALL Alert</span>
+          <span>✅ M1 Scalp Radar</span>
+          <span>✅ Fresh OB M15</span>
+          <span>✅ CALL & SCALP History</span>
+        </div>
+        <div className="paywallActions">
+          <a href="https://t.me/" target="_blank" rel="noreferrer">Hubungi Admin</a>
+          <button type="button" onClick={onLogout}>Logout</button>
+        </div>
+        <p className="miniNote">Admin bisa aktifkan premium via Firebase RTDB path <code>users/{user?.uid}</code> atau endpoint <code>/api/admin-user</code>.</p>
+      </section>
+    </main>
+  );
+}
+
+function cleanAuthError(err) {
+  const message = String(err?.message || err || "Login gagal");
+  if (message.includes("auth/invalid-credential")) return "Email/password salah atau akun belum terdaftar.";
+  if (message.includes("auth/email-already-in-use")) return "Email sudah terdaftar. Coba login.";
+  if (message.includes("auth/weak-password")) return "Password minimal 6 karakter.";
+  if (message.includes("auth/popup")) return "Popup Google diblokir. Coba izinkan popup atau pakai email/password.";
+  return message;
 }
 
 function candlesToTradingView(candles) {

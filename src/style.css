@@ -276,3 +276,24 @@
 
 .supportDot { background: #38bdf8; }
 .resistDot { background: #fb923c; }
+
+
+.authPage { min-height: 100vh; display: grid; place-items: center; padding: 24px; }
+.authCard { width: min(540px, 100%); padding: 34px; text-align: center; }
+.authCard h1 { margin: 14px 0 8px; font-size: clamp(32px, 8vw, 56px); }
+.authCard p { color: #9fb0d6; line-height: 1.7; }
+.logo.big { width: 70px; height: 70px; margin: 0 auto 12px; }
+.authForm { display: grid; gap: 10px; text-align: left; margin-top: 22px; }
+.authForm label { color: #c7d2fe; font-size: 13px; font-weight: 900; text-transform: uppercase; letter-spacing: .08em; }
+.authForm input { width: 100%; border: 1px solid rgba(255,255,255,.14); outline: none; border-radius: 16px; padding: 14px 16px; background: rgba(7,11,23,.92); color: #fff; font-weight: 800; }
+.authForm button, .paywallActions a, .paywallActions button, .ghostBtn, .linkBtn { border: 0; cursor: pointer; border-radius: 16px; padding: 14px 16px; font-weight: 1000; color: #07111e; background: linear-gradient(135deg,#ffe879,#19f28f); text-decoration: none; text-align: center; }
+.ghostBtn { background: rgba(255,255,255,.08) !important; color: #dbeafe !important; border: 1px solid rgba(255,255,255,.12) !important; }
+.linkBtn { margin-top: 16px; background: transparent !important; color: #93c5fd !important; padding: 8px !important; }
+.authError { padding: 12px 14px; border-radius: 14px; background: rgba(255,77,109,.14); color: #ffb1c0; border: 1px solid rgba(255,77,109,.25); font-weight: 800; }
+.paywallUser, .premiumFeatures { margin: 18px 0; padding: 18px; border-radius: 20px; background: rgba(0,0,0,.24); border: 1px solid rgba(255,255,255,.08); display: grid; gap: 8px; text-align: left; }
+.paywallUser span, .premiumFeatures span, .miniNote { color: #9fb0d6; }
+.paywallActions { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 18px; }
+.paywallActions button { background: rgba(255,255,255,.08); color: #dbeafe; border: 1px solid rgba(255,255,255,.12); }
+.accountBadge { display: inline-flex; align-items: center; gap: 7px; padding: 11px 13px; border-radius: 999px; background: rgba(34,255,170,.12); color: #a6ffd8; font-weight: 1000; border: 1px solid rgba(34,255,170,.2); }
+.miniNote code { color: #ffe879; }
+@media(max-width: 720px) { .paywallActions { grid-template-columns: 1fr; } }

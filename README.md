@@ -1,52 +1,60 @@
-# XAU Telegram Webhook Clean Rebuild Full Fix
+# XAU Login Premium Paywall Step 1 Full Fix
 
-Masalah sebelumnya:
-- Deploy gagal karena telegram-webhook.js error:
-  Unexpected ")" line 57.
-- Itu karena sisa patch function lama nyangkut.
+Step 1 premium foundation:
+- Login user via Firebase Auth:
+  - Email/password
+  - Google login
+- Auto-create user profile di Firebase RTDB:
+  /users/{uid}
+- Role user:
+  - free
+  - premium
+  - admin
+- Premium access:
+  - premiumUntil harus masih aktif
+  - admin selalu aktif
+- Paywall:
+  - Free user login tetap bisa masuk, tapi dashboard dikunci
+  - Premium/admin bisa akses dashboard
+- Admin endpoint manual:
+  - GET /api/admin-user
+  - POST /api/admin-user
 
-Fix:
-- functions/api/telegram-webhook.js diganti full clean file.
-- Syntax sudah dicek dengan node --check:
-  OK
+ENV Cloudflare Pages wajib:
+VITE_FIREBASE_API_KEY=...
+VITE_FIREBASE_AUTH_DOMAIN=...
+VITE_FIREBASE_DATABASE_URL=...
+VITE_FIREBASE_PROJECT_ID=...
+VITE_FIREBASE_APP_ID=...
 
-Command aktif:
-- /start
-- /status
-- /help
+ENV Cloudflare Function:
+FIREBASE_DATABASE_URL=...
+ADMIN_ACTION_TOKEN=...
 
-Command lama:
-- /signal
-- /history
-- /scalp_history
-- /scalphistory
+Cara aktifkan premium manual via Firebase:
+users/{uid}/role = premium
+users/{uid}/premiumUntil = 2026-06-30T23:59:59.000Z
 
-Sekarang command lama tidak membaca RTDB/Firebase lagi.
-Command lama cuma redirect ke tombol Mini App:
-🚀 Open XAU AI Dashboard
+Atau via endpoint:
+POST /api/admin-user
+body:
+{
+  "token": "ADMIN_ACTION_TOKEN_KAMU",
+  "uid": "USER_UID",
+  "role": "premium",
+  "premiumDays": 30
+}
 
-Auto alert:
-- MAIN CALL alert tetap jalan dari endpoint /api/signal.
-- File ini hanya handle command manual Telegram.
+Firebase Console:
+1. Authentication -> Sign-in method -> aktifkan Email/Password
+2. Optional: aktifkan Google provider
+3. Realtime Database rules sementara untuk test:
+{
+  "rules": {
+    ".read": true,
+    ".write": true
+  }
+}
+Nanti rules bisa kita ketatkan setelah Step 2/3.
 
-ENV opsional:
-DASHBOARD_URL=https://xau-ai-signal.pages.dev
-
-BotFather Edit Commands:
-start - Buka dashboard XAU AI
-status - Cek status bot
-help - Panduan penggunaan
-
-MQ5:
-- Tidak perlu update.
-
-File berubah:
-- functions/api/telegram-webhook.js
-- package.json
-
-Cara pakai:
-1. Upload replace semua ke GitHub.
-2. Commit changes.
-3. Tunggu Cloudflare deploy.
-4. Test /signal.
-5. Harusnya cuma redirect ke dashboard, bukan Signal Radar panjang.
+MQ5 tidak perlu update.
