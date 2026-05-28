@@ -1,6 +1,6 @@
 {
-  "name": "xau-ai-signal-scalp-no-legacy-clean",
-  "version": "4.0.2",
+  "name": "xau-ai-signal-telegram-miniapp-command-clean",
+  "version": "4.1.0",
   "type": "module",
   "scripts": {
     "dev": "vite",
