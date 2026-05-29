@@ -2118,10 +2118,33 @@ function PaymentRevenueSummary({ orders }) {
 }
 
 
+
+function orderMatchesSearch(order, query) {
+  const keyword = safeOrderText(query, "").trim().toLowerCase();
+  if (!keyword) return true;
+
+  const haystack = [
+    order.orderId,
+    order.email,
+    order.uid,
+    order.packageCode,
+    order.packageLabel,
+    order.price,
+    order.status,
+    order.createdAt,
+    order.premiumUntil,
+    order.adminNote
+  ].map((value) => safeOrderText(value, "").toLowerCase()).join(" ");
+
+  return haystack.includes(keyword);
+}
+
+
 function AdminOrdersPanel({ adminToken }) {
   const [orders, setOrders] = useState([]);
   const [ordersPage, setOrdersPage] = useState(1);
   const [orderFilter, setOrderFilter] = useState("pending");
+  const [orderSearch, setOrderSearch] = useState("");
   const [loadingOrders, setLoadingOrders] = useState(false);
   const [orderMessage, setOrderMessage] = useState("");
 
@@ -2261,9 +2284,11 @@ function AdminOrdersPanel({ adminToken }) {
   const pendingOrders = safeOrders.filter((order) => order.status === "pending");
   const approvedOrders = safeOrders.filter((order) => order.status === "approved");
   const rejectedOrders = safeOrders.filter((order) => order.status === "rejected");
-  const filteredOrders = orderFilter === "all"
+  const statusFilteredOrders = orderFilter === "all"
     ? safeOrders
     : safeOrders.filter((order) => order.status === orderFilter);
+
+  const filteredOrders = statusFilteredOrders.filter((order) => orderMatchesSearch(order, orderSearch));
 
   const ordersPerPage = 6;
   const totalOrderPages = Math.max(1, Math.ceil(filteredOrders.length / ordersPerPage));
@@ -2288,7 +2313,7 @@ function AdminOrdersPanel({ adminToken }) {
           </button>
           <button
             type="button"
-            onClick={() => exportOrdersToCsv(filteredOrders, orderFilter)}
+            onClick={() => exportOrdersToCsv(filteredOrders, orderSearch ? `${orderFilter}-search` : orderFilter)}
             disabled={!filteredOrders.length}
           >
             Export CSV
@@ -2324,6 +2349,33 @@ function AdminOrdersPanel({ adminToken }) {
             {label}
           </button>
         ))}
+      </div>
+
+      <div className="adminOrdersSearch">
+        <label>Search Order</label>
+        <div>
+          <input
+            type="search"
+            value={orderSearch}
+            placeholder="Cari email, UID, order ID, paket, status, catatan..."
+            onChange={(event) => {
+              setOrderSearch(event.target.value);
+              setOrdersPage(1);
+            }}
+          />
+          {orderSearch ? (
+            <button
+              type="button"
+              onClick={() => {
+                setOrderSearch("");
+                setOrdersPage(1);
+              }}
+            >
+              Clear
+            </button>
+          ) : null}
+        </div>
+        <small>Menampilkan {filteredOrders.length} order dari {statusFilteredOrders.length} order pada filter aktif.</small>
       </div>
 
 

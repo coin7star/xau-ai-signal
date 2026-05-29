@@ -2833,3 +2833,71 @@ canvas {
     grid-template-columns: 1fr;
   }
 }
+
+
+/* Step 8O Order Search Admin */
+.adminOrdersSearch {
+  margin: 0 0 14px;
+  padding: 14px;
+  border-radius: 18px;
+  background: rgba(0,0,0,.16);
+  border: 1px solid rgba(255,255,255,.08);
+}
+
+.adminOrdersSearch label {
+  display: block;
+  margin-bottom: 8px;
+  color: #cbd6f3;
+  font-size: 11px;
+  font-weight: 1000;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+}
+
+.adminOrdersSearch > div {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.adminOrdersSearch input {
+  flex: 1;
+  min-width: 0;
+  border: 1px solid rgba(255,255,255,.10);
+  outline: none;
+  border-radius: 14px;
+  padding: 12px 13px;
+  color: #f8fbff;
+  background: rgba(6,10,24,.74);
+  font-weight: 900;
+}
+
+.adminOrdersSearch input:focus {
+  border-color: rgba(103,232,249,.45);
+  box-shadow: 0 0 0 3px rgba(103,232,249,.10);
+}
+
+.adminOrdersSearch button {
+  border: 0;
+  border-radius: 14px;
+  padding: 12px 13px;
+  font-weight: 1000;
+  cursor: pointer;
+  color: #06111f;
+  background: linear-gradient(135deg, #67e8f9, #d8b4fe);
+}
+
+.adminOrdersSearch small {
+  display: block;
+  margin-top: 8px;
+  color: #8fa2c7;
+  font-size: 11px;
+  font-weight: 800;
+}
+
+@media(max-width: 620px) {
+  .adminOrdersSearch > div {
+    flex-direction: column;
+    align-items: stretch;
+  }
+}

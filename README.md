@@ -1,25 +1,25 @@
-# XAU Step 8N Monthly Revenue Summary
+# XAU Step 8O Order Search Admin
 
 Fitur baru:
-- Payment Summary di Admin Pending Orders.
-- Menghitung estimasi omzet dari order approved.
+- Search box di Pending Payment Orders.
+- Admin bisa cari order berdasarkan:
+  - Email
+  - UID
+  - Order ID
+  - Paket
+  - Harga
+  - Status
+  - Created At
+  - Premium Until
+  - Admin Note
 
-Data yang tampil:
-- Revenue bulan ini
-- Revenue 7 hari terakhir
-- Total omzet approved
-- Total approved order
-- Total pending order
-- Total rejected order
-- Paket 7D terjual
-- Paket 30D terjual
-
-Perhitungan:
-- Hanya order status approved yang masuk omzet.
-- Paket Rp10K dihitung 10.000.
-- Paket Rp30K dihitung 30.000.
-- Revenue bulan ini memakai approvedAt jika ada, fallback ke createdAt.
-- Revenue 7 hari terakhir memakai approvedAt jika ada, fallback ke createdAt.
+Cara kerja:
+- Search bekerja di dalam filter aktif.
+- Kalau filter Pending aktif, search hanya mencari di order Pending.
+- Kalau filter All aktif, search mencari semua order.
+- Pagination tetap 6 baris.
+- Saat search berubah, halaman reset ke Page 1.
+- Export CSV mengikuti hasil filter + search.
 
 Tidak disentuh:
 - Admin row Manage user
@@ -28,15 +28,18 @@ Tidak disentuh:
 - Approve/reject logic
 - Telegram/email notify
 - User Payment History
-- Export CSV
+- Revenue Summary
 
 Cara test:
 1. Login admin.
 2. Buka Admin Panel.
 3. Isi Admin Token.
 4. Klik Refresh Orders.
-5. Payment Summary harus menampilkan angka omzet/order.
-6. Approve order baru, Refresh Orders, angka summary berubah.
+5. Pilih filter All.
+6. Ketik email/UID/order ID di Search Order.
+7. Hasil harus menyempit sesuai keyword.
+8. Klik Clear untuk reset search.
+9. Export CSV saat search aktif harus export hasil search saja.
 
 MQ5:
 - Tidak perlu update.

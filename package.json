@@ -1,6 +1,6 @@
 {
-  "name": "xau-ai-signal-step8n-monthly-revenue-summary",
-  "version": "6.5.7-step8n-revenue-summary",
+  "name": "xau-ai-signal-step8o-order-search-admin",
+  "version": "6.5.8-step8o-order-search",
   "type": "module",
   "scripts": {
     "dev": "vite",
