@@ -1,3 +1,7 @@
+const ADMIN_CONTACT_URL = "https://t.me/xauai_signal_bot";
+const ADMIN_CONTACT_LABEL = "Hubungi Admin";
+const PRODUCT_NAME = "XAU AI Signal";
+
 import { useEffect, useMemo, useRef, useState } from "react";
 import { createChart, ColorType, CrosshairMode } from "lightweight-charts";
 import { Activity, Bot, Copy, Database, Lock, LogOut, Radio, RefreshCcw, Settings, Shield, Sparkles, Target, TrendingDown, TrendingUp, User, Zap } from "lucide-react";
@@ -502,8 +506,8 @@ export default function App() {
             <p>Dashboard premium aktif untuk memantau market signal, Telegram alert, chart, dan performance history.</p>
           </div>
           <div className="premiumSystemPills">
-            <b>Premium Mode</b>
-            <span>Premium dashboard</span>
+            <b>Beta Premium</b>
+            <span>Produk beta aktif</span>
           </div>
         </section>
       )}
@@ -1544,7 +1548,10 @@ function LandingPage({ onLogin }) {
           <a href="#features">Fitur</a>
           <a href="#pricing">Paket</a>
           <a href="#faq">FAQ</a>
+          <div className="landingFooterActions">
+          <a href={ADMIN_CONTACT_URL} target="_blank" rel="noreferrer">Hubungi Admin</a>
           <button type="button" onClick={onLogin}>Login / Register</button>
+        </div>
         </div>
       </nav>
 
@@ -1559,6 +1566,7 @@ function LandingPage({ onLogin }) {
 
           <div className="landingCta">
             <button type="button" onClick={onLogin}>Mulai Login / Register</button>
+            <a href={ADMIN_CONTACT_URL} target="_blank" rel="noreferrer">Hubungi Admin</a>
             <a href="#features">Lihat Fitur</a>
           </div>
 
@@ -1641,19 +1649,43 @@ function LandingPage({ onLogin }) {
             <h3>7 Day</h3>
             <b>Rp10K</b>
             <p>Cocok untuk coba fitur premium selama 7 hari.</p>
+            <a href={ADMIN_CONTACT_URL} target="_blank" rel="noreferrer">Aktivasi 7 Day</a>
           </div>
           <div className="priceCard featured">
             <span>Popular</span>
             <h3>30 Day</h3>
             <b>Rp30K</b>
             <p>Akses premium 30 hari untuk pantau XAUUSD.</p>
+            <a href={ADMIN_CONTACT_URL} target="_blank" rel="noreferrer">Aktivasi 30 Day</a>
           </div>
           <div className="priceCard">
-            <span>Founder</span>
-            <h3>Beta Access</h3>
-            <b>Manual</b>
-            <p>Paket khusus tester awal dan user prioritas.</p>
+            <span>Beta</span>
+            <h3>Manual Access</h3>
+            <b>Admin</b>
+            <p>Aktivasi manual setelah pembayaran atau konfirmasi admin.</p>
+            <a href={ADMIN_CONTACT_URL} target="_blank" rel="noreferrer">Chat Admin</a>
           </div>
+        </div>
+      </section>
+
+
+      <section className="landingSection activationSection">
+        <div className="landingSectionTitle">
+          <span className="pill mini">AKTIVASI PREMIUM</span>
+          <h2>Cara mulai pakai premium</h2>
+          <p>Proses dibuat sederhana untuk beta launch. Daftar akun, pilih paket, lalu admin aktifkan akses premium kamu.</p>
+        </div>
+
+        <div className="activationGrid">
+          <div><b>1</b><span>Daftar akun menggunakan email aktif.</span></div>
+          <div><b>2</b><span>Pilih paket 7 Day atau 30 Day.</span></div>
+          <div><b>3</b><span>Hubungi admin untuk pembayaran dan aktivasi.</span></div>
+          <div><b>4</b><span>Login dashboard lalu connect Telegram Alert.</span></div>
+        </div>
+
+        <div className="activationCta">
+          <a href={ADMIN_CONTACT_URL} target="_blank" rel="noreferrer">Hubungi Admin Sekarang</a>
+          <button type="button" onClick={onLogin}>Login / Register</button>
         </div>
       </section>
 
@@ -1661,7 +1693,7 @@ function LandingPage({ onLogin }) {
         <b>Risk Disclaimer</b>
         <p>
           XAU AI Signal adalah market scanner dan trading assistant, bukan jaminan profit.
-          Trading XAUUSD berisiko tinggi. Selalu gunakan risk management dan keputusan trading tetap tanggung jawab masing-masing user.
+          Trading XAUUSD memiliki risiko tinggi. Gunakan risk management, batasi lot, dan pastikan keputusan trading tetap berdasarkan tanggung jawab masing-masing user.
         </p>
       </section>
 
@@ -1842,7 +1874,7 @@ function PaywallScreen({ user, profile, onLogout }) {
         <div className="logo big"><Lock size={30} /></div>
         <span className="pill mini"><Shield size={14} /> FREE ACCOUNT</span>
         <h1>Upgrade ke Premium</h1>
-        <p>Akun kamu sudah login, tapi belum punya akses premium aktif.</p>
+        <p>Akun kamu sudah login. Aktifkan premium untuk membuka dashboard signal.</p>
         <div className="paywallUser">
           <b>{user?.email}</b>
           <span>UID: {user?.uid}</span>
@@ -1861,7 +1893,7 @@ function PaywallScreen({ user, profile, onLogout }) {
           <a href="https://t.me/" target="_blank" rel="noreferrer">Hubungi Admin</a>
           <button type="button" onClick={onLogout}>Logout</button>
         </div>
-        <p className="miniNote">Hubungi admin untuk aktivasi premium. <code>users/{user?.uid}</code> Aktivasi diproses manual setelah pembayaran. <code>/api/admin-user</code>.</p>
+        <p className="miniNote">Hubungi admin untuk aktivasi premium. <code>UID: {user?.uid}</code> Aktivasi diproses manual setelah pembayaran. <code>/api/admin-user</code>.</p>
       </section>
     </main>
   );

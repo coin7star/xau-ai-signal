@@ -1,6 +1,6 @@
 {
-  "name": "xau-ai-signal-pricing-10k-30k",
-  "version": "5.8.3",
+  "name": "xau-ai-signal-beta-product-polish",
+  "version": "5.8.4",
   "type": "module",
   "scripts": {
     "dev": "vite",

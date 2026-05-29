@@ -1739,3 +1739,96 @@
   height: 46px;
   color: #06111f !important;
 }
+
+
+/* Beta product polish */
+.priceCard a,
+.activationCta a,
+.landingFooterActions a,
+.paywallContactBtn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: fit-content;
+  margin-top: 12px;
+  border-radius: 999px;
+  padding: 11px 15px;
+  font-weight: 1000;
+  text-decoration: none;
+  color: #06111f;
+  background: linear-gradient(135deg,#ffe879,#19f28f);
+}
+
+.activationSection {
+  margin-top: 74px;
+}
+
+.activationGrid {
+  display: grid;
+  grid-template-columns: repeat(4,1fr);
+  gap: 14px;
+}
+
+.activationGrid div {
+  padding: 22px;
+  border-radius: 24px;
+  background: rgba(255,255,255,.075);
+  border: 1px solid rgba(255,255,255,.12);
+}
+
+.activationGrid b {
+  width: 42px;
+  height: 42px;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  background: linear-gradient(135deg,#67e8f9,#c084fc);
+  color: #06111f;
+  margin-bottom: 14px;
+}
+
+.activationGrid span {
+  display: block;
+  color: #cbd6f3;
+  line-height: 1.6;
+  font-weight: 800;
+}
+
+.activationCta {
+  margin-top: 18px;
+  display: flex;
+  justify-content: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.activationCta button {
+  border: 1px solid rgba(255,255,255,.14);
+  background: rgba(255,255,255,.08);
+  color: #f8fbff;
+  border-radius: 999px;
+  padding: 11px 15px;
+  font-weight: 1000;
+  cursor: pointer;
+}
+
+.landingFooterActions {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  align-items: center;
+}
+
+.landingFooterActions a {
+  margin-top: 0;
+}
+
+.landingFooterActions button {
+  margin: 0;
+}
+
+@media(max-width: 900px) {
+  .activationGrid {
+    grid-template-columns: 1fr;
+  }
+}
