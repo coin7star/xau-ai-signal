@@ -1,6 +1,6 @@
 {
-  "name": "xau-ai-signal-market-monitoring-runtime-normalize",
-  "version": "6.2.15-market-monitoring-runtime-normalize",
+  "name": "xau-ai-signal-rollback-after-market-monitoring-blank",
+  "version": "6.2.16-rollback-status-safe",
   "type": "module",
   "scripts": {
     "dev": "vite",

@@ -14,62 +14,7 @@ import { createChart, ColorType, CrosshairMode } from "lightweight-charts";
 import { Activity, Bot, Copy, Database, Lock, LogOut, Radio, RefreshCcw, Settings, Shield, Sparkles, Target, TrendingDown, TrendingUp, User, Zap } from "lucide-react";
 import { ensureUserProfile, getUserProfile, hasFirebaseClientConfig, isPremiumProfile, listenAuth, loginWithEmail, loginWithGoogle, logout, refreshCurrentUser, registerWithEmail, resetPasswordEmail, sendVerificationEmail } from "./firebaseClient";
 
-export default 
-function displaySignalStatusText(value) {
-  if (value === null || value === undefined) return "-";
-
-  const text = typeof value === "string"
-    ? value
-    : typeof value === "number"
-      ? String(value)
-      : "";
-
-  const normalized = text.trim().toLowerCase();
-
-  if (!normalized) return "-";
-  if (normalized === "Market Monitoring" || normalized === "not-call" || normalized === "not call signal") {
-    return "Market Monitoring";
-  }
-  if (normalized === "call" || normalized === "call-signal" || normalized === "active-call") {
-    return "CALL Active";
-  }
-
-  return text;
-}
-
-
-
-function normalizeUiStatusText(value) {
-  if (value === null || value === undefined) return value;
-
-  if (typeof value === "string") {
-    const normalized = value.trim().toLowerCase();
-
-    if (normalized === "Market Monitoring" || normalized === "not-call" || normalized === "not call signal") {
-      return "Market Monitoring";
-    }
-
-    if (normalized === "telegram standby") return "Market Monitoring";
-    if (normalized === "call" || normalized === "call-signal" || normalized === "active-call") return "CALL Active";
-  }
-
-  return value;
-}
-
-function normalizeSignalObjectForUi(value) {
-  if (!value || typeof value !== "object" || Array.isArray(value)) return value;
-
-  const copy = { ...value };
-
-  for (const key of ["status", "callStage", "signalStatus", "stage", "telegramStatus", "botStatus"]) {
-    if (key in copy) copy[key] = normalizeUiStatusText(copy[key]);
-  }
-
-  return copy;
-}
-
-
-function App() {
+export default function App() {
   const chartM1Ref = useRef(null);
   const chartM15Ref = useRef(null);
   const chartM1BoxRef = useRef(null);
@@ -544,7 +489,7 @@ function App() {
         </div>
         <div className="navActions">
           <div className={`live ${mt5Status.isStale ? "stale" : ""}`}><Radio size={14} /> {mt5Status.label}</div>
-          <div className="live"><Radio size={14} /> {normalizeUiStatusText(telegramStatus)}</div>
+          <div className="live"><Radio size={14} /> {telegramStatus}</div>
           <div className="accountBadge"><User size={15} /> {roleLabel}</div>
           <div className={`premiumExpiryBadge ${premiumInfo.expired ? "expired" : ""}`}>
             <Shield size={15} /> {premiumInfo.label}

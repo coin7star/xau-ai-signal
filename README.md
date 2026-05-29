@@ -1,21 +1,36 @@
-# XAU Market Monitoring Runtime Normalize Fix
+# XAU Rollback After Market Monitoring Blank
 
-Masalah:
-- Badge awal tampil "Telegram standby".
-- Setelah data Firebase kebaca, status berubah jadi "not-call-signal".
-- Ini terjadi karena data mentah dari Firebase memang belum ada CALL aktif.
-
-Fix:
-- Normalisasi runtime untuk status UI:
-  not-call-signal -> Market Monitoring
-  telegram standby -> Market Monitoring
-  call/call-signal -> CALL Active
-- Normalisasi dilakukan saat data masuk dan saat render display.
-- Logic signal tidak diubah.
-- Admin Panel tidak disentuh.
-- Chart/candle tidak disentuh.
-- MQ5 tidak perlu update.
+Recovery:
+- Rollback dari runtime normalize fix yang bikin web blank.
+- Balik ke versi aman:
+  - Admin Panel normal
+  - Candle/chart normal
+  - Copywriting offline sudah profesional
+  - Tidak ada runtime formatter status
+  - Tidak ada Step 7 experiment
+  - Tidak ada Login Activity
 
 Catatan:
-- Kalau belum ada CALL aktif, badge yang benar adalah Market Monitoring.
-- Kalau ada CALL aktif, badge menjadi CALL Active.
+- Badge not-call-signal sementara dibiarkan dulu karena setiap patch ke status runtime bikin risiko blank.
+- Nanti kalau mau ubah badge, perlu bedah App.jsx manual dari source asli, bukan patch otomatis.
+
+Yang aman:
+- Landing page
+- Login/Register
+- Firebase default email verification
+- Forgot password Firebase default
+- Paywall pilih paket
+- Manual payment
+- Admin Panel stable
+- Telegram connect
+- Multi-user Telegram alert
+- Performance Analytics
+- Candle chart/dashboard
+
+Deploy:
+1. Upload ZIP ini.
+2. Deploy Cloudflare.
+3. Tekan Ctrl + Shift + R.
+
+MQ5:
+- Tidak perlu update.
