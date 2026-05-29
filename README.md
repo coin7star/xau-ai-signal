@@ -1,38 +1,30 @@
-# XAU Step 8C User Order Status + Chat Admin
+# XAU Rollback Step 8C Blank to Step 8B Safe
 
-Fitur baru:
-- Paywall menampilkan status order terakhir user:
-  - Paket
-  - Harga
-  - Status
-  - Order ID
-- Jika user sudah punya order pending:
-  - Tombol Konfirmasi Pembayaran menjadi "Order Pending"
-  - Tombol disabled supaya tidak spam order
-- Tambah tombol "Chat Admin + Bukti Bayar"
-  - Membuka ADMIN_CONTACT_URL
-  - Membawa format pesan otomatis:
-    Email
-    UID
-    Paket
-    Harga
-    Order ID
+Recovery:
+- Rollback dari Step 8C yang bikin web blank.
+- Balik ke Step 8B Safe Render yang sudah work.
 
-Tidak disentuh:
-- Admin Panel row Manage
-- Chart/candle
-- MQ5
-- Telegram logic
-- Source/status ticker
+Fitur yang tetap ada:
+- Step 8A: user bisa membuat payment order pending dari paywall.
+- Step 8B: admin bisa melihat pending order.
+- Step 8B Safe Render: Refresh Orders tidak bikin blank.
+- Admin bisa approve/reject order.
+- Approve otomatis aktifkan premium.
+- Chart/candle tetap aman.
+- Admin Panel tetap aman.
 
-Cara test:
-1. Login akun free.
-2. Pilih paket.
-3. Klik Konfirmasi Pembayaran.
-4. Status order muncul di paywall.
-5. Klik Chat Admin + Bukti Bayar.
-6. Pesan admin harus sudah berisi Email/UID/Paket/Harga/Order ID.
+Yang ditahan:
+- Step 8C User Order Status.
+- Tombol Chat Admin + Bukti Bayar.
+- Paywall order summary.
 
 Catatan:
-- ADMIN_CONTACT_URL mengikuti konstanta yang sudah ada di App.jsx.
-- Kalau ADMIN_CONTACT_URL adalah WhatsApp/Telegram link, text parameter akan ditambahkan otomatis.
+- Build test tidak dijalankan ulang karena npm install di sandbox sedang lambat.
+- File dibuat dari baseline Step 8B Safe Render yang sebelumnya sudah build OK dan work.
+
+Cloudflare:
+- package-lock.json tetap dihapus.
+- .npmrc tetap ada.
+
+MQ5:
+- Tidak perlu update.

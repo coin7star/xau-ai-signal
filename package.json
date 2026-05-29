@@ -1,6 +1,6 @@
 {
-  "name": "xau-ai-signal-step8c-user-order-status-chat-admin",
-  "version": "6.4.3-step8c-user-order-status",
+  "name": "xau-ai-signal-rollback-step8c-to-step8b-safe",
+  "version": "6.4.4-rollback-step8c",
   "type": "module",
   "scripts": {
     "dev": "vite",
