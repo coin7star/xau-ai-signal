@@ -14,7 +14,42 @@ import { createChart, ColorType, CrosshairMode } from "lightweight-charts";
 import { Activity, Bot, Copy, Database, Lock, LogOut, Radio, RefreshCcw, Settings, Shield, Sparkles, Target, TrendingDown, TrendingUp, User, Zap } from "lucide-react";
 import { createPaymentOrder, ensureUserProfile, getUserProfile, hasFirebaseClientConfig, isPremiumProfile, listenAuth, loginWithEmail, loginWithGoogle, logout, refreshCurrentUser, registerWithEmail, resetPasswordEmail, sendVerificationEmail } from "./firebaseClient";
 
-export default function App() {
+export default 
+function getUserOrderStatusText(profile) {
+  const status = String(profile?.lastPaymentStatus || "").toLowerCase();
+
+  if (!status) return "";
+  if (status === "pending") return "Menunggu konfirmasi admin";
+  if (status === "approved") return "Pembayaran disetujui";
+  if (status === "rejected") return "Pembayaran ditolak";
+
+  return status.toUpperCase();
+}
+
+function getAdminChatUrl({ user, profile, selectedPackageInfo, orderId }) {
+  const email = user?.email || profile?.email || "-";
+  const uid = user?.uid || "-";
+  const packageLabel = selectedPackageInfo?.label || profile?.lastPaymentPackage || "-";
+  const price = selectedPackageInfo?.price || profile?.lastPaymentPrice || "-";
+  const cleanOrderId = orderId || profile?.lastPaymentOrderId || "-";
+
+  const message = [
+    "Halo Admin XAU AI Signal, saya ingin konfirmasi pembayaran premium.",
+    "",
+    `Email: ${email}`,
+    `UID: ${uid}`,
+    `Paket: ${packageLabel}`,
+    `Harga: ${price}`,
+    `Order ID: ${cleanOrderId}`,
+    "",
+    "Saya akan kirim bukti pembayaran di chat ini."
+  ].join("\n");
+
+  return `${ADMIN_CONTACT_URL}${ADMIN_CONTACT_URL.includes("?") ? "&" : "?"}text=${encodeURIComponent(message)}`;
+}
+
+
+function App() {
   const chartM1Ref = useRef(null);
   const chartM15Ref = useRef(null);
   const chartM1BoxRef = useRef(null);
@@ -2349,6 +2384,7 @@ function VerifyEmailScreen({ user, onLogout, onVerified }) {
 function PaywallScreen({ user, profile, onLogout }) {
   const [selectedPackage, setSelectedPackage] = useState("30D");
   const [paymentOrderStatus, setPaymentOrderStatus] = useState("");
+  const [createdOrderId, setCreatedOrderId] = useState(profile?.lastPaymentOrderId || "");
   const [isSubmittingOrder, setIsSubmittingOrder] = useState(false);
 
   const selectedPackageInfo = selectedPackage === "7D"
@@ -2361,6 +2397,17 @@ function PaywallScreen({ user, profile, onLogout }) {
     `Email: ${user?.email || profile?.email || "-"}`,
     `UID: ${user?.uid || profile?.uid || "-"}`
   ].join("\\n");
+
+  const lastOrderStatusText = getUserOrderStatusText(profile);
+  const hasPendingOrder = String(profile?.lastPaymentStatus || "").toLowerCase() === "pending";
+  const activeOrderId = createdOrderId || profile?.lastPaymentOrderId || "";
+  const adminChatUrl = getAdminChatUrl({
+    user,
+    profile,
+    selectedPackageInfo,
+    orderId: activeOrderId
+  });
+
 
   async function copyActivationInfo() {
     try {
@@ -2384,7 +2431,8 @@ function PaywallScreen({ user, profile, onLogout }) {
         price: selectedPackageInfo.price
       });
 
-      setPaymentOrderStatus(`Order pending berhasil dibuat. ID: ${order.orderId}. Kirim bukti pembayaran ke admin agar premium bisa diaktifkan.`);
+      setCreatedOrderId(order.orderId);
+      setPaymentOrderStatus(`Order pending berhasil dibuat. Order ID: ${order.orderId}. Kirim bukti pembayaran ke admin agar premium bisa diaktifkan.`);
     } catch (err) {
       setPaymentOrderStatus(err?.message || "Gagal membuat order pending.");
     } finally {
@@ -2439,7 +2487,17 @@ function PaywallScreen({ user, profile, onLogout }) {
           </p>
         </div>
 
-        <div className="premiumFeatures">
+        
+        {(profile?.lastPaymentStatus || activeOrderId) ? (
+          <div className="paywallOrderSummary">
+            <span className="pill mini">ORDER STATUS</span>
+            <b>{profile?.lastPaymentPackage || selectedPackageInfo.label} • {profile?.lastPaymentPrice || selectedPackageInfo.price}</b>
+            <small>Status: {lastOrderStatusText || "Order dibuat"}</small>
+            <small>Order ID: {activeOrderId || "-"}</small>
+          </div>
+        ) : null}
+
+<div className="premiumFeatures">
           <b>Premium unlock:</b>
           <span>✅ Live dashboard XAU AI</span>
           <span>✅ MAIN CALL Alert</span>
@@ -2461,9 +2519,10 @@ function PaywallScreen({ user, profile, onLogout }) {
         <div className="paywallActions">
           <a href={ADMIN_CONTACT_URL} target="_blank" rel="noreferrer">Hubungi Admin</a>
           <button type="button" onClick={copyActivationInfo}>Copy Info Aktivasi</button>
-          <button type="button" onClick={submitPaymentOrder} disabled={isSubmittingOrder}>
-            {isSubmittingOrder ? "Membuat Order..." : "Konfirmasi Pembayaran"}
+          <button type="button" onClick={submitPaymentOrder} disabled={isSubmittingOrder || hasPendingOrder}>
+            {isSubmittingOrder ? "Membuat Order..." : hasPendingOrder ? "Order Pending" : "Konfirmasi Pembayaran"}
           </button>
+          <a href={adminChatUrl} target="_blank" rel="noreferrer">Chat Admin + Bukti Bayar</a>
           <button type="button" onClick={onLogout}>Logout</button>
         </div>
 

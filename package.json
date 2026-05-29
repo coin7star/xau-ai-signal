@@ -1,6 +1,6 @@
 {
-  "name": "xau-ai-signal-step8b-safe-render-fix",
-  "version": "6.4.2-step8b-safe-render",
+  "name": "xau-ai-signal-step8c-user-order-status-chat-admin",
+  "version": "6.4.3-step8c-user-order-status",
   "type": "module",
   "scripts": {
     "dev": "vite",
