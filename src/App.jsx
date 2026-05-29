@@ -638,38 +638,7 @@ export default function App() {
       </section>
 
 
-      <PremiumDashboardTabs activeTab={premiumTab} onChange={setPremiumTab} />
-      {premiumTab === "payments" ? (
-        <UserPaymentHistoryCard user={authUser} />
-      ) : null}
-
-      {premiumTab === "analytics" ? (
-        <PremiumComingSoonTab
-          title="Analytics"
-          description="Performance Analytics akan dipindahkan ke tab ini pada tahap berikutnya."
-        />
-      ) : null}
-
-      {premiumTab === "history" ? (
-        <PremiumComingSoonTab
-          title="History"
-          description="Call History akan dipindahkan ke tab ini pada tahap berikutnya."
-        />
-      ) : null}
-
-      {premiumTab === "telegram" ? (
-        <PremiumComingSoonTab
-          title="Telegram"
-          description="Telegram Connect akan dipindahkan ke tab ini pada tahap berikutnya."
-        />
-      ) : null}
-
-      {premiumTab === "account" ? (
-        <PremiumComingSoonTab
-          title="Account"
-          description="Informasi akun dan premium akan dipindahkan ke tab ini pada tahap berikutnya."
-        />
-      ) : null}
+      <UserPaymentHistoryCard user={authUser} />
       <PerformanceAnalyticsPanel
         callHistory={callHistory}
         scalpHistory={scalpHistory}
@@ -1607,44 +1576,6 @@ function safePaymentDate(value) {
     minute: "2-digit"
   });
 }
-
-
-function PremiumDashboardTabs({ activeTab, onChange }) {
-  const tabs = [
-    ["live", "Live Signal"],
-    ["payments", "Payments"],
-    ["analytics", "Analytics"],
-    ["history", "History"],
-    ["telegram", "Telegram"],
-    ["account", "Account"]
-  ];
-
-  return (
-    <nav className="premiumTabs" aria-label="Premium dashboard navigation">
-      {tabs.map(([value, label]) => (
-        <button
-          key={value}
-          type="button"
-          className={activeTab === value ? "active" : ""}
-          onClick={() => onChange(value)}
-        >
-          {label}
-        </button>
-      ))}
-    </nav>
-  );
-}
-
-function PremiumComingSoonTab({ title, description }) {
-  return (
-    <section className="premiumTabPlaceholder card">
-      <span className="pill mini">COMING NEXT</span>
-      <h3>{title}</h3>
-      <p>{description}</p>
-    </section>
-  );
-}
-
 
 function UserPaymentHistoryCard({ user }) {
   const [orders, setOrders] = useState([]);

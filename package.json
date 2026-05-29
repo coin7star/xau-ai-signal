@@ -1,6 +1,6 @@
 {
-  "name": "xau-ai-signal-ui1-premium-tabs-payments",
-  "version": "6.6.0-ui1-premium-tabs-payments",
+  "name": "xau-ai-signal-rollback-ui1-tabs-to-step8j",
+  "version": "6.6.1-rollback-ui1-tabs",
   "type": "module",
   "scripts": {
     "dev": "vite",
