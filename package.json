@@ -1,6 +1,6 @@
 {
-  "name": "xau-ai-signal-force-hide-source-card-ticker",
-  "version": "5.7.1",
+  "name": "xau-ai-signal-ticker-blank-screen-hotfix",
+  "version": "5.7.2",
   "type": "module",
   "scripts": {
     "dev": "vite",

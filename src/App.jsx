@@ -495,7 +495,7 @@ export default function App() {
           <span><Activity size={14} /> M1: <b>{tvM1.length} candles</b></span>
           <span><Shield size={14} /> M15: <b>{tvM15.length} candles</b></span>
           <span><TrendingUp size={14} /> Last Close: <b>{lastClose || "-"}</b></span>
-          <span><Radio size={14} /> MT5: <b>{mt5Status.label}</b></span>
+          <span><Radio size={14} /> Data Update: <b>{market?.receivedAt ? "Active" : "Waiting"}</b></span>
         </div>
       </div>
 

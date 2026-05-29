@@ -1,22 +1,21 @@
-# XAU Force Hide Source Card + Ticker Fix
+# XAU Ticker Blank Screen Hotfix
 
 Masalah:
-- Data Source card besar masih muncul di akun premium.
-- Penyebab: class card aktif tidak kena selector hide sebelumnya.
+- Setelah update ticker/source card, halaman blank.
+- Penyebab: ticker memakai mt5Status.label, tapi di base file aktif mt5Status belum tersedia di render.
+- Build tetap bisa lolos, tapi runtime React blank.
 
 Fix:
-- Ticker compact dipasang tepat setelah navbar/header.
-- Section lama yang berisi:
-  Data source / Firebase RTDB / M1 Candle / M15 Candle
-  dibungkus khusus admin:
-  isAdmin && (...)
-- Jadi premium user tidak melihat card besar.
-- Admin masih bisa melihat card lama kalau perlu debug.
-- CSS safety tetap hide class lama sourceGrid/dataSourceGrid jika ada.
-
-Cloudflare:
+- Ticker tidak lagi bergantung ke mt5Status.
+- Ticker pakai status aman:
+  Data Update: Active / Waiting
 - package-lock.json tetap dihapus.
 - .npmrc tetap ada.
+
+File berubah:
+- src/App.jsx
+- package.json
+- .npmrc
 
 Cara pakai:
 1. Upload replace semua ke GitHub.
