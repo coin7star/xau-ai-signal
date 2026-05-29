@@ -1,6 +1,6 @@
 {
-  "name": "xau-ai-signal-step8l-private-admin-note-security",
-  "version": "6.5.4-step8l-private-note",
+  "name": "xau-ai-signal-step8m-export-payment-orders-csv",
+  "version": "6.5.5-step8m-export-csv",
   "type": "module",
   "scripts": {
     "dev": "vite",

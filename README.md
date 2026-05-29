@@ -1,63 +1,48 @@
-# XAU Step 8L Private Admin Note Security
+# XAU Step 8M Export Payment Orders CSV
 
-Tujuan:
-- Catatan admin jangan lagi disimpan langsung di paymentOrders/{orderId}.
-- Catatan admin dipindah ke path khusus admin:
-  adminOrderNotes/{orderId}
+Fitur baru:
+- Admin bisa export payment orders ke CSV.
+- Tombol Export CSV ada di section Pending Payment Orders.
+- Export mengikuti filter aktif:
+  - Pending
+  - Approved
+  - Rejected
+  - All
+- Data yang diexport adalah semua order dalam filter aktif, bukan hanya 6 baris halaman aktif.
 
-Perubahan:
-1. Save Note sekarang menyimpan ke:
-   adminOrderNotes/{orderId}
-   - orderId
-   - uid
-   - email
-   - adminNote
-   - adminNoteUpdatedAt
-   - updatedAt
+Kolom CSV:
+- Order ID
+- Email
+- UID
+- Paket
+- Harga
+- Status
+- Created At
+- Premium Until
+- Admin Note
 
-2. GET /api/admin-orders:
-   - tetap membaca paymentOrders
-   - membaca adminOrderNotes
-   - merge adminNote hanya untuk response admin panel
+Nama file:
+xau-payment-orders-{filter}-{tanggal}.csv
 
-3. Cleanup best-effort:
-   - Saat Save Note, sistem mencoba menghapus adminNote lama dari paymentOrders:
-     adminNote: null
-     adminNoteUpdatedAt: null
-
-4. User Payment History:
-   - getUserPaymentOrders defensif membuang adminNote/adminNoteUpdatedAt jika ada data lama.
-
-Manfaat:
-- User UI tetap tidak melihat catatan admin.
-- Payment history user tidak membawa adminNote.
-- Admin panel tetap bisa melihat dan edit catatan.
-- Catatan admin lebih terpisah dari data order user.
-
-Catatan penting:
-- Keamanan penuh tetap membutuhkan Firebase Rules yang benar.
-- Disarankan rules:
-  - user hanya read order milik uid sendiri dari paymentOrders
-  - user tidak bisa read adminOrderNotes
-  - adminOrderNotes hanya diakses via Cloudflare API admin
+Contoh:
+xau-payment-orders-pending-2026-05-29.csv
 
 Tidak disentuh:
 - Admin row Manage user
 - Chart/candle
 - MQ5
-- Approve/reject
+- Approve/reject logic
 - Telegram/email notify
+- User Payment History
 
 Cara test:
-1. Deploy.
-2. Login admin.
-3. Refresh Orders.
-4. Isi catatan admin.
-5. Klik Save Note.
-6. Cek Firebase:
-   adminOrderNotes/{orderId}/adminNote ada.
-7. Cek paymentOrders/{orderId}/adminNote harus null/hilang setelah save note.
-8. Login user, Payment History tidak menampilkan note admin.
+1. Login admin.
+2. Buka Admin Panel.
+3. Isi Admin Token.
+4. Klik Refresh Orders.
+5. Pilih filter Pending/Approved/Rejected/All.
+6. Klik Export CSV.
+7. File CSV harus terdownload.
 
 MQ5:
 - Tidak perlu update.

@@ -2742,3 +2742,29 @@ canvas {
   display: block;
   margin-top: 8px;
 }
+
+
+/* Step 8M Export Payment Orders CSV */
+.adminOrdersHeaderActions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  justify-content: flex-end;
+}
+
+.adminOrdersHeaderActions button:last-child {
+  color: #06111f;
+  background: linear-gradient(135deg, #ffe879, #19f28f);
+}
+
+.adminOrdersHeaderActions button:disabled {
+  opacity: .45;
+  cursor: not-allowed;
+}
+
+@media(max-width: 720px) {
+  .adminOrdersHeaderActions {
+    width: 100%;
+    justify-content: flex-start;
+  }
+}

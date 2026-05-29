@@ -1916,6 +1916,63 @@ function AdminOrderNoteBox({ order, onSave }) {
 }
 
 
+
+function csvCell(value) {
+  const text = safeOrderText(value, "");
+  const escaped = text.replaceAll('"', '""');
+  return `"${escaped}"`;
+}
+
+function exportOrdersToCsv(orders, filterLabel = "orders") {
+  const safeOrders = Array.isArray(orders) ? orders.map(normalizeOrderForUi) : [];
+
+  const headers = [
+    "Order ID",
+    "Email",
+    "UID",
+    "Paket",
+    "Harga",
+    "Status",
+    "Created At",
+    "Premium Until",
+    "Admin Note"
+  ];
+
+  const rows = safeOrders.map((order) => [
+    order.orderId,
+    order.email,
+    order.uid,
+    order.packageLabel || order.packageCode,
+    order.price,
+    order.status,
+    order.createdAt,
+    order.premiumUntil,
+    order.adminNote
+  ]);
+
+  const csv = [
+    headers.map(csvCell).join(","),
+    ...rows.map((row) => row.map(csvCell).join(","))
+  ].join("\n");
+
+  const blob = new Blob(["\ufeff" + csv], {
+    type: "text/csv;charset=utf-8;"
+  });
+
+  const date = new Date().toISOString().slice(0, 10);
+  const filename = `xau-payment-orders-${filterLabel}-${date}.csv`;
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+
+  link.href = url;
+  link.download = filename;
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+  URL.revokeObjectURL(url);
+}
+
+
 function AdminOrdersPanel({ adminToken }) {
   const [orders, setOrders] = useState([]);
   const [ordersPage, setOrdersPage] = useState(1);
@@ -2080,9 +2137,18 @@ function AdminOrdersPanel({ adminToken }) {
           <p>Order dari user yang klik Konfirmasi Pembayaran. Approve akan mengaktifkan premium otomatis sesuai paket.</p>
         </div>
 
-        <button type="button" onClick={loadOrders} disabled={loadingOrders}>
-          {loadingOrders ? "Loading..." : "Refresh Orders"}
-        </button>
+        <div className="adminOrdersHeaderActions">
+          <button type="button" onClick={loadOrders} disabled={loadingOrders}>
+            {loadingOrders ? "Loading..." : "Refresh Orders"}
+          </button>
+          <button
+            type="button"
+            onClick={() => exportOrdersToCsv(filteredOrders, orderFilter)}
+            disabled={!filteredOrders.length}
+          >
+            Export CSV
+          </button>
+        </div>
       </div>
 
       <div className="adminOrdersStats">
