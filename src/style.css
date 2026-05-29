@@ -1720,3 +1720,22 @@
     margin: 14px;
   }
 }
+
+
+.landingLogo,
+.featureIcon {
+  width: 42px;
+  height: 42px;
+  display: grid;
+  place-items: center;
+  border-radius: 16px;
+  background: linear-gradient(135deg,#67e8f9,#c084fc);
+  color: #06111f;
+  font-weight: 1000;
+}
+
+.featureIcon {
+  width: 46px;
+  height: 46px;
+  color: #06111f !important;
+}

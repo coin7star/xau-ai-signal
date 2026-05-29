@@ -1,6 +1,6 @@
 {
-  "name": "xau-ai-signal-public-landing-page",
-  "version": "5.8.0",
+  "name": "xau-ai-signal-public-landing-blank-hotfix",
+  "version": "5.8.1",
   "type": "module",
   "scripts": {
     "dev": "vite",

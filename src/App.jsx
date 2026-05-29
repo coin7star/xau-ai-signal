@@ -1531,12 +1531,13 @@ function getRoleStatusLabel(user) {
 
 
 
+
 function LandingPage({ onLogin }) {
   return (
     <main className="landingPage">
       <nav className="landingNav">
         <div className="landingBrand">
-          <div className="logo small"><Bot size={20} /></div>
+          <div className="landingLogo">X</div>
           <div>
             <b>XAU AI Signal</b>
             <span>Gold Market Scanner</span>
@@ -1553,7 +1554,7 @@ function LandingPage({ onLogin }) {
 
       <section className="landingHero">
         <div className="landingHeroText">
-          <span className="pill mini"><Sparkles size={14} /> PREMIUM XAUUSD ASSISTANT</span>
+          <span className="pill mini">PREMIUM XAUUSD ASSISTANT</span>
           <h1>Dashboard signal XAUUSD dengan alert Telegram premium.</h1>
           <p>
             XAU AI Signal membantu memantau market gold dengan kombinasi market structure,
@@ -1566,9 +1567,9 @@ function LandingPage({ onLogin }) {
           </div>
 
           <div className="landingTrust">
-            <span>✅ Telegram Alert</span>
-            <span>✅ M1 Scalp Radar</span>
-            <span>✅ CALL History</span>
+            <span>Telegram Alert</span>
+            <span>M1 Scalp Radar</span>
+            <span>CALL History</span>
           </div>
         </div>
 
@@ -1585,22 +1586,10 @@ function LandingPage({ onLogin }) {
           </div>
 
           <div className="heroSignalGrid">
-            <div>
-              <small>Trend</small>
-              <b>EMA 9/20</b>
-            </div>
-            <div>
-              <small>Momentum</small>
-              <b>RSI + MFI</b>
-            </div>
-            <div>
-              <small>Area</small>
-              <b>Fresh OB M15</b>
-            </div>
-            <div>
-              <small>Alert</small>
-              <b>Telegram</b>
-            </div>
+            <div><small>Trend</small><b>EMA 9/20</b></div>
+            <div><small>Momentum</small><b>RSI + MFI</b></div>
+            <div><small>Area</small><b>Fresh OB M15</b></div>
+            <div><small>Alert</small><b>Telegram</b></div>
           </div>
         </div>
       </section>
@@ -1620,12 +1609,12 @@ function LandingPage({ onLogin }) {
         </div>
 
         <div className="landingFeatureGrid">
-          <LandingFeature icon={<Target size={20} />} title="MAIN CALL Alert" text="Signal BUY/SELL CALL saat kondisi utama sudah valid." />
-          <LandingFeature icon={<Zap size={20} />} title="M1 Scalp Radar" text="Pantau setup scalping M1 dengan support/resistance, engulfing, dan arah EMA." />
-          <LandingFeature icon={<Shield size={20} />} title="Fresh OB M15" text="Monitoring demand/supply fresh order block untuk area penting market." />
-          <LandingFeature icon={<Bot size={20} />} title="Telegram Alert" text="User premium bisa connect Telegram untuk menerima alert langsung." />
-          <LandingFeature icon={<Activity size={20} />} title="Live Chart" text="Chart M1/M15, EMA 9/20, area struktur, dan market status." />
-          <LandingFeature icon={<TrendingUp size={20} />} title="Performance History" text="Riwayat signal valid, result, dan winrate untuk evaluasi transparan." />
+          <LandingFeature title="MAIN CALL Alert" text="Signal BUY/SELL CALL saat kondisi utama sudah valid." />
+          <LandingFeature title="M1 Scalp Radar" text="Pantau setup scalping M1 dengan support/resistance, engulfing, dan arah EMA." />
+          <LandingFeature title="Fresh OB M15" text="Monitoring demand/supply fresh order block untuk area penting market." />
+          <LandingFeature title="Telegram Alert" text="User premium bisa connect Telegram untuk menerima alert langsung." />
+          <LandingFeature title="Live Chart" text="Chart M1/M15, EMA 9/20, area struktur, dan market status." />
+          <LandingFeature title="Performance History" text="Riwayat signal valid, result, dan winrate untuk evaluasi transparan." />
         </div>
       </section>
 
@@ -1657,14 +1646,12 @@ function LandingPage({ onLogin }) {
             <b>Rp25k - Rp35k</b>
             <p>Cocok untuk test dashboard dan Telegram alert.</p>
           </div>
-
           <div className="priceCard featured">
             <span>Popular</span>
             <h3>30 Hari</h3>
             <b>Rp99k - Rp149k</b>
             <p>Akses premium bulanan untuk pantau XAUUSD.</p>
           </div>
-
           <div className="priceCard">
             <span>Founder</span>
             <h3>Beta Access</h3>
@@ -1719,10 +1706,10 @@ function LandingPage({ onLogin }) {
   );
 }
 
-function LandingFeature({ icon, title, text }) {
+function LandingFeature({ title, text }) {
   return (
     <div className="landingFeatureCard">
-      <div>{icon}</div>
+      <div className="featureIcon">✓</div>
       <h3>{title}</h3>
       <p>{text}</p>
     </div>

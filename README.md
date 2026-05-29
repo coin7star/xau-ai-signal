@@ -1,30 +1,20 @@
-# XAU Public Landing Page Full Fix
+# XAU Public Landing Page Blank Hotfix
 
-Update:
-- Web utama sekarang punya landing page / beranda publik sebelum login.
-- Visitor bisa lihat fitur, cara kerja, paket beta, FAQ, dan risk disclaimer.
-- Tombol Login / Register membuka halaman auth lama.
-- Ada tombol kembali ke beranda dari halaman login.
-- Dashboard premium/admin tetap aman setelah login.
+Masalah:
+- Landing page baru blank di runtime.
+- Penyebab paling mungkin: icon/component di landing belum tersedia di runtime.
 
-Landing page berisi:
-- Hero profesional XAU AI Signal
-- MAIN CALL preview
-- Fitur premium:
-  - MAIN CALL Alert
-  - M1 Scalp Radar
-  - Fresh OB M15
-  - Telegram Alert
-  - Live Chart
-  - Performance History
-- Cara kerja:
-  1. Daftar/login
-  2. Aktivasi premium
-  3. Connect Telegram
-  4. Pantau signal/history
-- Paket beta
-- Risk disclaimer
-- FAQ
+Fix:
+- Landing page diganti versi aman tanpa icon dependency baru.
+- Tetap punya:
+  - Hero profesional
+  - Fitur premium
+  - Cara kerja
+  - Paket beta
+  - FAQ
+  - Risk disclaimer
+  - Login/Register
+- Build sudah dites.
 
 Cloudflare:
 - package-lock.json tetap dihapus.
