@@ -1,23 +1,15 @@
-# XAU Professional Status Copy Hotfix
+# XAU Market Monitoring Badge Hotfix
 
-Update copywriting:
-- "not-call-signal" diganti menjadi "Monitoring Market"
-- "MT5/VPS offline • refresh paused" diganti menjadi "Koneksi market offline • pembaruan dijeda"
-- "Auto refresh berat dipause biar RTDB hemat" diganti menjadi "Pembaruan otomatis dijeda sementara"
-- Penjelasan pause refresh dibuat lebih profesional dan tidak menyebut RTDB.
-- "Manual Refresh" diganti menjadi "Refresh Manual"
-
-Tidak diubah:
-- Admin Panel
-- Step 7
-- Firebase email
-- MQ5
-- Telegram logic
-- Chart/candle logic
+Update:
+- Badge/status yang masih tampil "not-call-signal" diganti menjadi "Market Monitoring".
+- Menambahkan formatter display status agar status internal lebih rapi:
+  - not-call-signal -> Market Monitoring
+  - call/call-signal -> CALL Active
+- Logic signal tidak diubah.
+- Admin Panel tidak disentuh.
+- Chart/candle tidak disentuh.
+- MQ5 tidak perlu update.
 
 Cloudflare:
 - package-lock.json tetap dihapus.
 - .npmrc tetap ada.
-
-MQ5:
-- Tidak perlu update.

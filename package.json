@@ -1,6 +1,6 @@
 {
-  "name": "xau-ai-signal-professional-status-copy",
-  "version": "6.2.11-professional-copy",
+  "name": "xau-ai-signal-market-monitoring-badge",
+  "version": "6.2.12-market-monitoring-badge",
   "type": "module",
   "scripts": {
     "dev": "vite",

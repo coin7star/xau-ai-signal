@@ -14,7 +14,26 @@ import { createChart, ColorType, CrosshairMode } from "lightweight-charts";
 import { Activity, Bot, Copy, Database, Lock, LogOut, Radio, RefreshCcw, Settings, Shield, Sparkles, Target, TrendingDown, TrendingUp, User, Zap } from "lucide-react";
 import { ensureUserProfile, getUserProfile, hasFirebaseClientConfig, isPremiumProfile, listenAuth, loginWithEmail, loginWithGoogle, logout, refreshCurrentUser, registerWithEmail, resetPasswordEmail, sendVerificationEmail } from "./firebaseClient";
 
-export default function App() {
+export default 
+function formatSignalStatus(value) {
+  const raw = String(value || "").trim();
+  const normalized = raw.toLowerCase();
+
+  if (!raw || raw === "-") return "-";
+  if (normalized === "not-call-signal" || normalized === "not-call" || normalized === "not call signal") {
+    return "Market Monitoring";
+  }
+  if (normalized === "call" || normalized === "call-signal" || normalized === "active-call") {
+    return "CALL Active";
+  }
+
+  return raw
+    .replaceAll("-", " ")
+    .replace(/\b\w/g, (char) => char.toUpperCase());
+}
+
+
+function App() {
   const chartM1Ref = useRef(null);
   const chartM15Ref = useRef(null);
   const chartM1BoxRef = useRef(null);
