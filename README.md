@@ -1,38 +1,58 @@
-# XAU Custom Branded Email Auth Full Fix
+# XAU Custom Branded Email Auth OAuth Fix
 
-Fitur:
-- Custom branded email verification via Resend.
-- Custom branded reset password via Resend.
-- Link email masuk ke halaman custom XAU AI:
-  /auth-action?mode=verifyEmail&oobCode=...
-  /auth-action?mode=resetPassword&oobCode=...
-- Kalau endpoint custom gagal, fallback ke Firebase default email agar user tetap bisa lanjut.
+Masalah sebelumnya:
+- Email masih bawaan Firebase.
+- Penyebab: endpoint custom belum punya Google OAuth service account,
+  jadi tidak bisa memakai returnOobLink=true dan fallback ke Firebase default.
 
-Endpoint baru:
-- POST /api/auth-email
+Fix:
+- /api/auth-email sekarang pakai Firebase service account OAuth.
+- Generate OOB link via:
+  POST https://identitytoolkit.googleapis.com/v1/projects/{PROJECT_ID}/accounts:sendOobCode
+- returnOobLink=true agar link dikembalikan ke backend.
+- Email dikirim branded via Resend.
+- Fallback Firebase default dimatikan supaya error ENV terlihat jelas.
 
 ENV Cloudflare yang wajib:
-- FIREBASE_WEB_API_KEY
-  Isi sama dengan VITE_FIREBASE_API_KEY
 - RESEND_API_KEY
 - EMAIL_FROM
   Contoh: XAU AI Signal <onboarding@resend.dev>
 - APP_URL
   https://xau-ai-signal.pages.dev
+- FIREBASE_PROJECT_ID
+  sultan-trading-data
+- FIREBASE_SERVICE_ACCOUNT_CLIENT_EMAIL
+  dari Firebase service account JSON: client_email
+- FIREBASE_SERVICE_ACCOUNT_PRIVATE_KEY
+  dari Firebase service account JSON: private_key
+  Bisa paste dengan \n atau newline asli.
 
-Cara kerja:
-- Register email/password:
-  registerWithEmail -> sendCustomVerifyEmail -> /api/auth-email -> Firebase OOB link -> Resend branded email.
-- Lupa password:
-  resetPasswordEmail -> sendCustomResetPasswordEmail -> /api/auth-email -> Firebase OOB link -> Resend branded email.
-- Email click:
-  user buka /auth-action page custom di web XAU AI.
+Cara ambil service account:
+Firebase Console
+→ Project settings
+→ Service accounts
+→ Firebase Admin SDK
+→ Generate new private key
 
-Catatan:
-- Ini menghindari kebutuhan save custom Action URL di Firebase Console.
-- Resend free domain onboarding@resend.dev bisa dipakai test.
-- Untuk production lebih bagus pakai domain email sendiri di Resend.
-- Jika Firebase REST tidak mengembalikan oobLink pada project kamu, sistem fallback ke email default Firebase.
+Isi dari JSON:
+- client_email → FIREBASE_SERVICE_ACCOUNT_CLIENT_EMAIL
+- private_key → FIREBASE_SERVICE_ACCOUNT_PRIVATE_KEY
+- project_id → FIREBASE_PROJECT_ID
+
+Permission:
+Service account butuh permission:
+- firebaseauth.users.sendEmail
+
+Biasanya Firebase Admin SDK service account sudah cukup.
+
+Test:
+1. Deploy.
+2. Tambah ENV di Cloudflare.
+3. Redeploy.
+4. Klik Lupa password.
+5. Kalau sukses, email pengirim harus Resend/EMAIL_FROM.
+6. Link harus:
+   https://xau-ai-signal.pages.dev/auth-action?mode=resetPassword&oobCode=...
 
 Cloudflare:
 - package-lock.json tetap dihapus.

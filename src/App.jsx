@@ -2140,7 +2140,7 @@ function AuthScreen({ onBack }) {
     try {
       if (resetMode) {
         await resetPasswordEmail(email.trim());
-        setInfo("Email reset password branded sudah dikirim. Cek inbox atau folder spam kamu.");
+        setInfo("Email reset password custom sudah dikirim via Resend. Cek inbox/spam kamu.");
         setResetMode(false);
         return;
       }

@@ -59,16 +59,7 @@ export async function resetPasswordEmail(email) {
   if (!auth) throw new Error("Firebase client ENV belum lengkap.");
   if (!email) throw new Error("Isi email akun kamu dulu.");
 
-  try {
-    return await sendCustomResetPasswordEmail(email);
-  } catch {
-    await sendPasswordResetEmail(auth, email, {
-      url: window.location.origin,
-      handleCodeInApp: true
-    });
-
-    return { ok: true, fallback: "firebase-default-email" };
-  }
+  return await sendCustomResetPasswordEmail(email);
 }
 
 export async function registerWithEmail(email, password) {
@@ -76,12 +67,7 @@ export async function registerWithEmail(email, password) {
 
   const credential = await createUserWithEmailAndPassword(auth, email, password);
   await ensureUserProfile(credential.user);
-
-  try {
-    await sendCustomVerifyEmail(credential.user);
-  } catch {
-    await sendVerificationEmail(credential.user);
-  }
+  await sendCustomVerifyEmail(credential.user);
 
   return credential;
 }
@@ -91,15 +77,12 @@ export async function sendCustomVerifyEmail(user = auth?.currentUser) {
   if (!user) throw new Error("User belum login.");
   if (user.emailVerified) return { ok: true, skipped: "already-verified" };
 
-  const idToken = await user.getIdToken(true);
-
-  const res = await fetch("/api/auth-email", {
+    const res = await fetch("/api/auth-email", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
       type: "verify",
-      email: user.email || "",
-      idToken
+      email: user.email || ""
     })
   });
 
@@ -151,12 +134,7 @@ export async function sendVerificationEmail(user = auth?.currentUser) {
   if (!user) throw new Error("User belum login.");
   if (user.emailVerified) return { ok: true, skipped: "already-verified" };
 
-  try {
-    return await sendCustomVerifyEmail(user);
-  } catch {
-    await sendEmailVerification(user);
-    return { ok: true, fallback: "firebase-default-email" };
-  }
+  return await sendCustomVerifyEmail(user);
 }
 
 export async function refreshCurrentUser() {

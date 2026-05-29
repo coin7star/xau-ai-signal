@@ -1,6 +1,6 @@
 {
-  "name": "xau-ai-signal-custom-branded-email-auth",
-  "version": "6.1.0",
+  "name": "xau-ai-signal-custom-branded-email-auth-oauth",
+  "version": "6.1.1",
   "type": "module",
   "scripts": {
     "dev": "vite",

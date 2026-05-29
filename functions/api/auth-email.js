@@ -19,22 +19,32 @@ export async function onRequest({ request, env }) {
 
   const type = String(body.type || "").toLowerCase();
   const email = String(body.email || "").trim();
-  const idToken = String(body.idToken || "").trim();
 
-  const apiKey = env.FIREBASE_WEB_API_KEY || env.VITE_FIREBASE_API_KEY || "";
   const resendKey = env.RESEND_API_KEY || "";
   const from = env.EMAIL_FROM || "XAU AI Signal <onboarding@resend.dev>";
   const appUrl = (env.APP_URL || "https://xau-ai-signal.pages.dev").replace(/\/$/, "");
+  const projectId = env.FIREBASE_PROJECT_ID || env.VITE_FIREBASE_PROJECT_ID || "";
+  const clientEmail = env.FIREBASE_SERVICE_ACCOUNT_CLIENT_EMAIL || "";
+  const privateKey = normalizePrivateKey(env.FIREBASE_SERVICE_ACCOUNT_PRIVATE_KEY || "");
 
-  if (!apiKey) return json({ ok: false, error: "FIREBASE_WEB_API_KEY belum diset di Cloudflare." }, 500);
-  if (!resendKey) return json({ ok: false, error: "RESEND_API_KEY belum diset di Cloudflare." }, 500);
-  if (!email && type === "reset") return json({ ok: false, error: "Email wajib diisi." }, 400);
-  if (!idToken && type === "verify") return json({ ok: false, error: "idToken wajib untuk verify email." }, 400);
   if (!["verify", "reset"].includes(type)) return json({ ok: false, error: "type harus verify atau reset." }, 400);
+  if (!email) return json({ ok: false, error: "Email wajib diisi." }, 400);
+  if (!resendKey) return json({ ok: false, error: "RESEND_API_KEY belum diset di Cloudflare." }, 500);
+  if (!projectId) return json({ ok: false, error: "FIREBASE_PROJECT_ID belum diset di Cloudflare." }, 500);
+  if (!clientEmail) return json({ ok: false, error: "FIREBASE_SERVICE_ACCOUNT_CLIENT_EMAIL belum diset di Cloudflare." }, 500);
+  if (!privateKey) return json({ ok: false, error: "FIREBASE_SERVICE_ACCOUNT_PRIVATE_KEY belum diset di Cloudflare." }, 500);
 
   try {
-    const oobLink = await createFirebaseActionLink({ type, email, idToken, apiKey, appUrl });
-    const customLink = toCustomActionLink(oobLink, appUrl);
+    const accessToken = await getGoogleAccessToken({ clientEmail, privateKey });
+    const firebaseLink = await generateOobLink({
+      type,
+      email,
+      projectId,
+      accessToken,
+      appUrl
+    });
+
+    const customLink = toCustomActionLink(firebaseLink, appUrl);
 
     const subject = type === "verify"
       ? "Verifikasi email XAU AI Signal"
@@ -50,47 +60,136 @@ export async function onRequest({ request, env }) {
       ok: true,
       type,
       email,
+      mode: "custom-resend-oauth",
       message: type === "verify" ? "Email verifikasi branded terkirim." : "Email reset password branded terkirim.",
       resendId: sendResult?.id || null
     });
   } catch (err) {
-    return json({ ok: false, error: err.message || String(err) }, 500);
+    return json({ ok: false, error: err.message || String(err), mode: "custom-resend-oauth" }, 500);
   }
 }
 
-async function createFirebaseActionLink({ type, email, idToken, apiKey, appUrl }) {
-  const requestType = type === "verify" ? "VERIFY_EMAIL" : "PASSWORD_RESET";
-
+async function generateOobLink({ type, email, projectId, accessToken, appUrl }) {
   const payload = {
-    requestType,
+    requestType: type === "verify" ? "VERIFY_EMAIL" : "PASSWORD_RESET",
+    email,
     continueUrl: `${appUrl}/auth-action`,
     canHandleCodeInApp: true,
     returnOobLink: true
   };
 
-  if (type === "verify") payload.idToken = idToken;
-  if (type === "reset") payload.email = email;
-
-  const res = await fetch(`https://identitytoolkit.googleapis.com/v1/accounts:sendOobCode?key=${apiKey}`, {
+  const res = await fetch(`https://identitytoolkit.googleapis.com/v1/projects/${encodeURIComponent(projectId)}/accounts:sendOobCode`, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: {
+      "Authorization": `Bearer ${accessToken}`,
+      "Content-Type": "application/json"
+    },
     body: JSON.stringify(payload)
   });
 
   const data = await res.json().catch(() => ({}));
 
   if (!res.ok) {
-    const msg = data?.error?.message || `Firebase OOB error ${res.status}`;
-    throw new Error(cleanFirebaseRestError(msg));
+    throw new Error(cleanFirebaseRestError(data?.error?.message || `Firebase Admin OOB error ${res.status}`));
   }
 
   const link = data.oobLink || data.ooblink || data.emailLink || "";
 
   if (!link) {
-    throw new Error("Firebase tidak mengembalikan oobLink. Cek API key / Auth settings.");
+    throw new Error("Firebase tidak mengembalikan oobLink. Cek service account permission firebaseauth.users.sendEmail.");
   }
 
   return link;
+}
+
+async function getGoogleAccessToken({ clientEmail, privateKey }) {
+  const now = Math.floor(Date.now() / 1000);
+
+  const header = {
+    alg: "RS256",
+    typ: "JWT"
+  };
+
+  const claim = {
+    iss: clientEmail,
+    scope: "https://www.googleapis.com/auth/identitytoolkit",
+    aud: "https://oauth2.googleapis.com/token",
+    iat: now,
+    exp: now + 3600
+  };
+
+  const unsigned = `${base64urlJson(header)}.${base64urlJson(claim)}`;
+  const key = await importPrivateKey(privateKey);
+  const signature = await crypto.subtle.sign("RSASSA-PKCS1-v1_5", key, new TextEncoder().encode(unsigned));
+  const jwt = `${unsigned}.${base64urlArrayBuffer(signature)}`;
+
+  const tokenRes = await fetch("https://oauth2.googleapis.com/token", {
+    method: "POST",
+    headers: { "Content-Type": "application/x-www-form-urlencoded" },
+    body: new URLSearchParams({
+      grant_type: "urn:ietf:params:oauth:grant-type:jwt-bearer",
+      assertion: jwt
+    })
+  });
+
+  const tokenData = await tokenRes.json().catch(() => ({}));
+
+  if (!tokenRes.ok) {
+    throw new Error(tokenData?.error_description || tokenData?.error || `Google OAuth error ${tokenRes.status}`);
+  }
+
+  if (!tokenData.access_token) {
+    throw new Error("Google OAuth tidak mengembalikan access_token.");
+  }
+
+  return tokenData.access_token;
+}
+
+async function importPrivateKey(pem) {
+  const clean = pem
+    .replace("-----BEGIN PRIVATE KEY-----", "")
+    .replace("-----END PRIVATE KEY-----", "")
+    .replace(/\s+/g, "");
+
+  const binary = atob(clean);
+  const bytes = new Uint8Array(binary.length);
+
+  for (let i = 0; i < binary.length; i += 1) {
+    bytes[i] = binary.charCodeAt(i);
+  }
+
+  return await crypto.subtle.importKey(
+    "pkcs8",
+    bytes.buffer,
+    {
+      name: "RSASSA-PKCS1-v1_5",
+      hash: "SHA-256"
+    },
+    false,
+    ["sign"]
+  );
+}
+
+function normalizePrivateKey(value) {
+  return String(value || "").replace(/\\n/g, "\n").trim();
+}
+
+function base64urlJson(obj) {
+  return base64urlString(JSON.stringify(obj));
+}
+
+function base64urlString(str) {
+  const bytes = new TextEncoder().encode(str);
+  let binary = "";
+  bytes.forEach((b) => binary += String.fromCharCode(b));
+  return btoa(binary).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/g, "");
+}
+
+function base64urlArrayBuffer(buffer) {
+  const bytes = new Uint8Array(buffer);
+  let binary = "";
+  bytes.forEach((b) => binary += String.fromCharCode(b));
+  return btoa(binary).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/g, "");
 }
 
 function toCustomActionLink(oobLink, appUrl) {
@@ -105,6 +204,7 @@ function toCustomActionLink(oobLink, appUrl) {
   custom.searchParams.set("mode", mode);
   custom.searchParams.set("oobCode", oobCode);
   if (apiKey) custom.searchParams.set("apiKey", apiKey);
+
   return custom.toString();
 }
 
@@ -139,7 +239,7 @@ function buildBaseHtml({ title, subtitle, buttonText, link, note }) {
     <table width="100%" cellpadding="0" cellspacing="0" role="presentation" style="background:linear-gradient(135deg,#160b33,#032f36);padding:36px 14px;">
       <tr>
         <td align="center">
-          <table width="100%" cellpadding="0" cellspacing="0" role="presentation" style="max-width:560px;background:rgba(10,16,31,.92);border:1px solid rgba(255,255,255,.12);border-radius:28px;overflow:hidden;">
+          <table width="100%" cellpadding="0" cellspacing="0" role="presentation" style="max-width:560px;background:rgba(10,16,31,.96);border:1px solid rgba(255,255,255,.12);border-radius:28px;overflow:hidden;">
             <tr>
               <td style="padding:34px 30px;text-align:center;">
                 <div style="display:inline-block;padding:10px 14px;border-radius:999px;background:rgba(103,232,249,.13);color:#67e8f9;font-size:12px;font-weight:800;letter-spacing:.08em;">XAU AI SIGNAL</div>
@@ -186,7 +286,7 @@ function cleanFirebaseRestError(msg) {
   if (msg.includes("EMAIL_NOT_FOUND")) return "Email belum terdaftar.";
   if (msg.includes("INVALID_EMAIL")) return "Format email tidak valid.";
   if (msg.includes("USER_DISABLED")) return "Akun dinonaktifkan.";
-  if (msg.includes("INVALID_ID_TOKEN")) return "Sesi login tidak valid. Silakan login ulang.";
+  if (msg.includes("PERMISSION_DENIED")) return "Service account belum punya permission firebaseauth.users.sendEmail.";
   return msg;
 }
 
