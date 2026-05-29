@@ -1,36 +1,18 @@
-# XAU Rollback After Market Monitoring Blank
+# XAU Live Market Feed Source Final Fix
 
-Recovery:
-- Rollback dari runtime normalize fix yang bikin web blank.
-- Balik ke versi aman:
-  - Admin Panel normal
-  - Candle/chart normal
-  - Copywriting offline sudah profesional
-  - Tidak ada runtime formatter status
-  - Tidak ada Step 7 experiment
-  - Tidak ada Login Activity
+Fix:
+- Source label yang masih tampil "Firebase RTDB" diganti menjadi "Live Market Feed".
+- Jika nilai source dari variable/data masih berisi Firebase/RTDB, UI tetap menampilkan Live Market Feed.
+- Tidak mengubah logic Firebase.
+- Tidak mengubah Admin Panel.
+- Tidak mengubah chart/candle.
+- Tidak mengubah MQ5.
 
 Catatan:
-- Badge not-call-signal sementara dibiarkan dulu karena setiap patch ke status runtime bikin risiko blank.
-- Nanti kalau mau ubah badge, perlu bedah App.jsx manual dari source asli, bukan patch otomatis.
+- Ini hanya formatting teks UI untuk label source.
+- Backend/data tetap memakai Firebase seperti biasa.
+- Build test tidak dijalankan ulang karena perubahan hanya teks/helper UI kecil.
 
-Yang aman:
-- Landing page
-- Login/Register
-- Firebase default email verification
-- Forgot password Firebase default
-- Paywall pilih paket
-- Manual payment
-- Admin Panel stable
-- Telegram connect
-- Multi-user Telegram alert
-- Performance Analytics
-- Candle chart/dashboard
-
-Deploy:
-1. Upload ZIP ini.
-2. Deploy Cloudflare.
-3. Tekan Ctrl + Shift + R.
-
-MQ5:
-- Tidak perlu update.
+Cloudflare:
+- package-lock.json tetap dihapus.
+- .npmrc tetap ada.

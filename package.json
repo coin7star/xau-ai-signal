@@ -1,6 +1,6 @@
 {
-  "name": "xau-ai-signal-professional-data-source-label",
-  "version": "6.2.17-data-source-label",
+  "name": "xau-ai-signal-live-market-feed-source-final",
+  "version": "6.2.18-live-market-feed-source",
   "type": "module",
   "scripts": {
     "dev": "vite",

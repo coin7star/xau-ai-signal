@@ -14,7 +14,19 @@ import { createChart, ColorType, CrosshairMode } from "lightweight-charts";
 import { Activity, Bot, Copy, Database, Lock, LogOut, Radio, RefreshCcw, Settings, Shield, Sparkles, Target, TrendingDown, TrendingUp, User, Zap } from "lucide-react";
 import { ensureUserProfile, getUserProfile, hasFirebaseClientConfig, isPremiumProfile, listenAuth, loginWithEmail, loginWithGoogle, logout, refreshCurrentUser, registerWithEmail, resetPasswordEmail, sendVerificationEmail } from "./firebaseClient";
 
-export default function App() {
+export default 
+function formatMarketSourceLabel(value) {
+  const text = String(value || "").trim();
+  const normalized = text.toLowerCase();
+
+  if (!text) return "Live Market Feed";
+  if (normalized.includes("firebase") || normalized.includes("rtdb")) return "Live Market Feed";
+
+  return text;
+}
+
+
+function App() {
   const chartM1Ref = useRef(null);
   const chartM15Ref = useRef(null);
   const chartM1BoxRef = useRef(null);
@@ -578,7 +590,7 @@ export default function App() {
 
       <div className="dataTickerBar">
         <div className="tickerTrack">
-          <span><Database size={14} /> Source: <b>Firebase RTDB</b></span>
+          <span><Database size={14} /> Source: <b>Live Market Feed</b></span>
           <span><Activity size={14} /> M1: <b>{candlesM1.length || market?.m1Count || 0} data</b></span>
           <span><Shield size={14} /> M15: <b>{candlesM15.length || market?.m15Count || 0} data</b></span>
           <span>{isSell ? <TrendingDown size={14} /> : <TrendingUp size={14} />} Last close: <b>{lastCandle?.close || "-"}</b></span>
