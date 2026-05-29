@@ -105,108 +105,76 @@ export async function refreshCurrentUser() {
 }
 
 
-function getLocalDeviceId() {
-  const key = "xau_ai_device_id";
-  let deviceId = localStorage.getItem(key);
+function safeGetLocalDeviceId() {
+  try {
+    const key = "xau_ai_device_id";
+    let deviceId = localStorage.getItem(key);
 
-  if (!deviceId) {
-    const randomPart = crypto?.randomUUID?.() || `${Date.now()}-${Math.random().toString(16).slice(2)}`;
-    deviceId = `dev_${randomPart}`;
-    localStorage.setItem(key, deviceId);
+    if (!deviceId) {
+      const randomPart = crypto?.randomUUID?.() || `${Date.now()}-${Math.random().toString(16).slice(2)}`;
+      deviceId = `dev_${randomPart}`;
+      localStorage.setItem(key, deviceId);
+    }
+
+    return deviceId;
+  } catch {
+    return `dev_fallback_${Date.now()}`;
   }
-
-  return deviceId;
 }
 
-function getDeviceName() {
-  const ua = navigator.userAgent || "";
-  if (/Android/i.test(ua)) return "Android Browser";
-  if (/iPhone|iPad|iPod/i.test(ua)) return "iOS Browser";
-  if (/Windows/i.test(ua)) return "Windows Browser";
-  if (/Mac/i.test(ua)) return "Mac Browser";
-  if (/Linux/i.test(ua)) return "Linux Browser";
-  return "Unknown Device";
+function safeGetDeviceName() {
+  try {
+    const ua = navigator.userAgent || "";
+    if (/Android/i.test(ua)) return "Android Browser";
+    if (/iPhone|iPad|iPod/i.test(ua)) return "iOS Browser";
+    if (/Windows/i.test(ua)) return "Windows Browser";
+    if (/Mac/i.test(ua)) return "Mac Browser";
+    if (/Linux/i.test(ua)) return "Linux Browser";
+    return "Unknown Device";
+  } catch {
+    return "Unknown Device";
+  }
 }
 
 export function getCurrentDeviceInfo() {
   return {
-    deviceId: getLocalDeviceId(),
-    deviceName: getDeviceName(),
-    userAgent: navigator.userAgent || "",
+    deviceId: safeGetLocalDeviceId(),
+    deviceName: safeGetDeviceName(),
+    userAgent: typeof navigator !== "undefined" ? navigator.userAgent || "" : "",
     updatedAt: new Date().toISOString()
   };
 }
 
-export async function claimPremiumDevice(uid) {
-  if (!db || !uid) return { ok: true, skipped: true };
+export async function safeTrackLoginDevice(user, profile = {}) {
+  if (!db || !user?.uid) return { ok: true, skipped: true };
 
-  const device = getCurrentDeviceInfo();
-  const userRef = ref(db, `users/${uid}`);
-  const snapshot = await get(userRef);
-  const profile = snapshot.exists() ? snapshot.val() || {} : {};
+  try {
+    const device = getCurrentDeviceInfo();
+    const role = String(profile?.role || "free").toLowerCase();
 
-  const currentDeviceId = profile.deviceId || "";
-  const role = String(profile.role || "free").toLowerCase();
-
-  if (role !== "premium" && role !== "admin") {
-    await update(userRef, {
-      lastLoginAt: new Date().toISOString(),
-      lastLoginDevice: device.deviceName,
-      lastDeviceId: device.deviceId
-    });
-
-    return { ok: true, free: true, device };
-  }
-
-  if (!currentDeviceId) {
-    await update(userRef, {
-      deviceId: device.deviceId,
-      deviceName: device.deviceName,
-      deviceUserAgent: device.userAgent,
-      deviceBoundAt: new Date().toISOString(),
+    const patch = {
       lastLoginAt: new Date().toISOString(),
       lastLoginDevice: device.deviceName,
       lastDeviceId: device.deviceId,
-      securityStatus: "device-bound"
-    });
+      securityStatus: "tracked"
+    };
 
-    return { ok: true, claimed: true, device };
+    if ((role === "premium" || role === "admin") && !profile?.deviceId) {
+      patch.deviceId = device.deviceId;
+      patch.deviceName = device.deviceName;
+      patch.deviceUserAgent = device.userAgent;
+      patch.deviceBoundAt = new Date().toISOString();
+      patch.securityStatus = "device-bound";
+    } else if ((role === "premium" || role === "admin") && profile?.deviceId && profile.deviceId !== device.deviceId) {
+      patch.suspiciousDeviceAt = new Date().toISOString();
+      patch.securityStatus = "device-mismatch-warning";
+    }
+
+    await update(ref(db, `users/${user.uid}`), patch);
+    return { ok: true, device, patch };
+  } catch (err) {
+    return { ok: false, error: err.message || String(err) };
   }
-
-  const allowed = currentDeviceId === device.deviceId;
-
-  await update(userRef, {
-    lastLoginAt: new Date().toISOString(),
-    lastLoginDevice: device.deviceName,
-    lastDeviceId: device.deviceId,
-    suspiciousDeviceAt: allowed ? null : new Date().toISOString(),
-    securityStatus: allowed ? "device-ok" : "device-mismatch"
-  });
-
-  return {
-    ok: allowed,
-    allowed,
-    device,
-    savedDeviceId: currentDeviceId,
-    savedDeviceName: profile.deviceName || "Device utama",
-    error: allowed ? "" : "Akun premium ini sudah terikat ke device/browser utama."
-  };
-}
-
-export async function resetPremiumDevice(uid) {
-  if (!db || !uid) throw new Error("Firebase client ENV belum lengkap.");
-
-  await update(ref(db, `users/${uid}`), {
-    deviceId: null,
-    deviceName: null,
-    deviceUserAgent: null,
-    deviceBoundAt: null,
-    securityStatus: "device-reset",
-    suspiciousDeviceAt: null,
-    updatedAt: new Date().toISOString()
-  });
-
-  return { ok: true };
 }
 
 

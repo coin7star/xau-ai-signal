@@ -1,37 +1,33 @@
-# XAU Step 7 Anti-sharing Security LV1
+# XAU Step 7 Anti-sharing Safe Hotfix
 
-Step 7 fitur:
-- Anti-sharing premium Level 1.
-- 1 akun premium/admin dikunci ke 1 device/browser utama.
-- Device ID dibuat di localStorage.
-- Device ID disimpan ke Firebase RTDB users/{uid}/deviceId.
-- Jika akun premium login dari device/browser lain, tampil Device Blocked Screen.
-- User diarahkan hubungi admin.
-- Dashboard premium menampilkan Security Premium notice.
-- Admin panel menampilkan:
-  - lastLoginAt
-  - deviceName
-  - securityStatus
-- Admin panel punya tombol Reset Device.
-- Reset Device menghapus deviceId sehingga user bisa claim device baru.
+Masalah:
+- Step 7 LV1 sebelumnya bikin halaman blank.
+- Penyebab kemungkinan runtime error dari device blocking/render guard.
 
-Cara kerja:
-1. Premium/admin pertama kali login:
-   deviceId tersimpan sebagai device utama.
-2. Login dari browser/device yang sama:
-   allowed.
-3. Login dari browser/device lain:
-   blocked.
-4. Admin klik Reset Device:
-   deviceId dihapus.
-5. User login ulang dari device baru:
-   device baru menjadi device utama.
+Fix:
+- Step 7 dibuat non-blocking.
+- Tidak ada Device Blocked Screen dulu.
+- Device tracking tetap jalan.
+- Security warning tetap tampil di dashboard premium.
+- Admin panel bisa lihat device/last login/security.
+- Admin panel punya Reset Device.
+- Jika device mismatch, status menjadi warning, tapi dashboard tetap tampil.
+
+Fitur:
+- Device ID localStorage.
+- lastLoginAt.
+- lastLoginDevice.
+- lastDeviceId.
+- deviceId pertama untuk premium/admin.
+- securityStatus:
+  - device-bound
+  - tracked
+  - device-mismatch-warning
+  - device-reset
 
 Catatan:
-- Ini Level 1, bukan anti-sharing mutlak.
-- Kalau user clear browser localStorage, deviceId berubah dan bisa kena block.
-- Admin bisa reset device jika user memang ganti HP/browser.
-- Untuk Level 2 nanti bisa tambah Telegram approval.
+- Ini Step 7 Level 1 Safe.
+- Setelah aman, nanti bisa lanjut Level 1.5 untuk block device dengan cara lebih hati-hati.
 
 Cloudflare:
 - package-lock.json tetap dihapus.

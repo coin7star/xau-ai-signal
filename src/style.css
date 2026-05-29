@@ -2246,7 +2246,7 @@
 }
 
 
-/* Step 7 Anti-sharing Security */
+/* Step 7 safe security notice */
 .securityNoticeCard {
   margin-bottom: 22px;
   padding: 20px 22px;
@@ -2290,11 +2290,6 @@
 .securityDeviceBox span {
   color: #a6ffd8;
   font-weight: 900;
-}
-
-.securityBlockedInfo {
-  border-color: rgba(255,77,109,.22);
-  background: rgba(255,77,109,.08);
 }
 
 @media(max-width: 720px) {
