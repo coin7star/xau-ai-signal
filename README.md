@@ -1,30 +1,17 @@
-# XAU Manual Payment Step 6 Full Fix
+# XAU Manual Payment No Duplicate Polish
 
-Step 6 awal:
-- Manual Payment Mode.
-- Belum payment gateway otomatis.
-- Landing page sekarang punya section Manual Payment.
-- Paywall punya instruksi aktivasi premium.
-- Paket:
-  - 7 Day = Rp10K
-  - 30 Day = Rp30K
-- User kirim bukti pembayaran ke admin.
-- Admin aktifkan premium dari Admin Panel.
+Masalah:
+- Landing page menampilkan pricing 7 Day/30 Day dua kali:
+  1. Pilih paket premium
+  2. Aktivasi premium manual
 
-Constants di src/App.jsx:
-- ADMIN_CONTACT_URL
-- PAYMENT_QRIS_URL
-- PAYMENT_DANA
-- PAYMENT_OVO
-- PAYMENT_BANK
-- PACKAGE_7D_PRICE
-- PACKAGE_30D_PRICE
-
-Yang perlu kamu edit nanti:
-- PAYMENT_DANA = nomor DANA kamu
-- PAYMENT_OVO = nomor OVO kamu
-- PAYMENT_BANK = info bank kamu
-- ADMIN_CONTACT_URL = link admin/telegram/whatsapp kamu
+Fix:
+- Pricing utama tetap di section "Pilih paket premium".
+- Section "Aktivasi premium manual" diubah menjadi:
+  - Alur Aktivasi
+  - Metode Pembayaran
+- Card harga 7 Day/30 Day tidak diulang lagi.
+- Section "Cara mulai pakai premium" yang duplikat juga dihapus agar landing lebih ringkas.
 
 Cloudflare:
 - package-lock.json tetap dihapus.

@@ -1,6 +1,6 @@
 {
-  "name": "xau-ai-signal-manual-payment-step6",
-  "version": "6.0.0",
+  "name": "xau-ai-signal-manual-payment-no-duplicate-polish",
+  "version": "6.0.1",
   "type": "module",
   "scripts": {
     "dev": "vite",

@@ -1864,60 +1864,26 @@ function LandingPage({ onLogin }) {
       <section className="landingSection manualPaymentSection" id="payment">
         <div className="landingSectionTitle">
           <span className="pill mini">MANUAL PAYMENT</span>
-          <h2>Aktivasi premium manual</h2>
-          <p>Pilih paket, lakukan pembayaran, lalu kirim bukti bayar ke admin. Premium akan diaktifkan dari Admin Panel.</p>
+          <h2>Cara aktivasi premium</h2>
+          <p>Pilih paket di atas, lakukan pembayaran, lalu kirim bukti bayar ke admin. Premium akan diaktifkan manual setelah pembayaran dikonfirmasi.</p>
         </div>
 
-        <div className="manualPaymentGrid">
-          <div className="paymentMethodCard">
-            <span>Paket 7 Day</span>
-            <h3>{PACKAGE_7D_PRICE}</h3>
-            <p>Akses premium 7 hari untuk test dashboard, alert Telegram, dan history performa.</p>
-            <a href={ADMIN_CONTACT_URL} target="_blank" rel="noreferrer">Bayar & Konfirmasi</a>
+        <div className="activationPaymentBox">
+          <div className="paymentStepsBox">
+            <b>Alur Aktivasi:</b>
+            <span>1. Register akun dan verifikasi email.</span>
+            <span>2. Pilih paket 7 Day atau 30 Day.</span>
+            <span>3. Transfer / minta QRIS ke admin.</span>
+            <span>4. Kirim email akun + bukti bayar.</span>
+            <span>5. Admin aktifkan premium, lalu kamu bisa login dashboard.</span>
           </div>
 
-          <div className="paymentMethodCard featured">
-            <span>Paket 30 Day</span>
-            <h3>{PACKAGE_30D_PRICE}</h3>
-            <p>Akses premium 30 hari untuk pantau XAUUSD dengan alert Telegram premium.</p>
-            <a href={ADMIN_CONTACT_URL} target="_blank" rel="noreferrer">Bayar & Konfirmasi</a>
-          </div>
-
-          <div className="paymentMethodCard">
+          <div className="paymentMethodCard compactPayment">
             <span>Metode Pembayaran</span>
             <h3>Manual</h3>
             <p>DANA/OVO: {PAYMENT_DANA}<br />Bank: {PAYMENT_BANK}</p>
-            <a href={ADMIN_CONTACT_URL} target="_blank" rel="noreferrer">Minta QRIS/Admin</a>
+            <a href={ADMIN_CONTACT_URL} target="_blank" rel="noreferrer">Minta QRIS / Konfirmasi</a>
           </div>
-        </div>
-
-        <div className="paymentStepsBox">
-          <b>Alur Aktivasi:</b>
-          <span>1. Register akun dan verifikasi email.</span>
-          <span>2. Pilih paket 7 Day atau 30 Day.</span>
-          <span>3. Transfer / minta QRIS ke admin.</span>
-          <span>4. Kirim email akun + bukti bayar.</span>
-          <span>5. Admin aktifkan premium, lalu kamu bisa login dashboard.</span>
-        </div>
-      </section>
-
-      <section className="landingSection activationSection">
-        <div className="landingSectionTitle">
-          <span className="pill mini">AKTIVASI PREMIUM</span>
-          <h2>Cara mulai pakai premium</h2>
-          <p>Proses dibuat sederhana untuk beta launch. Daftar akun, pilih paket, lalu admin aktifkan akses premium kamu.</p>
-        </div>
-
-        <div className="activationGrid">
-          <div><b>1</b><span>Daftar akun menggunakan email aktif.</span></div>
-          <div><b>2</b><span>Pilih paket 7 Day atau 30 Day.</span></div>
-          <div><b>3</b><span>Hubungi admin untuk pembayaran dan aktivasi.</span></div>
-          <div><b>4</b><span>Login dashboard lalu connect Telegram Alert.</span></div>
-        </div>
-
-        <div className="activationCta">
-          <a href={ADMIN_CONTACT_URL} target="_blank" rel="noreferrer">Hubungi Admin Sekarang</a>
-          <button type="button" onClick={onLogin}>Login / Register</button>
         </div>
       </section>
 

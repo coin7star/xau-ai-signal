@@ -2123,3 +2123,27 @@
     grid-template-columns: 1fr;
   }
 }
+
+
+.activationPaymentBox {
+  display: grid;
+  grid-template-columns: 1.35fr .75fr;
+  gap: 16px;
+  align-items: stretch;
+}
+
+.compactPayment {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+}
+
+.compactPayment h3 {
+  margin-top: 10px;
+}
+
+@media(max-width: 900px) {
+  .activationPaymentBox {
+    grid-template-columns: 1fr;
+  }
+}
