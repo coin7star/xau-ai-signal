@@ -1,6 +1,6 @@
 {
-  "name": "xau-ai-signal-step7b-admin-device-visible-fix",
-  "version": "6.2.5",
+  "name": "xau-ai-signal-admin-panel-blank-recovery-step7a",
+  "version": "6.2.6-admin-recovery",
   "type": "module",
   "scripts": {
     "dev": "vite",

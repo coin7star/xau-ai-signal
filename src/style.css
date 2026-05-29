@@ -2244,35 +2244,3 @@
   color: #bfdbfe;
   text-decoration: underline;
 }
-
-
-/* Step 7B admin device info */
-.deviceInfoNote {
-  color: #67e8f9 !important;
-  font-weight: 900;
-}
-
-
-/* Step 7B Admin Device Visible Fix */
-.adminDeviceMini {
-  margin-top: 6px;
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
-}
-
-.adminDeviceMini span {
-  display: inline-flex;
-  width: fit-content;
-  padding: 4px 7px;
-  border-radius: 999px;
-  background: rgba(103,232,249,.10);
-  color: #b9f3ff;
-  font-size: 10px;
-  font-weight: 900;
-}
-
-.deviceInfoNote {
-  color: #67e8f9 !important;
-  font-weight: 900;
-}

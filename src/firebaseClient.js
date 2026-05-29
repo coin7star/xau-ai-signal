@@ -104,43 +104,6 @@ export async function refreshCurrentUser() {
   return auth.currentUser;
 }
 
-
-function getSimpleDeviceName() {
-  try {
-    const ua = navigator.userAgent || "";
-    if (/Android/i.test(ua)) return "Android Browser";
-    if (/iPhone|iPad|iPod/i.test(ua)) return "iOS Browser";
-    if (/Windows/i.test(ua)) return "Windows Browser";
-    if (/Mac/i.test(ua)) return "Mac Browser";
-    if (/Linux/i.test(ua)) return "Linux Browser";
-    return "Unknown Browser";
-  } catch {
-    return "Unknown Browser";
-  }
-}
-
-function getSimpleBrowserName() {
-  try {
-    const ua = navigator.userAgent || "";
-    if (/Edg/i.test(ua)) return "Microsoft Edge";
-    if (/Chrome/i.test(ua)) return "Chrome";
-    if (/Firefox/i.test(ua)) return "Firefox";
-    if (/Safari/i.test(ua)) return "Safari";
-    return "Browser";
-  } catch {
-    return "Browser";
-  }
-}
-
-function getSafeUserAgent() {
-  try {
-    return String(navigator.userAgent || "").slice(0, 180);
-  } catch {
-    return "";
-  }
-}
-
-
 export async function ensureUserProfile(user) {
   if (!db || !user) return null;
 
@@ -175,9 +138,6 @@ export async function ensureUserProfile(user) {
     photoURL: user.photoURL || current.photoURL || "",
     emailVerified: Boolean(user.emailVerified),
     lastLoginAt: new Date().toISOString(),
-    lastLoginDevice: getSimpleDeviceName(),
-    lastLoginBrowser: getSimpleBrowserName(),
-    lastLoginUserAgent: getSafeUserAgent(),
     updatedAt: new Date().toISOString()
   };
 

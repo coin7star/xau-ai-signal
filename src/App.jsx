@@ -1452,11 +1452,6 @@ function AdminPanel({ adminToken, setAdminToken }) {
                 <div>
                   <strong>{user.email || "-"}</strong>
                   <small>{user.uid}</small>
-                    <div className="adminDeviceMini">
-                      <span>Last: {formatShortDate(user.lastLoginAt)}</span>
-                      <span>{user.lastLoginDevice || "-"}</span>
-                      <span>{user.lastLoginBrowser || "-"}</span>
-                    </div>
                 </div>
 
                 <b className={`roleBadge ${user.role || "free"}`}>{getRoleStatusLabel(user)}</b>
