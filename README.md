@@ -1,17 +1,16 @@
-# XAU Step 7A Last Login Visible Admin Fix
+# XAU Step 7A Last Login Inline Detail Fix
 
-Fix kecil:
-- Admin Panel tetap compact mode.
-- Saat klik Manage, detail user tetap terbuka inline seperti sebelumnya.
-- Tambah Last login di detail Manage yang sebelumnya hanya menampilkan Created.
+Fix:
+- Last login sekarang ditambahkan ke layout detail Manage inline yang aktif.
+- Target tampilan:
+  Created | Last login | Telegram | Premium
 - Tidak menambah device info.
-- Tidak ada device lock.
-- Tidak ada blocking.
+- Tidak ada device lock/block.
 - Tidak mengubah dashboard premium.
 
 Catatan:
-- Last login akan terisi setelah user login setelah fitur Step 7A terdeploy.
-- Kalau user belum login ulang, bisa tetap tampil kosong / "-".
+- Last login baru tampil setelah user login ulang setelah deploy.
+- User lama bisa tetap kosong sampai login ulang.
 
 Cloudflare:
 - package-lock.json tetap dihapus.

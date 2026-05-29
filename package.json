@@ -1,6 +1,6 @@
 {
-  "name": "xau-ai-signal-step7a-last-login-visible-admin",
-  "version": "6.2.7-last-login-visible-admin",
+  "name": "xau-ai-signal-step7a-last-login-inline-detail",
+  "version": "6.2.8-last-login-inline-detail",
   "type": "module",
   "scripts": {
     "dev": "vite",

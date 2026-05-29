@@ -1452,6 +1452,7 @@ function AdminPanel({ adminToken, setAdminToken }) {
                 <div>
                   <strong>{user.email || "-"}</strong>
                   <small>{user.uid}</small>
+                    <small className="adminLastLoginMini">Last login: {formatShortDate(user.lastLoginAt)}</small>
                 </div>
 
                 <b className={`roleBadge ${user.role || "free"}`}>{getRoleStatusLabel(user)}</b>

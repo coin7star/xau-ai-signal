@@ -2257,3 +2257,23 @@
 .userRow span {
   line-height: 1.45;
 }
+
+
+/* Step 7A Last Login Inline Detail */
+.adminLastLoginInline,
+.adminLastLoginMini {
+  color: #b9f3ff !important;
+  font-weight: 900 !important;
+}
+
+.adminLastLoginInline {
+  display: inline-flex;
+  align-items: center;
+  width: fit-content;
+  padding: 3px 0;
+}
+
+.adminLastLoginMini {
+  display: block;
+  margin-top: 4px;
+}
