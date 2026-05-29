@@ -1,6 +1,6 @@
 {
-  "name": "xau-ai-signal-step7c-login-activity-card",
-  "version": "6.3.0-login-activity-card",
+  "name": "xau-ai-signal-admin-stable-stop-step7-experiment",
+  "version": "6.3.1-admin-stable-stop-step7",
   "type": "module",
   "scripts": {
     "dev": "vite",
