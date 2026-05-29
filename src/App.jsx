@@ -1945,6 +1945,7 @@ function LandingFeature({ title, text }) {
 
 function AuthScreen({ onBack }) {
   const [mode, setMode] = useState("login");
+  const [resetMode, setResetMode] = useState(false);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [busy, setBusy] = useState(false);
@@ -1967,6 +1968,36 @@ function AuthScreen({ onBack }) {
     try { await loginWithGoogle(); }
     catch (err) { setError(cleanAuthError(err)); }
     finally { setBusy(false); }
+  }
+
+
+  async function handleForgotPassword(event) {
+    event.preventDefault();
+    setError("");
+    setInfo("");
+
+    const targetEmail = email.trim();
+
+    if (!targetEmail) {
+      setError("Isi email akun kamu dulu untuk reset password.");
+      return;
+    }
+
+    setBusy(true);
+
+    try {
+      await sendPasswordResetEmail(auth, targetEmail, {
+        url: window.location.origin,
+        handleCodeInApp: false
+      });
+
+      setInfo("Link reset password sudah dikirim. Cek inbox/spam email kamu.");
+      setResetMode(false);
+    } catch (err) {
+      setError(cleanAuthError(err));
+    } finally {
+      setBusy(false);
+    }
   }
 
   return (

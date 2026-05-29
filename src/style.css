@@ -2225,3 +2225,22 @@
     grid-template-columns: 1fr;
   }
 }
+
+
+/* Forgot password */
+.forgotPasswordBtn {
+  width: 100%;
+  margin: 4px 0 10px;
+  border: 0;
+  background: transparent;
+  color: #93c5fd;
+  font-weight: 1000;
+  cursor: pointer;
+  text-align: center;
+  padding: 10px;
+}
+
+.forgotPasswordBtn:hover {
+  color: #bfdbfe;
+  text-decoration: underline;
+}

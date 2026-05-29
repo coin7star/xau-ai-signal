@@ -1,25 +1,24 @@
-# XAU Paywall Package Selection Safe Hotfix
+# XAU Forgot Password Full Fix
 
-Masalah:
-- Patch sebelumnya bikin blank di akun FREE/paywall.
-- Penyebab:
-  PaywallScreen memakai authUser/authProfile yang tidak ada di scope function.
-  Yang benar adalah props user/profile.
+Update:
+- Tambah fitur Lupa Password di halaman Login.
+- User klik Lupa password?
+- User isi email.
+- Firebase Auth kirim link reset password ke email user.
+- Setelah berhasil, user balik ke login.
+- Password field dan Google login disembunyikan saat reset mode.
+- Error message untuk reset/login dirapikan.
 
-Fix:
-- Dibuat ulang dari versi stable:
-  xau-manual-payment-no-duplicate-polish.zip
-- Paywall punya pilihan paket:
-  - 7 Day = Rp10K
-  - 30 Day = Rp30K
-- Tidak pakai authUser/authProfile.
-- Pakai user/profile props yang valid.
-- Tombol:
-  - Hubungi Admin
-  - Copy Info Aktivasi
-  - Logout
-- Teks endpoint internal tidak muncul.
-- Build sudah dites.
+File berubah:
+- src/App.jsx
+- src/style.css
+- package.json
+- .npmrc
+
+Firebase:
+- Menggunakan sendPasswordResetEmail dari Firebase Auth.
+- Pastikan Authentication Email/Password sudah enabled.
+- Email template reset password bisa diedit dari Firebase Console > Authentication > Templates.
 
 Cloudflare:
 - package-lock.json tetap dihapus.
