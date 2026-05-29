@@ -8,8 +8,6 @@ import {
   reload,
   sendEmailVerification,
   sendPasswordResetEmail,
-  confirmPasswordReset,
-  applyActionCode,
   setPersistence,
   signInWithEmailAndPassword,
   signInWithPopup,
@@ -59,7 +57,9 @@ export async function resetPasswordEmail(email) {
   if (!auth) throw new Error("Firebase client ENV belum lengkap.");
   if (!email) throw new Error("Isi email akun kamu dulu.");
 
-  return await sendCustomResetPasswordEmail(email);
+  await sendPasswordResetEmail(auth, email);
+
+  return { ok: true };
 }
 
 export async function registerWithEmail(email, password) {
@@ -67,53 +67,10 @@ export async function registerWithEmail(email, password) {
 
   const credential = await createUserWithEmailAndPassword(auth, email, password);
   await ensureUserProfile(credential.user);
-  await sendCustomVerifyEmail(credential.user);
+  await sendVerificationEmail(credential.user);
 
   return credential;
 }
-
-
-export async function sendCustomVerifyEmail(user = auth?.currentUser) {
-  if (!user) throw new Error("User belum login.");
-  if (user.emailVerified) return { ok: true, skipped: "already-verified" };
-
-    const res = await fetch("/api/auth-email", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      type: "verify",
-      email: user.email || ""
-    })
-  });
-
-  const data = await res.json().catch(() => ({}));
-
-  if (!res.ok || !data.ok) {
-    throw new Error(data.error || "Gagal kirim email verifikasi custom.");
-  }
-
-  return data;
-}
-
-export async function sendCustomResetPasswordEmail(email) {
-  const res = await fetch("/api/auth-email", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      type: "reset",
-      email
-    })
-  });
-
-  const data = await res.json().catch(() => ({}));
-
-  if (!res.ok || !data.ok) {
-    throw new Error(data.error || "Gagal kirim email reset password custom.");
-  }
-
-  return data;
-}
-
 
 export async function loginWithGoogle() {
   if (!auth || !db) throw new Error("Firebase client ENV belum lengkap.");
@@ -134,7 +91,8 @@ export async function sendVerificationEmail(user = auth?.currentUser) {
   if (!user) throw new Error("User belum login.");
   if (user.emailVerified) return { ok: true, skipped: "already-verified" };
 
-  return await sendCustomVerifyEmail(user);
+  await sendEmailVerification(user);
+  return { ok: true };
 }
 
 export async function refreshCurrentUser() {
@@ -210,22 +168,4 @@ export function isPremiumProfile(profile) {
   if (!until) return false;
 
   return new Date(until).getTime() > Date.now();
-}
-
-
-export async function confirmResetPasswordCode(oobCode, newPassword) {
-  if (!auth) throw new Error("Firebase client ENV belum lengkap.");
-  if (!oobCode) throw new Error("Kode reset password tidak valid.");
-  if (!newPassword || newPassword.length < 6) throw new Error("Password minimal 6 karakter.");
-
-  await confirmPasswordReset(auth, oobCode, newPassword);
-  return { ok: true };
-}
-
-export async function verifyEmailActionCode(oobCode) {
-  if (!auth) throw new Error("Firebase client ENV belum lengkap.");
-  if (!oobCode) throw new Error("Kode verifikasi email tidak valid.");
-
-  await applyActionCode(auth, oobCode);
-  return { ok: true };
 }

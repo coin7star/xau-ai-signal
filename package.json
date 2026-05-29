@@ -1,6 +1,6 @@
 {
-  "name": "xau-ai-signal-custom-branded-email-auth-oauth",
-  "version": "6.1.1",
+  "name": "xau-ai-signal-rollback-firebase-default-email",
+  "version": "6.0.7-firebase-default",
   "type": "module",
   "scripts": {
     "dev": "vite",
