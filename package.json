@@ -1,6 +1,6 @@
 {
-  "name": "xau-ai-signal-premium-copywriting-polish",
-  "version": "5.7.4",
+  "name": "xau-ai-signal-public-landing-page",
+  "version": "5.8.0",
   "type": "module",
   "scripts": {
     "dev": "vite",

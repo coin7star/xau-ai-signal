@@ -1318,3 +1318,405 @@
     gap: 22px;
   }
 }
+
+
+/* Public Landing Page */
+.landingPage {
+  min-height: 100vh;
+  color: #f8fbff;
+  background:
+    radial-gradient(circle at top left, rgba(124,58,237,.36), transparent 34%),
+    radial-gradient(circle at top right, rgba(20,184,166,.32), transparent 34%),
+    linear-gradient(135deg,#070815,#031b24 55%,#050812);
+  padding: 24px;
+}
+
+.landingNav {
+  max-width: 1180px;
+  margin: 0 auto 44px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 18px;
+}
+
+.landingBrand {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.landingBrand b,
+.landingBrand span {
+  display: block;
+}
+
+.landingBrand span {
+  color: #9fb0d6;
+  font-size: 13px;
+}
+
+.logo.small {
+  width: 42px;
+  height: 42px;
+}
+
+.landingNavActions {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.landingNavActions a,
+.landingCta a {
+  color: #dbeafe;
+  text-decoration: none;
+  font-weight: 900;
+}
+
+.landingNavActions button,
+.landingCta button,
+.landingFooter button {
+  border: 0;
+  cursor: pointer;
+  border-radius: 999px;
+  padding: 12px 18px;
+  font-weight: 1000;
+  color: #06111f;
+  background: linear-gradient(135deg,#67e8f9,#c084fc);
+}
+
+.landingHero {
+  max-width: 1180px;
+  margin: 0 auto;
+  display: grid;
+  grid-template-columns: 1.1fr .9fr;
+  gap: 28px;
+  align-items: center;
+}
+
+.landingHeroText h1 {
+  margin: 18px 0;
+  font-size: clamp(42px, 7vw, 82px);
+  line-height: .94;
+  letter-spacing: -0.08em;
+}
+
+.landingHeroText p {
+  max-width: 720px;
+  color: #b9c7ea;
+  font-size: 19px;
+  line-height: 1.75;
+}
+
+.landingCta,
+.landingTrust {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  flex-wrap: wrap;
+  margin-top: 22px;
+}
+
+.landingCta a {
+  padding: 11px 16px;
+  border-radius: 999px;
+  background: rgba(255,255,255,.08);
+  border: 1px solid rgba(255,255,255,.12);
+}
+
+.landingTrust span {
+  color: #b9f3ff;
+  font-weight: 900;
+  font-size: 14px;
+}
+
+.landingHeroCard {
+  border-radius: 34px;
+  padding: 26px;
+  background: linear-gradient(135deg,rgba(255,255,255,.10),rgba(255,255,255,.04));
+  border: 1px solid rgba(255,255,255,.14);
+  box-shadow: 0 25px 80px rgba(0,0,0,.32);
+}
+
+.heroSignalTop {
+  display: flex;
+  justify-content: space-between;
+  gap: 14px;
+  color: #9fb0d6;
+  font-weight: 1000;
+  margin-bottom: 18px;
+}
+
+.heroSignalBox {
+  padding: 22px;
+  border-radius: 24px;
+  background: rgba(0,0,0,.24);
+  border: 1px solid rgba(255,255,255,.08);
+}
+
+.heroSignalBox small,
+.heroSignalGrid small {
+  display: block;
+  color: #9fb0d6;
+  margin-bottom: 7px;
+}
+
+.heroSignalBox strong {
+  display: block;
+  color: #a6ffd8;
+  font-size: 32px;
+}
+
+.heroSignalBox p {
+  color: #b9c7ea;
+  margin-bottom: 0;
+}
+
+.heroSignalGrid {
+  margin-top: 14px;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+
+.heroSignalGrid div {
+  padding: 16px;
+  border-radius: 20px;
+  background: rgba(255,255,255,.07);
+  border: 1px solid rgba(255,255,255,.08);
+}
+
+.landingStats,
+.landingSection,
+.landingDisclaimer,
+.landingFooter {
+  max-width: 1180px;
+  margin-left: auto;
+  margin-right: auto;
+}
+
+.landingStats {
+  margin-top: 34px;
+  display: grid;
+  grid-template-columns: repeat(4,1fr);
+  gap: 14px;
+}
+
+.landingStats div,
+.landingFeatureCard,
+.priceCard,
+.faqGrid details,
+.landingDisclaimer {
+  border-radius: 26px;
+  padding: 22px;
+  background: rgba(255,255,255,.075);
+  border: 1px solid rgba(255,255,255,.12);
+}
+
+.landingStats b,
+.landingStats span {
+  display: block;
+}
+
+.landingStats b {
+  font-size: 20px;
+}
+
+.landingStats span,
+.landingFeatureCard p,
+.priceCard p,
+.faqGrid p,
+.landingDisclaimer p {
+  color: #a8b5d8;
+  line-height: 1.65;
+}
+
+.landingSection {
+  margin-top: 84px;
+}
+
+.landingSectionTitle {
+  text-align: center;
+  max-width: 780px;
+  margin: 0 auto 28px;
+}
+
+.landingSectionTitle h2 {
+  margin: 14px 0 8px;
+  font-size: clamp(34px, 5vw, 58px);
+  letter-spacing: -0.06em;
+}
+
+.landingSectionTitle p {
+  color: #a8b5d8;
+  line-height: 1.7;
+}
+
+.landingFeatureGrid,
+.pricingGrid,
+.faqGrid {
+  display: grid;
+  grid-template-columns: repeat(3,1fr);
+  gap: 16px;
+}
+
+.landingFeatureCard div {
+  width: 46px;
+  height: 46px;
+  display: grid;
+  place-items: center;
+  border-radius: 16px;
+  background: rgba(103,232,249,.14);
+  color: #67e8f9;
+}
+
+.landingFeatureCard h3,
+.priceCard h3 {
+  font-size: 24px;
+  margin: 16px 0 8px;
+}
+
+.landingSteps {
+  display: grid;
+  grid-template-columns: repeat(4,1fr);
+  gap: 14px;
+}
+
+.landingSteps div {
+  padding: 20px;
+  border-radius: 22px;
+  background: rgba(0,0,0,.22);
+  border: 1px solid rgba(255,255,255,.10);
+}
+
+.landingSteps b {
+  width: 42px;
+  height: 42px;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  background: linear-gradient(135deg,#67e8f9,#c084fc);
+  color: #06111f;
+  margin-bottom: 14px;
+}
+
+.priceCard span {
+  color: #67e8f9;
+  font-weight: 1000;
+}
+
+.priceCard b {
+  display: block;
+  font-size: 26px;
+  color: #ffe879;
+}
+
+.priceCard.featured {
+  background: linear-gradient(135deg,rgba(103,232,249,.14),rgba(192,132,252,.13));
+  border-color: rgba(103,232,249,.24);
+  transform: translateY(-8px);
+}
+
+.landingDisclaimer {
+  margin-top: 74px;
+  border-color: rgba(255,184,77,.24);
+  background: rgba(255,184,77,.09);
+}
+
+.landingDisclaimer b {
+  color: #fff2c2;
+}
+
+.faqGrid {
+  grid-template-columns: 1fr 1fr;
+}
+
+.faqGrid summary {
+  cursor: pointer;
+  font-weight: 1000;
+  font-size: 18px;
+}
+
+.landingFooter {
+  margin-top: 64px;
+  padding: 24px 0 12px;
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  border-top: 1px solid rgba(255,255,255,.10);
+}
+
+.landingFooter b,
+.landingFooter span {
+  display: block;
+}
+
+.landingFooter span {
+  color: #9fb0d6;
+}
+
+.landingBackBtn {
+  position: fixed;
+  top: 22px;
+  left: 22px;
+  z-index: 20;
+  border: 1px solid rgba(255,255,255,.14);
+  background: rgba(15,23,42,.78);
+  color: #f8fbff;
+  border-radius: 999px;
+  padding: 11px 15px;
+  font-weight: 1000;
+  cursor: pointer;
+  backdrop-filter: blur(12px);
+}
+
+@media(max-width: 900px) {
+  .landingNav,
+  .landingFooter {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .landingNavActions {
+    width: 100%;
+    overflow-x: auto;
+    padding-bottom: 4px;
+  }
+
+  .landingHero,
+  .landingStats,
+  .landingFeatureGrid,
+  .pricingGrid,
+  .landingSteps,
+  .faqGrid {
+    grid-template-columns: 1fr;
+  }
+
+  .priceCard.featured {
+    transform: none;
+  }
+}
+
+@media(max-width: 560px) {
+  .landingPage {
+    padding: 16px;
+  }
+
+  .landingHeroText h1 {
+    font-size: 43px;
+  }
+
+  .landingHeroCard {
+    padding: 18px;
+  }
+
+  .heroSignalGrid {
+    grid-template-columns: 1fr;
+  }
+
+  .landingBackBtn {
+    position: static;
+    margin: 14px;
+  }
+}

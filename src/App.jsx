@@ -421,6 +421,11 @@ export default function App() {
   if (authLoading) {
     return (
       <main className="page authPage">
+      {onBack && (
+        <button className="landingBackBtn" type="button" onClick={onBack}>
+          ← Kembali ke Beranda
+        </button>
+      )}
         <section className="authCard card">
           <div className="logo big"><Shield size={28} /></div>
           <h1>Loading XAU AI...</h1>
@@ -443,7 +448,11 @@ export default function App() {
   }
 
   if (!authUser) {
-    return <AuthScreen />;
+    if (!showAuthScreen) {
+      return <LandingPage onLogin={() => setShowAuthScreen(true)} />;
+    }
+
+    return <AuthScreen onBack={() => setShowAuthScreen(false)} />;
   }
 
   if (!emailVerified) {
@@ -1521,7 +1530,207 @@ function getRoleStatusLabel(user) {
 }
 
 
-function AuthScreen() {
+
+function LandingPage({ onLogin }) {
+  return (
+    <main className="landingPage">
+      <nav className="landingNav">
+        <div className="landingBrand">
+          <div className="logo small"><Bot size={20} /></div>
+          <div>
+            <b>XAU AI Signal</b>
+            <span>Gold Market Scanner</span>
+          </div>
+        </div>
+
+        <div className="landingNavActions">
+          <a href="#features">Fitur</a>
+          <a href="#pricing">Paket</a>
+          <a href="#faq">FAQ</a>
+          <button type="button" onClick={onLogin}>Login / Register</button>
+        </div>
+      </nav>
+
+      <section className="landingHero">
+        <div className="landingHeroText">
+          <span className="pill mini"><Sparkles size={14} /> PREMIUM XAUUSD ASSISTANT</span>
+          <h1>Dashboard signal XAUUSD dengan alert Telegram premium.</h1>
+          <p>
+            XAU AI Signal membantu memantau market gold dengan kombinasi market structure,
+            EMA 9/20, M1 scalping radar, Fresh OB M15, dan history performa signal.
+          </p>
+
+          <div className="landingCta">
+            <button type="button" onClick={onLogin}>Mulai Login / Register</button>
+            <a href="#features">Lihat Fitur</a>
+          </div>
+
+          <div className="landingTrust">
+            <span>✅ Telegram Alert</span>
+            <span>✅ M1 Scalp Radar</span>
+            <span>✅ CALL History</span>
+          </div>
+        </div>
+
+        <div className="landingHeroCard">
+          <div className="heroSignalTop">
+            <span>MAIN CALL PREVIEW</span>
+            <b>AI Market Scanner</b>
+          </div>
+
+          <div className="heroSignalBox">
+            <small>Signal Mode</small>
+            <strong>BUY / SELL CALL</strong>
+            <p>Valid saat konfirmasi utama terpenuhi.</p>
+          </div>
+
+          <div className="heroSignalGrid">
+            <div>
+              <small>Trend</small>
+              <b>EMA 9/20</b>
+            </div>
+            <div>
+              <small>Momentum</small>
+              <b>RSI + MFI</b>
+            </div>
+            <div>
+              <small>Area</small>
+              <b>Fresh OB M15</b>
+            </div>
+            <div>
+              <small>Alert</small>
+              <b>Telegram</b>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section className="landingStats">
+        <div><b>MAIN CALL</b><span>Signal utama berbasis konfirmasi</span></div>
+        <div><b>M1 SCALP</b><span>Radar scalping struktur M1</span></div>
+        <div><b>M15 OB</b><span>Fresh order block monitoring</span></div>
+        <div><b>History</b><span>Winrate & result transparan</span></div>
+      </section>
+
+      <section className="landingSection" id="features">
+        <div className="landingSectionTitle">
+          <span className="pill mini">FITUR PREMIUM</span>
+          <h2>Apa yang user dapat?</h2>
+          <p>Dashboard dibuat untuk membaca kondisi market secara cepat tanpa harus bolak-balik cek banyak indikator.</p>
+        </div>
+
+        <div className="landingFeatureGrid">
+          <LandingFeature icon={<Target size={20} />} title="MAIN CALL Alert" text="Signal BUY/SELL CALL saat kondisi utama sudah valid." />
+          <LandingFeature icon={<Zap size={20} />} title="M1 Scalp Radar" text="Pantau setup scalping M1 dengan support/resistance, engulfing, dan arah EMA." />
+          <LandingFeature icon={<Shield size={20} />} title="Fresh OB M15" text="Monitoring demand/supply fresh order block untuk area penting market." />
+          <LandingFeature icon={<Bot size={20} />} title="Telegram Alert" text="User premium bisa connect Telegram untuk menerima alert langsung." />
+          <LandingFeature icon={<Activity size={20} />} title="Live Chart" text="Chart M1/M15, EMA 9/20, area struktur, dan market status." />
+          <LandingFeature icon={<TrendingUp size={20} />} title="Performance History" text="Riwayat signal valid, result, dan winrate untuk evaluasi transparan." />
+        </div>
+      </section>
+
+      <section className="landingSection landingHow">
+        <div className="landingSectionTitle">
+          <span className="pill mini">CARA KERJA</span>
+          <h2>Simple untuk user premium</h2>
+        </div>
+
+        <div className="landingSteps">
+          <div><b>1</b><span>Daftar / login akun</span></div>
+          <div><b>2</b><span>Aktifkan premium via admin</span></div>
+          <div><b>3</b><span>Connect Telegram Alert</span></div>
+          <div><b>4</b><span>Pantau signal dan history</span></div>
+        </div>
+      </section>
+
+      <section className="landingSection" id="pricing">
+        <div className="landingSectionTitle">
+          <span className="pill mini">PAKET BETA</span>
+          <h2>Pilih akses premium</h2>
+          <p>Harga bisa disesuaikan saat launch. Untuk saat ini aktivasi masih manual lewat admin.</p>
+        </div>
+
+        <div className="pricingGrid">
+          <div className="priceCard">
+            <span>Trial</span>
+            <h3>7 Hari</h3>
+            <b>Rp25k - Rp35k</b>
+            <p>Cocok untuk test dashboard dan Telegram alert.</p>
+          </div>
+
+          <div className="priceCard featured">
+            <span>Popular</span>
+            <h3>30 Hari</h3>
+            <b>Rp99k - Rp149k</b>
+            <p>Akses premium bulanan untuk pantau XAUUSD.</p>
+          </div>
+
+          <div className="priceCard">
+            <span>Founder</span>
+            <h3>Beta Access</h3>
+            <b>Manual</b>
+            <p>Paket khusus tester awal dan user prioritas.</p>
+          </div>
+        </div>
+      </section>
+
+      <section className="landingDisclaimer">
+        <b>Risk Disclaimer</b>
+        <p>
+          XAU AI Signal adalah market scanner dan trading assistant, bukan jaminan profit.
+          Trading XAUUSD berisiko tinggi. Selalu gunakan risk management dan keputusan trading tetap tanggung jawab masing-masing user.
+        </p>
+      </section>
+
+      <section className="landingSection" id="faq">
+        <div className="landingSectionTitle">
+          <span className="pill mini">FAQ</span>
+          <h2>Pertanyaan umum</h2>
+        </div>
+
+        <div className="faqGrid">
+          <details open>
+            <summary>Apakah ini auto trade?</summary>
+            <p>Bukan. Ini dashboard scanner dan alert. Eksekusi tetap manual oleh user.</p>
+          </details>
+          <details>
+            <summary>Apakah pasti profit?</summary>
+            <p>Tidak. Market gold sangat volatil. Signal membantu membaca setup, bukan menjamin hasil.</p>
+          </details>
+          <details>
+            <summary>Apakah ada Telegram alert?</summary>
+            <p>Ada. User premium bisa connect Telegram untuk menerima alert utama.</p>
+          </details>
+          <details>
+            <summary>Bagaimana aktivasi premium?</summary>
+            <p>Daftar akun, hubungi admin, lalu premium akan diaktifkan sesuai paket.</p>
+          </details>
+        </div>
+      </section>
+
+      <footer className="landingFooter">
+        <div>
+          <b>XAU AI Signal</b>
+          <span>AI market scanner untuk XAUUSD.</span>
+        </div>
+        <button type="button" onClick={onLogin}>Login / Register</button>
+      </footer>
+    </main>
+  );
+}
+
+function LandingFeature({ icon, title, text }) {
+  return (
+    <div className="landingFeatureCard">
+      <div>{icon}</div>
+      <h3>{title}</h3>
+      <p>{text}</p>
+    </div>
+  );
+}
+
+
+function AuthScreen({ onBack }) {
   const [mode, setMode] = useState("login");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
