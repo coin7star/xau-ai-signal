@@ -1880,6 +1880,7 @@ function normalizeOrderForUi(order) {
     status: safeOrderText(safe.status || "pending").toLowerCase(),
     createdAt: safeOrderText(safe.createdAt),
     premiumUntil: safeOrderText(safe.premiumUntil, ""),
+    approvedAt: safeOrderText(safe.approvedAt, ""),
     adminNote: safeOrderText(safe.adminNote, ""),
     adminNoteUpdatedAt: safeOrderText(safe.adminNoteUpdatedAt, "")
   };
@@ -1995,6 +1996,125 @@ function exportOrdersToCsv(orders, filterLabel = "orders") {
   link.click();
   document.body.removeChild(link);
   URL.revokeObjectURL(url);
+}
+
+
+
+function parseOrderPriceToNumber(value) {
+  const text = safeOrderText(value, "0").toLowerCase();
+
+  if (text.includes("30")) return 30000;
+  if (text.includes("10")) return 10000;
+
+  const digits = text.replace(/[^\d]/g, "");
+  return digits ? Number(digits) : 0;
+}
+
+function formatRupiahShort(value) {
+  const amount = Number(value || 0);
+
+  if (amount >= 1000000) {
+    const million = amount / 1000000;
+    return `Rp${million % 1 === 0 ? million.toFixed(0) : million.toFixed(1)}JT`;
+  }
+
+  if (amount >= 1000) {
+    return `Rp${Math.round(amount / 1000)}K`;
+  }
+
+  return `Rp${amount}`;
+}
+
+function isSameMonth(dateValue) {
+  const date = new Date(dateValue);
+  if (Number.isNaN(date.getTime())) return false;
+
+  const now = new Date();
+  return date.getFullYear() === now.getFullYear() && date.getMonth() === now.getMonth();
+}
+
+function isWithinLastDays(dateValue, days) {
+  const date = new Date(dateValue);
+  if (Number.isNaN(date.getTime())) return false;
+
+  const diff = Date.now() - date.getTime();
+  return diff >= 0 && diff <= days * 24 * 60 * 60 * 1000;
+}
+
+function getPaymentRevenueSummary(orders) {
+  const safeOrders = Array.isArray(orders) ? orders.map(normalizeOrderForUi) : [];
+  const approved = safeOrders.filter((order) => order.status === "approved");
+  const pending = safeOrders.filter((order) => order.status === "pending");
+  const rejected = safeOrders.filter((order) => order.status === "rejected");
+
+  const approvedThisMonth = approved.filter((order) => isSameMonth(order.approvedAt || order.createdAt));
+  const approvedLast7Days = approved.filter((order) => isWithinLastDays(order.approvedAt || order.createdAt, 7));
+  const package7d = approved.filter((order) => safeOrderText(order.packageLabel || order.packageCode).includes("7"));
+  const package30d = approved.filter((order) => safeOrderText(order.packageLabel || order.packageCode).includes("30"));
+
+  const revenueThisMonth = approvedThisMonth.reduce((sum, order) => sum + parseOrderPriceToNumber(order.price), 0);
+  const revenueLast7Days = approvedLast7Days.reduce((sum, order) => sum + parseOrderPriceToNumber(order.price), 0);
+  const revenueAll = approved.reduce((sum, order) => sum + parseOrderPriceToNumber(order.price), 0);
+
+  return {
+    revenueThisMonth,
+    revenueLast7Days,
+    revenueAll,
+    approvedCount: approved.length,
+    pendingCount: pending.length,
+    rejectedCount: rejected.length,
+    package7dCount: package7d.length,
+    package30dCount: package30d.length
+  };
+}
+
+function PaymentRevenueSummary({ orders }) {
+  const summary = getPaymentRevenueSummary(orders);
+
+  return (
+    <section className="paymentRevenueSummary">
+      <div className="paymentRevenueHeader">
+        <span className="pill mini">REVENUE SUMMARY</span>
+        <h3>Payment Summary</h3>
+        <p>Ringkasan order approved dan estimasi omzet dari paket premium.</p>
+      </div>
+
+      <div className="paymentRevenueGrid">
+        <div>
+          <small>Bulan ini</small>
+          <b>{formatRupiahShort(summary.revenueThisMonth)}</b>
+        </div>
+        <div>
+          <small>7 hari terakhir</small>
+          <b>{formatRupiahShort(summary.revenueLast7Days)}</b>
+        </div>
+        <div>
+          <small>Total omzet</small>
+          <b>{formatRupiahShort(summary.revenueAll)}</b>
+        </div>
+        <div>
+          <small>Approved</small>
+          <b>{summary.approvedCount}</b>
+        </div>
+        <div>
+          <small>Pending</small>
+          <b>{summary.pendingCount}</b>
+        </div>
+        <div>
+          <small>Rejected</small>
+          <b>{summary.rejectedCount}</b>
+        </div>
+        <div>
+          <small>Paket 7D</small>
+          <b>{summary.package7dCount}</b>
+        </div>
+        <div>
+          <small>Paket 30D</small>
+          <b>{summary.package30dCount}</b>
+        </div>
+      </div>
+    </section>
+  );
 }
 
 
@@ -2182,6 +2302,8 @@ function AdminOrdersPanel({ adminToken }) {
         <span>Rejected <b>{rejectedOrders.length}</b></span>
         <span>Total <b>{safeOrders.length}</b></span>
       </div>
+
+      <PaymentRevenueSummary orders={safeOrders} />
 
       <div className="adminOrdersFilter">
         {[

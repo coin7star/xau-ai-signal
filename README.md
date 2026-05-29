@@ -1,32 +1,25 @@
-# XAU Step 8M2 Export CSV Excel Friendly
+# XAU Step 8N Monthly Revenue Summary
 
-Masalah:
-- Export CSV sebelumnya terbuka di Excel/Spreadsheet dengan semua data numpuk di kolom A.
-- Penyebab umum: Excel regional Indonesia sering membaca CSV dengan delimiter titik koma (;), bukan koma (,).
+Fitur baru:
+- Payment Summary di Admin Pending Orders.
+- Menghitung estimasi omzet dari order approved.
 
-Fix:
-- Export CSV sekarang memakai delimiter titik koma (;).
-- Menambahkan baris pertama:
-  sep=;
-  agar Excel otomatis memisahkan kolom.
-- Tanggal dibuat lebih mudah dibaca:
-  dd/mm/yyyy hh.mm
-- Status dibuat uppercase.
-- Header dibuat lebih rapi:
-  Tanggal Order
-  Premium Sampai
-  Catatan Admin
+Data yang tampil:
+- Revenue bulan ini
+- Revenue 7 hari terakhir
+- Total omzet approved
+- Total approved order
+- Total pending order
+- Total rejected order
+- Paket 7D terjual
+- Paket 30D terjual
 
-Kolom CSV:
-- Order ID
-- Email
-- UID
-- Paket
-- Harga
-- Status
-- Tanggal Order
-- Premium Sampai
-- Catatan Admin
+Perhitungan:
+- Hanya order status approved yang masuk omzet.
+- Paket Rp10K dihitung 10.000.
+- Paket Rp30K dihitung 30.000.
+- Revenue bulan ini memakai approvedAt jika ada, fallback ke createdAt.
+- Revenue 7 hari terakhir memakai approvedAt jika ada, fallback ke createdAt.
 
 Tidak disentuh:
 - Admin row Manage user
@@ -35,15 +28,15 @@ Tidak disentuh:
 - Approve/reject logic
 - Telegram/email notify
 - User Payment History
+- Export CSV
 
 Cara test:
 1. Login admin.
 2. Buka Admin Panel.
 3. Isi Admin Token.
-4. Refresh Orders.
-5. Klik Export CSV.
-6. Buka file di Excel.
-7. Data harus otomatis pisah kolom, tidak numpuk di kolom A.
+4. Klik Refresh Orders.
+5. Payment Summary harus menampilkan angka omzet/order.
+6. Approve order baru, Refresh Orders, angka summary berubah.
 
 MQ5:
 - Tidak perlu update.
