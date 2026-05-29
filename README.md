@@ -1,37 +1,28 @@
-# XAU Step 8E Anti-Spam Payment Order
+# XAU Step 8F Pending Orders Pagination
 
-Masalah:
-- Tombol Konfirmasi Pembayaran bisa diklik berkali-kali.
-- Bisa membuat banyak order pending dan spam notifikasi Telegram admin.
+Update:
+- Pending Orders sekarang tampil 6 order per halaman.
+- Kalau total order lebih dari 6, muncul tombol:
+  - Prev
+  - Next
+  - Page X / Y
+- Saat Refresh Orders, halaman balik ke Page 1.
+- Tidak mengubah Admin row Manage.
+- Tidak mengubah chart/candle.
+- Tidak mengubah MQ5.
 
-Fix:
-- Client guard:
-  - Setelah order pending dibuat, tombol berubah jadi "Order Pending".
-  - Tombol disabled selama status pending.
-  - Jika user klik lagi, muncul pesan bahwa order pending masih ada.
-
-- Database guard:
-  - createPaymentOrder membaca users/{uid}.
-  - Jika lastPaymentStatus masih pending dan lastPaymentOrderId ada:
-    - tidak membuat order baru.
-    - tidak kirim notifikasi Telegram baru.
-    - mengembalikan order pending lama.
-
-Yang tidak disentuh:
-- Admin Panel row Manage
-- Chart/candle
-- MQ5
-- Telegram signal logic
-- Admin approve/reject Step 8B
+Cara kerja:
+- ordersPerPage = 6
+- safeOrders di-slice berdasarkan halaman aktif
+- tombol Next otomatis aktif kalau total order lebih dari 6
 
 Cara test:
-1. Login akun free.
-2. Klik Konfirmasi Pembayaran.
-3. Order masuk Firebase + Telegram notif admin.
-4. Klik lagi.
-5. Tidak boleh membuat order baru.
-6. Tombol harus menjadi Order Pending.
-7. Telegram tidak spam notif baru.
+1. Buat lebih dari 6 paymentOrders di Firebase.
+2. Login admin.
+3. Klik Refresh Orders.
+4. Harus tampil 6 order pertama.
+5. Klik Next untuk melihat order berikutnya.
+6. Klik Prev untuk kembali.
 
 MQ5:
 - Tidak perlu update.

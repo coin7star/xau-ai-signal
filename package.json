@@ -1,6 +1,6 @@
 {
-  "name": "xau-ai-signal-step8e-anti-spam-payment-order",
-  "version": "6.4.6-step8e-anti-spam-order",
+  "name": "xau-ai-signal-step8f-pending-orders-pagination",
+  "version": "6.4.7-step8f-orders-pagination",
   "type": "module",
   "scripts": {
     "dev": "vite",

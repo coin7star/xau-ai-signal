@@ -2460,3 +2460,34 @@ canvas {
     justify-content: flex-start;
   }
 }
+
+
+/* Step 8F Pending Orders Pagination */
+.adminOrdersPager {
+  margin-top: 14px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+}
+
+.adminOrdersPager button {
+  border: 0;
+  border-radius: 14px;
+  padding: 10px 14px;
+  font-weight: 1000;
+  cursor: pointer;
+  color: #06111f;
+  background: linear-gradient(135deg, #67e8f9, #d8b4fe);
+}
+
+.adminOrdersPager button:disabled {
+  opacity: .45;
+  cursor: not-allowed;
+}
+
+.adminOrdersPager span {
+  color: #cbd6f3;
+  font-weight: 1000;
+  font-size: 13px;
+}

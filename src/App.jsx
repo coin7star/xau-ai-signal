@@ -1769,6 +1769,7 @@ function normalizeOrderForUi(order) {
 
 function AdminOrdersPanel({ adminToken }) {
   const [orders, setOrders] = useState([]);
+  const [ordersPage, setOrdersPage] = useState(1);
   const [loadingOrders, setLoadingOrders] = useState(false);
   const [orderMessage, setOrderMessage] = useState("");
 
@@ -1796,6 +1797,7 @@ function AdminOrdersPanel({ adminToken }) {
 
       const list = Array.isArray(data.orders) ? data.orders : [];
       setOrders(list.map(normalizeOrderForUi));
+      setOrdersPage(1);
     } catch (err) {
       setOrderMessage(safeOrderText(err?.message, "Gagal load order."));
       setOrders([]);
@@ -1843,7 +1845,13 @@ function AdminOrdersPanel({ adminToken }) {
 
   const safeOrders = Array.isArray(orders) ? orders.map(normalizeOrderForUi) : [];
   const pendingOrders = safeOrders.filter((order) => order.status === "pending");
-  const recentOrders = safeOrders.slice(0, 12);
+  const ordersPerPage = 6;
+  const totalOrderPages = Math.max(1, Math.ceil(safeOrders.length / ordersPerPage));
+  const currentOrdersPage = Math.min(Math.max(ordersPage, 1), totalOrderPages);
+  const recentOrders = safeOrders.slice(
+    (currentOrdersPage - 1) * ordersPerPage,
+    currentOrdersPage * ordersPerPage
+  );
 
   return (
     <section className="adminOrdersPanel">
@@ -1904,6 +1912,28 @@ function AdminOrdersPanel({ adminToken }) {
           </div>
         )}
       </div>
+
+      {safeOrders.length > ordersPerPage ? (
+        <div className="adminOrdersPager">
+          <button
+            type="button"
+            onClick={() => setOrdersPage((page) => Math.max(1, page - 1))}
+            disabled={currentOrdersPage <= 1}
+          >
+            Prev
+          </button>
+
+          <span>Page {currentOrdersPage} / {totalOrderPages}</span>
+
+          <button
+            type="button"
+            onClick={() => setOrdersPage((page) => Math.min(totalOrderPages, page + 1))}
+            disabled={currentOrdersPage >= totalOrderPages}
+          >
+            Next
+          </button>
+        </div>
+      ) : null}
     </section>
   );
 }
