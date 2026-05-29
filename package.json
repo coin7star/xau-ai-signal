@@ -1,6 +1,6 @@
 {
-  "name": "xau-ai-signal-beta-product-polish",
-  "version": "5.8.4",
+  "name": "xau-ai-signal-performance-analytics-step5",
+  "version": "5.9.0",
   "type": "module",
   "scripts": {
     "dev": "vite",

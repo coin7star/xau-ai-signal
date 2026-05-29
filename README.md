@@ -1,21 +1,32 @@
-# XAU Beta Product Polish Full Fix
+# XAU Performance Analytics Step 5 Full Fix
 
-Step 4.5 Product Polish:
-- Landing page dibuat lebih siap jual versi beta.
-- Tambah tombol Hubungi Admin di hero, pricing, activation, footer.
-- Tambah section Cara Aktivasi Premium.
-- Paket harga tetap:
-  - 7 Day Rp10K
-  - 30 Day Rp30K
-- Copywriting paywall dan dashboard dibuat lebih profesional.
-- Teks internal/admin/endpoint disamarkan dari user.
-- Disclaimer dipoles agar aman.
-- Footer punya CTA login dan hubungi admin.
+Step 5:
+- Tambah Performance Analytics 7/30 hari.
 
-Catatan penting:
-- ADMIN_CONTACT_URL saat ini:
-  https://t.me/xauai_signal_bot
-- Kalau nanti punya Telegram admin personal/channel, ganti constant ADMIN_CONTACT_URL di src/App.jsx.
+Fitur:
+- MAIN CALL 7D winrate
+- MAIN CALL 30D winrate
+- SCALP M1 7D winrate
+- SCALP M1 30D winrate
+- Total signal
+- Closed signal
+- WIN
+- LOSS
+- BE
+- OPEN
+- Best snapshot
+- Recent performance summary
+
+Cara hitung:
+- Data diambil dari callHistory dan scalpHistory yang sudah ada.
+- WR dihitung dari closed result:
+  WIN / (WIN + LOSS + BE)
+- OPEN tidak masuk hitungan WR.
+- Data tanpa timestamp tetap dihitung agar history lama tidak kosong.
+
+Akses:
+- Premium user bisa lihat analytics.
+- Admin bisa lihat analytics dan tetap update result dari history.
 
 Cloudflare:
 - package-lock.json tetap dihapus.

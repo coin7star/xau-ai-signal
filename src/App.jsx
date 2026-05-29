@@ -629,6 +629,13 @@ export default function App() {
         <p className="scalpWarning">Mode scalp baru pakai struktur M1: buy di last swing low M1 + bullish engulfing, sell di last swing high M1 + bearish engulfing. CALL utama tetap lebih saklek.</p>
       </section>
 
+
+      <PerformanceAnalyticsPanel
+        callHistory={callHistory}
+        scalpHistory={scalpHistory}
+        isAdmin={isAdmin}
+      />
+
       <section className="historyPanel card">
         <div className="sectionTitle">
           <div>
@@ -1530,6 +1537,183 @@ function getRoleStatusLabel(user) {
 }
 
 
+
+
+
+function PerformanceAnalyticsPanel({ callHistory, scalpHistory, isAdmin }) {
+  const callItems = callHistory?.history || [];
+  const scalpItems = scalpHistory?.history || [];
+
+  const call7 = buildPerformanceStats(callItems, 7);
+  const call30 = buildPerformanceStats(callItems, 30);
+  const scalp7 = buildPerformanceStats(scalpItems, 7);
+  const scalp30 = buildPerformanceStats(scalpItems, 30);
+
+  const best = pickBestPerformance([
+    { label: "MAIN CALL 7D", ...call7 },
+    { label: "MAIN CALL 30D", ...call30 },
+    { label: "SCALP M1 7D", ...scalp7 },
+    { label: "SCALP M1 30D", ...scalp30 }
+  ]);
+
+  return (
+    <section className="performancePanel card">
+      <div className="sectionTitle">
+        <div>
+          <span className="pill mini">PERFORMANCE ANALYTICS</span>
+          <h3>Winrate 7/30 Hari</h3>
+          <span>Ringkasan performa dari signal yang sudah punya result WIN / LOSS / BE.</span>
+        </div>
+        <div className="performanceHighlight">
+          <small>Best Snapshot</small>
+          <b>{best ? `${best.label} · ${best.winRate}% WR` : "Waiting data"}</b>
+        </div>
+      </div>
+
+      <div className="performanceGrid">
+        <PerformanceCard title="MAIN CALL" period="7 Hari" stats={call7} />
+        <PerformanceCard title="MAIN CALL" period="30 Hari" stats={call30} />
+        <PerformanceCard title="SCALP M1" period="7 Hari" stats={scalp7} />
+        <PerformanceCard title="SCALP M1" period="30 Hari" stats={scalp30} />
+      </div>
+
+      <div className="performanceSummary">
+        <div>
+          <b>Recent Summary</b>
+          <span>{buildPerformanceSummary(call7, call30, scalp7, scalp30)}</span>
+        </div>
+        <div>
+          <b>Catatan</b>
+          <span>Winrate dihitung dari result yang sudah closed. OPEN tidak masuk hitungan WR.</span>
+        </div>
+      </div>
+
+      {isAdmin && (
+        <div className="performanceAdminNote">
+          Admin mode: update result dari CALL/SCALP History agar analytics 7/30 hari tetap akurat.
+        </div>
+      )}
+    </section>
+  );
+}
+
+function PerformanceCard({ title, period, stats }) {
+  const wrClass = stats.winRate >= 70 ? "strong" : stats.winRate >= 50 ? "normal" : "weak";
+
+  return (
+    <div className="performanceCard">
+      <div className="performanceCardTop">
+        <div>
+          <span>{title}</span>
+          <h4>{period}</h4>
+        </div>
+        <b className={wrClass}>{stats.winRate}%</b>
+      </div>
+
+      <div className="performanceBars">
+        <div>
+          <small>Closed</small>
+          <strong>{stats.closed}</strong>
+        </div>
+        <div>
+          <small>WIN</small>
+          <strong>{stats.wins}</strong>
+        </div>
+        <div>
+          <small>LOSS</small>
+          <strong>{stats.losses}</strong>
+        </div>
+        <div>
+          <small>BE</small>
+          <strong>{stats.be}</strong>
+        </div>
+      </div>
+
+      <div className="wrBar">
+        <i style={{ width: `${Math.min(100, Math.max(0, stats.winRate))}%` }} />
+      </div>
+
+      <p>{stats.total} total signal · {stats.open} masih OPEN</p>
+    </div>
+  );
+}
+
+function buildPerformanceStats(items, days) {
+  const now = Date.now();
+  const from = now - days * 24 * 60 * 60 * 1000;
+
+  const filtered = (items || []).filter((item) => {
+    const t = parseHistoryTimeMs(item.createdAt || item.candleTime || item.time || item.timestamp);
+    if (!t) return true; // data lama tanpa timestamp tetap dihitung supaya tidak kosong
+    return t >= from;
+  });
+
+  let wins = 0;
+  let losses = 0;
+  let be = 0;
+  let open = 0;
+
+  filtered.forEach((item) => {
+    const result = String(item.result || item.status || "OPEN").toUpperCase();
+
+    if (result === "WIN") wins += 1;
+    else if (result === "LOSS") losses += 1;
+    else if (result === "BE" || result === "BREAKEVEN") be += 1;
+    else open += 1;
+  });
+
+  const closed = wins + losses + be;
+  const winRate = closed > 0 ? Math.round((wins / closed) * 100) : 0;
+
+  return {
+    days,
+    total: filtered.length,
+    closed,
+    wins,
+    losses,
+    be,
+    open,
+    winRate
+  };
+}
+
+function parseHistoryTimeMs(value) {
+  if (!value) return 0;
+
+  if (typeof value === "number") {
+    return value > 1000000000000 ? value : value * 1000;
+  }
+
+  const parsed = Date.parse(String(value).replace(" ", "T"));
+  return Number.isFinite(parsed) ? parsed : 0;
+}
+
+function pickBestPerformance(statsList) {
+  const valid = statsList.filter((item) => item.closed >= 3);
+  if (!valid.length) return null;
+
+  return valid.sort((a, b) => {
+    if (b.winRate !== a.winRate) return b.winRate - a.winRate;
+    return b.closed - a.closed;
+  })[0];
+}
+
+function buildPerformanceSummary(call7, call30, scalp7, scalp30) {
+  const parts = [];
+
+  if (call7.closed > 0) parts.push(`MAIN CALL 7D WR ${call7.winRate}% dari ${call7.closed} closed signal`);
+  if (scalp7.closed > 0) parts.push(`SCALP M1 7D WR ${scalp7.winRate}% dari ${scalp7.closed} closed signal`);
+
+  if (!parts.length) {
+    if (call30.closed || scalp30.closed) {
+      return `Data 7 hari masih tipis. 30D: MAIN CALL ${call30.winRate}% WR, SCALP M1 ${scalp30.winRate}% WR.`;
+    }
+
+    return "Analytics akan makin akurat setelah result WIN/LOSS/BE mulai terkumpul.";
+  }
+
+  return parts.join(" · ");
+}
 
 
 function LandingPage({ onLogin }) {
