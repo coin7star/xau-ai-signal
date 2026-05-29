@@ -1,14 +1,21 @@
-# XAU Step 8M Export Payment Orders CSV
+# XAU Step 8M2 Export CSV Excel Friendly
 
-Fitur baru:
-- Admin bisa export payment orders ke CSV.
-- Tombol Export CSV ada di section Pending Payment Orders.
-- Export mengikuti filter aktif:
-  - Pending
-  - Approved
-  - Rejected
-  - All
-- Data yang diexport adalah semua order dalam filter aktif, bukan hanya 6 baris halaman aktif.
+Masalah:
+- Export CSV sebelumnya terbuka di Excel/Spreadsheet dengan semua data numpuk di kolom A.
+- Penyebab umum: Excel regional Indonesia sering membaca CSV dengan delimiter titik koma (;), bukan koma (,).
+
+Fix:
+- Export CSV sekarang memakai delimiter titik koma (;).
+- Menambahkan baris pertama:
+  sep=;
+  agar Excel otomatis memisahkan kolom.
+- Tanggal dibuat lebih mudah dibaca:
+  dd/mm/yyyy hh.mm
+- Status dibuat uppercase.
+- Header dibuat lebih rapi:
+  Tanggal Order
+  Premium Sampai
+  Catatan Admin
 
 Kolom CSV:
 - Order ID
@@ -17,15 +24,9 @@ Kolom CSV:
 - Paket
 - Harga
 - Status
-- Created At
-- Premium Until
-- Admin Note
-
-Nama file:
-xau-payment-orders-{filter}-{tanggal}.csv
-
-Contoh:
-xau-payment-orders-pending-2026-05-29.csv
+- Tanggal Order
+- Premium Sampai
+- Catatan Admin
 
 Tidak disentuh:
 - Admin row Manage user
@@ -39,10 +40,10 @@ Cara test:
 1. Login admin.
 2. Buka Admin Panel.
 3. Isi Admin Token.
-4. Klik Refresh Orders.
-5. Pilih filter Pending/Approved/Rejected/All.
-6. Klik Export CSV.
-7. File CSV harus terdownload.
+4. Refresh Orders.
+5. Klik Export CSV.
+6. Buka file di Excel.
+7. Data harus otomatis pisah kolom, tidak numpuk di kolom A.
 
 MQ5:
 - Tidak perlu update.

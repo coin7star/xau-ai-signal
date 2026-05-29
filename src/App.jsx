@@ -1917,10 +1917,31 @@ function AdminOrderNoteBox({ order, onSave }) {
 
 
 
+
 function csvCell(value) {
-  const text = safeOrderText(value, "");
+  const text = safeOrderText(value, "")
+    .replaceAll("\r", " ")
+    .replaceAll("\n", " ")
+    .trim();
+
   const escaped = text.replaceAll('"', '""');
   return `"${escaped}"`;
+}
+
+function formatCsvDate(value) {
+  const text = safeOrderText(value, "");
+  if (!text) return "";
+
+  const date = new Date(text);
+  if (Number.isNaN(date.getTime())) return text;
+
+  return date.toLocaleString("id-ID", {
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit"
+  });
 }
 
 function exportOrdersToCsv(orders, filterLabel = "orders") {
@@ -1933,9 +1954,9 @@ function exportOrdersToCsv(orders, filterLabel = "orders") {
     "Paket",
     "Harga",
     "Status",
-    "Created At",
-    "Premium Until",
-    "Admin Note"
+    "Tanggal Order",
+    "Premium Sampai",
+    "Catatan Admin"
   ];
 
   const rows = safeOrders.map((order) => [
@@ -1944,16 +1965,20 @@ function exportOrdersToCsv(orders, filterLabel = "orders") {
     order.uid,
     order.packageLabel || order.packageCode,
     order.price,
-    order.status,
-    order.createdAt,
-    order.premiumUntil,
+    safeOrderText(order.status).toUpperCase(),
+    formatCsvDate(order.createdAt),
+    formatCsvDate(order.premiumUntil),
     order.adminNote
   ]);
 
+  // Excel Indonesia sering membaca CSV dengan delimiter titik koma.
+  // Baris sep=; membantu Excel membuka file langsung dalam kolom terpisah.
+  const delimiter = ";";
   const csv = [
-    headers.map(csvCell).join(","),
-    ...rows.map((row) => row.map(csvCell).join(","))
-  ].join("\n");
+    "sep=;",
+    headers.map(csvCell).join(delimiter),
+    ...rows.map((row) => row.map(csvCell).join(delimiter))
+  ].join("\r\n");
 
   const blob = new Blob(["\ufeff" + csv], {
     type: "text/csv;charset=utf-8;"
