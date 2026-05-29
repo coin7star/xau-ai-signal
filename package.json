@@ -1,6 +1,6 @@
 {
-  "name": "xau-ai-signal-live-market-feed-source-final",
-  "version": "6.2.18-live-market-feed-source",
+  "name": "xau-ai-signal-rollback-after-source-label-object",
+  "version": "6.2.19-source-label-rollback",
   "type": "module",
   "scripts": {
     "dev": "vite",

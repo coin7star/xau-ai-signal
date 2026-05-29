@@ -1,18 +1,33 @@
-# XAU Live Market Feed Source Final Fix
+# XAU Rollback After Source Label Object Fix
 
-Fix:
-- Source label yang masih tampil "Firebase RTDB" diganti menjadi "Live Market Feed".
-- Jika nilai source dari variable/data masih berisi Firebase/RTDB, UI tetap menampilkan Live Market Feed.
-- Tidak mengubah logic Firebase.
-- Tidak mengubah Admin Panel.
-- Tidak mengubah chart/candle.
-- Tidak mengubah MQ5.
+Recovery:
+- Rollback dari source label patch yang bikin [object Object].
+- Balik ke versi aman sebelumnya:
+  - web tidak blank
+  - chart/candle normal
+  - admin panel normal
+  - copywriting offline tetap profesional
 
-Catatan:
-- Ini hanya formatting teks UI untuk label source.
-- Backend/data tetap memakai Firebase seperti biasa.
-- Build test tidak dijalankan ulang karena perubahan hanya teks/helper UI kecil.
+Yang sementara dibiarkan:
+- Source: Firebase RTDB
+- Badge not-call-signal
 
-Cloudflare:
-- package-lock.json tetap dihapus.
-- .npmrc tetap ada.
+Alasan:
+- Dua label ini datang dari render/variable sensitif.
+- Patch otomatis ke status/source beberapa kali memicu [object Object] atau blank.
+- Lebih aman biarkan dulu sampai App.jsx dibedah manual.
+
+Tidak disentuh:
+- Admin Panel
+- Chart/candle
+- MQ5
+- Telegram logic
+- Firebase logic
+
+Deploy:
+1. Upload ZIP ini.
+2. Deploy Cloudflare.
+3. Tekan Ctrl + Shift + R.
+
+MQ5:
+- Tidak perlu update.
