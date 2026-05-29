@@ -1,6 +1,6 @@
 {
-  "name": "xau-ai-signal-market-monitoring-display-final",
-  "version": "6.2.14-market-monitoring-display-final",
+  "name": "xau-ai-signal-market-monitoring-runtime-normalize",
+  "version": "6.2.15-market-monitoring-runtime-normalize",
   "type": "module",
   "scripts": {
     "dev": "vite",

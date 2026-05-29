@@ -1,19 +1,21 @@
-# XAU Market Monitoring Safe Fix
+# XAU Market Monitoring Runtime Normalize Fix
 
-Masalah sebelumnya:
-- Hotfix badge terlalu agresif memakai formatter.
-- Beberapa render status ternyata object, sehingga tampil [object Object].
+Masalah:
+- Badge awal tampil "Telegram standby".
+- Setelah data Firebase kebaca, status berubah jadi "not-call-signal".
+- Ini terjadi karena data mentah dari Firebase memang belum ada CALL aktif.
 
 Fix:
-- Dibuat ulang dari xau-professional-status-copy-hotfix.zip.
-- Hanya mengganti teks literal:
+- Normalisasi runtime untuk status UI:
   not-call-signal -> Market Monitoring
-- Tidak menambah formatter.
-- Tidak mengubah render object.
-- Tidak mengubah Admin Panel.
-- Tidak mengubah chart/candle.
-- Tidak mengubah MQ5.
+  telegram standby -> Market Monitoring
+  call/call-signal -> CALL Active
+- Normalisasi dilakukan saat data masuk dan saat render display.
+- Logic signal tidak diubah.
+- Admin Panel tidak disentuh.
+- Chart/candle tidak disentuh.
+- MQ5 tidak perlu update.
 
-Cloudflare:
-- package-lock.json tetap dihapus.
-- .npmrc tetap ada.
+Catatan:
+- Kalau belum ada CALL aktif, badge yang benar adalah Market Monitoring.
+- Kalau ada CALL aktif, badge menjadi CALL Active.
