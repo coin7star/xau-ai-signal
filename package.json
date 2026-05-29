@@ -1,6 +1,6 @@
 {
-  "name": "xau-ai-signal-rollback-firebase-default-email",
-  "version": "6.0.7-firebase-default",
+  "name": "xau-ai-signal-step7-anti-sharing-security-lv1",
+  "version": "6.2.0",
   "type": "module",
   "scripts": {
     "dev": "vite",

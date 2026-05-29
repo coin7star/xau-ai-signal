@@ -12,7 +12,7 @@ const PACKAGE_30D_PRICE = "Rp30K";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { createChart, ColorType, CrosshairMode } from "lightweight-charts";
 import { Activity, Bot, Copy, Database, Lock, LogOut, Radio, RefreshCcw, Settings, Shield, Sparkles, Target, TrendingDown, TrendingUp, User, Zap } from "lucide-react";
-import { ensureUserProfile, getUserProfile, hasFirebaseClientConfig, isPremiumProfile, listenAuth, loginWithEmail, loginWithGoogle, logout, refreshCurrentUser, registerWithEmail, resetPasswordEmail, sendVerificationEmail } from "./firebaseClient";
+import { ensureUserProfile, getUserProfile, hasFirebaseClientConfig, claimPremiumDevice, isPremiumProfile, listenAuth, loginWithEmail, loginWithGoogle, logout, refreshCurrentUser, registerWithEmail, resetPasswordEmail, sendVerificationEmail } from "./firebaseClient";
 
 export default function App() {
   const chartM1Ref = useRef(null);
@@ -636,6 +636,9 @@ export default function App() {
         <p className="scalpWarning">Mode scalp baru pakai struktur M1: buy di last swing low M1 + bullish engulfing, sell di last swing high M1 + bearish engulfing. CALL utama tetap lebih saklek.</p>
       </section>
 
+
+
+      <SecurityNoticeCard profile={profile} deviceSecurity={deviceSecurity} />
 
       <PerformanceAnalyticsPanel
         callHistory={callHistory}
@@ -1545,6 +1548,64 @@ function getRoleStatusLabel(user) {
 
 
 
+
+
+
+function SecurityNoticeCard({ profile, deviceSecurity }) {
+  const role = String(profile?.role || "free").toLowerCase();
+  if (role !== "premium" && role !== "admin") return null;
+
+  return (
+    <section className="securityNoticeCard card">
+      <div>
+        <span className="pill mini">SECURITY PREMIUM</span>
+        <h3>Akses premium dilindungi</h3>
+        <p>Akses premium hanya untuk 1 pengguna dan 1 device/browser utama. Sharing akun bisa menyebabkan akses dibekukan.</p>
+      </div>
+      <div className="securityDeviceBox">
+        <b>{deviceSecurity?.currentDeviceName || profile?.deviceName || "Device aktif"}</b>
+        <span>Status: {deviceSecurity?.allowed === false ? "Mismatch" : "Aman"}</span>
+      </div>
+    </section>
+  );
+}
+
+function DeviceBlockedScreen({ user, profile, deviceSecurity, onLogout }) {
+  return (
+    <main className="page authPage">
+      <section className="authCard paywallCard card">
+        <div className="logo big"><Lock size={30} /></div>
+        <span className="pill mini">SECURITY CHECK</span>
+        <h1>Akses Device Dibatasi</h1>
+        <p>Akun premium ini sudah terikat ke device/browser utama.</p>
+
+        <div className="paywallUser">
+          <b>{user?.email}</b>
+          <span>UID: {user?.uid}</span>
+          <span>Role: {(profile?.role || "premium").toUpperCase()}</span>
+          <span>Device utama: {deviceSecurity?.savedDeviceName || profile?.deviceName || "-"}</span>
+          <span>Device sekarang: {deviceSecurity?.currentDeviceName || "-"}</span>
+        </div>
+
+        <div className="premiumFeatures securityBlockedInfo">
+          <b>Kenapa halaman ini muncul?</b>
+          <span>🔒 Premium hanya untuk 1 device/browser utama.</span>
+          <span>🔒 Ini membantu mencegah sharing akun.</span>
+          <span>🔒 Hubungi admin jika kamu ganti HP/browser.</span>
+        </div>
+
+        <div className="paywallActions">
+          <a href={ADMIN_CONTACT_URL} target="_blank" rel="noreferrer">Hubungi Admin</a>
+          <button type="button" onClick={onLogout}>Logout</button>
+        </div>
+
+        <p className="miniNote">
+          Admin bisa reset device dari Admin Panel jika pergantian device memang valid.
+        </p>
+      </section>
+    </main>
+  );
+}
 
 
 function PerformanceAnalyticsPanel({ callHistory, scalpHistory, isAdmin }) {

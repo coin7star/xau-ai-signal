@@ -1,40 +1,41 @@
-# XAU Rollback Firebase Default Email Full Fix
+# XAU Step 7 Anti-sharing Security LV1
 
-Rollback:
-- Email verification kembali pakai Firebase default.
-- Reset password kembali pakai Firebase default.
-- Endpoint custom /api/auth-email dihapus.
-- Tidak perlu RESEND_API_KEY.
-- Tidak perlu EMAIL_FROM.
-- Tidak perlu service account OAuth untuk email.
+Step 7 fitur:
+- Anti-sharing premium Level 1.
+- 1 akun premium/admin dikunci ke 1 device/browser utama.
+- Device ID dibuat di localStorage.
+- Device ID disimpan ke Firebase RTDB users/{uid}/deviceId.
+- Jika akun premium login dari device/browser lain, tampil Device Blocked Screen.
+- User diarahkan hubungi admin.
+- Dashboard premium menampilkan Security Premium notice.
+- Admin panel menampilkan:
+  - lastLoginAt
+  - deviceName
+  - securityStatus
+- Admin panel punya tombol Reset Device.
+- Reset Device menghapus deviceId sehingga user bisa claim device baru.
 
-Alasan:
-- Resend onboarding@resend.dev hanya bisa kirim test ke email akun Resend sendiri.
-- Untuk kirim ke semua user, harus verify domain dulu di Resend.
-- Sementara pakai Firebase default agar user mana pun tetap bisa reset password/verifikasi email.
+Cara kerja:
+1. Premium/admin pertama kali login:
+   deviceId tersimpan sebagai device utama.
+2. Login dari browser/device yang sama:
+   allowed.
+3. Login dari browser/device lain:
+   blocked.
+4. Admin klik Reset Device:
+   deviceId dihapus.
+5. User login ulang dari device baru:
+   device baru menjadi device utama.
 
-Fitur yang tetap ada:
-- Landing page publik
-- Pricing 7 Day / 30 Day
-- Manual payment
-- Paywall pilih paket
-- Copy info aktivasi
-- Forgot password
-- Admin panel
-- Telegram connect
-- Multi-user alert
-- Performance analytics
-- Dashboard premium clean
+Catatan:
+- Ini Level 1, bukan anti-sharing mutlak.
+- Kalau user clear browser localStorage, deviceId berubah dan bisa kena block.
+- Admin bisa reset device jika user memang ganti HP/browser.
+- Untuk Level 2 nanti bisa tambah Telegram approval.
 
 Cloudflare:
 - package-lock.json tetap dihapus.
 - .npmrc tetap ada.
-
-ENV yang boleh kamu biarkan tapi tidak dipakai untuk email:
-- RESEND_API_KEY
-- EMAIL_FROM
-- FIREBASE_SERVICE_ACCOUNT_CLIENT_EMAIL
-- FIREBASE_SERVICE_ACCOUNT_PRIVATE_KEY
 
 MQ5:
 - Tidak perlu update.
