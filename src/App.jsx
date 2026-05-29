@@ -1836,7 +1836,13 @@ function AdminOrdersPanel({ adminToken }) {
         throw new Error(safeOrderText(data.error, "Gagal update order."));
       }
 
-      setOrderMessage(action === "approve" ? "Order approved dan premium aktif." : "Order ditolak.");
+      const notifyText = data.telegramNotify?.ok
+        ? " Notif Telegram user terkirim."
+        : data.telegramNotify?.skipped
+          ? " User belum connect Telegram."
+          : " Notif Telegram user tidak terkirim.";
+
+      setOrderMessage((action === "approve" ? "Order approved dan premium aktif." : "Order ditolak.") + notifyText);
       await loadOrders();
     } catch (err) {
       setOrderMessage(safeOrderText(err?.message, "Gagal update order."));

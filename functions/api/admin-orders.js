@@ -56,13 +56,22 @@ export async function onRequest({ request, env }) {
     };
 
     await fbPatch(dbUrl, `/paymentOrders/${orderId}`, patch);
+    const user = await fbGet(dbUrl, `/users/${order.uid}`) || {};
+
     await fbPatch(dbUrl, `/users/${order.uid}`, {
       lastPaymentStatus: "rejected",
       lastPaymentOrderId: orderId,
       updatedAt: new Date().toISOString()
     });
 
-    return json({ ok: true, order: { ...order, ...patch } });
+    const userNotify = await notifyUserOrderStatus({
+      env,
+      user,
+      order: { ...order, ...patch },
+      status: "rejected"
+    });
+
+    return json({ ok: true, order: { ...order, ...patch }, telegramNotify: userNotify });
   }
 
   if (action !== "approve") {
@@ -100,7 +109,15 @@ export async function onRequest({ request, env }) {
     updatedAt: now
   });
 
-  return json({ ok: true, order: { ...order, ...orderPatch }, premiumUntil });
+  const userNotifyApprove = await notifyUserOrderStatus({
+    env,
+    user,
+    order: { ...order, ...orderPatch },
+    status: "approved",
+    premiumUntil
+  });
+
+  return json({ ok: true, order: { ...order, ...orderPatch }, premiumUntil, telegramNotify: userNotifyApprove });
 }
 
 function getDaysFromPackage(value) {
@@ -130,6 +147,84 @@ async function fbPatch(dbUrl, path, patch) {
 
   return await res.json();
 }
+
+
+async function notifyUserOrderStatus({ env, user, order, status, premiumUntil }) {
+  const botToken = env.TELEGRAM_BOT_TOKEN || env.BOT_TOKEN || "";
+  const chatId = user?.telegramChatId || user?.telegram_chat_id || "";
+
+  if (!botToken || !chatId) {
+    return { ok: false, skipped: true, reason: "telegram-not-connected" };
+  }
+
+  const isApproved = status === "approved";
+  const title = isApproved ? "✅ Premium Aktif" : "❌ Pembayaran Ditolak";
+
+  const lines = isApproved ? [
+    title,
+    "",
+    `Paket: ${safeText(order.packageLabel || order.packageCode || "-")}`,
+    `Order ID: ${safeText(order.orderId || "-")}`,
+    `Premium aktif sampai: ${formatTelegramDate(premiumUntil)}`,
+    "",
+    "Silakan buka dashboard XAU AI Signal untuk mulai menggunakan fitur premium."
+  ] : [
+    title,
+    "",
+    `Paket: ${safeText(order.packageLabel || order.packageCode || "-")}`,
+    `Order ID: ${safeText(order.orderId || "-")}`,
+    "",
+    "Pembayaran belum bisa dikonfirmasi. Silakan hubungi admin dan kirim ulang bukti pembayaran jika diperlukan."
+  ];
+
+  try {
+    const res = await fetch(`https://api.telegram.org/bot${botToken}/sendMessage`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        chat_id: chatId,
+        text: lines.join("\\n"),
+        disable_web_page_preview: true
+      })
+    });
+
+    const data = await res.json().catch(() => ({}));
+
+    return {
+      ok: Boolean(res.ok && data.ok),
+      status: res.status,
+      description: data.description || ""
+    };
+  } catch (err) {
+    return { ok: false, error: err.message || String(err) };
+  }
+}
+
+function safeText(value) {
+  if (value === null || value === undefined || value === "") return "-";
+  if (typeof value === "string" || typeof value === "number" || typeof value === "boolean") return String(value);
+  try {
+    return JSON.stringify(value);
+  } catch {
+    return "-";
+  }
+}
+
+function formatTelegramDate(value) {
+  if (!value) return "-";
+
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return safeText(value);
+
+  return date.toLocaleString("id-ID", {
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit"
+  });
+}
+
 
 function json(payload, status = 200) {
   return new Response(JSON.stringify(payload, null, 2), {

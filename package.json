@@ -1,6 +1,6 @@
 {
-  "name": "xau-ai-signal-step8f-pending-orders-pagination",
-  "version": "6.4.7-step8f-orders-pagination",
+  "name": "xau-ai-signal-step8g-user-telegram-order-status",
+  "version": "6.4.8-step8g-user-telegram-order-status",
   "type": "module",
   "scripts": {
     "dev": "vite",

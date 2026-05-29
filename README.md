@@ -1,28 +1,54 @@
-# XAU Step 8F Pending Orders Pagination
+# XAU Step 8G User Telegram Order Status
 
-Update:
-- Pending Orders sekarang tampil 6 order per halaman.
-- Kalau total order lebih dari 6, muncul tombol:
-  - Prev
-  - Next
-  - Page X / Y
-- Saat Refresh Orders, halaman balik ke Page 1.
-- Tidak mengubah Admin row Manage.
-- Tidak mengubah chart/candle.
-- Tidak mengubah MQ5.
+Fitur baru:
+- Saat admin approve order:
+  - premium user otomatis aktif seperti Step 8B
+  - user menerima notifikasi Telegram jika sudah connect
+- Saat admin reject order:
+  - order ditolak seperti Step 8B
+  - user menerima notifikasi Telegram jika sudah connect
 
-Cara kerja:
-- ordersPerPage = 6
-- safeOrders di-slice berdasarkan halaman aktif
-- tombol Next otomatis aktif kalau total order lebih dari 6
+Pesan approve:
+✅ Premium Aktif
+Paket
+Order ID
+Premium aktif sampai tanggal
+
+Pesan reject:
+❌ Pembayaran Ditolak
+Paket
+Order ID
+Instruksi hubungi admin
+
+Endpoint yang diubah:
+- POST /api/admin-orders
+
+ENV dibutuhkan:
+- TELEGRAM_BOT_TOKEN
+- TELEGRAM_CHAT_ID tetap dipakai untuk admin order notify Step 8D
+- User telegramChatId di users/{uid} wajib ada agar user dapat notif
+
+Stabilitas:
+- Kalau user belum connect Telegram, approve/reject tetap berhasil.
+- Kalau Telegram error, approve/reject tetap berhasil.
+- Response admin akan memberi info:
+  - Notif Telegram user terkirim
+  - User belum connect Telegram
+  - Notif Telegram user tidak terkirim
+
+Tidak disentuh:
+- Admin row Manage
+- Chart/candle
+- MQ5
+- Payment order pagination Step 8F
 
 Cara test:
-1. Buat lebih dari 6 paymentOrders di Firebase.
-2. Login admin.
-3. Klik Refresh Orders.
-4. Harus tampil 6 order pertama.
-5. Klik Next untuk melihat order berikutnya.
-6. Klik Prev untuk kembali.
+1. Pastikan user sudah connect Telegram lewat /connect KODE.
+2. User buat order pending.
+3. Admin klik Refresh Orders.
+4. Admin klik Approve.
+5. User harus menerima notif Telegram premium aktif.
+6. Coba Reject untuk order lain, user harus menerima notif pembayaran ditolak.
 
 MQ5:
 - Tidak perlu update.
