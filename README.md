@@ -1,31 +1,25 @@
-# XAU Step 7A Last Login Only
+# XAU Step 7B Device Info Admin Only
 
 Update kecil dan aman:
-- Tambah/update lastLoginAt saat user login.
-- Admin Panel menampilkan Last login di setiap user.
-- Tidak ada device lock.
-- Tidak ada anti-sharing block.
-- Tidak ada render guard baru.
-- Tidak ada perubahan dashboard premium yang berisiko blank.
+- Simpan lastLoginDevice saat user login.
+- Simpan lastLoginBrowser saat user login.
+- Simpan lastLoginUserAgent pendek untuk admin/debug.
+- Admin Panel menampilkan:
+  - Last login
+  - Device
+  - Browser
+  - Security LV1: tracking only
 
-Cara kerja:
-1. User login.
-2. ensureUserProfile update users/{uid}/lastLoginAt.
-3. Admin panel bisa lihat Last login.
+Tidak ada:
+- Device lock
+- Device block
+- Device mismatch
+- Render guard baru
+- Perubahan dashboard premium yang rawan blank
 
 Tujuan:
-- Fondasi awal Step 7 Security Premium.
-- Dikerjakan kecil dulu untuk menghindari blank/runtime error.
-
-Fitur lain tetap:
-- Landing page
-- Paywall pilih paket
-- Manual payment
-- Admin panel
-- Telegram connect
-- Multi-user alert
-- Performance analytics
-- Forgot password Firebase default
+- Lanjutan Step 7 security secara bertahap.
+- Admin mulai bisa melihat pola login user tanpa memblokir akses.
 
 Cloudflare:
 - package-lock.json tetap dihapus.
