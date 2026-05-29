@@ -493,12 +493,12 @@ export default function App() {
         <section className="premiumSystemCard card">
           <div>
             <span className="pill mini">SYSTEM STATUS</span>
-            <h3>Signal Engine Active</h3>
-            <p>Dashboard premium aktif. Fokus utama: market signal, Telegram alert, chart, dan performance history.</p>
+            <h3>XAU Signal Dashboard Active</h3>
+            <p>Dashboard premium aktif untuk memantau market signal, Telegram alert, chart, dan performance history.</p>
           </div>
           <div className="premiumSystemPills">
             <b>Premium Mode</b>
-            <span>Debug hidden</span>
+            <span>Premium dashboard</span>
           </div>
         </section>
       )}
@@ -623,8 +623,8 @@ export default function App() {
       <section className="historyPanel card">
         <div className="sectionTitle">
           <div>
-            <h3>{isAdmin ? "CALL History & Manual Win/Loss" : "CALL History & Performance"}</h3>
-            <span>{isAdmin ? "Auto-save saat CALL valid. Admin bisa tandai hasil manual untuk track performa." : "Riwayat CALL valid dan performa signal. Result hanya bisa diupdate oleh admin."}</span>
+            <h3>{isAdmin ? "CALL History & Manual Result" : "CALL History & Performance"}</h3>
+            <span>{isAdmin ? "Auto-save saat CALL valid. Admin bisa tandai hasil manual untuk track performa." : "Riwayat CALL valid, result, dan performa signal terbaru."}</span>
           </div>
           <div className="historyStats">
             <b>Total {historyStats.total || 0}</b>
@@ -638,7 +638,7 @@ export default function App() {
 
         {!isAdmin && (
           <div className="premiumViewerNote">
-            Premium view: kamu bisa lihat history, result, dan winrate. Update WIN/LOSS/BE hanya bisa dilakukan admin.
+            Pantau riwayat signal valid, result, dan winrate secara transparan.
           </div>
         )}
 
@@ -696,7 +696,7 @@ export default function App() {
       <section className="historyPanel card scalpHistoryPanel">
         <div className="sectionTitle">
           <div>
-            <h3>{isAdmin ? "SCALP M1 Valid History & Manual Result" : "SCALP M1 Valid Performance"}</h3>
+            <h3>{isAdmin ? "SCALP M1 Valid History & Manual Result" : "SCALP M1 Performance"}</h3>
             <span>Cuma SCALP BUY/SELL valid yang disimpan. SCALP WAIT tidak masuk biar Firebase tetap hemat.</span>
           </div>
           <div className="historyStats">
@@ -711,7 +711,7 @@ export default function App() {
 
         {!isAdmin && (
           <div className="premiumViewerNote scalpViewerNote">
-            Premium view: kamu bisa lihat result SCALP M1 dan winrate. Update WIN/LOSS/BE hanya bisa dilakukan admin.
+            Pantau performa SCALP M1 valid, result, dan winrate secara ringkas.
           </div>
         )}
 
@@ -1032,8 +1032,8 @@ function TelegramConnectPanel({ user, profile, telegramConnect, onRefresh }) {
       <div className="telegramConnectHeader">
         <div>
           <span className="pill mini"><Bot size={14} /> TELEGRAM ALERT</span>
-          <h3>Connect Telegram Premium</h3>
-          <p>Hubungkan akun dashboard ini ke bot Telegram supaya nanti alert premium bisa masuk ke chat kamu.</p>
+          <h3>Connect Telegram Alert</h3>
+          <p>Hubungkan akun dashboard ke bot Telegram agar alert premium masuk langsung ke chat kamu.</p>
         </div>
         <div className={`telegramStatusBadge ${connected ? "connected" : ""}`}>
           {connected ? "Connected" : "Not Connected"}
@@ -1095,7 +1095,7 @@ function TelegramConnectPanel({ user, profile, telegramConnect, onRefresh }) {
       </div>
 
       <p className="miniNote">
-        Setelah status Connected, akun premium/admin ini siap menerima auto alert MAIN CALL via Telegram.
+        Setelah status Connected, akun ini siap menerima auto alert MAIN CALL via Telegram.
       </p>
     </section>
   );
@@ -1664,7 +1664,7 @@ function PaywallScreen({ user, profile, onLogout }) {
           <a href="https://t.me/" target="_blank" rel="noreferrer">Hubungi Admin</a>
           <button type="button" onClick={onLogout}>Logout</button>
         </div>
-        <p className="miniNote">Admin bisa aktifkan premium via Firebase RTDB path <code>users/{user?.uid}</code> atau endpoint <code>/api/admin-user</code>.</p>
+        <p className="miniNote">Hubungi admin untuk aktivasi premium. <code>users/{user?.uid}</code> Aktivasi diproses manual setelah pembayaran. <code>/api/admin-user</code>.</p>
       </section>
     </main>
   );
