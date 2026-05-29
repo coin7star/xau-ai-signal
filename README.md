@@ -1,44 +1,26 @@
-# XAU Step 8B Admin Pending Orders
+# XAU Step 8B Safe Render Fix
 
-Fitur baru:
-- Admin bisa melihat order pending dari web.
-- Section baru: Pending Payment Orders.
-- Tidak mengubah row Manage user.
-- Tidak menyentuh chart/candle.
-- Tidak menyentuh MQ5.
+Masalah:
+- Section Pending Payment Orders muncul.
+- Setelah klik Refresh Orders, web blank.
+- Penyebab paling mungkin: ada field order dari Firebase yang berupa object dan dirender langsung di JSX.
 
-Endpoint baru:
-- GET /api/admin-orders
-  Load paymentOrders dari Firebase.
-- POST /api/admin-orders
-  action approve / reject.
-
-Approve:
-- Update paymentOrders/{orderId}/status = approved.
-- Set users/{uid}/role = premium.
-- Set users/{uid}/premiumUntil sesuai paket:
-  7D = +7 hari
-  30D = +30 hari.
-- Update lastPaymentStatus = approved.
-
-Reject:
-- Update paymentOrders/{orderId}/status = rejected.
-- Update users/{uid}/lastPaymentStatus = rejected.
+Fix:
+- Tambah safeOrderText().
+- Tambah safeOrderDate().
+- Tambah normalizeOrderForUi().
+- Semua order dari API dinormalisasi jadi string sebelum ditampilkan.
+- Jika API error/non-JSON, tidak blank; tampil pesan error.
+- Admin Panel row Manage tidak disentuh.
+- Chart/candle tidak disentuh.
 
 Cara test:
-1. Login akun free.
-2. Buat order pending dari paywall.
-3. Login admin.
-4. Buka Admin Panel.
-5. Isi Admin Token.
-6. Klik Refresh Orders.
-7. Klik Approve.
-8. Cek user jadi premium.
+1. Deploy.
+2. Login admin.
+3. Admin Panel.
+4. Isi Admin Token.
+5. Klik Refresh Orders.
+6. Order harus tampil atau muncul pesan error, bukan blank.
 
-ENV dibutuhkan:
-- ADMIN_ACTION_TOKEN
-- FIREBASE_DATABASE_URL
-
-Catatan:
-- Section ini dibuat terpisah agar tidak mengganggu row Admin Panel yang sensitif.
-- Kalau order belum muncul, klik Refresh Orders.
+MQ5:
+- Tidak perlu update.

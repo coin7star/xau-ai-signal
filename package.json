@@ -1,6 +1,6 @@
 {
-  "name": "xau-ai-signal-step8b-admin-pending-orders",
-  "version": "6.4.1-step8b-orders",
+  "name": "xau-ai-signal-step8b-safe-render-fix",
+  "version": "6.4.2-step8b-safe-render",
   "type": "module",
   "scripts": {
     "dev": "vite",

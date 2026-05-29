@@ -1725,6 +1725,48 @@ function buildPerformanceSummary(call7, call30, scalp7, scalp30) {
 
 
 
+
+function safeOrderText(value, fallback = "-") {
+  if (value === null || value === undefined || value === "") return fallback;
+  if (typeof value === "string" || typeof value === "number" || typeof value === "boolean") return String(value);
+  try {
+    return JSON.stringify(value);
+  } catch {
+    return fallback;
+  }
+}
+
+function safeOrderDate(value) {
+  const text = safeOrderText(value, "");
+  if (!text) return "-";
+
+  const date = new Date(text);
+  if (Number.isNaN(date.getTime())) return text.slice(0, 18);
+
+  return date.toLocaleString("id-ID", {
+    day: "2-digit",
+    month: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit"
+  });
+}
+
+function normalizeOrderForUi(order) {
+  const safe = order && typeof order === "object" && !Array.isArray(order) ? order : {};
+
+  return {
+    orderId: safeOrderText(safe.orderId || safe.id || `order_${Math.random().toString(16).slice(2)}`),
+    uid: safeOrderText(safe.uid),
+    email: safeOrderText(safe.email),
+    packageCode: safeOrderText(safe.packageCode),
+    packageLabel: safeOrderText(safe.packageLabel || safe.packageCode),
+    price: safeOrderText(safe.price),
+    status: safeOrderText(safe.status || "pending").toLowerCase(),
+    createdAt: safeOrderText(safe.createdAt),
+    premiumUntil: safeOrderText(safe.premiumUntil, "")
+  };
+}
+
 function AdminOrdersPanel({ adminToken }) {
   const [orders, setOrders] = useState([]);
   const [loadingOrders, setLoadingOrders] = useState(false);
@@ -1746,15 +1788,17 @@ function AdminOrdersPanel({ adminToken }) {
         }
       });
 
-      const data = await res.json();
+      const data = await res.json().catch(() => ({}));
 
       if (!res.ok || !data.ok) {
-        throw new Error(data.error || "Gagal load order.");
+        throw new Error(safeOrderText(data.error, "Gagal load order."));
       }
 
-      setOrders(Array.isArray(data.orders) ? data.orders : []);
+      const list = Array.isArray(data.orders) ? data.orders : [];
+      setOrders(list.map(normalizeOrderForUi));
     } catch (err) {
-      setOrderMessage(err.message || "Gagal load order.");
+      setOrderMessage(safeOrderText(err?.message, "Gagal load order."));
+      setOrders([]);
     } finally {
       setLoadingOrders(false);
     }
@@ -1769,7 +1813,7 @@ function AdminOrdersPanel({ adminToken }) {
     try {
       setOrderMessage(action === "approve" ? "Memproses approval order..." : "Memproses reject order...");
 
-      const days = String(order.packageCode || order.packageLabel || "").includes("7") ? 7 : 30;
+      const days = safeOrderText(order.packageCode || order.packageLabel).includes("7") ? 7 : 30;
 
       const res = await fetch("/api/admin-orders", {
         method: "POST",
@@ -1784,21 +1828,22 @@ function AdminOrdersPanel({ adminToken }) {
         })
       });
 
-      const data = await res.json();
+      const data = await res.json().catch(() => ({}));
 
       if (!res.ok || !data.ok) {
-        throw new Error(data.error || "Gagal update order.");
+        throw new Error(safeOrderText(data.error, "Gagal update order."));
       }
 
       setOrderMessage(action === "approve" ? "Order approved dan premium aktif." : "Order ditolak.");
       await loadOrders();
     } catch (err) {
-      setOrderMessage(err.message || "Gagal update order.");
+      setOrderMessage(safeOrderText(err?.message, "Gagal update order."));
     }
   }
 
-  const pendingOrders = orders.filter((order) => String(order.status || "").toLowerCase() === "pending");
-  const recentOrders = orders.slice(0, 12);
+  const safeOrders = Array.isArray(orders) ? orders.map(normalizeOrderForUi) : [];
+  const pendingOrders = safeOrders.filter((order) => order.status === "pending");
+  const recentOrders = safeOrders.slice(0, 12);
 
   return (
     <section className="adminOrdersPanel">
@@ -1816,40 +1861,40 @@ function AdminOrdersPanel({ adminToken }) {
 
       <div className="adminOrdersStats">
         <span>Pending <b>{pendingOrders.length}</b></span>
-        <span>Total <b>{orders.length}</b></span>
+        <span>Total <b>{safeOrders.length}</b></span>
       </div>
 
-      {orderMessage ? <div className="adminOrdersMessage">{orderMessage}</div> : null}
+      {orderMessage ? <div className="adminOrdersMessage">{safeOrderText(orderMessage)}</div> : null}
 
       <div className="adminOrdersList">
         {recentOrders.length ? recentOrders.map((order) => (
           <article className="adminOrderRow" key={order.orderId}>
             <div>
-              <b>{order.email || "-"}</b>
+              <b>{order.email}</b>
               <small>{order.orderId}</small>
               <small>UID: {order.uid}</small>
             </div>
 
             <div>
-              <span className="orderBadge">{order.packageLabel || order.packageCode || "-"}</span>
-              <small>{order.price || "-"}</small>
+              <span className="orderBadge">{order.packageLabel}</span>
+              <small>{order.price}</small>
             </div>
 
             <div>
-              <span className={`orderStatus ${String(order.status || "").toLowerCase()}`}>
-                {(order.status || "pending").toUpperCase()}
+              <span className={`orderStatus ${order.status}`}>
+                {order.status.toUpperCase()}
               </span>
-              <small>{formatShortDate(order.createdAt)}</small>
+              <small>{safeOrderDate(order.createdAt)}</small>
             </div>
 
             <div className="adminOrderActions">
-              {String(order.status || "").toLowerCase() === "pending" ? (
+              {order.status === "pending" ? (
                 <>
                   <button type="button" onClick={() => updateOrder(order, "approve")}>Approve</button>
                   <button type="button" onClick={() => updateOrder(order, "reject")}>Reject</button>
                 </>
               ) : (
-                <small>{order.premiumUntil ? `Premium: ${formatShortDate(order.premiumUntil)}` : "Processed"}</small>
+                <small>{order.premiumUntil ? `Premium: ${safeOrderDate(order.premiumUntil)}` : "Processed"}</small>
               )}
             </div>
           </article>
