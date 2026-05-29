@@ -1,6 +1,6 @@
 {
-  "name": "xau-ai-signal-forgot-password",
-  "version": "6.0.4",
+  "name": "xau-ai-signal-forgot-password-visible-stable",
+  "version": "6.0.6",
   "type": "module",
   "scripts": {
     "dev": "vite",

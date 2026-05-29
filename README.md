@@ -1,24 +1,29 @@
-# XAU Forgot Password Full Fix
+# XAU Forgot Password Visible Stable Fix
 
 Update:
-- Tambah fitur Lupa Password di halaman Login.
-- User klik Lupa password?
-- User isi email.
-- Firebase Auth kirim link reset password ke email user.
-- Setelah berhasil, user balik ke login.
-- Password field dan Google login disembunyikan saat reset mode.
-- Error message untuk reset/login dirapikan.
+- Tombol Lupa password? sekarang muncul tepat di bawah tombol Login.
+- Fitur reset password dipasang di firebaseClient.js sebagai resetPasswordEmail().
+- AuthScreen dibuat ulang stabil dari baseline aman.
+- Reset mode:
+  - title berubah jadi Reset Password
+  - hanya input email
+  - password field disembunyikan
+  - Google login disembunyikan
+  - tombol kembali ke login muncul
+- Firebase mengirim link reset password ke email user.
 
-File berubah:
-- src/App.jsx
-- src/style.css
-- package.json
-- .npmrc
+Cara test:
+1. Buka Login.
+2. Klik Lupa password?
+3. Isi email.
+4. Klik Kirim Link Reset Password.
+5. Cek inbox/spam.
+6. Reset password lalu login ulang.
 
 Firebase:
-- Menggunakan sendPasswordResetEmail dari Firebase Auth.
-- Pastikan Authentication Email/Password sudah enabled.
-- Email template reset password bisa diedit dari Firebase Console > Authentication > Templates.
+- Authentication > Email/Password harus enabled.
+- Template reset password bisa diedit dari:
+  Authentication > Templates > Password reset.
 
 Cloudflare:
 - package-lock.json tetap dihapus.

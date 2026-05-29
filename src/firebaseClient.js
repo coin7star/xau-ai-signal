@@ -7,6 +7,7 @@ import {
   onAuthStateChanged,
   reload,
   sendEmailVerification,
+  sendPasswordResetEmail,
   setPersistence,
   signInWithEmailAndPassword,
   signInWithPopup,
@@ -50,6 +51,18 @@ export function listenAuth(callback) {
 export async function loginWithEmail(email, password) {
   if (!auth) throw new Error("Firebase client ENV belum lengkap.");
   return await signInWithEmailAndPassword(auth, email, password);
+}
+
+export async function resetPasswordEmail(email) {
+  if (!auth) throw new Error("Firebase client ENV belum lengkap.");
+  if (!email) throw new Error("Isi email akun kamu dulu.");
+
+  await sendPasswordResetEmail(auth, email, {
+    url: window.location.origin,
+    handleCodeInApp: false
+  });
+
+  return { ok: true };
 }
 
 export async function registerWithEmail(email, password) {

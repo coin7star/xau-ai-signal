@@ -12,7 +12,7 @@ const PACKAGE_30D_PRICE = "Rp30K";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { createChart, ColorType, CrosshairMode } from "lightweight-charts";
 import { Activity, Bot, Copy, Database, Lock, LogOut, Radio, RefreshCcw, Settings, Shield, Sparkles, Target, TrendingDown, TrendingUp, User, Zap } from "lucide-react";
-import { ensureUserProfile, getUserProfile, hasFirebaseClientConfig, isPremiumProfile, listenAuth, loginWithEmail, loginWithGoogle, logout, refreshCurrentUser, registerWithEmail, sendVerificationEmail } from "./firebaseClient";
+import { ensureUserProfile, getUserProfile, hasFirebaseClientConfig, isPremiumProfile, listenAuth, loginWithEmail, loginWithGoogle, logout, refreshCurrentUser, registerWithEmail, resetPasswordEmail, sendVerificationEmail } from "./firebaseClient";
 
 export default function App() {
   const chartM1Ref = useRef(null);
@@ -1950,54 +1950,56 @@ function AuthScreen({ onBack }) {
   const [password, setPassword] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
+  const [info, setInfo] = useState("");
 
   async function handleSubmit(event) {
     event.preventDefault();
     setError("");
+    setInfo("");
     setBusy(true);
+
     try {
+      if (resetMode) {
+        await resetPasswordEmail(email.trim());
+        setInfo("Link reset password sudah dikirim. Cek inbox atau folder spam email kamu.");
+        setResetMode(false);
+        return;
+      }
+
       if (mode === "register") await registerWithEmail(email, password);
       else await loginWithEmail(email, password);
-    } catch (err) { setError(cleanAuthError(err)); }
-    finally { setBusy(false); }
-  }
-
-  async function handleGoogle() {
-    setError("");
-    setBusy(true);
-    try { await loginWithGoogle(); }
-    catch (err) { setError(cleanAuthError(err)); }
-    finally { setBusy(false); }
-  }
-
-
-  async function handleForgotPassword(event) {
-    event.preventDefault();
-    setError("");
-    setInfo("");
-
-    const targetEmail = email.trim();
-
-    if (!targetEmail) {
-      setError("Isi email akun kamu dulu untuk reset password.");
-      return;
-    }
-
-    setBusy(true);
-
-    try {
-      await sendPasswordResetEmail(auth, targetEmail, {
-        url: window.location.origin,
-        handleCodeInApp: false
-      });
-
-      setInfo("Link reset password sudah dikirim. Cek inbox/spam email kamu.");
-      setResetMode(false);
     } catch (err) {
       setError(cleanAuthError(err));
     } finally {
       setBusy(false);
     }
+  }
+
+  async function handleGoogle() {
+    setError("");
+    setInfo("");
+    setBusy(true);
+
+    try {
+      await loginWithGoogle();
+    } catch (err) {
+      setError(cleanAuthError(err));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  function openResetMode() {
+    setResetMode(true);
+    setError("");
+    setInfo("");
+  }
+
+  function backToLogin() {
+    setResetMode(false);
+    setMode("login");
+    setError("");
+    setInfo("");
   }
 
   return (
@@ -2007,21 +2009,83 @@ function AuthScreen({ onBack }) {
           ← Kembali ke Beranda
         </button>
       )}
+
       <section className="authCard card">
         <div className="logo big"><Bot size={30} /></div>
         <span className="pill mini"><Lock size={14} /> Premium Access</span>
-        <h1>XAU AI Signal</h1>
-        <p>Login dulu buat akses dashboard premium, MAIN CALL, M1 Scalp Radar, Fresh OB M15, dan history signal.</p>
+
+        <h1>{resetMode ? "Reset Password" : mode === "login" ? "XAU AI Signal" : "Daftar Akun"}</h1>
+
+        <p>
+          {resetMode
+            ? "Masukkan email akun kamu. Link reset password akan dikirim lewat email."
+            : mode === "login"
+              ? "Login dulu buat akses dashboard premium, MAIN CALL, M1 Scalp Radar, Fresh OB M15, dan history signal."
+              : "Buat akun dulu, lalu verifikasi email untuk lanjut ke premium access."}
+        </p>
+
         <form className="authForm" onSubmit={handleSubmit}>
           <label>Email</label>
-          <input value={email} onChange={(event) => setEmail(event.target.value)} type="email" placeholder="email kamu" required />
-          <label>Password</label>
-          <input value={password} onChange={(event) => setPassword(event.target.value)} type="password" placeholder="minimal 6 karakter" required />
+          <input
+            value={email}
+            onChange={(event) => setEmail(event.target.value)}
+            type="email"
+            placeholder="email kamu"
+            required
+          />
+
+          {!resetMode && (
+            <>
+              <label>Password</label>
+              <input
+                value={password}
+                onChange={(event) => setPassword(event.target.value)}
+                type="password"
+                placeholder="minimal 6 karakter"
+                required
+              />
+            </>
+          )}
+
           {error && <div className="authError">{error}</div>}
-          <button type="submit" disabled={busy}>{busy ? "Loading..." : mode === "register" ? "Create Account" : "Login"}</button>
-          <button type="button" className="ghostBtn" onClick={handleGoogle} disabled={busy}>Login with Google</button>
+          {info && <div className="authError info">{info}</div>}
+
+          <button type="submit" disabled={busy}>
+            {busy ? "Loading..." : resetMode ? "Kirim Link Reset Password" : mode === "register" ? "Create Account" : "Login"}
+          </button>
+
+          {mode === "login" && !resetMode && (
+            <button type="button" className="forgotPasswordBtn" onClick={openResetMode}>
+              Lupa password?
+            </button>
+          )}
+
+          {resetMode && (
+            <button type="button" className="forgotPasswordBtn" onClick={backToLogin}>
+              ← Kembali ke Login
+            </button>
+          )}
+
+          {!resetMode && (
+            <button type="button" className="ghostBtn" onClick={handleGoogle} disabled={busy}>
+              Login with Google
+            </button>
+          )}
         </form>
-        <button className="linkBtn" type="button" onClick={() => setMode(mode === "login" ? "register" : "login")}>{mode === "login" ? "Belum punya akun? Register" : "Sudah punya akun? Login"}</button>
+
+        {!resetMode && (
+          <button
+            className="linkBtn"
+            type="button"
+            onClick={() => {
+              setMode(mode === "login" ? "register" : "login");
+              setError("");
+              setInfo("");
+            }}
+          >
+            {mode === "login" ? "Belum punya akun? Register" : "Sudah punya akun? Login"}
+          </button>
+        )}
       </section>
     </main>
   );
