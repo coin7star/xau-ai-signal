@@ -1,33 +1,52 @@
-# XAU Rollback After Source Label Object Fix
+# XAU Step 8A Payment Order Pending
 
-Recovery:
-- Rollback dari source label patch yang bikin [object Object].
-- Balik ke versi aman sebelumnya:
-  - web tidak blank
-  - chart/candle normal
-  - admin panel normal
-  - copywriting offline tetap profesional
+Fitur baru:
+- User free bisa pilih paket 7D / 30D di paywall.
+- User klik Konfirmasi Pembayaran.
+- Sistem membuat order pending di Firebase RTDB:
+  /paymentOrders/{orderId}
 
-Yang sementara dibiarkan:
-- Source: Firebase RTDB
-- Badge not-call-signal
+Data order:
+- orderId
+- uid
+- email
+- packageCode
+- packageLabel
+- price
+- status: pending
+- source: paywall
+- createdAt
+- updatedAt
+
+User profile juga diupdate:
+- lastPaymentOrderId
+- lastPaymentPackage
+- lastPaymentPrice
+- lastPaymentStatus
+- lastPaymentCreatedAt
+
+Belum ditambah:
+- Admin Pending Orders section
+- Approve order otomatis
+- Upload bukti pembayaran
 
 Alasan:
-- Dua label ini datang dari render/variable sensitif.
-- Patch otomatis ke status/source beberapa kali memicu [object Object] atau blank.
-- Lebih aman biarkan dulu sampai App.jsx dibedah manual.
+- Step 8A dibuat kecil dan aman.
+- Tidak menyentuh Admin Panel.
+- Tidak menyentuh chart/candle.
+- Tidak menyentuh Telegram/MQ5.
 
-Tidak disentuh:
-- Admin Panel
-- Chart/candle
-- MQ5
-- Telegram logic
-- Firebase logic
+Cara test:
+1. Login akun free.
+2. Pilih paket 7 Day / 30 Day.
+3. Klik Konfirmasi Pembayaran.
+4. Cek Firebase RTDB:
+   paymentOrders/{orderId}
+5. Cek users/{uid}/lastPaymentStatus = pending
 
-Deploy:
-1. Upload ZIP ini.
-2. Deploy Cloudflare.
-3. Tekan Ctrl + Shift + R.
+Cloudflare:
+- package-lock.json tetap dihapus.
+- .npmrc tetap ada.
 
 MQ5:
 - Tidak perlu update.

@@ -1,6 +1,6 @@
 {
-  "name": "xau-ai-signal-rollback-after-source-label-object",
-  "version": "6.2.19-source-label-rollback",
+  "name": "xau-ai-signal-step8a-payment-order-pending",
+  "version": "6.4.0-step8a-payment-order",
   "type": "module",
   "scripts": {
     "dev": "vite",

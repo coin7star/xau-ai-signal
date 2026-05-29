@@ -169,3 +169,38 @@ export function isPremiumProfile(profile) {
 
   return new Date(until).getTime() > Date.now();
 }
+
+
+export async function createPaymentOrder({ user, profile, packageCode, packageLabel, price }) {
+  if (!db) throw new Error("Firebase client ENV belum lengkap.");
+  if (!user?.uid) throw new Error("User belum login.");
+
+  const now = new Date().toISOString();
+  const cleanPackage = String(packageCode || "30D").toUpperCase();
+  const orderId = `${user.uid}_${Date.now()}`;
+
+  const order = {
+    orderId,
+    uid: user.uid,
+    email: user.email || profile?.email || "",
+    packageCode: cleanPackage,
+    packageLabel: packageLabel || (cleanPackage === "7D" ? "7 Day" : "30 Day"),
+    price: price || (cleanPackage === "7D" ? "Rp10K" : "Rp30K"),
+    status: "pending",
+    source: "paywall",
+    createdAt: now,
+    updatedAt: now
+  };
+
+  await set(ref(db, `paymentOrders/${orderId}`), order);
+  await update(ref(db, `users/${user.uid}`), {
+    lastPaymentOrderId: orderId,
+    lastPaymentPackage: order.packageLabel,
+    lastPaymentPrice: order.price,
+    lastPaymentStatus: "pending",
+    lastPaymentCreatedAt: now,
+    updatedAt: now
+  });
+
+  return order;
+}

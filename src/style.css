@@ -2265,3 +2265,21 @@
 canvas {
   max-width: 100%;
 }
+
+
+/* Step 8A Payment Order Pending */
+.paywallOrderStatus {
+  margin-top: 12px;
+  padding: 12px 14px;
+  border-radius: 16px;
+  background: rgba(103, 232, 249, .10);
+  border: 1px solid rgba(103, 232, 249, .18);
+  color: #b9f3ff;
+  font-weight: 900;
+  line-height: 1.5;
+}
+
+.paywallActions button:disabled {
+  cursor: not-allowed;
+  opacity: .72;
+}

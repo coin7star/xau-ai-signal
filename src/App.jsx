@@ -12,7 +12,7 @@ const PACKAGE_30D_PRICE = "Rp30K";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { createChart, ColorType, CrosshairMode } from "lightweight-charts";
 import { Activity, Bot, Copy, Database, Lock, LogOut, Radio, RefreshCcw, Settings, Shield, Sparkles, Target, TrendingDown, TrendingUp, User, Zap } from "lucide-react";
-import { ensureUserProfile, getUserProfile, hasFirebaseClientConfig, isPremiumProfile, listenAuth, loginWithEmail, loginWithGoogle, logout, refreshCurrentUser, registerWithEmail, resetPasswordEmail, sendVerificationEmail } from "./firebaseClient";
+import { createPaymentOrder, ensureUserProfile, getUserProfile, hasFirebaseClientConfig, isPremiumProfile, listenAuth, loginWithEmail, loginWithGoogle, logout, refreshCurrentUser, registerWithEmail, resetPasswordEmail, sendVerificationEmail } from "./firebaseClient";
 
 export default function App() {
   const chartM1Ref = useRef(null);
@@ -2162,6 +2162,8 @@ function VerifyEmailScreen({ user, onLogout, onVerified }) {
 
 function PaywallScreen({ user, profile, onLogout }) {
   const [selectedPackage, setSelectedPackage] = useState("30D");
+  const [paymentOrderStatus, setPaymentOrderStatus] = useState("");
+  const [isSubmittingOrder, setIsSubmittingOrder] = useState(false);
 
   const selectedPackageInfo = selectedPackage === "7D"
     ? { label: "7 Day", price: PACKAGE_7D_PRICE }
@@ -2182,6 +2184,28 @@ function PaywallScreen({ user, profile, onLogout }) {
       alert(activationText);
     }
   }
+
+  async function submitPaymentOrder() {
+    try {
+      setIsSubmittingOrder(true);
+      setPaymentOrderStatus("");
+
+      const order = await createPaymentOrder({
+        user,
+        profile,
+        packageCode: selectedPackage,
+        packageLabel: selectedPackageInfo.label,
+        price: selectedPackageInfo.price
+      });
+
+      setPaymentOrderStatus(`Order pending berhasil dibuat. ID: ${order.orderId}. Kirim bukti pembayaran ke admin agar premium bisa diaktifkan.`);
+    } catch (err) {
+      setPaymentOrderStatus(err?.message || "Gagal membuat order pending.");
+    } finally {
+      setIsSubmittingOrder(false);
+    }
+  }
+
 
   return (
     <main className="page authPage">
@@ -2245,16 +2269,20 @@ function PaywallScreen({ user, profile, onLogout }) {
           <span>Email: {user?.email || "-"}</span>
           <span>UID: {user?.uid || "-"}</span>
           <p>Setelah pembayaran dikonfirmasi, admin akan mengaktifkan premium sesuai paket.</p>
+          {paymentOrderStatus ? <div className="paywallOrderStatus">{paymentOrderStatus}</div> : null}
         </div>
 
         <div className="paywallActions">
           <a href={ADMIN_CONTACT_URL} target="_blank" rel="noreferrer">Hubungi Admin</a>
           <button type="button" onClick={copyActivationInfo}>Copy Info Aktivasi</button>
+          <button type="button" onClick={submitPaymentOrder} disabled={isSubmittingOrder}>
+            {isSubmittingOrder ? "Membuat Order..." : "Konfirmasi Pembayaran"}
+          </button>
           <button type="button" onClick={onLogout}>Logout</button>
         </div>
 
         <p className="miniNote">
-          Pilih paket, hubungi admin, lalu kirim email akun + UID + bukti pembayaran.
+          Pilih paket, buat order pending, lalu kirim bukti pembayaran ke admin.
         </p>
       </section>
     </main>
