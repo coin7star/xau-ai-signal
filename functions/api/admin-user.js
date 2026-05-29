@@ -28,21 +28,12 @@ export async function onRequest({ request, env }) {
     const role = String(body.role || "free").toLowerCase();
     const premiumDays = Number(body.premiumDays || 0);
     const premiumUntil = body.premiumUntil || (premiumDays > 0 ? addDaysIso(premiumDays) : null);
-    const resetDevice = Boolean(body.resetDevice);
     if (!uid) return json({ ok: false, error: "uid wajib diisi" }, 400);
     if (!["free", "premium", "admin"].includes(role)) return json({ ok: false, error: "role harus free, premium, atau admin" }, 400);
     const patch = { role, updatedAt: new Date().toISOString(), status: "active" };
     if (role === "premium") patch.premiumUntil = premiumUntil || addDaysIso(30);
     if (role === "free") patch.premiumUntil = null;
     if (role === "admin") patch.premiumUntil = "2099-12-31T23:59:59.000Z";
-    if (resetDevice) {
-      patch.deviceId = null;
-      patch.deviceName = null;
-      patch.deviceUserAgent = null;
-      patch.deviceBoundAt = null;
-      patch.securityStatus = "device-reset";
-      patch.suspiciousDeviceAt = null;
-    }
     await fbPatch(dbUrl, `/users/${uid}`, patch);
     return json({ ok: true, message: `User ${uid} updated to ${role}`, patch });
   }

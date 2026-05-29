@@ -1,33 +1,31 @@
-# XAU Step 7 Anti-sharing Safe Hotfix
+# XAU Recovery Before Step 7 Stable
 
-Masalah:
-- Step 7 LV1 sebelumnya bikin halaman blank.
-- Penyebab kemungkinan runtime error dari device blocking/render guard.
+Recovery fix:
+- Rollback ke baseline aman sebelum Step 7.
+- Step 7 Anti-sharing sementara ditahan karena masih bikin runtime blank setelah loading.
+- Semua fitur sebelum Step 7 tetap aman.
 
-Fix:
-- Step 7 dibuat non-blocking.
-- Tidak ada Device Blocked Screen dulu.
-- Device tracking tetap jalan.
-- Security warning tetap tampil di dashboard premium.
-- Admin panel bisa lihat device/last login/security.
-- Admin panel punya Reset Device.
-- Jika device mismatch, status menjadi warning, tapi dashboard tetap tampil.
-
-Fitur:
-- Device ID localStorage.
-- lastLoginAt.
-- lastLoginDevice.
-- lastDeviceId.
-- deviceId pertama untuk premium/admin.
-- securityStatus:
-  - device-bound
-  - tracked
-  - device-mismatch-warning
-  - device-reset
+Fitur yang tetap ada:
+- Landing page publik
+- Login/Register
+- Email verification Firebase default
+- Forgot password Firebase default
+- Premium paywall
+- Paywall pilih paket 7 Day / 30 Day
+- Manual payment mode
+- Admin panel
+- Telegram connect
+- Multi-user Telegram alert
+- Performance Analytics 7/30 hari
+- Dashboard premium clean
 
 Catatan:
-- Ini Step 7 Level 1 Safe.
-- Setelah aman, nanti bisa lanjut Level 1.5 untuk block device dengan cara lebih hati-hati.
+- Step 7 nanti dikerjakan ulang pelan-pelan:
+  1. Tambah tracking lastLoginAt saja
+  2. Tambah device display admin
+  3. Tambah warning sharing akun
+  4. Baru tambah device mismatch
+  5. Baru tambah blocking kalau sudah benar-benar aman
 
 Cloudflare:
 - package-lock.json tetap dihapus.

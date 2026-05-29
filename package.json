@@ -1,6 +1,6 @@
 {
-  "name": "xau-ai-signal-step7-anti-sharing-safe-hotfix",
-  "version": "6.2.1",
+  "name": "xau-ai-signal-recovery-before-step7-stable",
+  "version": "6.2.2-recovery",
   "type": "module",
   "scripts": {
     "dev": "vite",

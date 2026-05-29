@@ -12,7 +12,7 @@ const PACKAGE_30D_PRICE = "Rp30K";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { createChart, ColorType, CrosshairMode } from "lightweight-charts";
 import { Activity, Bot, Copy, Database, Lock, LogOut, Radio, RefreshCcw, Settings, Shield, Sparkles, Target, TrendingDown, TrendingUp, User, Zap } from "lucide-react";
-import { ensureUserProfile, getUserProfile, hasFirebaseClientConfig, isPremiumProfile, listenAuth, loginWithEmail, loginWithGoogle, logout, refreshCurrentUser, registerWithEmail, resetPasswordEmail, safeTrackLoginDevice, sendVerificationEmail } from "./firebaseClient";
+import { ensureUserProfile, getUserProfile, hasFirebaseClientConfig, isPremiumProfile, listenAuth, loginWithEmail, loginWithGoogle, logout, refreshCurrentUser, registerWithEmail, resetPasswordEmail, sendVerificationEmail } from "./firebaseClient";
 
 export default function App() {
   const chartM1Ref = useRef(null);
@@ -121,37 +121,7 @@ export default function App() {
 
 
   async function loadTelegramConnectStatus() {
-  
-  useEffect(() => {
-    let cancelled = false;
-
-    async function trackDevice() {
-      if (!authUser?.uid || !profile) return;
-
-      const role = String(profile.role || "free").toLowerCase();
-      if (role !== "premium" && role !== "admin") return;
-
-      const result = await safeTrackLoginDevice(authUser, profile);
-      if (cancelled) return;
-
-      setDeviceSecurity({
-        loading: false,
-        ok: result.ok !== false,
-        securityStatus: result?.patch?.securityStatus || profile.securityStatus || "tracked",
-        deviceName: result?.device?.deviceName || profile.deviceName || profile.lastLoginDevice || "Device aktif",
-        warning: result?.patch?.securityStatus === "device-mismatch-warning"
-      });
-    }
-
-    trackDevice();
-
-    return () => {
-      cancelled = true;
-    };
-  }, [authUser?.uid, profile?.role, profile?.premiumUntil]);
-
-
-  if (!authUser?.uid) return;
+    if (!authUser?.uid) return;
 
     try {
       const res = await fetch(`/api/telegram-connect-code?uid=${encodeURIComponent(authUser.uid)}&ts=${Date.now()}`, {
@@ -666,9 +636,6 @@ export default function App() {
         <p className="scalpWarning">Mode scalp baru pakai struktur M1: buy di last swing low M1 + bullish engulfing, sell di last swing high M1 + bearish engulfing. CALL utama tetap lebih saklek.</p>
       </section>
 
-
-
-      <SecurityNoticeCard profile={profile} deviceSecurity={deviceSecurity} />
 
       <PerformanceAnalyticsPanel
         callHistory={callHistory}
@@ -1578,32 +1545,6 @@ function getRoleStatusLabel(user) {
 
 
 
-
-
-
-function SecurityNoticeCard({ profile, deviceSecurity }) {
-  const role = String(profile?.role || "free").toLowerCase();
-  if (role !== "premium" && role !== "admin") return null;
-
-  const status = deviceSecurity?.warning || profile?.securityStatus === "device-mismatch-warning"
-    ? "Warning"
-    : "Aman";
-
-  return (
-    <section className="securityNoticeCard card">
-      <div>
-        <span className="pill mini">SECURITY PREMIUM</span>
-        <h3>Akses premium dilindungi</h3>
-        <p>Akses premium hanya untuk 1 pengguna. Hindari sharing akun agar akses tidak dibekukan.</p>
-      </div>
-
-      <div className="securityDeviceBox">
-        <b>{deviceSecurity?.deviceName || profile?.deviceName || profile?.lastLoginDevice || "Device aktif"}</b>
-        <span>Status: {status}</span>
-      </div>
-    </section>
-  );
-}
 
 
 function PerformanceAnalyticsPanel({ callHistory, scalpHistory, isAdmin }) {

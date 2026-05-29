@@ -104,80 +104,6 @@ export async function refreshCurrentUser() {
   return auth.currentUser;
 }
 
-
-function safeGetLocalDeviceId() {
-  try {
-    const key = "xau_ai_device_id";
-    let deviceId = localStorage.getItem(key);
-
-    if (!deviceId) {
-      const randomPart = crypto?.randomUUID?.() || `${Date.now()}-${Math.random().toString(16).slice(2)}`;
-      deviceId = `dev_${randomPart}`;
-      localStorage.setItem(key, deviceId);
-    }
-
-    return deviceId;
-  } catch {
-    return `dev_fallback_${Date.now()}`;
-  }
-}
-
-function safeGetDeviceName() {
-  try {
-    const ua = navigator.userAgent || "";
-    if (/Android/i.test(ua)) return "Android Browser";
-    if (/iPhone|iPad|iPod/i.test(ua)) return "iOS Browser";
-    if (/Windows/i.test(ua)) return "Windows Browser";
-    if (/Mac/i.test(ua)) return "Mac Browser";
-    if (/Linux/i.test(ua)) return "Linux Browser";
-    return "Unknown Device";
-  } catch {
-    return "Unknown Device";
-  }
-}
-
-export function getCurrentDeviceInfo() {
-  return {
-    deviceId: safeGetLocalDeviceId(),
-    deviceName: safeGetDeviceName(),
-    userAgent: typeof navigator !== "undefined" ? navigator.userAgent || "" : "",
-    updatedAt: new Date().toISOString()
-  };
-}
-
-export async function safeTrackLoginDevice(user, profile = {}) {
-  if (!db || !user?.uid) return { ok: true, skipped: true };
-
-  try {
-    const device = getCurrentDeviceInfo();
-    const role = String(profile?.role || "free").toLowerCase();
-
-    const patch = {
-      lastLoginAt: new Date().toISOString(),
-      lastLoginDevice: device.deviceName,
-      lastDeviceId: device.deviceId,
-      securityStatus: "tracked"
-    };
-
-    if ((role === "premium" || role === "admin") && !profile?.deviceId) {
-      patch.deviceId = device.deviceId;
-      patch.deviceName = device.deviceName;
-      patch.deviceUserAgent = device.userAgent;
-      patch.deviceBoundAt = new Date().toISOString();
-      patch.securityStatus = "device-bound";
-    } else if ((role === "premium" || role === "admin") && profile?.deviceId && profile.deviceId !== device.deviceId) {
-      patch.suspiciousDeviceAt = new Date().toISOString();
-      patch.securityStatus = "device-mismatch-warning";
-    }
-
-    await update(ref(db, `users/${user.uid}`), patch);
-    return { ok: true, device, patch };
-  } catch (err) {
-    return { ok: false, error: err.message || String(err) };
-  }
-}
-
-
 export async function ensureUserProfile(user) {
   if (!db || !user) return null;
 
@@ -206,16 +132,12 @@ export async function ensureUserProfile(user) {
 
   const current = snapshot.val() || {};
 
-  const device = getCurrentDeviceInfo();
-
   const patch = {
     email: user.email || current.email || "",
     displayName: user.displayName || current.displayName || "",
     photoURL: user.photoURL || current.photoURL || "",
     emailVerified: Boolean(user.emailVerified),
     lastLoginAt: new Date().toISOString(),
-    lastLoginDevice: device.deviceName,
-    lastDeviceId: device.deviceId,
     updatedAt: new Date().toISOString()
   };
 
