@@ -48,6 +48,26 @@ export async function onRequest({ request, env }) {
   const order = await fbGet(dbUrl, `/paymentOrders/${orderId}`);
   if (!order) return json({ ok: false, error: "Order tidak ditemukan" }, 404);
 
+
+  if (action === "savenote" || action === "save_note") {
+    const adminNote = safeText(body.adminNote || body.note || "", "").slice(0, 500);
+    const now = new Date().toISOString();
+
+    const notePatch = {
+      adminNote,
+      adminNoteUpdatedAt: now,
+      updatedAt: now
+    };
+
+    await fbPatch(dbUrl, `/paymentOrders/${orderId}`, notePatch);
+
+    return json({
+      ok: true,
+      order: { ...order, ...notePatch },
+      message: "Catatan order berhasil disimpan"
+    });
+  }
+
   if (action === "reject") {
     const patch = {
       status: "rejected",

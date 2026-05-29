@@ -1879,9 +1879,42 @@ function normalizeOrderForUi(order) {
     price: safeOrderText(safe.price),
     status: safeOrderText(safe.status || "pending").toLowerCase(),
     createdAt: safeOrderText(safe.createdAt),
-    premiumUntil: safeOrderText(safe.premiumUntil, "")
+    premiumUntil: safeOrderText(safe.premiumUntil, ""),
+    adminNote: safeOrderText(safe.adminNote, ""),
+    adminNoteUpdatedAt: safeOrderText(safe.adminNoteUpdatedAt, "")
   };
 }
+
+
+function AdminOrderNoteBox({ order, onSave }) {
+  const [note, setNote] = useState(order.adminNote || "");
+
+  useEffect(() => {
+    setNote(order.adminNote || "");
+  }, [order.orderId, order.adminNote]);
+
+  return (
+    <div className="adminOrderNoteBox">
+      <label>Catatan Admin</label>
+      <textarea
+        value={note}
+        maxLength={500}
+        placeholder="Contoh: Transfer DANA 30K sudah masuk, approve manual."
+        onChange={(event) => setNote(event.target.value)}
+      />
+      <div className="adminOrderNoteFooter">
+        <small>{note.length}/500</small>
+        <button type="button" onClick={() => onSave(order, note)}>
+          Save Note
+        </button>
+      </div>
+      {order.adminNoteUpdatedAt ? (
+        <small className="adminOrderNoteUpdated">Updated: {safeOrderDate(order.adminNoteUpdatedAt)}</small>
+      ) : null}
+    </div>
+  );
+}
+
 
 function AdminOrdersPanel({ adminToken }) {
   const [orders, setOrders] = useState([]);
@@ -1972,6 +2005,53 @@ function AdminOrdersPanel({ adminToken }) {
       await loadOrders();
     } catch (err) {
       setOrderMessage(safeOrderText(err?.message, "Gagal update order."));
+    }
+  }
+
+
+  async function saveOrderNote(order, note) {
+    if (!adminToken) {
+      setOrderMessage("Isi admin token dulu.");
+      return;
+    }
+
+    try {
+      setOrderMessage("Menyimpan catatan order...");
+
+      const res = await fetch("/api/admin-orders", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${adminToken}`
+        },
+        body: JSON.stringify({
+          action: "saveNote",
+          orderId: order.orderId,
+          adminNote: note
+        })
+      });
+
+      const data = await res.json().catch(() => ({}));
+
+      if (!res.ok || !data.ok) {
+        throw new Error(safeOrderText(data.error, "Gagal menyimpan catatan."));
+      }
+
+      setOrders((current) => current.map((item) => {
+        const safeItem = normalizeOrderForUi(item);
+        if (safeItem.orderId !== order.orderId) return item;
+
+        return {
+          ...item,
+          adminNote: note,
+          adminNoteUpdatedAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString()
+        };
+      }));
+
+      setOrderMessage("Catatan order berhasil disimpan.");
+    } catch (err) {
+      setOrderMessage(safeOrderText(err?.message, "Gagal menyimpan catatan."));
     }
   }
 
@@ -2067,6 +2147,8 @@ function AdminOrdersPanel({ adminToken }) {
                 <small>{order.premiumUntil ? `Premium: ${safeOrderDate(order.premiumUntil)}` : "Processed"}</small>
               )}
             </div>
+
+            <AdminOrderNoteBox order={order} onSave={saveOrderNote} />
           </article>
         )) : (
           <div className="adminOrdersEmpty">

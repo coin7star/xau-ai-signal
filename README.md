@@ -1,34 +1,43 @@
-# XAU Rollback UI-1 Tabs Blank to Step 8J
+# XAU Step 8K Admin Order Note
 
-Recovery:
-- Rollback dari UI-1 Premium Dashboard Tabs yang bikin blank setelah loading.
-- Balik ke Step 8J User Payment History yang sebelumnya work.
+Fitur baru:
+- Admin bisa menambahkan catatan internal pada setiap payment order.
+- Catatan tersimpan di:
+  paymentOrders/{orderId}/adminNote
+  paymentOrders/{orderId}/adminNoteUpdatedAt
+- Tombol Save Note ada di setiap order row.
+- Maksimal catatan 500 karakter.
 
-Fitur yang tetap ada:
-- Step 8A Payment Order Pending
-- Step 8B Admin Pending Orders
-- Step 8D Telegram Admin Order Notify
-- Step 8E Anti-Spam Payment Order
-- Step 8F Pending Orders Pagination
-- Step 8G User Telegram Order Status
-- Step 8H Optional Email Notify
-- Step 8I Order Filter Admin
-- Step 8J User Payment History
-- Chart/candle normal
-- Admin Panel normal
+Endpoint:
+- POST /api/admin-orders
+  action: saveNote
+  orderId
+  adminNote
 
-Yang ditahan:
-- Premium dashboard tabs/navbar
-- Move Payment History to Payments tab
-- UI split dashboard
+Kegunaan:
+- Catatan bukti transfer.
+- Nama pengirim.
+- Metode pembayaran.
+- Alasan reject.
+- Audit manual payment.
 
-Catatan:
-- UI tabs menyentuh area dashboard utama dan menyebabkan runtime blank.
-- Kalau mau lanjut tab, harus rombak manual lebih hati-hati atau bikin tab CSS-only di section terpisah.
+Tidak disentuh:
+- Admin row Manage user.
+- Chart/candle.
+- MQ5.
+- Approve/reject logic tetap sama.
+- Order filter/pagination tetap sama.
+- Payment history user tetap sama.
 
-Cloudflare:
-- package-lock.json tetap dihapus.
-- .npmrc tetap ada.
+Cara test:
+1. Login admin.
+2. Buka Admin Panel.
+3. Isi Admin Token.
+4. Refresh Orders.
+5. Isi Catatan Admin di salah satu order.
+6. Klik Save Note.
+7. Cek Firebase:
+   paymentOrders/{orderId}/adminNote
 
 MQ5:
 - Tidak perlu update.

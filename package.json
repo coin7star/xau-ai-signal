@@ -1,6 +1,6 @@
 {
-  "name": "xau-ai-signal-rollback-ui1-tabs-to-step8j",
-  "version": "6.6.1-rollback-ui1-tabs",
+  "name": "xau-ai-signal-step8k-admin-order-note",
+  "version": "6.5.3-step8k-admin-order-note",
   "type": "module",
   "scripts": {
     "dev": "vite",

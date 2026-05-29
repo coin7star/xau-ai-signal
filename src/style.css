@@ -2672,3 +2672,73 @@ canvas {
     grid-template-columns: 1fr;
   }
 }
+
+
+/* Step 8K Admin Order Note */
+.adminOrderNoteBox {
+  grid-column: 1 / -1;
+  margin-top: 4px;
+  padding: 12px;
+  border-radius: 16px;
+  background: rgba(0,0,0,.16);
+  border: 1px solid rgba(255,255,255,.08);
+}
+
+.adminOrderNoteBox label {
+  display: block;
+  margin-bottom: 8px;
+  color: #cbd6f3;
+  font-size: 11px;
+  font-weight: 1000;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+}
+
+.adminOrderNoteBox textarea {
+  width: 100%;
+  min-height: 72px;
+  resize: vertical;
+  border: 1px solid rgba(255,255,255,.10);
+  outline: none;
+  border-radius: 14px;
+  padding: 11px 12px;
+  color: #f8fbff;
+  background: rgba(6,10,24,.72);
+  font-weight: 800;
+  line-height: 1.5;
+}
+
+.adminOrderNoteBox textarea:focus {
+  border-color: rgba(103,232,249,.45);
+  box-shadow: 0 0 0 3px rgba(103,232,249,.10);
+}
+
+.adminOrderNoteFooter {
+  margin-top: 9px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.adminOrderNoteFooter small,
+.adminOrderNoteUpdated {
+  color: #8fa2c7;
+  font-size: 11px;
+  font-weight: 800;
+}
+
+.adminOrderNoteFooter button {
+  border: 0;
+  border-radius: 13px;
+  padding: 9px 12px;
+  font-weight: 1000;
+  cursor: pointer;
+  color: #06111f;
+  background: linear-gradient(135deg, #67e8f9, #d8b4fe);
+}
+
+.adminOrderNoteUpdated {
+  display: block;
+  margin-top: 8px;
+}
