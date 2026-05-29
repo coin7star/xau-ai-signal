@@ -1324,3 +1324,76 @@
     gap: 22px;
   }
 }
+
+
+/* Force compact ticker */
+.dataTickerBar {
+  width: 100%;
+  min-height: 36px;
+  margin: 0 0 16px;
+  border-radius: 999px;
+  overflow: hidden;
+  border: 1px solid rgba(103,232,249,.18);
+  background: linear-gradient(135deg, rgba(15,23,42,.72), rgba(8,47,73,.50));
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.06);
+}
+
+.tickerTrack {
+  min-height: 36px;
+  display: flex;
+  align-items: center;
+  gap: 28px;
+  width: max-content;
+  padding: 0 18px;
+  color: #a8b5d8;
+  font-weight: 900;
+  white-space: nowrap;
+  animation: tickerMove 36s linear infinite;
+}
+
+.tickerTrack span {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+}
+
+.tickerTrack svg {
+  color: #67e8f9;
+}
+
+.tickerTrack b {
+  color: #f8fbff;
+}
+
+.dataTickerBar:hover .tickerTrack {
+  animation-play-state: paused;
+}
+
+@keyframes tickerMove {
+  0% { transform: translateX(8%); }
+  100% { transform: translateX(-55%); }
+}
+
+/* Safety: hide old data-source card by known structure/classes */
+.sourceGrid,
+.dataSourceGrid,
+.marketSourceGrid {
+  display: none !important;
+}
+
+/* Fallback: any card directly containing the old 4-column source style should be hidden if class still sourceGrid-like */
+section.card.sourceGrid,
+section.card.dataSourceGrid {
+  display: none !important;
+}
+
+@media(max-width: 720px) {
+  .dataTickerBar {
+    border-radius: 18px;
+  }
+
+  .tickerTrack {
+    animation-duration: 25s;
+    gap: 22px;
+  }
+}

@@ -1,26 +1,29 @@
-# XAU Compact Data Source Ticker Full Fix
+# XAU Force Hide Source Card + Ticker Fix
 
-Update:
-- Card besar Data Source / M1 Candle / M15 Candle / Last Close diganti jadi ticker kecil.
-- Ticker tampil di bagian atas dashboard.
-- Info tetap ada:
-  - Firebase RTDB
-  - M1 Candle count
-  - M15 Candle count
-  - Last Close
-  - MT5 status
-- Old sourceGrid disembunyikan agar dashboard lebih clean.
-- Ticker bergerak pelan dan pause saat hover.
+Masalah:
+- Data Source card besar masih muncul di akun premium.
+- Penyebab: class card aktif tidak kena selector hide sebelumnya.
+
+Fix:
+- Ticker compact dipasang tepat setelah navbar/header.
+- Section lama yang berisi:
+  Data source / Firebase RTDB / M1 Candle / M15 Candle
+  dibungkus khusus admin:
+  isAdmin && (...)
+- Jadi premium user tidak melihat card besar.
+- Admin masih bisa melihat card lama kalau perlu debug.
+- CSS safety tetap hide class lama sourceGrid/dataSourceGrid jika ada.
 
 Cloudflare:
 - package-lock.json tetap dihapus.
-- .npmrc tetap ada agar tidak kembali ke npm clean-install.
+- .npmrc tetap ada.
 
-File berubah:
-- src/App.jsx
-- src/style.css
-- package.json
-- .npmrc
+Cara pakai:
+1. Upload replace semua ke GitHub.
+2. Pastikan package-lock.json tidak ada.
+3. Commit.
+4. Deploy.
+5. Hard refresh browser / close-open Telegram Mini App.
 
 MQ5:
 - Tidak perlu update.

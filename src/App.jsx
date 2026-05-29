@@ -489,6 +489,17 @@ export default function App() {
         </div>
       </header>
 
+      <div className="dataTickerBar">
+        <div className="tickerTrack">
+          <span><Database size={14} /> Source: <b>Firebase RTDB</b></span>
+          <span><Activity size={14} /> M1: <b>{tvM1.length} candles</b></span>
+          <span><Shield size={14} /> M15: <b>{tvM15.length} candles</b></span>
+          <span><TrendingUp size={14} /> Last Close: <b>{lastClose || "-"}</b></span>
+          <span><Radio size={14} /> MT5: <b>{mt5Status.label}</b></span>
+        </div>
+      </div>
+
+
       {!isAdmin && (
         <section className="premiumSystemCard card">
           <div>
@@ -560,12 +571,14 @@ export default function App() {
       </section>
       )}
 
-      <section className="overview card">
+      {isAdmin && (
+<section className="overview card">
         <div className="overviewItem"><Database size={18} /><small>Data source</small><strong>Firebase RTDB</strong></div>
         <div className="overviewItem"><Activity size={18} /><small>M1 Candle</small><strong>{candlesM1.length || market?.m1Count || 0} data</strong></div>
         <div className="overviewItem"><Shield size={18} /><small>M15 Candle</small><strong>{candlesM15.length || market?.m15Count || 0} data</strong></div>
         <div className="overviewItem">{isSell ? <TrendingDown size={18} /> : <TrendingUp size={18} />}<small>Last close</small><strong>{lastCandle?.close || "-"}</strong></div>
       </section>
+      )}
 
       {isAdmin && (
 <section className="aiPanel card">

@@ -1,6 +1,6 @@
 {
-  "name": "xau-ai-signal-compact-data-source-ticker",
-  "version": "5.7.0",
+  "name": "xau-ai-signal-force-hide-source-card-ticker",
+  "version": "5.7.1",
   "type": "module",
   "scripts": {
     "dev": "vite",
