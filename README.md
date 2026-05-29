@@ -1,37 +1,40 @@
-# XAU Admin Stable Stop Step 7 Experiment
+# XAU Clean Rollback Before Step 7 Admin Fix
 
-Recovery:
-- Rollback dari Step 7C Login Activity Card yang bikin Admin Panel blank.
-- Kembali ke versi Admin Panel stable.
-- Stop dulu semua eksperimen Step 7 yang menyentuh Admin Panel.
+Tujuan:
+- Clean rollback total dari baseline aman sebelum eksperimen Step 7.
+- Menghapus risiko blank saat klik Admin Panel.
+- Tidak membawa Login Activity, Device Info, Device Lock, atau patch Admin Panel Step 7.
 
-Status:
-- Admin Panel normal.
-- Fitur sebelum Step 7 tetap aman.
-- lastLoginAt masih boleh tersimpan dari Step 7A jika code baseline memilikinya.
-- Tampilan Last Login / Login Activity ditunda.
-
-Fitur aman:
-- Landing page
+Fitur yang tetap ada:
+- Landing page publik
 - Login/Register
+- Firebase default email verification
 - Forgot password Firebase default
-- Paywall pilih paket
+- Paywall pilih paket 7 Day / 30 Day
 - Manual payment
-- Admin Panel
+- Admin Panel stable
 - Telegram connect
-- Multi-user alert
+- Multi-user Telegram alert
 - Performance Analytics 7/30 hari
+- Dashboard premium clean
 
-Catatan next:
-- Jangan patch Admin Panel lagi sampai struktur App.jsx dibedah manual.
-- Kalau mau lanjut Step 7, lakukan non-UI dulu:
-  1. simpan lastLoginAt di database
-  2. cek langsung di RTDB
-  3. baru nanti bikin halaman admin baru terpisah, bukan masuk ke Admin Panel lama
+Yang tidak ada:
+- Step 7 device tracking
+- Login Activity card
+- Device lock/block
+- Patch visual Admin Panel
+- Custom branded email Resend
+
+Catatan penting:
+- Setelah deploy, lakukan hard refresh browser:
+  Ctrl + Shift + R
+- Jika masih blank, buka DevTools Console dan kirim error merahnya, karena berarti browser masih load bundle lama atau ada error lain.
 
 Cloudflare:
 - package-lock.json tetap dihapus.
 - .npmrc tetap ada.
+- Build command: npm run build
+- Output directory: dist
 
 MQ5:
 - Tidak perlu update.

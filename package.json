@@ -1,6 +1,6 @@
 {
-  "name": "xau-ai-signal-admin-stable-stop-step7-experiment",
-  "version": "6.3.1-admin-stable-stop-step7",
+  "name": "xau-ai-signal-clean-rollback-before-step7-admin-fix",
+  "version": "6.1.9-clean-admin-rollback",
   "type": "module",
   "scripts": {
     "dev": "vite",
