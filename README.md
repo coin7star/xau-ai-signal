@@ -1,22 +1,25 @@
-# XAU Paywall Package Selection Full Fix
+# XAU Paywall Package Selection Safe Hotfix
 
-Update:
-- Paywall FREE user sekarang punya pilihan paket:
+Masalah:
+- Patch sebelumnya bikin blank di akun FREE/paywall.
+- Penyebab:
+  PaywallScreen memakai authUser/authProfile yang tidak ada di scope function.
+  Yang benar adalah props user/profile.
+
+Fix:
+- Dibuat ulang dari versi stable:
+  xau-manual-payment-no-duplicate-polish.zip
+- Paywall punya pilihan paket:
   - 7 Day = Rp10K
   - 30 Day = Rp30K
-- User pilih paket sebelum klik Hubungi Admin.
-- Tombol Hubungi Admin membawa pesan berisi:
-  - Paket dipilih
-  - Harga
-  - Email user
-  - UID user
-- Instruksi paywall lebih nyambung dengan landing page.
-- Teks endpoint internal /api/admin-user dihapus dari tampilan user.
-
-Catatan:
-- Link ADMIN_CONTACT_URL sekarang ditambah ?text=...
-- Untuk Telegram bot link normal bisa saja text parameter tidak selalu otomatis masuk tergantung client.
-- Kalau mau lebih cocok untuk WhatsApp nanti ganti ADMIN_CONTACT_URL ke format wa.me.
+- Tidak pakai authUser/authProfile.
+- Pakai user/profile props yang valid.
+- Tombol:
+  - Hubungi Admin
+  - Copy Info Aktivasi
+  - Logout
+- Teks endpoint internal tidak muncul.
+- Build sudah dites.
 
 Cloudflare:
 - package-lock.json tetap dihapus.

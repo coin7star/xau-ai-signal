@@ -1201,7 +1201,7 @@ function AdminPanel({ adminToken, setAdminToken }) {
     setMessage("");
 
     try {
-      const res = await fetch(`?token=${encodeURIComponent(adminToken)}&ts=${Date.now()}`, {
+      const res = await fetch(`/api/admin-user?token=${encodeURIComponent(adminToken)}&ts=${Date.now()}`, {
         cache: "no-store"
       });
       const json = await res.json();
@@ -1235,7 +1235,7 @@ function AdminPanel({ adminToken, setAdminToken }) {
       if (premiumDays > 0) body.premiumDays = premiumDays;
       if (premiumUntil) body.premiumUntil = premiumUntil;
 
-      const res = await fetch("", {
+      const res = await fetch("/api/admin-user", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -1740,7 +1740,7 @@ function LandingPage({ onLogin }) {
           <a href="#pricing">Paket</a>
           <a href="#faq">FAQ</a>
           <div className="landingFooterActions">
-          <a href={adminContactWithPackage} target="_blank" rel="noreferrer">Hubungi Admin</a>
+          <a href={ADMIN_CONTACT_URL} target="_blank" rel="noreferrer">Hubungi Admin</a>
           <button type="button" onClick={onLogin}>Login / Register</button>
         </div>
         </div>
@@ -2067,15 +2067,26 @@ function VerifyEmailScreen({ user, onLogout, onVerified }) {
 
 function PaywallScreen({ user, profile, onLogout }) {
   const [selectedPackage, setSelectedPackage] = useState("30D");
+
   const selectedPackageInfo = selectedPackage === "7D"
-    ? { label: "7 Day", price: PACKAGE_7D_PRICE, days: "7 hari" }
-    : { label: "30 Day", price: PACKAGE_30D_PRICE, days: "30 hari" };
+    ? { label: "7 Day", price: PACKAGE_7D_PRICE }
+    : { label: "30 Day", price: PACKAGE_30D_PRICE };
 
-  const adminMessage = encodeURIComponent(
-    `Halo admin, saya ingin aktivasi premium XAU AI Signal paket ${selectedPackageInfo.label} (${selectedPackageInfo.price}). Email: ${authUser?.email || authProfile?.email || "-"} UID: ${authUser?.uid || authProfile?.uid || "-"}`
-  );
+  const activationText = [
+    `Halo admin, saya ingin aktivasi premium XAU AI Signal.`,
+    `Paket: ${selectedPackageInfo.label} (${selectedPackageInfo.price})`,
+    `Email: ${user?.email || profile?.email || "-"}`,
+    `UID: ${user?.uid || profile?.uid || "-"}`
+  ].join("\\n");
 
-  const adminContactWithPackage = `${ADMIN_CONTACT_URL}?text=${adminMessage}`;
+  async function copyActivationInfo() {
+    try {
+      await navigator.clipboard.writeText(activationText);
+      alert("Info aktivasi berhasil dicopy. Kirim ke admin bersama bukti pembayaran.");
+    } catch {
+      alert(activationText);
+    }
+  }
 
   return (
     <main className="page authPage">
@@ -2084,15 +2095,17 @@ function PaywallScreen({ user, profile, onLogout }) {
         <span className="pill mini"><Shield size={14} /> FREE ACCOUNT</span>
         <h1>Upgrade ke Premium</h1>
         <p>Akun kamu sudah login. Aktifkan premium untuk membuka dashboard signal.</p>
+
         <div className="paywallUser">
           <b>{user?.email}</b>
           <span>UID: {user?.uid}</span>
           <span>Role: {(profile?.role || "free").toUpperCase()}</span>
           <span>Premium until: {profile?.premiumUntil || "-"}</span>
         </div>
-        
+
         <div className="paywallPackageBox">
           <b>Pilih Paket Premium</b>
+
           <div className="paywallPackageGrid">
             <button
               type="button"
@@ -2117,27 +2130,42 @@ function PaywallScreen({ user, profile, onLogout }) {
 
           <p>
             Paket dipilih: <b>{selectedPackageInfo.label}</b> · {selectedPackageInfo.price}.
-            Kirim UID dan bukti bayar ke admin untuk aktivasi.
+            Copy info aktivasi lalu kirim ke admin bersama bukti pembayaran.
           </p>
         </div>
 
-<div className="premiumFeatures">
+        <div className="premiumFeatures">
           <b>Premium unlock:</b>
           <span>✅ Live dashboard XAU AI</span>
           <span>✅ MAIN CALL Alert</span>
           <span>✅ M1 Scalp Radar</span>
           <span>✅ Fresh OB M15</span>
           <span>✅ CALL & SCALP History</span>
+          <span>✅ Performance Analytics 7/30 Hari</span>
         </div>
+
+        <div className="paywallPaymentBox">
+          <b>Info Aktivasi</b>
+          <span>Paket: {selectedPackageInfo.label} · {selectedPackageInfo.price}</span>
+          <span>Email: {user?.email || "-"}</span>
+          <span>UID: {user?.uid || "-"}</span>
+          <p>Setelah pembayaran dikonfirmasi, admin akan mengaktifkan premium sesuai paket.</p>
+        </div>
+
         <div className="paywallActions">
-          <a href="https://t.me/" target="_blank" rel="noreferrer">Hubungi Admin</a>
+          <a href={ADMIN_CONTACT_URL} target="_blank" rel="noreferrer">Hubungi Admin</a>
+          <button type="button" onClick={copyActivationInfo}>Copy Info Aktivasi</button>
           <button type="button" onClick={onLogout}>Logout</button>
         </div>
-        <p className="miniNote">Hubungi admin untuk aktivasi premium. <code>UID: {user?.uid}</code> Aktivasi diproses manual setelah pembayaran.</p>
+
+        <p className="miniNote">
+          Pilih paket, hubungi admin, lalu kirim email akun + UID + bukti pembayaran.
+        </p>
       </section>
     </main>
   );
 }
+
 
 function cleanAuthError(err) {
   const message = String(err?.message || err || "Login gagal");

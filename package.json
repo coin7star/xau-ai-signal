@@ -1,6 +1,6 @@
 {
-  "name": "xau-ai-signal-paywall-package-selection",
-  "version": "6.0.2",
+  "name": "xau-ai-signal-paywall-package-selection-safe-hotfix",
+  "version": "6.0.3",
   "type": "module",
   "scripts": {
     "dev": "vite",
