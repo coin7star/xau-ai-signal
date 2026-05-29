@@ -2491,3 +2491,32 @@ canvas {
   font-weight: 1000;
   font-size: 13px;
 }
+
+
+/* Step 8I Order Filter */
+.adminOrdersFilter {
+  margin: 0 0 14px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.adminOrdersFilter button {
+  border: 1px solid rgba(255,255,255,.10);
+  border-radius: 999px;
+  padding: 9px 12px;
+  color: #cbd6f3;
+  background: rgba(255,255,255,.055);
+  font-weight: 1000;
+  cursor: pointer;
+}
+
+.adminOrdersFilter button.active {
+  color: #06111f;
+  background: linear-gradient(135deg, #ffe879, #19f28f);
+  border-color: transparent;
+}
+
+.adminOrdersFilter button:hover {
+  transform: translateY(-1px);
+}

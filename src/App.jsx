@@ -1770,6 +1770,7 @@ function normalizeOrderForUi(order) {
 function AdminOrdersPanel({ adminToken }) {
   const [orders, setOrders] = useState([]);
   const [ordersPage, setOrdersPage] = useState(1);
+  const [orderFilter, setOrderFilter] = useState("pending");
   const [loadingOrders, setLoadingOrders] = useState(false);
   const [orderMessage, setOrderMessage] = useState("");
 
@@ -1860,10 +1861,16 @@ function AdminOrdersPanel({ adminToken }) {
 
   const safeOrders = Array.isArray(orders) ? orders.map(normalizeOrderForUi) : [];
   const pendingOrders = safeOrders.filter((order) => order.status === "pending");
+  const approvedOrders = safeOrders.filter((order) => order.status === "approved");
+  const rejectedOrders = safeOrders.filter((order) => order.status === "rejected");
+  const filteredOrders = orderFilter === "all"
+    ? safeOrders
+    : safeOrders.filter((order) => order.status === orderFilter);
+
   const ordersPerPage = 6;
-  const totalOrderPages = Math.max(1, Math.ceil(safeOrders.length / ordersPerPage));
+  const totalOrderPages = Math.max(1, Math.ceil(filteredOrders.length / ordersPerPage));
   const currentOrdersPage = Math.min(Math.max(ordersPage, 1), totalOrderPages);
-  const recentOrders = safeOrders.slice(
+  const recentOrders = filteredOrders.slice(
     (currentOrdersPage - 1) * ordersPerPage,
     currentOrdersPage * ordersPerPage
   );
@@ -1884,8 +1891,32 @@ function AdminOrdersPanel({ adminToken }) {
 
       <div className="adminOrdersStats">
         <span>Pending <b>{pendingOrders.length}</b></span>
+        <span>Approved <b>{approvedOrders.length}</b></span>
+        <span>Rejected <b>{rejectedOrders.length}</b></span>
         <span>Total <b>{safeOrders.length}</b></span>
       </div>
+
+      <div className="adminOrdersFilter">
+        {[
+          ["pending", "Pending"],
+          ["approved", "Approved"],
+          ["rejected", "Rejected"],
+          ["all", "All"]
+        ].map(([value, label]) => (
+          <button
+            key={value}
+            type="button"
+            className={orderFilter === value ? "active" : ""}
+            onClick={() => {
+              setOrderFilter(value);
+              setOrdersPage(1);
+            }}
+          >
+            {label}
+          </button>
+        ))}
+      </div>
+
 
       {orderMessage ? <div className="adminOrdersMessage">{safeOrderText(orderMessage)}</div> : null}
 
@@ -1923,12 +1954,12 @@ function AdminOrdersPanel({ adminToken }) {
           </article>
         )) : (
           <div className="adminOrdersEmpty">
-            Belum ada order. Klik Refresh Orders setelah user membuat order pending.
+            Belum ada order untuk filter ini. Klik Refresh Orders untuk memuat data terbaru.
           </div>
         )}
       </div>
 
-      {safeOrders.length > ordersPerPage ? (
+      {filteredOrders.length > ordersPerPage ? (
         <div className="adminOrdersPager">
           <button
             type="button"
