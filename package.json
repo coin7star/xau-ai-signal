@@ -1,6 +1,6 @@
 {
-  "name": "xau-ai-signal-recovery-before-step7-stable",
-  "version": "6.2.2-recovery",
+  "name": "xau-ai-signal-step7a-last-login-only",
+  "version": "6.2.3-last-login-only",
   "type": "module",
   "scripts": {
     "dev": "vite",

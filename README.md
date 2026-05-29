@@ -1,31 +1,31 @@
-# XAU Recovery Before Step 7 Stable
+# XAU Step 7A Last Login Only
 
-Recovery fix:
-- Rollback ke baseline aman sebelum Step 7.
-- Step 7 Anti-sharing sementara ditahan karena masih bikin runtime blank setelah loading.
-- Semua fitur sebelum Step 7 tetap aman.
+Update kecil dan aman:
+- Tambah/update lastLoginAt saat user login.
+- Admin Panel menampilkan Last login di setiap user.
+- Tidak ada device lock.
+- Tidak ada anti-sharing block.
+- Tidak ada render guard baru.
+- Tidak ada perubahan dashboard premium yang berisiko blank.
 
-Fitur yang tetap ada:
-- Landing page publik
-- Login/Register
-- Email verification Firebase default
-- Forgot password Firebase default
-- Premium paywall
-- Paywall pilih paket 7 Day / 30 Day
-- Manual payment mode
+Cara kerja:
+1. User login.
+2. ensureUserProfile update users/{uid}/lastLoginAt.
+3. Admin panel bisa lihat Last login.
+
+Tujuan:
+- Fondasi awal Step 7 Security Premium.
+- Dikerjakan kecil dulu untuk menghindari blank/runtime error.
+
+Fitur lain tetap:
+- Landing page
+- Paywall pilih paket
+- Manual payment
 - Admin panel
 - Telegram connect
-- Multi-user Telegram alert
-- Performance Analytics 7/30 hari
-- Dashboard premium clean
-
-Catatan:
-- Step 7 nanti dikerjakan ulang pelan-pelan:
-  1. Tambah tracking lastLoginAt saja
-  2. Tambah device display admin
-  3. Tambah warning sharing akun
-  4. Baru tambah device mismatch
-  5. Baru tambah blocking kalau sudah benar-benar aman
+- Multi-user alert
+- Performance analytics
+- Forgot password Firebase default
 
 Cloudflare:
 - package-lock.json tetap dihapus.
