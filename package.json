@@ -1,6 +1,6 @@
 {
-  "name": "xau-ai-signal-step8g-user-telegram-order-status",
-  "version": "6.4.8-step8g-user-telegram-order-status",
+  "name": "xau-ai-signal-step8h-optional-email-order-notify",
+  "version": "6.5.0-step8h-optional-email-notify",
   "type": "module",
   "scripts": {
     "dev": "vite",

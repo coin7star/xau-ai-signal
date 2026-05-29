@@ -1836,13 +1836,22 @@ function AdminOrdersPanel({ adminToken }) {
         throw new Error(safeOrderText(data.error, "Gagal update order."));
       }
 
+      const notifyReason = data.telegramNotify?.reason || "";
       const notifyText = data.telegramNotify?.ok
         ? " Notif Telegram user terkirim."
         : data.telegramNotify?.skipped
-          ? " User belum connect Telegram."
+          ? notifyReason === "telegram-bot-token-missing"
+            ? " Bot token Telegram belum tersedia."
+            : " User belum connect Telegram / chat ID tidak ditemukan."
           : " Notif Telegram user tidak terkirim.";
 
-      setOrderMessage((action === "approve" ? "Order approved dan premium aktif." : "Order ditolak.") + notifyText);
+      const emailText = data.emailNotify?.ok
+        ? " Email user terkirim."
+        : data.emailNotify?.skipped
+          ? " Email approval belum aktif."
+          : " Email user tidak terkirim.";
+
+      setOrderMessage((action === "approve" ? "Order approved dan premium aktif." : "Order ditolak.") + notifyText + emailText);
       await loadOrders();
     } catch (err) {
       setOrderMessage(safeOrderText(err?.message, "Gagal update order."));

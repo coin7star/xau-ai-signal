@@ -71,7 +71,19 @@ export async function onRequest({ request, env }) {
       status: "rejected"
     });
 
-    return json({ ok: true, order: { ...order, ...patch }, telegramNotify: userNotify });
+    const emailNotifyReject = await sendOrderStatusEmail({
+      env,
+      user,
+      order: { ...order, ...patch },
+      status: "rejected"
+    });
+
+    return json({
+      ok: true,
+      order: { ...order, ...patch },
+      telegramNotify: userNotify,
+      emailNotify: emailNotifyReject
+    });
   }
 
   if (action !== "approve") {
@@ -117,7 +129,21 @@ export async function onRequest({ request, env }) {
     premiumUntil
   });
 
-  return json({ ok: true, order: { ...order, ...orderPatch }, premiumUntil, telegramNotify: userNotifyApprove });
+  const emailNotifyApprove = await sendOrderStatusEmail({
+    env,
+    user,
+    order: { ...order, ...orderPatch },
+    status: "approved",
+    premiumUntil
+  });
+
+  return json({
+    ok: true,
+    order: { ...order, ...orderPatch },
+    premiumUntil,
+    telegramNotify: userNotifyApprove,
+    emailNotify: emailNotifyApprove
+  });
 }
 
 function getDaysFromPackage(value) {
@@ -151,10 +177,28 @@ async function fbPatch(dbUrl, path, patch) {
 
 async function notifyUserOrderStatus({ env, user, order, status, premiumUntil }) {
   const botToken = env.TELEGRAM_BOT_TOKEN || env.BOT_TOKEN || "";
-  const chatId = user?.telegramChatId || user?.telegram_chat_id || "";
+  const chatId = getUserTelegramChatId(user);
 
-  if (!botToken || !chatId) {
-    return { ok: false, skipped: true, reason: "telegram-not-connected" };
+  if (!botToken) {
+    return { ok: false, skipped: true, reason: "telegram-bot-token-missing" };
+  }
+
+  if (!chatId) {
+    return {
+      ok: false,
+      skipped: true,
+      reason: "telegram-not-connected",
+      checkedFields: [
+        "telegramChatId",
+        "telegram_chat_id",
+        "telegram.chatId",
+        "telegram.chat_id",
+        "telegram.id",
+        "telegramId",
+        "chatId",
+        "chat_id"
+      ]
+    };
   }
 
   const isApproved = status === "approved";
@@ -200,8 +244,34 @@ async function notifyUserOrderStatus({ env, user, order, status, premiumUntil })
   }
 }
 
-function safeText(value) {
-  if (value === null || value === undefined || value === "") return "-";
+
+function getUserTelegramChatId(user = {}) {
+  const candidates = [
+    user.telegramChatId,
+    user.telegram_chat_id,
+    user.telegramId,
+    user.telegram_id,
+    user.chatId,
+    user.chat_id,
+    user?.telegram?.chatId,
+    user?.telegram?.chat_id,
+    user?.telegram?.id,
+    user?.telegram?.chatID,
+    user?.telegramConnect?.chatId,
+    user?.telegramConnect?.chat_id
+  ];
+
+  for (const value of candidates) {
+    const text = safeText(value, "");
+    if (text && text !== "-") return text;
+  }
+
+  return "";
+}
+
+
+function safeText(value, fallback = "-") {
+  if (value === null || value === undefined || value === "") return fallback;
   if (typeof value === "string" || typeof value === "number" || typeof value === "boolean") return String(value);
   try {
     return JSON.stringify(value);
@@ -223,6 +293,157 @@ function formatTelegramDate(value) {
     hour: "2-digit",
     minute: "2-digit"
   });
+}
+
+
+
+async function sendOrderStatusEmail({ env, user, order, status, premiumUntil }) {
+  const resendKey = env.RESEND_API_KEY || "";
+  const from = env.EMAIL_FROM || "";
+  const appUrl = env.APP_URL || env.VITE_APP_URL || "https://xau-ai-signal.pages.dev";
+  const to = safeText(order.email || user?.email || "");
+
+  if (!resendKey || !from) {
+    return {
+      ok: false,
+      skipped: true,
+      reason: "email-env-not-ready"
+    };
+  }
+
+  if (!to || to === "-") {
+    return {
+      ok: false,
+      skipped: true,
+      reason: "user-email-missing"
+    };
+  }
+
+  const isApproved = status === "approved";
+  const subject = isApproved
+    ? "Premium XAU AI Signal Kamu Sudah Aktif"
+    : "Konfirmasi Pembayaran XAU AI Signal";
+
+  const html = isApproved
+    ? buildApprovedEmailHtml({ order, premiumUntil, appUrl })
+    : buildRejectedEmailHtml({ order, appUrl });
+
+  try {
+    const res = await fetch("https://api.resend.com/emails", {
+      method: "POST",
+      headers: {
+        "Authorization": `Bearer ${resendKey}`,
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({
+        from,
+        to,
+        subject,
+        html
+      })
+    });
+
+    const data = await res.json().catch(() => ({}));
+
+    if (!res.ok) {
+      return {
+        ok: false,
+        skipped: false,
+        reason: "resend-error",
+        error: data?.message || data?.error || `Resend error ${res.status}`
+      };
+    }
+
+    return {
+      ok: true,
+      skipped: false,
+      resendId: data?.id || null
+    };
+  } catch (err) {
+    return {
+      ok: false,
+      skipped: false,
+      reason: "email-send-error",
+      error: err.message || String(err)
+    };
+  }
+}
+
+function buildEmailShell({ title, subtitle, body, buttonText, appUrl }) {
+  return `<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width" />
+    <title>${escapeHtml(title)}</title>
+  </head>
+  <body style="margin:0;background:#060814;font-family:Arial,Helvetica,sans-serif;color:#f8fbff;">
+    <table width="100%" cellpadding="0" cellspacing="0" role="presentation" style="background:linear-gradient(135deg,#120a2c,#022d36);padding:34px 14px;">
+      <tr>
+        <td align="center">
+          <table width="100%" cellpadding="0" cellspacing="0" role="presentation" style="max-width:580px;background:rgba(10,16,31,.96);border:1px solid rgba(255,255,255,.12);border-radius:26px;overflow:hidden;">
+            <tr>
+              <td style="padding:34px 30px;text-align:center;">
+                <div style="display:inline-block;padding:10px 14px;border-radius:999px;background:rgba(103,232,249,.13);color:#67e8f9;font-size:12px;font-weight:800;letter-spacing:.08em;">XAU AI SIGNAL</div>
+                <h1 style="margin:22px 0 10px;font-size:34px;line-height:1;color:#ffffff;letter-spacing:-.04em;">${escapeHtml(title)}</h1>
+                <p style="margin:0 auto 22px;max-width:440px;color:#b9c7ea;font-size:15px;line-height:1.7;">${escapeHtml(subtitle)}</p>
+                <div style="margin:20px auto;padding:18px;border-radius:18px;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.09);text-align:left;color:#dce6ff;font-size:14px;line-height:1.8;">
+                  ${body}
+                </div>
+                <a href="${escapeHtml(appUrl)}" style="display:inline-block;text-decoration:none;background:linear-gradient(135deg,#ffe879,#19f28f);color:#06111f;font-weight:900;border-radius:999px;padding:14px 22px;">${escapeHtml(buttonText)}</a>
+                <p style="margin:20px auto 0;max-width:440px;color:#8fa2c7;font-size:12px;line-height:1.7;">Trading XAUUSD berisiko tinggi. Gunakan risk management.</p>
+              </td>
+            </tr>
+          </table>
+        </td>
+      </tr>
+    </table>
+  </body>
+</html>`;
+}
+
+function buildApprovedEmailHtml({ order, premiumUntil, appUrl }) {
+  const body = [
+    `<b>Premium kamu sudah aktif.</b>`,
+    `Paket: <b>${escapeHtml(safeText(order.packageLabel || order.packageCode || "-"))}</b>`,
+    `Harga: <b>${escapeHtml(safeText(order.price || "-"))}</b>`,
+    `Order ID: <code>${escapeHtml(safeText(order.orderId || "-"))}</code>`,
+    `Premium aktif sampai: <b>${escapeHtml(formatTelegramDate(premiumUntil))}</b>`
+  ].join("<br/>");
+
+  return buildEmailShell({
+    title: "Premium Aktif",
+    subtitle: "Pembayaran kamu sudah dikonfirmasi oleh admin.",
+    body,
+    buttonText: "Buka Dashboard",
+    appUrl
+  });
+}
+
+function buildRejectedEmailHtml({ order, appUrl }) {
+  const body = [
+    `<b>Pembayaran kamu belum bisa dikonfirmasi.</b>`,
+    `Paket: <b>${escapeHtml(safeText(order.packageLabel || order.packageCode || "-"))}</b>`,
+    `Harga: <b>${escapeHtml(safeText(order.price || "-"))}</b>`,
+    `Order ID: <code>${escapeHtml(safeText(order.orderId || "-"))}</code>`,
+    `Silakan hubungi admin dan kirim ulang bukti pembayaran jika diperlukan.`
+  ].join("<br/>");
+
+  return buildEmailShell({
+    title: "Pembayaran Belum Dikonfirmasi",
+    subtitle: "Admin belum bisa memverifikasi pembayaran untuk order ini.",
+    body,
+    buttonText: "Buka Dashboard",
+    appUrl
+  });
+}
+
+function escapeHtml(value) {
+  return safeText(value)
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;");
 }
 
 

@@ -1,54 +1,51 @@
-# XAU Step 8G User Telegram Order Status
+# XAU Step 8H Optional Email Notify on Approve/Reject
 
 Fitur baru:
 - Saat admin approve order:
-  - premium user otomatis aktif seperti Step 8B
-  - user menerima notifikasi Telegram jika sudah connect
+  - premium tetap aktif seperti sebelumnya
+  - sistem coba kirim email "Premium Aktif" ke email user
 - Saat admin reject order:
-  - order ditolak seperti Step 8B
-  - user menerima notifikasi Telegram jika sudah connect
+  - status reject tetap tersimpan
+  - sistem coba kirim email "Pembayaran Belum Dikonfirmasi" ke email user
 
-Pesan approve:
-✅ Premium Aktif
-Paket
-Order ID
-Premium aktif sampai tanggal
+Penting:
+- Email bersifat optional.
+- Kalau RESEND_API_KEY / EMAIL_FROM belum siap:
+  - approve/reject tetap sukses
+  - sistem skip email
+  - admin panel menampilkan "Email approval belum aktif."
+- Kalau Resend error:
+  - approve/reject tetap sukses
+  - admin panel menampilkan "Email user tidak terkirim."
 
-Pesan reject:
-❌ Pembayaran Ditolak
-Paket
-Order ID
-Instruksi hubungi admin
+ENV email untuk nanti:
+- RESEND_API_KEY
+- EMAIL_FROM
+  Contoh setelah domain verified:
+  XAU AI Signal <noreply@domainkamu.com>
+- APP_URL
 
-Endpoint yang diubah:
-- POST /api/admin-orders
-
-ENV dibutuhkan:
-- TELEGRAM_BOT_TOKEN
-- TELEGRAM_CHAT_ID tetap dipakai untuk admin order notify Step 8D
-- User telegramChatId di users/{uid} wajib ada agar user dapat notif
-
-Stabilitas:
-- Kalau user belum connect Telegram, approve/reject tetap berhasil.
-- Kalau Telegram error, approve/reject tetap berhasil.
-- Response admin akan memberi info:
-  - Notif Telegram user terkirim
-  - User belum connect Telegram
-  - Notif Telegram user tidak terkirim
+Kenapa dibuat begini:
+- User baru belum tentu connect Telegram.
+- Email lebih cocok untuk notifikasi approval user baru.
+- Tapi karena domain Resend belum siap, sistem harus tetap aman dan tidak memblokir approve/reject.
 
 Tidak disentuh:
 - Admin row Manage
 - Chart/candle
 - MQ5
-- Payment order pagination Step 8F
+- Pending Orders pagination
+- Payment order anti-spam
 
-Cara test:
-1. Pastikan user sudah connect Telegram lewat /connect KODE.
-2. User buat order pending.
-3. Admin klik Refresh Orders.
-4. Admin klik Approve.
-5. User harus menerima notif Telegram premium aktif.
-6. Coba Reject untuk order lain, user harus menerima notif pembayaran ditolak.
+Cara test sekarang tanpa domain:
+1. Deploy.
+2. Approve order.
+3. Premium tetap aktif.
+4. Admin message harus menyebut email belum aktif/skip.
 
-MQ5:
-- Tidak perlu update.
+Cara test nanti setelah domain Resend verified:
+1. Set RESEND_API_KEY.
+2. Set EMAIL_FROM.
+3. Redeploy.
+4. Approve order baru.
+5. User menerima email premium aktif.
