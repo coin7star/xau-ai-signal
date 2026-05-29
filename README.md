@@ -1,14 +1,18 @@
-# XAU Market Monitoring Badge Hotfix
+# XAU Market Monitoring Safe Fix
 
-Update:
-- Badge/status yang masih tampil "not-call-signal" diganti menjadi "Market Monitoring".
-- Menambahkan formatter display status agar status internal lebih rapi:
-  - not-call-signal -> Market Monitoring
-  - call/call-signal -> CALL Active
-- Logic signal tidak diubah.
-- Admin Panel tidak disentuh.
-- Chart/candle tidak disentuh.
-- MQ5 tidak perlu update.
+Masalah sebelumnya:
+- Hotfix badge terlalu agresif memakai formatter.
+- Beberapa render status ternyata object, sehingga tampil [object Object].
+
+Fix:
+- Dibuat ulang dari xau-professional-status-copy-hotfix.zip.
+- Hanya mengganti teks literal:
+  not-call-signal -> Market Monitoring
+- Tidak menambah formatter.
+- Tidak mengubah render object.
+- Tidak mengubah Admin Panel.
+- Tidak mengubah chart/candle.
+- Tidak mengubah MQ5.
 
 Cloudflare:
 - package-lock.json tetap dihapus.

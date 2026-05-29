@@ -1,6 +1,6 @@
 {
-  "name": "xau-ai-signal-market-monitoring-badge",
-  "version": "6.2.12-market-monitoring-badge",
+  "name": "xau-ai-signal-market-monitoring-safe-fix",
+  "version": "6.2.13-market-monitoring-safe",
   "type": "module",
   "scripts": {
     "dev": "vite",
