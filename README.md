@@ -1,31 +1,17 @@
-# XAU Admin Panel Blank Recovery Step 7A
+# XAU Step 7A Last Login Visible Admin Fix
 
-Recovery:
-- Rollback dari Step 7B device visible yang bikin Admin Panel blank.
-- Kembali ke Step 7A Last Login Only yang aman.
-
-Fitur yang tetap ada:
-- lastLoginAt tersimpan saat user login
-- Admin Panel menampilkan Last login
-- Landing page
-- Login/Register
-- Forgot password Firebase default
-- Paywall pilih paket
-- Manual payment
-- Admin panel
-- Telegram connect
-- Multi-user alert
-- Performance Analytics 7/30 hari
-
-Yang dihapus/ditahan:
-- Device info visual di Admin Panel
-- Device lock
-- Device block
-- Device mismatch
+Fix kecil:
+- Admin Panel tetap compact mode.
+- Saat klik Manage, detail user tetap terbuka inline seperti sebelumnya.
+- Tambah Last login di detail Manage yang sebelumnya hanya menampilkan Created.
+- Tidak menambah device info.
+- Tidak ada device lock.
+- Tidak ada blocking.
+- Tidak mengubah dashboard premium.
 
 Catatan:
-- Step 7 berikutnya jangan patch row Admin Panel langsung.
-- Lanjut aman bisa lewat detail/modal Manage saja, bukan compact row utama.
+- Last login akan terisi setelah user login setelah fitur Step 7A terdeploy.
+- Kalau user belum login ulang, bisa tetap tampil kosong / "-".
 
 Cloudflare:
 - package-lock.json tetap dihapus.

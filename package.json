@@ -1,6 +1,6 @@
 {
-  "name": "xau-ai-signal-admin-panel-blank-recovery-step7a",
-  "version": "6.2.6-admin-recovery",
+  "name": "xau-ai-signal-step7a-last-login-visible-admin",
+  "version": "6.2.7-last-login-visible-admin",
   "type": "module",
   "scripts": {
     "dev": "vite",
