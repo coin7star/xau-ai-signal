@@ -32,6 +32,7 @@ export default function App() {
   const [authUser, setAuthUser] = useState(null);
   const [authProfile, setAuthProfile] = useState(null);
   const [authLoading, setAuthLoading] = useState(true);
+  const [showAuthScreen, setShowAuthScreen] = useState(false);
   const [showAdminPanel, setShowAdminPanel] = useState(false);
   const [telegramConnect, setTelegramConnect] = useState(null);
 
@@ -421,11 +422,6 @@ export default function App() {
   if (authLoading) {
     return (
       <main className="page authPage">
-      {onBack && (
-        <button className="landingBackBtn" type="button" onClick={onBack}>
-          ← Kembali ke Beranda
-        </button>
-      )}
         <section className="authCard card">
           <div className="logo big"><Shield size={28} /></div>
           <h1>Loading XAU AI...</h1>
@@ -1745,6 +1741,11 @@ function AuthScreen({ onBack }) {
 
   return (
     <main className="page authPage">
+      {onBack && (
+        <button className="landingBackBtn" type="button" onClick={onBack}>
+          ← Kembali ke Beranda
+        </button>
+      )}
       <section className="authCard card">
         <div className="logo big"><Bot size={30} /></div>
         <span className="pill mini"><Lock size={14} /> Premium Access</span>

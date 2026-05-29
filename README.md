@@ -1,19 +1,15 @@
-# XAU Public Landing Page Blank Hotfix
+# XAU Public Landing Loading Blank Hotfix
 
 Masalah:
-- Landing page baru blank di runtime.
-- Penyebab paling mungkin: icon/component di landing belum tersedia di runtime.
+- Web blank sebelum landing tampil.
+- Penyebab: tombol onBack masuk ke authLoading screen, padahal onBack hanya ada di AuthScreen.
+- Runtime error membuat layar blank.
 
 Fix:
-- Landing page diganti versi aman tanpa icon dependency baru.
-- Tetap punya:
-  - Hero profesional
-  - Fitur premium
-  - Cara kerja
-  - Paket beta
-  - FAQ
-  - Risk disclaimer
-  - Login/Register
+- onBack button dihapus dari Loading screen.
+- Back button hanya ada di halaman Login/Register.
+- showAuthScreen state dipastikan ada.
+- Landing page tetap tampil untuk visitor sebelum login.
 - Build sudah dites.
 
 Cloudflare:
