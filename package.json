@@ -1,6 +1,6 @@
 {
-  "name": "xau-ai-signal-rollback-step8c-to-step8b-safe",
-  "version": "6.4.4-rollback-step8c",
+  "name": "xau-ai-signal-step8d-telegram-admin-order-notify",
+  "version": "6.4.5-step8d-telegram-order-notify",
   "type": "module",
   "scripts": {
     "dev": "vite",

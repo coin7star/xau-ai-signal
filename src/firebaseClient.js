@@ -202,5 +202,17 @@ export async function createPaymentOrder({ user, profile, packageCode, packageLa
     updatedAt: now
   });
 
+  // Step 8D: notify admin via Telegram, non-blocking.
+  // Kalau endpoint/env Telegram error, order tetap berhasil dibuat.
+  try {
+    fetch("/api/payment-order-notify", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ order })
+    }).catch(() => {});
+  } catch {
+    // ignore notify error
+  }
+
   return order;
 }

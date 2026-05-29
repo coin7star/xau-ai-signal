@@ -1,30 +1,43 @@
-# XAU Rollback Step 8C Blank to Step 8B Safe
+# XAU Step 8D Telegram Admin Order Notify
 
-Recovery:
-- Rollback dari Step 8C yang bikin web blank.
-- Balik ke Step 8B Safe Render yang sudah work.
+Fitur baru:
+- Saat user klik Konfirmasi Pembayaran dan order pending berhasil dibuat:
+  - order tetap disimpan ke Firebase
+  - sistem kirim notifikasi Telegram ke admin/chat utama
 
-Fitur yang tetap ada:
-- Step 8A: user bisa membuat payment order pending dari paywall.
-- Step 8B: admin bisa melihat pending order.
-- Step 8B Safe Render: Refresh Orders tidak bikin blank.
-- Admin bisa approve/reject order.
-- Approve otomatis aktifkan premium.
-- Chart/candle tetap aman.
-- Admin Panel tetap aman.
+Endpoint baru:
+- POST /api/payment-order-notify
 
-Yang ditahan:
-- Step 8C User Order Status.
-- Tombol Chat Admin + Bukti Bayar.
-- Paywall order summary.
+ENV dibutuhkan:
+- TELEGRAM_BOT_TOKEN
+- TELEGRAM_CHAT_ID
+- APP_URL optional, default https://xau-ai-signal.pages.dev
 
-Catatan:
-- Build test tidak dijalankan ulang karena npm install di sandbox sedang lambat.
-- File dibuat dari baseline Step 8B Safe Render yang sebelumnya sudah build OK dan work.
+Isi notifikasi:
+🧾 New Payment Order
+Email
+UID
+Paket
+Harga
+Status
+Order ID
+Instruksi: Buka Admin Panel → Refresh Orders → Approve/Reject
 
-Cloudflare:
-- package-lock.json tetap dihapus.
-- .npmrc tetap ada.
+Keamanan/stabilitas:
+- Notify Telegram dibuat non-blocking.
+- Kalau Telegram env salah/error, order tetap berhasil dibuat.
+- Tidak menyentuh Admin Panel row Manage.
+- Tidak menyentuh chart/candle.
+- Tidak menyentuh MQ5.
+- Tidak mengubah Step 8B approve/reject.
+
+Cara test:
+1. Pastikan TELEGRAM_BOT_TOKEN dan TELEGRAM_CHAT_ID ada di Cloudflare ENV.
+2. Deploy.
+3. Login akun free.
+4. Klik Konfirmasi Pembayaran.
+5. Cek Telegram admin/chat utama.
+6. Cek Firebase paymentOrders tetap masuk.
 
 MQ5:
 - Tidak perlu update.
