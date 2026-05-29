@@ -1,35 +1,39 @@
-# XAU Step 8I Order Filter Admin
+# XAU Step 8J User Payment History
 
 Fitur baru:
-- Filter Pending Orders di Admin Panel:
-  - Pending
-  - Approved
-  - Rejected
-  - All
-- Pending Orders tetap 6 order per halaman.
-- Pagination tetap jalan.
-- Saat filter diganti, page reset ke Page 1.
-- Statistik order sekarang menampilkan:
-  - Pending
-  - Approved
-  - Rejected
+- User melihat riwayat pembayaran di dashboard.
+- Card baru: Payment History.
+- Menampilkan maksimal 6 order terbaru user.
+- Menampilkan:
+  - Paket
+  - Order ID
+  - Harga
+  - Tanggal order
+  - Status pending/approved/rejected
+  - Aktif sampai untuk order approved
+- Ada tombol Refresh.
+- Ada counter:
+  - Sukses
   - Total
 
-Tidak disentuh:
-- Admin row Manage
-- Chart/candle
-- MQ5
-- Telegram signal logic
-- Payment approve/reject logic
-- Optional email notify Step 8H
+Teknis:
+- Tambah getUserPaymentOrders(uid) di firebaseClient.js.
+- Membaca paymentOrders lalu filter order sesuai uid user.
+- Data dirender aman pakai safePaymentText dan safePaymentDate.
+- Tidak menyentuh Admin row Manage.
+- Tidak menyentuh chart/candle.
+- Tidak menyentuh MQ5.
+
+Catatan:
+- Kalau user belum pernah membuat order, card tampil empty state.
+- Kalau user punya order approved, card menampilkan status sukses dan premiumUntil.
 
 Cara test:
-1. Login admin.
-2. Buka Admin Panel.
-3. Isi Admin Token.
-4. Klik Refresh Orders.
-5. Klik filter Pending / Approved / Rejected / All.
-6. Jika order lebih dari 6, tombol Prev/Next tetap jalan per filter.
+1. Login user yang pernah membuat order.
+2. Masuk dashboard.
+3. Lihat card Payment History.
+4. Klik Refresh.
+5. Order approved harus tampil sebagai APPROVED.
 
 MQ5:
 - Tidak perlu update.

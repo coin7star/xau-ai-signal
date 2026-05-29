@@ -12,7 +12,8 @@ const PACKAGE_30D_PRICE = "Rp30K";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { createChart, ColorType, CrosshairMode } from "lightweight-charts";
 import { Activity, Bot, Copy, Database, Lock, LogOut, Radio, RefreshCcw, Settings, Shield, Sparkles, Target, TrendingDown, TrendingUp, User, Zap } from "lucide-react";
-import { createPaymentOrder, ensureUserProfile, getUserProfile, hasFirebaseClientConfig, isPremiumProfile, listenAuth, loginWithEmail, loginWithGoogle, logout, refreshCurrentUser, registerWithEmail, resetPasswordEmail, sendVerificationEmail } from "./firebaseClient";
+import { createPaymentOrder, ensureUserProfile, getUserPaymentOrders,
+  getUserProfile, hasFirebaseClientConfig, isPremiumProfile, listenAuth, loginWithEmail, loginWithGoogle, logout, refreshCurrentUser, registerWithEmail, resetPasswordEmail, sendVerificationEmail } from "./firebaseClient";
 
 export default function App() {
   const chartM1Ref = useRef(null);
@@ -637,6 +638,7 @@ export default function App() {
       </section>
 
 
+      <UserPaymentHistoryCard user={authUser} />
       <PerformanceAnalyticsPanel
         callHistory={callHistory}
         scalpHistory={scalpHistory}
@@ -1546,6 +1548,120 @@ function getRoleStatusLabel(user) {
 
 
 
+
+
+
+function safePaymentText(value, fallback = "-") {
+  if (value === null || value === undefined || value === "") return fallback;
+  if (typeof value === "string" || typeof value === "number" || typeof value === "boolean") return String(value);
+  try {
+    return JSON.stringify(value);
+  } catch {
+    return fallback;
+  }
+}
+
+function safePaymentDate(value) {
+  const text = safePaymentText(value, "");
+  if (!text) return "-";
+
+  const date = new Date(text);
+  if (Number.isNaN(date.getTime())) return text.slice(0, 18);
+
+  return date.toLocaleString("id-ID", {
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit"
+  });
+}
+
+function UserPaymentHistoryCard({ user }) {
+  const [orders, setOrders] = useState([]);
+  const [loadingHistory, setLoadingHistory] = useState(false);
+  const [historyMessage, setHistoryMessage] = useState("");
+
+  async function loadPaymentHistory() {
+    if (!user?.uid) return;
+
+    try {
+      setLoadingHistory(true);
+      setHistoryMessage("");
+
+      const list = await getUserPaymentOrders(user.uid);
+      setOrders(Array.isArray(list) ? list : []);
+
+      if (!list?.length) {
+        setHistoryMessage("Belum ada riwayat pembayaran.");
+      }
+    } catch (err) {
+      setHistoryMessage(err?.message || "Gagal memuat riwayat pembayaran.");
+      setOrders([]);
+    } finally {
+      setLoadingHistory(false);
+    }
+  }
+
+  useEffect(() => {
+    loadPaymentHistory();
+  }, [user?.uid]);
+
+  const successOrders = orders.filter((order) => String(order?.status || "").toLowerCase() === "approved");
+  const visibleOrders = orders.slice(0, 6);
+
+  return (
+    <section className="userPaymentHistory card">
+      <div className="userPaymentHistoryHeader">
+        <div>
+          <span className="pill mini">PAYMENT HISTORY</span>
+          <h3>Riwayat Pembayaran</h3>
+          <p>Lihat status pembayaran dan paket premium yang pernah kamu ajukan.</p>
+        </div>
+
+        <button type="button" onClick={loadPaymentHistory} disabled={loadingHistory}>
+          {loadingHistory ? "Loading..." : "Refresh"}
+        </button>
+      </div>
+
+      <div className="userPaymentHistoryStats">
+        <span>Sukses <b>{successOrders.length}</b></span>
+        <span>Total <b>{orders.length}</b></span>
+      </div>
+
+      {historyMessage ? <div className="userPaymentHistoryMessage">{historyMessage}</div> : null}
+
+      <div className="userPaymentHistoryList">
+        {visibleOrders.length ? visibleOrders.map((order) => {
+          const status = String(order?.status || "pending").toLowerCase();
+
+          return (
+            <article className="userPaymentHistoryRow" key={safePaymentText(order?.orderId || `${order?.uid}_${order?.createdAt}`)}>
+              <div>
+                <b>{safePaymentText(order?.packageLabel || order?.packageCode)}</b>
+                <small>Order ID: {safePaymentText(order?.orderId)}</small>
+              </div>
+
+              <div>
+                <span>{safePaymentText(order?.price)}</span>
+                <small>{safePaymentDate(order?.createdAt)}</small>
+              </div>
+
+              <div>
+                <span className={`paymentHistoryStatus ${status}`}>{status.toUpperCase()}</span>
+                <small>{status === "approved" ? `Aktif sampai: ${safePaymentDate(order?.premiumUntil)}` : "Menunggu proses admin"}</small>
+              </div>
+            </article>
+          );
+        }) : (
+          <div className="userPaymentHistoryEmpty">
+            Belum ada riwayat pembayaran. Buat order dari halaman paket premium terlebih dulu.
+          </div>
+        )}
+      </div>
+    </section>
+  );
+}
 
 
 function PerformanceAnalyticsPanel({ callHistory, scalpHistory, isAdmin }) {

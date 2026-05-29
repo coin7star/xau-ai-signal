@@ -1,6 +1,6 @@
 {
-  "name": "xau-ai-signal-step8i-order-filter-admin",
-  "version": "6.5.1-step8i-order-filter",
+  "name": "xau-ai-signal-step8j-user-payment-history",
+  "version": "6.5.2-step8j-user-payment-history",
   "type": "module",
   "scripts": {
     "dev": "vite",

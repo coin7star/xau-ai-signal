@@ -2520,3 +2520,155 @@ canvas {
 .adminOrdersFilter button:hover {
   transform: translateY(-1px);
 }
+
+
+/* Step 8J User Payment History */
+.userPaymentHistory {
+  margin-bottom: 22px;
+  padding: 20px;
+}
+
+.userPaymentHistoryHeader {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 14px;
+  margin-bottom: 14px;
+}
+
+.userPaymentHistoryHeader h3 {
+  margin: 10px 0 4px;
+  color: #f8fbff;
+  font-size: 24px;
+}
+
+.userPaymentHistoryHeader p {
+  margin: 0;
+  color: #9fb0d6;
+  line-height: 1.5;
+}
+
+.userPaymentHistoryHeader button {
+  border: 0;
+  border-radius: 14px;
+  padding: 10px 13px;
+  font-weight: 900;
+  cursor: pointer;
+  color: #06111f;
+  background: linear-gradient(135deg, #67e8f9, #d8b4fe);
+}
+
+.userPaymentHistoryHeader button:disabled {
+  opacity: .6;
+  cursor: not-allowed;
+}
+
+.userPaymentHistoryStats {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-bottom: 12px;
+}
+
+.userPaymentHistoryStats span {
+  padding: 8px 11px;
+  border-radius: 999px;
+  color: #cbd6f3;
+  background: rgba(255,255,255,.06);
+  border: 1px solid rgba(255,255,255,.08);
+  font-weight: 900;
+}
+
+.userPaymentHistoryStats b {
+  color: #fff2c2;
+}
+
+.userPaymentHistoryMessage {
+  margin-bottom: 12px;
+  padding: 12px;
+  border-radius: 16px;
+  color: #b9f3ff;
+  background: rgba(103,232,249,.10);
+  border: 1px solid rgba(103,232,249,.16);
+  font-weight: 900;
+}
+
+.userPaymentHistoryList {
+  display: grid;
+  gap: 10px;
+}
+
+.userPaymentHistoryRow {
+  display: grid;
+  grid-template-columns: 1.25fr .65fr 1fr;
+  gap: 12px;
+  align-items: center;
+  padding: 13px;
+  border-radius: 18px;
+  background: rgba(255,255,255,.045);
+  border: 1px solid rgba(255,255,255,.08);
+}
+
+.userPaymentHistoryRow b,
+.userPaymentHistoryRow span,
+.userPaymentHistoryRow small {
+  display: block;
+}
+
+.userPaymentHistoryRow b {
+  color: #f8fbff;
+}
+
+.userPaymentHistoryRow span {
+  color: #fff2c2;
+  font-weight: 1000;
+}
+
+.userPaymentHistoryRow small {
+  margin-top: 4px;
+  color: #8fa2c7;
+  font-size: 11px;
+  word-break: break-word;
+}
+
+.paymentHistoryStatus {
+  display: inline-flex !important;
+  width: fit-content;
+  border-radius: 999px;
+  padding: 7px 10px;
+  font-weight: 1000;
+  font-size: 12px;
+  color: #ffe4a3 !important;
+  background: rgba(255,232,121,.10);
+  border: 1px solid rgba(255,232,121,.18);
+}
+
+.paymentHistoryStatus.approved {
+  color: #a7f3d0 !important;
+  background: rgba(16,185,129,.14);
+  border-color: rgba(16,185,129,.22);
+}
+
+.paymentHistoryStatus.rejected {
+  color: #fecdd3 !important;
+  background: rgba(244,63,94,.12);
+  border-color: rgba(244,63,94,.22);
+}
+
+.userPaymentHistoryEmpty {
+  padding: 14px;
+  border-radius: 16px;
+  color: #9fb0d6;
+  background: rgba(255,255,255,.04);
+  border: 1px dashed rgba(255,255,255,.12);
+}
+
+@media(max-width: 820px) {
+  .userPaymentHistoryHeader {
+    flex-direction: column;
+  }
+
+  .userPaymentHistoryRow {
+    grid-template-columns: 1fr;
+  }
+}

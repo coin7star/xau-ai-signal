@@ -236,3 +236,17 @@ export async function createPaymentOrder({ user, profile, packageCode, packageLa
 
   return order;
 }
+
+
+export async function getUserPaymentOrders(uid) {
+  if (!db) throw new Error("Firebase client ENV belum lengkap.");
+  if (!uid) throw new Error("UID user tidak ditemukan.");
+
+  const snapshot = await get(ref(db, "paymentOrders"));
+  const allOrders = snapshot.exists() ? snapshot.val() || {} : {};
+
+  return Object.values(allOrders)
+    .filter((order) => order && order.uid === uid)
+    .sort((a, b) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime())
+    .slice(0, 20);
+}
