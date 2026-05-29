@@ -175,6 +175,26 @@ export async function createPaymentOrder({ user, profile, packageCode, packageLa
   if (!db) throw new Error("Firebase client ENV belum lengkap.");
   if (!user?.uid) throw new Error("User belum login.");
 
+  const userRef = ref(db, `users/${user.uid}`);
+  const userSnapshot = await get(userRef);
+  const latestProfile = userSnapshot.exists() ? userSnapshot.val() || {} : {};
+  const existingPendingOrder = String(latestProfile.lastPaymentStatus || profile?.lastPaymentStatus || "").toLowerCase() === "pending";
+  const existingOrderId = latestProfile.lastPaymentOrderId || profile?.lastPaymentOrderId || "";
+
+  if (existingPendingOrder && existingOrderId) {
+    return {
+      orderId: existingOrderId,
+      uid: user.uid,
+      email: user.email || latestProfile.email || profile?.email || "",
+      packageCode: latestProfile.lastPaymentPackage || profile?.lastPaymentPackage || packageCode || "30D",
+      packageLabel: latestProfile.lastPaymentPackage || profile?.lastPaymentPackage || packageLabel || "30 Day",
+      price: latestProfile.lastPaymentPrice || profile?.lastPaymentPrice || price || "Rp30K",
+      status: "pending",
+      duplicate: true,
+      message: "Kamu masih punya order pending. Silakan kirim bukti pembayaran ke admin."
+    };
+  }
+
   const now = new Date().toISOString();
   const cleanPackage = String(packageCode || "30D").toUpperCase();
   const orderId = `${user.uid}_${Date.now()}`;

@@ -1,6 +1,6 @@
 {
-  "name": "xau-ai-signal-step8d-telegram-admin-order-notify",
-  "version": "6.4.5-step8d-telegram-order-notify",
+  "name": "xau-ai-signal-step8e-anti-spam-payment-order",
+  "version": "6.4.6-step8e-anti-spam-order",
   "type": "module",
   "scripts": {
     "dev": "vite",

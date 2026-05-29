@@ -2349,6 +2349,7 @@ function VerifyEmailScreen({ user, onLogout, onVerified }) {
 function PaywallScreen({ user, profile, onLogout }) {
   const [selectedPackage, setSelectedPackage] = useState("30D");
   const [paymentOrderStatus, setPaymentOrderStatus] = useState("");
+  const [localOrderPending, setLocalOrderPending] = useState(String(profile?.lastPaymentStatus || "").toLowerCase() === "pending");
   const [isSubmittingOrder, setIsSubmittingOrder] = useState(false);
 
   const selectedPackageInfo = selectedPackage === "7D"
@@ -2372,6 +2373,11 @@ function PaywallScreen({ user, profile, onLogout }) {
   }
 
   async function submitPaymentOrder() {
+    if (localOrderPending || String(profile?.lastPaymentStatus || "").toLowerCase() === "pending") {
+      setPaymentOrderStatus("Kamu masih punya order pending. Kirim bukti pembayaran ke admin, lalu tunggu konfirmasi.");
+      return;
+    }
+
     try {
       setIsSubmittingOrder(true);
       setPaymentOrderStatus("");
@@ -2384,7 +2390,12 @@ function PaywallScreen({ user, profile, onLogout }) {
         price: selectedPackageInfo.price
       });
 
-      setPaymentOrderStatus(`Order pending berhasil dibuat. ID: ${order.orderId}. Kirim bukti pembayaran ke admin agar premium bisa diaktifkan.`);
+      setLocalOrderPending(true);
+      if (order.duplicate) {
+        setPaymentOrderStatus(order.message || `Order pending sudah ada. ID: ${order.orderId}. Kirim bukti pembayaran ke admin.`);
+      } else {
+        setPaymentOrderStatus(`Order pending berhasil dibuat. ID: ${order.orderId}. Kirim bukti pembayaran ke admin agar premium bisa diaktifkan.`);
+      }
     } catch (err) {
       setPaymentOrderStatus(err?.message || "Gagal membuat order pending.");
     } finally {
@@ -2461,8 +2472,8 @@ function PaywallScreen({ user, profile, onLogout }) {
         <div className="paywallActions">
           <a href={ADMIN_CONTACT_URL} target="_blank" rel="noreferrer">Hubungi Admin</a>
           <button type="button" onClick={copyActivationInfo}>Copy Info Aktivasi</button>
-          <button type="button" onClick={submitPaymentOrder} disabled={isSubmittingOrder}>
-            {isSubmittingOrder ? "Membuat Order..." : "Konfirmasi Pembayaran"}
+          <button type="button" onClick={submitPaymentOrder} disabled={isSubmittingOrder || localOrderPending}>
+            {isSubmittingOrder ? "Membuat Order..." : localOrderPending ? "Order Pending" : "Konfirmasi Pembayaran"}
           </button>
           <button type="button" onClick={onLogout}>Logout</button>
         </div>
