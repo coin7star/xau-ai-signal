@@ -59,12 +59,16 @@ export async function resetPasswordEmail(email) {
   if (!auth) throw new Error("Firebase client ENV belum lengkap.");
   if (!email) throw new Error("Isi email akun kamu dulu.");
 
-  await sendPasswordResetEmail(auth, email, {
-    url: window.location.origin,
-    handleCodeInApp: true
-  });
+  try {
+    return await sendCustomResetPasswordEmail(email);
+  } catch {
+    await sendPasswordResetEmail(auth, email, {
+      url: window.location.origin,
+      handleCodeInApp: true
+    });
 
-  return { ok: true };
+    return { ok: true, fallback: "firebase-default-email" };
+  }
 }
 
 export async function registerWithEmail(email, password) {
@@ -72,10 +76,61 @@ export async function registerWithEmail(email, password) {
 
   const credential = await createUserWithEmailAndPassword(auth, email, password);
   await ensureUserProfile(credential.user);
-  await sendVerificationEmail(credential.user);
+
+  try {
+    await sendCustomVerifyEmail(credential.user);
+  } catch {
+    await sendVerificationEmail(credential.user);
+  }
 
   return credential;
 }
+
+
+export async function sendCustomVerifyEmail(user = auth?.currentUser) {
+  if (!user) throw new Error("User belum login.");
+  if (user.emailVerified) return { ok: true, skipped: "already-verified" };
+
+  const idToken = await user.getIdToken(true);
+
+  const res = await fetch("/api/auth-email", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      type: "verify",
+      email: user.email || "",
+      idToken
+    })
+  });
+
+  const data = await res.json().catch(() => ({}));
+
+  if (!res.ok || !data.ok) {
+    throw new Error(data.error || "Gagal kirim email verifikasi custom.");
+  }
+
+  return data;
+}
+
+export async function sendCustomResetPasswordEmail(email) {
+  const res = await fetch("/api/auth-email", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      type: "reset",
+      email
+    })
+  });
+
+  const data = await res.json().catch(() => ({}));
+
+  if (!res.ok || !data.ok) {
+    throw new Error(data.error || "Gagal kirim email reset password custom.");
+  }
+
+  return data;
+}
+
 
 export async function loginWithGoogle() {
   if (!auth || !db) throw new Error("Firebase client ENV belum lengkap.");
@@ -96,8 +151,12 @@ export async function sendVerificationEmail(user = auth?.currentUser) {
   if (!user) throw new Error("User belum login.");
   if (user.emailVerified) return { ok: true, skipped: "already-verified" };
 
-  await sendEmailVerification(user);
-  return { ok: true };
+  try {
+    return await sendCustomVerifyEmail(user);
+  } catch {
+    await sendEmailVerification(user);
+    return { ok: true, fallback: "firebase-default-email" };
+  }
 }
 
 export async function refreshCurrentUser() {

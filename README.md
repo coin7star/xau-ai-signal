@@ -1,42 +1,38 @@
-# XAU Custom Firebase Auth Action Pages Full Fix
+# XAU Custom Branded Email Auth Full Fix
 
-Update:
-- Custom page untuk reset password.
-- Custom page untuk verify email success.
-- User tidak lagi melihat tampilan default Firebase kalau Action URL diarahkan ke web utama.
+Fitur:
+- Custom branded email verification via Resend.
+- Custom branded reset password via Resend.
+- Link email masuk ke halaman custom XAU AI:
+  /auth-action?mode=verifyEmail&oobCode=...
+  /auth-action?mode=resetPassword&oobCode=...
+- Kalau endpoint custom gagal, fallback ke Firebase default email agar user tetap bisa lanjut.
 
-Yang ditambah:
-- FirebaseAuthActionPage
-- getFirebaseAuthActionFromUrl
-- confirmResetPasswordCode
-- verifyEmailActionCode
+Endpoint baru:
+- POST /api/auth-email
 
-Flow:
-1. User klik link reset password.
-2. Web membuka halaman "Buat Password Baru".
-3. User isi password baru.
-4. Setelah sukses, user klik Login Sekarang.
+ENV Cloudflare yang wajib:
+- FIREBASE_WEB_API_KEY
+  Isi sama dengan VITE_FIREBASE_API_KEY
+- RESEND_API_KEY
+- EMAIL_FROM
+  Contoh: XAU AI Signal <onboarding@resend.dev>
+- APP_URL
+  https://xau-ai-signal.pages.dev
 
-Verify email:
-1. User klik link verifikasi.
-2. Web membuka halaman "Verifikasi Email".
-3. Sistem applyActionCode.
-4. Sukses tampil branded page.
+Cara kerja:
+- Register email/password:
+  registerWithEmail -> sendCustomVerifyEmail -> /api/auth-email -> Firebase OOB link -> Resend branded email.
+- Lupa password:
+  resetPasswordEmail -> sendCustomResetPasswordEmail -> /api/auth-email -> Firebase OOB link -> Resend branded email.
+- Email click:
+  user buka /auth-action page custom di web XAU AI.
 
-PENTING SETTING FIREBASE:
-Firebase Console > Authentication > Templates
-- Email address verification
-- Password reset
-
-Ubah Action URL / Continue URL ke:
-https://xau-ai-signal.pages.dev
-
-Atau authorized domain pastikan ada:
-xau-ai-signal.pages.dev
-
-Kalau Firebase masih mengarah ke:
-sultan-trading-data.firebaseapp.com
-maka user tetap akan lihat bawaan Firebase.
+Catatan:
+- Ini menghindari kebutuhan save custom Action URL di Firebase Console.
+- Resend free domain onboarding@resend.dev bisa dipakai test.
+- Untuk production lebih bagus pakai domain email sendiri di Resend.
+- Jika Firebase REST tidak mengembalikan oobLink pada project kamu, sistem fallback ke email default Firebase.
 
 Cloudflare:
 - package-lock.json tetap dihapus.

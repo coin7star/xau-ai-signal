@@ -2140,7 +2140,7 @@ function AuthScreen({ onBack }) {
     try {
       if (resetMode) {
         await resetPasswordEmail(email.trim());
-        setInfo("Link reset password sudah dikirim. Cek inbox atau folder spam email kamu.");
+        setInfo("Email reset password branded sudah dikirim. Cek inbox atau folder spam kamu.");
         setResetMode(false);
         return;
       }
@@ -2230,7 +2230,7 @@ function AuthScreen({ onBack }) {
           {info && <div className="authError info">{info}</div>}
 
           <button type="submit" disabled={busy}>
-            {busy ? "Loading..." : resetMode ? "Kirim Link Reset Password" : mode === "register" ? "Create Account" : "Login"}
+            {busy ? "Loading..." : resetMode ? "Kirim Email Reset Password" : mode === "register" ? "Create Account" : "Login"}
           </button>
 
           {mode === "login" && !resetMode && (
