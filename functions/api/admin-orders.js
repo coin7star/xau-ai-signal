@@ -21,8 +21,20 @@ export async function onRequest({ request, env }) {
 
   if (request.method === "GET") {
     const orders = await fbGet(dbUrl, "/paymentOrders") || {};
+    const adminNotes = await fbGet(dbUrl, "/adminOrderNotes") || {};
+
     const list = Object.values(orders)
       .filter(Boolean)
+      .map((order) => {
+        const orderId = safeText(order.orderId || "");
+        const note = adminNotes?.[orderId] || {};
+
+        return {
+          ...order,
+          adminNote: note.adminNote || "",
+          adminNoteUpdatedAt: note.adminNoteUpdatedAt || ""
+        };
+      })
       .sort((a, b) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime())
       .slice(0, 100);
 
@@ -54,16 +66,29 @@ export async function onRequest({ request, env }) {
     const now = new Date().toISOString();
 
     const notePatch = {
+      orderId,
+      uid: safeText(order.uid || ""),
+      email: safeText(order.email || ""),
       adminNote,
       adminNoteUpdatedAt: now,
       updatedAt: now
     };
 
-    await fbPatch(dbUrl, `/paymentOrders/${orderId}`, notePatch);
+    await fbPatch(dbUrl, `/adminOrderNotes/${orderId}`, notePatch);
+
+    try {
+      await fbPatch(dbUrl, `/paymentOrders/${orderId}`, {
+        adminNote: null,
+        adminNoteUpdatedAt: null,
+        updatedAt: now
+      });
+    } catch {
+      // cleanup lama bersifat optional
+    }
 
     return json({
       ok: true,
-      order: { ...order, ...notePatch },
+      order: { ...order, adminNote, adminNoteUpdatedAt: now },
       message: "Catatan order berhasil disimpan"
     });
   }

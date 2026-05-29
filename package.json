@@ -1,6 +1,6 @@
 {
-  "name": "xau-ai-signal-step8k-admin-order-note",
-  "version": "6.5.3-step8k-admin-order-note",
+  "name": "xau-ai-signal-step8l-private-admin-note-security",
+  "version": "6.5.4-step8l-private-note",
   "type": "module",
   "scripts": {
     "dev": "vite",

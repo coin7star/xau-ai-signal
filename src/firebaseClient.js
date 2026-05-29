@@ -247,6 +247,10 @@ export async function getUserPaymentOrders(uid) {
 
   return Object.values(allOrders)
     .filter((order) => order && order.uid === uid)
+    .map((order) => {
+      const { adminNote, adminNoteUpdatedAt, ...safeOrder } = order || {};
+      return safeOrder;
+    })
     .sort((a, b) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime())
     .slice(0, 20);
 }
