@@ -1,16 +1,30 @@
-# XAU Step 7A Last Login Inline Detail Fix
+# XAU Step 7A Admin Stable Final
 
-Fix:
-- Last login sekarang ditambahkan ke layout detail Manage inline yang aktif.
-- Target tampilan:
-  Created | Last login | Telegram | Premium
-- Tidak menambah device info.
-- Tidak ada device lock/block.
-- Tidak mengubah dashboard premium.
+Recovery final:
+- Balik ke versi Admin Panel yang sudah normal.
+- Tidak patch layout Admin Panel lagi.
+- Tidak tambah device info visual.
+- Tidak tambah inline Last Login visual.
+- Menghindari blank saat klik Admin Panel.
+
+Yang tetap ada:
+- lastLoginAt tetap disimpan saat user login.
+- Semua fitur sebelum Step 7 tetap aman.
+
+Fitur aman:
+- Landing page
+- Login/Register
+- Forgot password Firebase default
+- Paywall pilih paket
+- Manual payment
+- Admin Panel
+- Telegram connect
+- Multi-user alert
+- Performance Analytics 7/30 hari
 
 Catatan:
-- Last login baru tampil setelah user login ulang setelah deploy.
-- User lama bisa tetap kosong sampai login ulang.
+- Last login sementara disimpan di RTDB, tapi tampilan Admin Panel kita tunda.
+- Next kalau mau tampilkan last login, sebaiknya buat card terpisah di bawah admin panel, bukan patch row existing.
 
 Cloudflare:
 - package-lock.json tetap dihapus.
