@@ -1,6 +1,6 @@
 {
-  "name": "xau-ai-signal-step8j-user-payment-history",
-  "version": "6.5.2-step8j-user-payment-history",
+  "name": "xau-ai-signal-ui1-premium-tabs-payments",
+  "version": "6.6.0-ui1-premium-tabs-payments",
   "type": "module",
   "scripts": {
     "dev": "vite",

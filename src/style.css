@@ -2672,3 +2672,66 @@ canvas {
     grid-template-columns: 1fr;
   }
 }
+
+
+/* UI-1 Premium Dashboard Tabs */
+.premiumTabs {
+  position: sticky;
+  top: 10px;
+  z-index: 5;
+  margin: 14px 0 22px;
+  padding: 10px;
+  border-radius: 22px;
+  background: rgba(6, 10, 24, .78);
+  border: 1px solid rgba(255,255,255,.10);
+  backdrop-filter: blur(14px);
+  display: flex;
+  gap: 8px;
+  overflow-x: auto;
+}
+
+.premiumTabs button {
+  border: 1px solid rgba(255,255,255,.10);
+  border-radius: 999px;
+  padding: 10px 13px;
+  color: #cbd6f3;
+  background: rgba(255,255,255,.055);
+  font-weight: 1000;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.premiumTabs button.active {
+  color: #06111f;
+  background: linear-gradient(135deg, #ffe879, #19f28f);
+  border-color: transparent;
+}
+
+.premiumTabPlaceholder {
+  margin-bottom: 22px;
+  padding: 22px;
+}
+
+.premiumTabPlaceholder h3 {
+  margin: 10px 0 6px;
+  color: #f8fbff;
+  font-size: 26px;
+}
+
+.premiumTabPlaceholder p {
+  margin: 0;
+  color: #9fb0d6;
+  line-height: 1.6;
+}
+
+@media(max-width: 720px) {
+  .premiumTabs {
+    top: 6px;
+    border-radius: 18px;
+  }
+
+  .premiumTabs button {
+    padding: 9px 11px;
+    font-size: 12px;
+  }
+}
