@@ -1,6 +1,6 @@
 {
-  "name": "xau-ai-signal-step8a-payment-order-pending",
-  "version": "6.4.0-step8a-payment-order",
+  "name": "xau-ai-signal-step8b-admin-pending-orders",
+  "version": "6.4.1-step8b-orders",
   "type": "module",
   "scripts": {
     "dev": "vite",

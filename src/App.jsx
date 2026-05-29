@@ -1491,6 +1491,7 @@ function AdminPanel({ adminToken, setAdminToken }) {
           <div className="emptyHistory">Belum ada user sesuai filter, atau token admin belum diisi.</div>
         )}
       </div>
+        <AdminOrdersPanel adminToken={adminToken} />
     </section>
   );
 }
@@ -1720,6 +1721,146 @@ function buildPerformanceSummary(call7, call30, scalp7, scalp30) {
   }
 
   return parts.join(" · ");
+}
+
+
+
+function AdminOrdersPanel({ adminToken }) {
+  const [orders, setOrders] = useState([]);
+  const [loadingOrders, setLoadingOrders] = useState(false);
+  const [orderMessage, setOrderMessage] = useState("");
+
+  async function loadOrders() {
+    if (!adminToken) {
+      setOrderMessage("Isi admin token dulu untuk melihat order.");
+      return;
+    }
+
+    try {
+      setLoadingOrders(true);
+      setOrderMessage("");
+
+      const res = await fetch("/api/admin-orders", {
+        headers: {
+          Authorization: `Bearer ${adminToken}`
+        }
+      });
+
+      const data = await res.json();
+
+      if (!res.ok || !data.ok) {
+        throw new Error(data.error || "Gagal load order.");
+      }
+
+      setOrders(Array.isArray(data.orders) ? data.orders : []);
+    } catch (err) {
+      setOrderMessage(err.message || "Gagal load order.");
+    } finally {
+      setLoadingOrders(false);
+    }
+  }
+
+  async function updateOrder(order, action) {
+    if (!adminToken) {
+      setOrderMessage("Isi admin token dulu.");
+      return;
+    }
+
+    try {
+      setOrderMessage(action === "approve" ? "Memproses approval order..." : "Memproses reject order...");
+
+      const days = String(order.packageCode || order.packageLabel || "").includes("7") ? 7 : 30;
+
+      const res = await fetch("/api/admin-orders", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${adminToken}`
+        },
+        body: JSON.stringify({
+          action,
+          orderId: order.orderId,
+          days
+        })
+      });
+
+      const data = await res.json();
+
+      if (!res.ok || !data.ok) {
+        throw new Error(data.error || "Gagal update order.");
+      }
+
+      setOrderMessage(action === "approve" ? "Order approved dan premium aktif." : "Order ditolak.");
+      await loadOrders();
+    } catch (err) {
+      setOrderMessage(err.message || "Gagal update order.");
+    }
+  }
+
+  const pendingOrders = orders.filter((order) => String(order.status || "").toLowerCase() === "pending");
+  const recentOrders = orders.slice(0, 12);
+
+  return (
+    <section className="adminOrdersPanel">
+      <div className="adminOrdersHeader">
+        <div>
+          <span className="pill mini">STEP 8B</span>
+          <h3>Pending Payment Orders</h3>
+          <p>Order dari user yang klik Konfirmasi Pembayaran. Approve akan mengaktifkan premium otomatis sesuai paket.</p>
+        </div>
+
+        <button type="button" onClick={loadOrders} disabled={loadingOrders}>
+          {loadingOrders ? "Loading..." : "Refresh Orders"}
+        </button>
+      </div>
+
+      <div className="adminOrdersStats">
+        <span>Pending <b>{pendingOrders.length}</b></span>
+        <span>Total <b>{orders.length}</b></span>
+      </div>
+
+      {orderMessage ? <div className="adminOrdersMessage">{orderMessage}</div> : null}
+
+      <div className="adminOrdersList">
+        {recentOrders.length ? recentOrders.map((order) => (
+          <article className="adminOrderRow" key={order.orderId}>
+            <div>
+              <b>{order.email || "-"}</b>
+              <small>{order.orderId}</small>
+              <small>UID: {order.uid}</small>
+            </div>
+
+            <div>
+              <span className="orderBadge">{order.packageLabel || order.packageCode || "-"}</span>
+              <small>{order.price || "-"}</small>
+            </div>
+
+            <div>
+              <span className={`orderStatus ${String(order.status || "").toLowerCase()}`}>
+                {(order.status || "pending").toUpperCase()}
+              </span>
+              <small>{formatShortDate(order.createdAt)}</small>
+            </div>
+
+            <div className="adminOrderActions">
+              {String(order.status || "").toLowerCase() === "pending" ? (
+                <>
+                  <button type="button" onClick={() => updateOrder(order, "approve")}>Approve</button>
+                  <button type="button" onClick={() => updateOrder(order, "reject")}>Reject</button>
+                </>
+              ) : (
+                <small>{order.premiumUntil ? `Premium: ${formatShortDate(order.premiumUntil)}` : "Processed"}</small>
+              )}
+            </div>
+          </article>
+        )) : (
+          <div className="adminOrdersEmpty">
+            Belum ada order. Klik Refresh Orders setelah user membuat order pending.
+          </div>
+        )}
+      </div>
+    </section>
+  );
 }
 
 

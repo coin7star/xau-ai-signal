@@ -2283,3 +2283,180 @@ canvas {
   cursor: not-allowed;
   opacity: .72;
 }
+
+
+/* Step 8B Admin Pending Orders */
+.adminOrdersPanel {
+  margin: 18px 0;
+  padding: 18px;
+  border-radius: 22px;
+  background: rgba(0,0,0,.16);
+  border: 1px solid rgba(103,232,249,.16);
+}
+
+.adminOrdersHeader {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 14px;
+  margin-bottom: 14px;
+}
+
+.adminOrdersHeader h3 {
+  margin: 10px 0 4px;
+  color: #f8fbff;
+  font-size: 24px;
+}
+
+.adminOrdersHeader p {
+  margin: 0;
+  color: #9fb0d6;
+  line-height: 1.5;
+}
+
+.adminOrdersHeader button,
+.adminOrderActions button {
+  border: 0;
+  border-radius: 14px;
+  padding: 10px 13px;
+  font-weight: 900;
+  cursor: pointer;
+  color: #06111f;
+  background: linear-gradient(135deg, #67e8f9, #d8b4fe);
+}
+
+.adminOrdersHeader button:disabled,
+.adminOrderActions button:disabled {
+  opacity: .65;
+  cursor: not-allowed;
+}
+
+.adminOrdersStats {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-bottom: 12px;
+}
+
+.adminOrdersStats span {
+  padding: 8px 11px;
+  border-radius: 999px;
+  color: #cbd6f3;
+  background: rgba(255,255,255,.06);
+  border: 1px solid rgba(255,255,255,.08);
+  font-weight: 900;
+}
+
+.adminOrdersStats b {
+  color: #fff2c2;
+}
+
+.adminOrdersMessage {
+  margin-bottom: 12px;
+  padding: 12px;
+  border-radius: 16px;
+  color: #b9f3ff;
+  background: rgba(103,232,249,.10);
+  border: 1px solid rgba(103,232,249,.16);
+  font-weight: 900;
+}
+
+.adminOrdersList {
+  display: grid;
+  gap: 10px;
+}
+
+.adminOrderRow {
+  display: grid;
+  grid-template-columns: 1.4fr .55fr .55fr .65fr;
+  gap: 12px;
+  align-items: center;
+  padding: 13px;
+  border-radius: 18px;
+  background: rgba(255,255,255,.045);
+  border: 1px solid rgba(255,255,255,.08);
+}
+
+.adminOrderRow b,
+.adminOrderRow small {
+  display: block;
+}
+
+.adminOrderRow b {
+  color: #f8fbff;
+}
+
+.adminOrderRow small {
+  margin-top: 4px;
+  color: #8fa2c7;
+  font-size: 11px;
+  word-break: break-word;
+}
+
+.orderBadge,
+.orderStatus {
+  display: inline-flex;
+  width: fit-content;
+  border-radius: 999px;
+  padding: 7px 10px;
+  font-weight: 1000;
+  font-size: 12px;
+}
+
+.orderBadge {
+  color: #06111f;
+  background: linear-gradient(135deg, #fff176, #22e58f);
+}
+
+.orderStatus {
+  color: #ffe4a3;
+  background: rgba(255,232,121,.10);
+  border: 1px solid rgba(255,232,121,.18);
+}
+
+.orderStatus.approved {
+  color: #a7f3d0;
+  background: rgba(16,185,129,.14);
+  border-color: rgba(16,185,129,.22);
+}
+
+.orderStatus.rejected {
+  color: #fecdd3;
+  background: rgba(244,63,94,.12);
+  border-color: rgba(244,63,94,.22);
+}
+
+.adminOrderActions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+.adminOrderActions button:last-child {
+  color: #ffe4e6;
+  background: rgba(244,63,94,.18);
+  border: 1px solid rgba(244,63,94,.26);
+}
+
+.adminOrdersEmpty {
+  padding: 14px;
+  border-radius: 16px;
+  color: #9fb0d6;
+  background: rgba(255,255,255,.04);
+  border: 1px dashed rgba(255,255,255,.12);
+}
+
+@media(max-width: 860px) {
+  .adminOrdersHeader {
+    flex-direction: column;
+  }
+
+  .adminOrderRow {
+    grid-template-columns: 1fr;
+  }
+
+  .adminOrderActions {
+    justify-content: flex-start;
+  }
+}
