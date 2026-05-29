@@ -1,30 +1,28 @@
-# XAU Step 7A Admin Stable Final
+# XAU Step 7C Login Activity Card
 
-Recovery final:
-- Balik ke versi Admin Panel yang sudah normal.
-- Tidak patch layout Admin Panel lagi.
-- Tidak tambah device info visual.
-- Tidak tambah inline Last Login visual.
-- Menghindari blank saat klik Admin Panel.
+Update aman:
+- Tambah card terpisah "Login Activity" di Admin Panel.
+- Tidak mengubah row Manage user.
+- Tidak mengubah compact row existing.
+- Card cuma baca users yang sudah loaded.
 
-Yang tetap ada:
-- lastLoginAt tetap disimpan saat user login.
-- Semua fitur sebelum Step 7 tetap aman.
-
-Fitur aman:
-- Landing page
-- Login/Register
-- Forgot password Firebase default
-- Paywall pilih paket
-- Manual payment
-- Admin Panel
-- Telegram connect
-- Multi-user alert
-- Performance Analytics 7/30 hari
+Isi card:
+- Email
+- UID
+- Role
+- Last login
+- Telegram status
 
 Catatan:
-- Last login sementara disimpan di RTDB, tapi tampilan Admin Panel kita tunda.
-- Next kalau mau tampilkan last login, sebaiknya buat card terpisah di bawah admin panel, bukan patch row existing.
+- lastLoginAt sudah disimpan dari Step 7A.
+- Data Last login muncul setelah user login ulang setelah deploy Step 7A/7C.
+- User yang belum login ulang bisa tampil "-".
+
+Tidak ada:
+- Device lock
+- Device block
+- Device mismatch
+- Patch row admin sensitif
 
 Cloudflare:
 - package-lock.json tetap dihapus.

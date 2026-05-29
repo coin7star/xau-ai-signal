@@ -1491,6 +1491,8 @@ function AdminPanel({ adminToken, setAdminToken }) {
           <div className="emptyHistory">Belum ada user sesuai filter, atau token admin belum diisi.</div>
         )}
       </div>
+
+        <LoginActivityCard users={users} />
     </section>
   );
 }
@@ -1720,6 +1722,50 @@ function buildPerformanceSummary(call7, call30, scalp7, scalp30) {
   }
 
   return parts.join(" · ");
+}
+
+
+
+function LoginActivityCard({ users = [] }) {
+  const recentUsers = [...users]
+    .filter((user) => user?.email)
+    .sort((a, b) => {
+      const at = new Date(a.lastLoginAt || a.createdAt || 0).getTime();
+      const bt = new Date(b.lastLoginAt || b.createdAt || 0).getTime();
+      return bt - at;
+    })
+    .slice(0, 8);
+
+  return (
+    <section className="loginActivityCard">
+      <div className="loginActivityHeader">
+        <div>
+          <span className="pill mini">LOGIN ACTIVITY</span>
+          <h3>Aktivitas Login User</h3>
+          <p>Monitoring ringan untuk Step 7 Security. Data last login muncul setelah user login ulang.</p>
+        </div>
+        <b>{recentUsers.length} user</b>
+      </div>
+
+      <div className="loginActivityList">
+        {recentUsers.length ? recentUsers.map((user) => (
+          <div className="loginActivityRow" key={user.uid || user.email}>
+            <div>
+              <b>{user.email}</b>
+              <small>{user.uid}</small>
+            </div>
+            <span>{(user.role || "free").toUpperCase()}</span>
+            <span>{formatShortDate(user.lastLoginAt) || "-"}</span>
+            <span>{user.telegramChatId ? "TG Connected" : "No TG"}</span>
+          </div>
+        )) : (
+          <div className="loginActivityEmpty">
+            Belum ada data login. Data muncul setelah user login ulang.
+          </div>
+        )}
+      </div>
+    </section>
+  );
 }
 
 
