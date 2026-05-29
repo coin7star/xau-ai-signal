@@ -1,40 +1,34 @@
-# XAU Clean Rollback Before Step 7 Admin Fix
+# XAU Chart Candle Restore Hotfix
 
-Tujuan:
-- Clean rollback total dari baseline aman sebelum eksperimen Step 7.
-- Menghapus risiko blank saat klik Admin Panel.
-- Tidak membawa Login Activity, Device Info, Device Lock, atau patch Admin Panel Step 7.
+Masalah:
+- Setelah clean rollback sebelum Step 7, Admin Panel normal, tapi tampilan candle/grafik hilang.
+- Penyebab kemungkinan baseline rollback mengambil versi sebelum fix grafik candle.
 
-Fitur yang tetap ada:
-- Landing page publik
+Fix:
+- Restore file chart/dashboard dari baseline yang lebih baru dan sebelumnya chart sudah work.
+- Tidak menambah Step 7.
+- Tidak menambah Login Activity.
+- Tidak mengubah Admin Panel sensitif.
+- Email tetap Firebase default.
+- Tambah CSS guard agar container chart punya tinggi minimal.
+
+Source chart baseline:
+xau-forgot-password-visible-stable-fix.zip
+
+Target recovery baseline:
+xau-clean-rollback-before-step7-admin-fix.zip
+
+Yang dipertahankan:
+- Landing page
 - Login/Register
-- Firebase default email verification
 - Forgot password Firebase default
-- Paywall pilih paket 7 Day / 30 Day
+- Paywall pilih paket
 - Manual payment
 - Admin Panel stable
 - Telegram connect
-- Multi-user Telegram alert
-- Performance Analytics 7/30 hari
-- Dashboard premium clean
-
-Yang tidak ada:
-- Step 7 device tracking
-- Login Activity card
-- Device lock/block
-- Patch visual Admin Panel
-- Custom branded email Resend
-
-Catatan penting:
-- Setelah deploy, lakukan hard refresh browser:
-  Ctrl + Shift + R
-- Jika masih blank, buka DevTools Console dan kirim error merahnya, karena berarti browser masih load bundle lama atau ada error lain.
-
-Cloudflare:
-- package-lock.json tetap dihapus.
-- .npmrc tetap ada.
-- Build command: npm run build
-- Output directory: dist
+- Multi-user alert
+- Performance Analytics
+- Candle chart/dashboard dari versi yang lebih baru
 
 MQ5:
 - Tidak perlu update.

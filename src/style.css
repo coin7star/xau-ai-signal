@@ -2244,3 +2244,24 @@
   color: #bfdbfe;
   text-decoration: underline;
 }
+
+
+/* Candle chart restore hotfix */
+.chartBox,
+.chartPanel,
+.candleChartBox,
+.chartWrap {
+  min-height: 360px;
+}
+
+.tvChart,
+.candleChart,
+#m1Chart,
+#m15Chart,
+#chart {
+  min-height: 320px;
+}
+
+canvas {
+  max-width: 100%;
+}

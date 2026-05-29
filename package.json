@@ -1,6 +1,6 @@
 {
-  "name": "xau-ai-signal-clean-rollback-before-step7-admin-fix",
-  "version": "6.1.9-clean-admin-rollback",
+  "name": "xau-ai-signal-chart-candle-restore-hotfix",
+  "version": "6.2.10-chart-restore",
   "type": "module",
   "scripts": {
     "dev": "vite",
