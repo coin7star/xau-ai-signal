@@ -1,29 +1,33 @@
-# XAU Cloudflare NPM Install Fix
+# XAU Hide Debug Cards for Premium Full Fix
 
-Masalah:
-- Cloudflare gagal sebelum build:
-  npm error Exit handler never called!
-- Error terjadi saat:
-  npm clean-install --progress=false
-- Ini bug/issue di npm Cloudflare worker, bukan error React/Vite project.
+Update:
+- Card teknis/debug disembunyikan dari premium user.
+- Card yang disembunyikan untuk premium:
+  - Bot Command Ready
+  - Set Webhook
+  - Analisa AI sinkron / Fallback
+  - AI API endpoint/debug text
+- Card tersebut tetap muncul untuk admin.
+- Premium user hanya melihat status clean:
+  - Signal Engine Active
+  - Premium Mode
+  - Debug hidden
 
-Fix:
-- package-lock.json dihapus dari ZIP ini.
-- .npmrc ditambah:
-  package-lock=false
-  progress=false
-  audit=false
-  fund=false
-- Tujuan: Cloudflare pakai npm install biasa, bukan npm clean-install.
+Detected patch:
+- Bot/Webhook card wrapped: True
+- AI/Fallback card wrapped: True
+
+Cloudflare:
+- package-lock.json dihapus.
+- .npmrc tetap ada supaya Cloudflare tidak maksa npm clean-install.
 
 Cara pakai:
 1. Upload replace semua file ke GitHub.
-2. Pastikan package-lock.json lama di GitHub ikut terhapus.
+2. Pastikan package-lock.json tidak ada di GitHub.
 3. Commit.
-4. Deploy ulang Cloudflare.
-5. Kalau masih stuck, aktifkan Build cache Cloudflare.
+4. Deploy Cloudflare.
+5. Login sebagai premium: debug card harus hilang.
+6. Login sebagai admin: debug card tetap muncul.
 
-Penting:
-- Jangan upload node_modules.
-- Jangan upload dist.
-- MQ5 tidak perlu update.
+MQ5:
+- Tidak perlu update.

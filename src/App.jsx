@@ -488,6 +488,21 @@ export default function App() {
           </button>
         </div>
       </header>
+
+      {!isAdmin && (
+        <section className="premiumSystemCard card">
+          <div>
+            <span className="pill mini">SYSTEM STATUS</span>
+            <h3>Signal Engine Active</h3>
+            <p>Dashboard premium aktif. Fokus utama: market signal, Telegram alert, chart, dan performance history.</p>
+          </div>
+          <div className="premiumSystemPills">
+            <b>Premium Mode</b>
+            <span>Debug hidden</span>
+          </div>
+        </section>
+      )}
+
       {mt5Status.isStale && (
         <section className="mt5PauseBanner card">
           <div>
@@ -517,7 +532,8 @@ export default function App() {
         <AdminPanel adminToken={adminToken} setAdminToken={setAdminToken} />
       )}
 
-      <section className="hero cleanHero">
+      {isAdmin && (
+<section className="hero cleanHero">
         <div className="intro card">
           <span className="pill"><Zap size={15} /> BOT COMMAND READY</span>
           <h1>/signal, /status, /help sekarang bisa jalan.</h1>
@@ -542,6 +558,7 @@ export default function App() {
           </div>
         </div>
       </section>
+      )}
 
       <section className="overview card">
         <div className="overviewItem"><Database size={18} /><small>Data source</small><strong>Firebase RTDB</strong></div>
@@ -550,13 +567,15 @@ export default function App() {
         <div className="overviewItem">{isSell ? <TrendingDown size={18} /> : <TrendingUp size={18} />}<small>Last close</small><strong>{lastCandle?.close || "-"}</strong></div>
       </section>
 
-      <section className="aiPanel card">
+      {isAdmin && (
+<section className="aiPanel card">
         <div className="strategyHeader">
           <div><span className="pill mini"><Sparkles size={14} /> AI MARKET ANALYSIS</span><h3>Analisa AI sinkron</h3></div>
           <div className={`biasBadge ${aiAnalysis?.mode === "ai-live" ? "buy" : "wait"}`}>{aiAnalysis?.mode === "ai-live" ? "AI Live" : "Fallback"}</div>
         </div>
         <div className="aiText">{formatAiText(aiAnalysis?.analysis || "Menunggu analisa AI...")}</div>
       </section>
+      )}
 
       <section className="strategyPanel card">
         <div className="strategyHeader">
