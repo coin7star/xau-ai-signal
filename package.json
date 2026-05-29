@@ -1,6 +1,6 @@
 {
-  "name": "xau-ai-signal-market-monitoring-safe-fix",
-  "version": "6.2.13-market-monitoring-safe",
+  "name": "xau-ai-signal-market-monitoring-display-final",
+  "version": "6.2.14-market-monitoring-display-final",
   "type": "module",
   "scripts": {
     "dev": "vite",
