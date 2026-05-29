@@ -1,6 +1,6 @@
 {
-  "name": "xau-ai-signal-public-landing-loading-blank-hotfix",
-  "version": "5.8.2",
+  "name": "xau-ai-signal-pricing-10k-30k",
+  "version": "5.8.3",
   "type": "module",
   "scripts": {
     "dev": "vite",

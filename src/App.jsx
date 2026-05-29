@@ -1631,22 +1631,22 @@ function LandingPage({ onLogin }) {
       <section className="landingSection" id="pricing">
         <div className="landingSectionTitle">
           <span className="pill mini">PAKET BETA</span>
-          <h2>Pilih akses premium</h2>
-          <p>Harga bisa disesuaikan saat launch. Untuk saat ini aktivasi masih manual lewat admin.</p>
+          <h2>Pilih paket premium</h2>
+          <p>Paket beta hemat untuk akses dashboard premium. Aktivasi premium diproses manual oleh admin.</p>
         </div>
 
         <div className="pricingGrid">
           <div className="priceCard">
             <span>Trial</span>
-            <h3>7 Hari</h3>
-            <b>Rp25k - Rp35k</b>
-            <p>Cocok untuk test dashboard dan Telegram alert.</p>
+            <h3>7 Day</h3>
+            <b>Rp10K</b>
+            <p>Cocok untuk coba fitur premium selama 7 hari.</p>
           </div>
           <div className="priceCard featured">
             <span>Popular</span>
-            <h3>30 Hari</h3>
-            <b>Rp99k - Rp149k</b>
-            <p>Akses premium bulanan untuk pantau XAUUSD.</p>
+            <h3>30 Day</h3>
+            <b>Rp30K</b>
+            <p>Akses premium 30 hari untuk pantau XAUUSD.</p>
           </div>
           <div className="priceCard">
             <span>Founder</span>

@@ -1,16 +1,12 @@
-# XAU Public Landing Loading Blank Hotfix
+# XAU Pricing 10K 30K Full Fix
 
-Masalah:
-- Web blank sebelum landing tampil.
-- Penyebab: tombol onBack masuk ke authLoading screen, padahal onBack hanya ada di AuthScreen.
-- Runtime error membuat layar blank.
+Update harga landing page:
+- 7 Day = Rp10K
+- 30 Day = Rp30K
 
-Fix:
-- onBack button dihapus dari Loading screen.
-- Back button hanya ada di halaman Login/Register.
-- showAuthScreen state dipastikan ada.
-- Landing page tetap tampil untuk visitor sebelum login.
-- Build sudah dites.
+Copywriting paket juga dipoles:
+- Paket beta hemat untuk akses dashboard premium.
+- Aktivasi premium diproses manual oleh admin.
 
 Cloudflare:
 - package-lock.json tetap dihapus.
