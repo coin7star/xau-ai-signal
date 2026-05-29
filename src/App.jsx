@@ -12,7 +12,7 @@ const PACKAGE_30D_PRICE = "Rp30K";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { createChart, ColorType, CrosshairMode } from "lightweight-charts";
 import { Activity, Bot, Copy, Database, Lock, LogOut, Radio, RefreshCcw, Settings, Shield, Sparkles, Target, TrendingDown, TrendingUp, User, Zap } from "lucide-react";
-import { ensureUserProfile, getUserProfile, hasFirebaseClientConfig, isPremiumProfile, listenAuth, loginWithEmail, loginWithGoogle, logout, refreshCurrentUser, registerWithEmail, resetPasswordEmail, sendVerificationEmail } from "./firebaseClient";
+import { ensureUserProfile, getUserProfile, hasFirebaseClientConfig, isPremiumProfile, listenAuth, loginWithEmail, loginWithGoogle, logout, refreshCurrentUser, registerWithEmail, resetPasswordEmail, confirmResetPasswordCode, verifyEmailActionCode, sendVerificationEmail } from "./firebaseClient";
 
 export default function App() {
   const chartM1Ref = useRef(null);
@@ -429,6 +429,13 @@ export default function App() {
   const isAdmin = authProfile?.role === "admin";
   const premiumInfo = getPremiumInfo(authProfile);
   const emailVerified = Boolean(authUser?.emailVerified || authProfile?.emailVerified || authProfile?.emailCodeVerified);
+
+
+  const authAction = getFirebaseAuthActionFromUrl();
+
+  if (authAction) {
+    return <FirebaseAuthActionPage action={authAction} />;
+  }
 
   if (authLoading) {
     return (
@@ -1720,6 +1727,178 @@ function buildPerformanceSummary(call7, call30, scalp7, scalp30) {
   }
 
   return parts.join(" · ");
+}
+
+
+
+function getFirebaseAuthActionFromUrl() {
+  const params = new URLSearchParams(window.location.search);
+  const mode = params.get("mode");
+  const oobCode = params.get("oobCode");
+
+  if (!mode || !oobCode) return null;
+
+  if (mode === "resetPassword" || mode === "verifyEmail") {
+    return {
+      mode,
+      oobCode,
+      apiKey: params.get("apiKey") || "",
+      continueUrl: params.get("continueUrl") || ""
+    };
+  }
+
+  return null;
+}
+
+function FirebaseAuthActionPage({ action }) {
+  const [password, setPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [busy, setBusy] = useState(action.mode === "verifyEmail");
+  const [status, setStatus] = useState(action.mode === "verifyEmail" ? "processing" : "ready");
+  const [message, setMessage] = useState("");
+
+  const isReset = action.mode === "resetPassword";
+  const isVerify = action.mode === "verifyEmail";
+
+  useEffect(() => {
+    if (!isVerify) return;
+
+    let cancelled = false;
+
+    async function verifyNow() {
+      setBusy(true);
+      setStatus("processing");
+      setMessage("");
+
+      try {
+        await verifyEmailActionCode(action.oobCode);
+
+        if (cancelled) return;
+        setStatus("success");
+        setMessage("Email berhasil diverifikasi. Sekarang kamu bisa login dan lanjut aktivasi premium.");
+      } catch (err) {
+        if (cancelled) return;
+        setStatus("error");
+        setMessage(cleanAuthError(err));
+      } finally {
+        if (!cancelled) setBusy(false);
+      }
+    }
+
+    verifyNow();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [action.oobCode, isVerify]);
+
+  async function handleResetPassword(event) {
+    event.preventDefault();
+    setMessage("");
+
+    if (password.length < 6) {
+      setStatus("error");
+      setMessage("Password baru minimal 6 karakter.");
+      return;
+    }
+
+    if (password !== confirmPassword) {
+      setStatus("error");
+      setMessage("Konfirmasi password belum sama.");
+      return;
+    }
+
+    setBusy(true);
+    setStatus("processing");
+
+    try {
+      await confirmResetPasswordCode(action.oobCode, password);
+      setStatus("success");
+      setMessage("Password baru berhasil disimpan. Silakan login dengan password baru kamu.");
+      setPassword("");
+      setConfirmPassword("");
+    } catch (err) {
+      setStatus("error");
+      setMessage(cleanAuthError(err));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  function goLogin() {
+    window.history.replaceState({}, "", window.location.origin);
+    window.location.reload();
+  }
+
+  return (
+    <main className="page authActionPage">
+      <section className={`authActionCard card ${status}`}>
+        <div className="logo big"><Lock size={30} /></div>
+        <span className="pill mini">{isReset ? "RESET PASSWORD" : "EMAIL VERIFICATION"}</span>
+
+        <h1>{isReset ? "Buat Password Baru" : status === "success" ? "Email Berhasil Diverifikasi" : "Verifikasi Email"}</h1>
+
+        <p>
+          {isReset
+            ? "Masukkan password baru untuk akun XAU AI Signal kamu."
+            : status === "processing"
+              ? "Sedang memverifikasi email kamu..."
+              : "Akun kamu siap digunakan untuk login ke dashboard premium."}
+        </p>
+
+        {isReset && status !== "success" && (
+          <form className="authForm" onSubmit={handleResetPassword}>
+            <label>Password Baru</label>
+            <input
+              value={password}
+              onChange={(event) => setPassword(event.target.value)}
+              type="password"
+              placeholder="minimal 6 karakter"
+              required
+            />
+
+            <label>Konfirmasi Password</label>
+            <input
+              value={confirmPassword}
+              onChange={(event) => setConfirmPassword(event.target.value)}
+              type="password"
+              placeholder="ulang password baru"
+              required
+            />
+
+            {message && <div className={`authActionMessage ${status}`}>{message}</div>}
+
+            <button type="submit" disabled={busy}>
+              {busy ? "Menyimpan..." : "Simpan Password Baru"}
+            </button>
+          </form>
+        )}
+
+        {(!isReset || status === "success") && (
+          <div className="authActionStatusBox">
+            <b>{status === "success" ? "Sukses" : status === "error" ? "Gagal" : "Memproses"}</b>
+            <span>{message || "Mohon tunggu sebentar..."}</span>
+          </div>
+        )}
+
+        {status === "success" && (
+          <button className="primaryWideBtn" type="button" onClick={goLogin}>
+            Login Sekarang
+          </button>
+        )}
+
+        {status === "error" && (
+          <button className="secondaryWideBtn" type="button" onClick={goLogin}>
+            Kembali ke Login
+          </button>
+        )}
+
+        <small className="authActionMini">
+          XAU AI Signal · Secure Firebase Auth
+        </small>
+      </section>
+    </main>
+  );
 }
 
 

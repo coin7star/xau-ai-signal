@@ -8,6 +8,8 @@ import {
   reload,
   sendEmailVerification,
   sendPasswordResetEmail,
+  confirmPasswordReset,
+  applyActionCode,
   setPersistence,
   signInWithEmailAndPassword,
   signInWithPopup,
@@ -59,7 +61,7 @@ export async function resetPasswordEmail(email) {
 
   await sendPasswordResetEmail(auth, email, {
     url: window.location.origin,
-    handleCodeInApp: false
+    handleCodeInApp: true
   });
 
   return { ok: true };
@@ -171,4 +173,22 @@ export function isPremiumProfile(profile) {
   if (!until) return false;
 
   return new Date(until).getTime() > Date.now();
+}
+
+
+export async function confirmResetPasswordCode(oobCode, newPassword) {
+  if (!auth) throw new Error("Firebase client ENV belum lengkap.");
+  if (!oobCode) throw new Error("Kode reset password tidak valid.");
+  if (!newPassword || newPassword.length < 6) throw new Error("Password minimal 6 karakter.");
+
+  await confirmPasswordReset(auth, oobCode, newPassword);
+  return { ok: true };
+}
+
+export async function verifyEmailActionCode(oobCode) {
+  if (!auth) throw new Error("Firebase client ENV belum lengkap.");
+  if (!oobCode) throw new Error("Kode verifikasi email tidak valid.");
+
+  await applyActionCode(auth, oobCode);
+  return { ok: true };
 }

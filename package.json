@@ -1,6 +1,6 @@
 {
-  "name": "xau-ai-signal-forgot-password-visible-stable",
-  "version": "6.0.6",
+  "name": "xau-ai-signal-custom-firebase-auth-action-pages",
+  "version": "6.0.7",
   "type": "module",
   "scripts": {
     "dev": "vite",

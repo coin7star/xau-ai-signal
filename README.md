@@ -1,29 +1,42 @@
-# XAU Forgot Password Visible Stable Fix
+# XAU Custom Firebase Auth Action Pages Full Fix
 
 Update:
-- Tombol Lupa password? sekarang muncul tepat di bawah tombol Login.
-- Fitur reset password dipasang di firebaseClient.js sebagai resetPasswordEmail().
-- AuthScreen dibuat ulang stabil dari baseline aman.
-- Reset mode:
-  - title berubah jadi Reset Password
-  - hanya input email
-  - password field disembunyikan
-  - Google login disembunyikan
-  - tombol kembali ke login muncul
-- Firebase mengirim link reset password ke email user.
+- Custom page untuk reset password.
+- Custom page untuk verify email success.
+- User tidak lagi melihat tampilan default Firebase kalau Action URL diarahkan ke web utama.
 
-Cara test:
-1. Buka Login.
-2. Klik Lupa password?
-3. Isi email.
-4. Klik Kirim Link Reset Password.
-5. Cek inbox/spam.
-6. Reset password lalu login ulang.
+Yang ditambah:
+- FirebaseAuthActionPage
+- getFirebaseAuthActionFromUrl
+- confirmResetPasswordCode
+- verifyEmailActionCode
 
-Firebase:
-- Authentication > Email/Password harus enabled.
-- Template reset password bisa diedit dari:
-  Authentication > Templates > Password reset.
+Flow:
+1. User klik link reset password.
+2. Web membuka halaman "Buat Password Baru".
+3. User isi password baru.
+4. Setelah sukses, user klik Login Sekarang.
+
+Verify email:
+1. User klik link verifikasi.
+2. Web membuka halaman "Verifikasi Email".
+3. Sistem applyActionCode.
+4. Sukses tampil branded page.
+
+PENTING SETTING FIREBASE:
+Firebase Console > Authentication > Templates
+- Email address verification
+- Password reset
+
+Ubah Action URL / Continue URL ke:
+https://xau-ai-signal.pages.dev
+
+Atau authorized domain pastikan ada:
+xau-ai-signal.pages.dev
+
+Kalau Firebase masih mengarah ke:
+sultan-trading-data.firebaseapp.com
+maka user tetap akan lihat bawaan Firebase.
 
 Cloudflare:
 - package-lock.json tetap dihapus.
