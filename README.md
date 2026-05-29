@@ -1,19 +1,27 @@
-# XAU Ticker Blank Screen Hotfix
+# XAU Overview Ticker No Blank Safe Fix
 
 Masalah:
-- Setelah update ticker/source card, halaman blank.
-- Penyebab: ticker memakai mt5Status.label, tapi di base file aktif mt5Status belum tersedia di render.
-- Build tetap bisa lolos, tapi runtime React blank.
+- Fix ticker sebelumnya masih bisa bikin blank setelah loading.
+- Penyebab: runtime variable yang belum aman.
 
-Fix:
-- Ticker tidak lagi bergantung ke mt5Status.
-- Ticker pakai status aman:
-  Data Update: Active / Waiting
+Fix aman:
+- Dibuat dari versi stable.
+- Card overview besar diganti langsung dengan ticker compact secara exact.
+- Ticker tidak memakai mt5Status atau variable baru.
+- Ticker hanya memakai variable yang sudah pasti ada:
+  - candlesM1
+  - candlesM15
+  - market
+  - lastCandle
+  - isSell
+- Debug card tetap hidden dari premium.
 - package-lock.json tetap dihapus.
 - .npmrc tetap ada.
+- Build sudah dites.
 
 File berubah:
 - src/App.jsx
+- src/style.css
 - package.json
 - .npmrc
 

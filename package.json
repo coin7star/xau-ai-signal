@@ -1,6 +1,6 @@
 {
-  "name": "xau-ai-signal-ticker-blank-screen-hotfix",
-  "version": "5.7.2",
+  "name": "xau-ai-signal-overview-ticker-no-blank-safe",
+  "version": "5.7.3",
   "type": "module",
   "scripts": {
     "dev": "vite",
