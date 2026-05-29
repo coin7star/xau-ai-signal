@@ -522,15 +522,15 @@ export default function App() {
       {mt5Status.isStale && (
         <section className="mt5PauseBanner card">
           <div>
-            <span className="pill mini">MT5 / VPS OFFLINE MODE</span>
-            <h3>Auto refresh berat dipause biar RTDB hemat</h3>
+            <span className="pill mini">MARKET DATA OFFLINE MODE</span>
+            <h3>Pembaruan otomatis dijeda sementara</h3>
             <p>
-              Data MT5 terakhir update {mt5Status.lastText}. Chart/history refresh otomatis dipause.
+              Data market terakhir diperbarui {mt5Status.lastText}. Chart/history refresh otomatis dipause.
               Lite check tetap jalan tiap 60 detik untuk cek MT5 hidup lagi.
             </p>
           </div>
           <button type="button" onClick={() => loadData({ includeChart: true, includeHistory: true, includeScalpHistory: true })}>
-            Manual Refresh
+            Refresh Manual
           </button>
         </section>
       )}

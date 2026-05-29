@@ -1,34 +1,23 @@
-# XAU Chart Candle Restore Hotfix
+# XAU Professional Status Copy Hotfix
 
-Masalah:
-- Setelah clean rollback sebelum Step 7, Admin Panel normal, tapi tampilan candle/grafik hilang.
-- Penyebab kemungkinan baseline rollback mengambil versi sebelum fix grafik candle.
+Update copywriting:
+- "not-call-signal" diganti menjadi "Monitoring Market"
+- "MT5/VPS offline • refresh paused" diganti menjadi "Koneksi market offline • pembaruan dijeda"
+- "Auto refresh berat dipause biar RTDB hemat" diganti menjadi "Pembaruan otomatis dijeda sementara"
+- Penjelasan pause refresh dibuat lebih profesional dan tidak menyebut RTDB.
+- "Manual Refresh" diganti menjadi "Refresh Manual"
 
-Fix:
-- Restore file chart/dashboard dari baseline yang lebih baru dan sebelumnya chart sudah work.
-- Tidak menambah Step 7.
-- Tidak menambah Login Activity.
-- Tidak mengubah Admin Panel sensitif.
-- Email tetap Firebase default.
-- Tambah CSS guard agar container chart punya tinggi minimal.
+Tidak diubah:
+- Admin Panel
+- Step 7
+- Firebase email
+- MQ5
+- Telegram logic
+- Chart/candle logic
 
-Source chart baseline:
-xau-forgot-password-visible-stable-fix.zip
-
-Target recovery baseline:
-xau-clean-rollback-before-step7-admin-fix.zip
-
-Yang dipertahankan:
-- Landing page
-- Login/Register
-- Forgot password Firebase default
-- Paywall pilih paket
-- Manual payment
-- Admin Panel stable
-- Telegram connect
-- Multi-user alert
-- Performance Analytics
-- Candle chart/dashboard dari versi yang lebih baru
+Cloudflare:
+- package-lock.json tetap dihapus.
+- .npmrc tetap ada.
 
 MQ5:
 - Tidak perlu update.
