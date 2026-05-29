@@ -1,25 +1,26 @@
-# XAU Step 7B Device Info Admin Only
+# XAU Step 7B Admin Device Visible Fix
 
-Update kecil dan aman:
-- Simpan lastLoginDevice saat user login.
-- Simpan lastLoginBrowser saat user login.
-- Simpan lastLoginUserAgent pendek untuk admin/debug.
-- Admin Panel menampilkan:
+Fix:
+- Device info sekarang ditampilkan ringkas di compact row Admin Panel.
+- Data yang tampil:
   - Last login
   - Device
   - Browser
-  - Security LV1: tracking only
+- Device data tetap disimpan saat user login:
+  - lastLoginDevice
+  - lastLoginBrowser
+  - lastLoginUserAgent
+
+Penting:
+- Data baru muncul setelah user login ulang setelah deploy.
+- User lama yang belum login ulang akan tampil "-".
 
 Tidak ada:
 - Device lock
 - Device block
 - Device mismatch
-- Render guard baru
-- Perubahan dashboard premium yang rawan blank
-
-Tujuan:
-- Lanjutan Step 7 security secara bertahap.
-- Admin mulai bisa melihat pola login user tanpa memblokir akses.
+- Render guard
+- Perubahan dashboard premium berisiko blank
 
 Cloudflare:
 - package-lock.json tetap dihapus.

@@ -1,6 +1,6 @@
 {
-  "name": "xau-ai-signal-step7b-device-info-admin-only",
-  "version": "6.2.4-device-info-admin-only",
+  "name": "xau-ai-signal-step7b-admin-device-visible-fix",
+  "version": "6.2.5",
   "type": "module",
   "scripts": {
     "dev": "vite",
