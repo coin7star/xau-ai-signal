@@ -2,6 +2,13 @@ const ADMIN_CONTACT_URL = "https://t.me/xauai_signal_bot";
 const ADMIN_CONTACT_LABEL = "Hubungi Admin";
 const PRODUCT_NAME = "XAU AI Signal";
 
+const PAYMENT_QRIS_URL = "";
+const PAYMENT_DANA = "08xxxxxxxxxx";
+const PAYMENT_OVO = "08xxxxxxxxxx";
+const PAYMENT_BANK = "BCA / BRI / Mandiri - Hubungi admin";
+const PACKAGE_7D_PRICE = "Rp10K";
+const PACKAGE_30D_PRICE = "Rp30K";
+
 import { useEffect, useMemo, useRef, useState } from "react";
 import { createChart, ColorType, CrosshairMode } from "lightweight-charts";
 import { Activity, Bot, Copy, Database, Lock, LogOut, Radio, RefreshCcw, Settings, Shield, Sparkles, Target, TrendingDown, TrendingUp, User, Zap } from "lucide-react";
@@ -1852,6 +1859,47 @@ function LandingPage({ onLogin }) {
         </div>
       </section>
 
+
+
+      <section className="landingSection manualPaymentSection" id="payment">
+        <div className="landingSectionTitle">
+          <span className="pill mini">MANUAL PAYMENT</span>
+          <h2>Aktivasi premium manual</h2>
+          <p>Pilih paket, lakukan pembayaran, lalu kirim bukti bayar ke admin. Premium akan diaktifkan dari Admin Panel.</p>
+        </div>
+
+        <div className="manualPaymentGrid">
+          <div className="paymentMethodCard">
+            <span>Paket 7 Day</span>
+            <h3>{PACKAGE_7D_PRICE}</h3>
+            <p>Akses premium 7 hari untuk test dashboard, alert Telegram, dan history performa.</p>
+            <a href={ADMIN_CONTACT_URL} target="_blank" rel="noreferrer">Bayar & Konfirmasi</a>
+          </div>
+
+          <div className="paymentMethodCard featured">
+            <span>Paket 30 Day</span>
+            <h3>{PACKAGE_30D_PRICE}</h3>
+            <p>Akses premium 30 hari untuk pantau XAUUSD dengan alert Telegram premium.</p>
+            <a href={ADMIN_CONTACT_URL} target="_blank" rel="noreferrer">Bayar & Konfirmasi</a>
+          </div>
+
+          <div className="paymentMethodCard">
+            <span>Metode Pembayaran</span>
+            <h3>Manual</h3>
+            <p>DANA/OVO: {PAYMENT_DANA}<br />Bank: {PAYMENT_BANK}</p>
+            <a href={ADMIN_CONTACT_URL} target="_blank" rel="noreferrer">Minta QRIS/Admin</a>
+          </div>
+        </div>
+
+        <div className="paymentStepsBox">
+          <b>Alur Aktivasi:</b>
+          <span>1. Register akun dan verifikasi email.</span>
+          <span>2. Pilih paket 7 Day atau 30 Day.</span>
+          <span>3. Transfer / minta QRIS ke admin.</span>
+          <span>4. Kirim email akun + bukti bayar.</span>
+          <span>5. Admin aktifkan premium, lalu kamu bisa login dashboard.</span>
+        </div>
+      </section>
 
       <section className="landingSection activationSection">
         <div className="landingSectionTitle">

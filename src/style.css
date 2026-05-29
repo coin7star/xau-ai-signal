@@ -2012,3 +2012,114 @@
     text-align: left;
   }
 }
+
+
+/* Step 6 Manual Payment */
+.manualPaymentSection {
+  margin-top: 74px;
+}
+
+.manualPaymentGrid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 16px;
+}
+
+.paymentMethodCard {
+  padding: 24px;
+  border-radius: 26px;
+  background: rgba(255,255,255,.075);
+  border: 1px solid rgba(255,255,255,.12);
+}
+
+.paymentMethodCard.featured {
+  background: linear-gradient(135deg,rgba(103,232,249,.14),rgba(192,132,252,.13));
+  border-color: rgba(103,232,249,.24);
+}
+
+.paymentMethodCard span {
+  color: #67e8f9;
+  font-weight: 1000;
+}
+
+.paymentMethodCard h3 {
+  margin: 14px 0 8px;
+  font-size: 34px;
+  color: #ffe879;
+}
+
+.paymentMethodCard p {
+  color: #a8b5d8;
+  line-height: 1.7;
+}
+
+.paymentMethodCard a {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: fit-content;
+  margin-top: 10px;
+  border-radius: 999px;
+  padding: 11px 15px;
+  font-weight: 1000;
+  text-decoration: none;
+  color: #06111f;
+  background: linear-gradient(135deg,#ffe879,#19f28f);
+}
+
+.paymentStepsBox {
+  margin-top: 18px;
+  padding: 18px 20px;
+  border-radius: 22px;
+  background: rgba(0,0,0,.22);
+  border: 1px solid rgba(255,255,255,.10);
+  display: grid;
+  gap: 8px;
+  color: #cbd6f3;
+}
+
+.paymentStepsBox b {
+  color: #f8fbff;
+}
+
+.paywallPaymentBox {
+  margin: 18px 0;
+  padding: 18px;
+  border-radius: 20px;
+  background: rgba(255,232,121,.10);
+  border: 1px solid rgba(255,232,121,.20);
+  display: grid;
+  gap: 8px;
+  text-align: left;
+}
+
+.paywallPaymentBox b {
+  color: #fff2c2;
+}
+
+.paywallPaymentBox span {
+  color: #f8fbff;
+  font-weight: 1000;
+}
+
+.paywallPaymentBox p {
+  margin: 4px 0;
+  color: #cbd6f3;
+  line-height: 1.6;
+}
+
+.paywallPaymentBox a {
+  width: fit-content;
+  border-radius: 999px;
+  padding: 11px 15px;
+  font-weight: 1000;
+  text-decoration: none;
+  color: #06111f;
+  background: linear-gradient(135deg,#ffe879,#19f28f);
+}
+
+@media(max-width: 900px) {
+  .manualPaymentGrid {
+    grid-template-columns: 1fr;
+  }
+}

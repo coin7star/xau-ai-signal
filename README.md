@@ -1,32 +1,30 @@
-# XAU Performance Analytics Step 5 Full Fix
+# XAU Manual Payment Step 6 Full Fix
 
-Step 5:
-- Tambah Performance Analytics 7/30 hari.
+Step 6 awal:
+- Manual Payment Mode.
+- Belum payment gateway otomatis.
+- Landing page sekarang punya section Manual Payment.
+- Paywall punya instruksi aktivasi premium.
+- Paket:
+  - 7 Day = Rp10K
+  - 30 Day = Rp30K
+- User kirim bukti pembayaran ke admin.
+- Admin aktifkan premium dari Admin Panel.
 
-Fitur:
-- MAIN CALL 7D winrate
-- MAIN CALL 30D winrate
-- SCALP M1 7D winrate
-- SCALP M1 30D winrate
-- Total signal
-- Closed signal
-- WIN
-- LOSS
-- BE
-- OPEN
-- Best snapshot
-- Recent performance summary
+Constants di src/App.jsx:
+- ADMIN_CONTACT_URL
+- PAYMENT_QRIS_URL
+- PAYMENT_DANA
+- PAYMENT_OVO
+- PAYMENT_BANK
+- PACKAGE_7D_PRICE
+- PACKAGE_30D_PRICE
 
-Cara hitung:
-- Data diambil dari callHistory dan scalpHistory yang sudah ada.
-- WR dihitung dari closed result:
-  WIN / (WIN + LOSS + BE)
-- OPEN tidak masuk hitungan WR.
-- Data tanpa timestamp tetap dihitung agar history lama tidak kosong.
-
-Akses:
-- Premium user bisa lihat analytics.
-- Admin bisa lihat analytics dan tetap update result dari history.
+Yang perlu kamu edit nanti:
+- PAYMENT_DANA = nomor DANA kamu
+- PAYMENT_OVO = nomor OVO kamu
+- PAYMENT_BANK = info bank kamu
+- ADMIN_CONTACT_URL = link admin/telegram/whatsapp kamu
 
 Cloudflare:
 - package-lock.json tetap dihapus.
