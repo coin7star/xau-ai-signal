@@ -245,6 +245,7 @@ export default function App() {
   const [showAuthScreen, setShowAuthScreen] = useState(false);
   const [showAdminPanel, setShowAdminPanel] = useState(false);
   const [telegramConnect, setTelegramConnect] = useState(null);
+  const [bybitFeed, setBybitFeed] = useState({ latest: null, status: null, loading: false, error: "" });
 
   async function loadData({ includeChart = false, includeHistory = false, includeScalpHistory = false } = {}) {
     try {
@@ -330,6 +331,34 @@ export default function App() {
       if (json.ok) setTelegramConnect(json);
     } catch {
       // silent
+    }
+  }
+
+  async function loadBybitTestFeed() {
+    setBybitFeed((previous) => ({ ...previous, loading: true, error: "" }));
+
+    try {
+      const baseUrl = "https://xauusd-signal-web-default-rtdb.firebaseio.com/bybit_test/xauusdt";
+      const [latestRes, statusRes] = await Promise.all([
+        fetch(`${baseUrl}/latest.json?ts=${Date.now()}`, { cache: "no-store" }),
+        fetch(`${baseUrl}/status.json?ts=${Date.now()}`, { cache: "no-store" })
+      ]);
+
+      const latest = await latestRes.json();
+      const status = await statusRes.json();
+
+      setBybitFeed({
+        latest: latest || null,
+        status: status || null,
+        loading: false,
+        error: ""
+      });
+    } catch (error) {
+      setBybitFeed((previous) => ({
+        ...previous,
+        loading: false,
+        error: error?.message || "Gagal membaca Bybit test feed."
+      }));
     }
   }
 
@@ -449,6 +478,15 @@ export default function App() {
       if (scalpHistoryInterval) clearInterval(scalpHistoryInterval);
     };
   }, [authUser, authProfile?.role, authProfile?.premiumUntil, shouldPauseHeavyRefresh]);
+
+  useEffect(() => {
+    if (!authUser || !isPremiumProfile(authProfile)) return;
+
+    loadBybitTestFeed();
+    const interval = setInterval(loadBybitTestFeed, 30000);
+
+    return () => clearInterval(interval);
+  }, [authUser, authProfile?.role, authProfile?.premiumUntil]);
 
   const candlesM1 = Array.isArray(market?.candles) ? market.candles : [];
   const candlesM15 = Array.isArray(market?.candlesM15) ? market.candlesM15 : [];
@@ -784,6 +822,8 @@ export default function App() {
           <span><Radio size={14} /> Data: <b>{market?.receivedAt ? "Active" : "Waiting"}</b></span>
         </div>
       </div>
+
+      <BybitTestFeedPanel feed={bybitFeed} onRefresh={loadBybitTestFeed} />
 
       {isAdmin && (
 <section className="aiPanel card">

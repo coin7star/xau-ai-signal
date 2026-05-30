@@ -1,6 +1,6 @@
 {
-  "name": "xau-ai-signal-step9c-custom-verification-email",
-  "version": "6.8.0-step9c-custom-verification-email",
+  "name": "xau-ai-signal-step10c-bybit-test-feed-panel",
+  "version": "6.9.0-step10c-bybit-test-feed-panel",
   "type": "module",
   "scripts": {
     "dev": "vite",

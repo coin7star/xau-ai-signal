@@ -52,3 +52,24 @@ Catatan:
 - Email verifikasi dikirim via Resend.
 - Link langsung ke https://www.xauaisignal.online/auth-action?mode=verifyEmail&oobCode=...
 - Firebase Template Action URL boleh tetap default jika console error.
+
+
+## Step 10C — Bybit Test Feed Panel
+
+Tambahan aman/read-only:
+- Menampilkan panel monitor Bybit XAUUSDT Perpetual dari Firebase path test.
+- Membaca `/bybit_test/xauusdt/latest` dan `/bybit_test/xauusdt/status`.
+- Refresh otomatis setiap 30 detik.
+- Tidak mengubah path utama `/xauusd/*`.
+- Tidak mengganti chart utama MT5.
+- Tidak mengubah sinyal, Telegram, admin, payment, atau cron PHP.ID.
+
+Pastikan Step 10B cron PHP.ID sudah jalan dan update path:
+- `https://xauusd-signal-web-default-rtdb.firebaseio.com/bybit_test/xauusdt/status.json`
+
+Cara test:
+1. Upload ZIP ke GitHub.
+2. Redeploy Cloudflare Pages.
+3. Login sebagai user premium/admin.
+4. Cari panel `BYBIT TEST FEED · READ ONLY`.
+5. Pastikan status `LIVE`, harga XAUUSDT muncul, dan last update berubah.
