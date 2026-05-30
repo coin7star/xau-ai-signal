@@ -16,6 +16,7 @@ import { Activity, Bot, Copy, Database, Lock, LogOut, Radio, RefreshCcw, Setting
 import { auth, createPaymentOrder, ensureUserProfile, getUserPaymentOrders,
   getUserProfile, hasFirebaseClientConfig, isPremiumProfile, listenAuth, loginWithEmail, loginWithGoogle, logout, refreshCurrentUser, registerWithEmail, resetPasswordEmail, sendVerificationEmail } from "./firebaseClient";
 
+
 function getPublicAppUrl() {
   return (
     import.meta.env.VITE_APP_URL ||
@@ -207,7 +208,6 @@ function FirebaseAuthActionPage({ auth }) {
     </main>
   );
 }
-
 
 export default function App() {
   if (window.location.pathname === "/auth-action") {

@@ -2902,8 +2902,7 @@ canvas {
   }
 }
 
-
-/* Step 9A Custom Firebase Auth Action Handler */
+/* Step 9B Custom Reset Password Page */
 .authActionShell {
   min-height: 100vh;
   display: grid;

@@ -75,9 +75,20 @@ export async function resetPasswordEmail(email) {
   if (!auth) throw new Error("Firebase client ENV belum lengkap.");
   if (!email) throw new Error("Isi email akun kamu dulu.");
 
-  await sendPasswordResetEmail(auth, email, getAuthActionSettings());
+  const response = await fetch("/api/custom-reset-email", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ email })
+  });
 
-  return { ok: true };
+  const data = await response.json().catch(() => ({}));
+
+  if (!response.ok || data?.ok === false) {
+    const errorMessage = data?.error || data?.message || "Gagal mengirim email reset custom.";
+    throw new Error(errorMessage);
+  }
+
+  return { ok: true, customEmail: true };
 }
 
 export async function registerWithEmail(email, password) {

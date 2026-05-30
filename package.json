@@ -1,6 +1,6 @@
 {
-  "name": "xau-ai-signal-step9a-fix-custom-auth-action-route",
-  "version": "6.6.1-step9a-fix-route",
+  "name": "xau-ai-signal-step9b-custom-reset-email",
+  "version": "6.7.0-step9b-custom-reset-email",
   "type": "module",
   "scripts": {
     "dev": "vite",
