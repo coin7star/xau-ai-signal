@@ -3501,6 +3501,71 @@ function formatHistoryTime(value) {
   }
 }
 
+
+function BybitTestFeedPanel({ feed, onRefresh }) {
+  const latest = feed?.latest || null;
+  const status = feed?.status || null;
+  const ticker = latest?.ticker || {};
+  const lastCandle = latest?.lastCandle || null;
+  const lastPrice = Number(latest?.lastPrice ?? ticker?.lastPrice ?? 0);
+  const bid = Number(ticker?.bid1Price ?? 0);
+  const ask = Number(ticker?.ask1Price ?? 0);
+  const spread = bid > 0 && ask > 0 ? Math.abs(ask - bid) : null;
+  const updatedAt = Number(status?.updatedAt || latest?.updatedAt || 0);
+  const ageMs = updatedAt ? Date.now() - updatedAt : null;
+  const isLive = Boolean(status?.ok) && ageMs !== null && ageMs < 120000;
+  const isWaiting = !latest && !status;
+  const tone = isLive ? "buy" : isWaiting ? "wait" : "sell";
+  const label = isLive ? "LIVE" : isWaiting ? "WAITING" : "STALE";
+
+  return (
+    <section className={`bybitTestPanel card ${tone}`}>
+      <div className="strategyHeader">
+        <div>
+          <span className="pill mini"><Database size={14} /> BYBIT TEST FEED · READ ONLY</span>
+          <h3>XAUUSDT Perpetual dari PHP.ID Cron</h3>
+          <p className="bybitTestSubtitle">
+            Panel ini hanya membaca path test Firebase. Data MT5 utama, chart utama, signal utama, dan Telegram tidak diganti.
+          </p>
+        </div>
+        <div className={`biasBadge ${tone}`}>{label}</div>
+      </div>
+
+      <div className="bybitTestGrid">
+        <Metric label="Last Price" value={formatBybitNumber(lastPrice)} note={latest?.market || latest?.symbol || "XAUUSDT"} />
+        <Metric label="Bid / Ask" value={`${formatBybitNumber(bid)} / ${formatBybitNumber(ask)}`} note={`Spread ${spread === null ? "-" : formatBybitNumber(spread, 3)}`} />
+        <Metric label="Last Candle M1" value={formatBybitNumber(lastCandle?.close)} note={lastCandle?.time || "Menunggu candle"} />
+        <Metric label="Candle Count" value={status?.candleCount ?? "-"} note={`HTTP ${status?.tickerHttpStatus || "-"} / ${status?.klineHttpStatus || "-"}`} />
+        <Metric label="Last Update" value={status?.updatedAtText || latest?.updatedAtText || "-"} note={ageMs === null ? "Belum ada update" : `${Math.max(0, Math.round(ageMs / 1000))} detik lalu`} />
+        <Metric label="Source" value={status?.source || latest?.source || "php-id-cron"} note="Firebase: /bybit_test/xauusdt" />
+      </div>
+
+      {feed?.error && <div className="bybitFeedError">{feed.error}</div>}
+
+      <div className="bybitTestActions">
+        <button type="button" onClick={onRefresh} disabled={feed?.loading}>
+          <RefreshCcw size={15} /> {feed?.loading ? "Loading..." : "Refresh Bybit Feed"}
+        </button>
+        <a href="https://xauusd-signal-web-default-rtdb.firebaseio.com/bybit_test/xauusdt/status.json" target="_blank" rel="noreferrer">
+          Cek status JSON
+        </a>
+        <a href="https://xauusd-signal-web-default-rtdb.firebaseio.com/bybit_test/xauusdt/latest.json" target="_blank" rel="noreferrer">
+          Cek latest JSON
+        </a>
+      </div>
+    </section>
+  );
+}
+
+function formatBybitNumber(value, digits = 2) {
+  const num = Number(value);
+  if (!Number.isFinite(num) || num === 0) return "-";
+  return num.toLocaleString("en-US", {
+    minimumFractionDigits: digits,
+    maximumFractionDigits: digits
+  });
+}
+
 function Metric({ label, value, note }) {
   return (
     <div className="metric">

@@ -1,6 +1,6 @@
 {
-  "name": "xau-ai-signal-step10c-bybit-test-feed-panel",
-  "version": "6.9.0-step10c-bybit-test-feed-panel",
+  "name": "xau-ai-signal-step10c-hotfix-bybit-panel-blank",
+  "version": "6.9.1-step10c-hotfix-bybit-panel-blank",
   "type": "module",
   "scripts": {
     "dev": "vite",
