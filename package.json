@@ -1,6 +1,6 @@
 {
-  "name": "xau-ai-signal-step9b-custom-reset-email",
-  "version": "6.7.0-step9b-custom-reset-email",
+  "name": "xau-ai-signal-step9c-custom-verification-email",
+  "version": "6.8.0-step9c-custom-verification-email",
   "type": "module",
   "scripts": {
     "dev": "vite",

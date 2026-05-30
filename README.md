@@ -44,3 +44,11 @@ Catatan:
 - Firebase Templates Action URL boleh dibiarkan default kalau Firebase Console error.
 - Email spam masih normal untuk domain baru; klik “Laporkan bukan spam”.
 - MQ5 tidak perlu update.
+
+
+# Step 9C Custom Verification Email
+
+- Register akun baru memakai /api/custom-verify-email.
+- Email verifikasi dikirim via Resend.
+- Link langsung ke https://www.xauaisignal.online/auth-action?mode=verifyEmail&oobCode=...
+- Firebase Template Action URL boleh tetap default jika console error.

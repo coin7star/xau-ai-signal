@@ -120,9 +120,25 @@ export async function sendVerificationEmail(user = auth?.currentUser) {
   if (!user) throw new Error("User belum login.");
   if (user.emailVerified) return { ok: true, skipped: "already-verified" };
 
-  await sendEmailVerification(user, getAuthActionSettings());
-  return { ok: true };
+  const email = user.email || "";
+  if (!email) throw new Error("Email user tidak tersedia.");
+
+  const response = await fetch("/api/custom-verify-email", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ email })
+  });
+
+  const data = await response.json().catch(() => ({}));
+
+  if (!response.ok || data?.ok === false) {
+    const errorMessage = data?.error || data?.message || "Gagal mengirim email verifikasi custom.";
+    throw new Error(errorMessage);
+  }
+
+  return { ok: true, customEmail: true };
 }
+
 
 export async function refreshCurrentUser() {
   if (!auth?.currentUser) return null;
