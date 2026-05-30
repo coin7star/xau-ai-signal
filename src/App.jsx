@@ -480,13 +480,15 @@ export default function App() {
   }, [authUser, authProfile?.role, authProfile?.premiumUntil, shouldPauseHeavyRefresh]);
 
   useEffect(() => {
-    if (!authUser || !isPremiumProfile(authProfile)) return;
+    // Bybit test feed untuk sementara disembunyikan dari user biasa.
+    // Hanya admin yang membaca path test ini supaya user tidak melihat data/API eksperimen.
+    if (!authUser || authProfile?.role !== "admin") return;
 
     loadBybitTestFeed();
     const interval = setInterval(loadBybitTestFeed, 30000);
 
     return () => clearInterval(interval);
-  }, [authUser, authProfile?.role, authProfile?.premiumUntil]);
+  }, [authUser, authProfile?.role]);
 
   const candlesM1 = Array.isArray(market?.candles) ? market.candles : [];
   const candlesM15 = Array.isArray(market?.candlesM15) ? market.candlesM15 : [];
@@ -823,7 +825,9 @@ export default function App() {
         </div>
       </div>
 
-      <BybitTestFeedPanel feed={bybitFeed} onRefresh={loadBybitTestFeed} />
+      {isAdmin && (
+        <BybitTestFeedPanel feed={bybitFeed} onRefresh={loadBybitTestFeed} />
+      )}
 
       {isAdmin && (
 <section className="aiPanel card">
