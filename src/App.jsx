@@ -826,7 +826,7 @@ export default function App() {
       </div>
 
       {isAdmin && (
-        <BybitTestFeedPanel feed={bybitFeed} onRefresh={loadBybitTestFeed} />
+        <BybitTestFeedPanel feed={bybitFeed} market={market} mt5LastCandle={lastCandle} onRefresh={loadBybitTestFeed} />
       )}
 
       {isAdmin && (
@@ -3506,7 +3506,7 @@ function formatHistoryTime(value) {
 }
 
 
-function BybitTestFeedPanel({ feed, onRefresh }) {
+function BybitTestFeedPanel({ feed, market, mt5LastCandle, onRefresh }) {
   const latest = feed?.latest || null;
   const status = feed?.status || null;
   const ticker = latest?.ticker || {};
@@ -3521,6 +3521,15 @@ function BybitTestFeedPanel({ feed, onRefresh }) {
   const isWaiting = !latest && !status;
   const tone = isLive ? "buy" : isWaiting ? "wait" : "sell";
   const label = isLive ? "LIVE" : isWaiting ? "WAITING" : "STALE";
+  const mt5Bid = Number(market?.bid || 0);
+  const mt5Ask = Number(market?.ask || 0);
+  const mt5LastClose = Number(market?.lastClose || mt5LastCandle?.close || mt5Bid || 0);
+  const bybitClose = Number(lastCandle?.close || lastPrice || 0);
+  const diff = mt5LastClose > 0 && bybitClose > 0 ? bybitClose - mt5LastClose : null;
+  const diffAbs = diff === null ? null : Math.abs(diff);
+  const diffPct = diff !== null && mt5LastClose > 0 ? (diff / mt5LastClose) * 100 : null;
+  const compareTone = diffAbs === null ? "wait" : diffAbs <= 1.5 ? "buy" : diffAbs <= 5 ? "wait" : "sell";
+  const compareLabel = diffAbs === null ? "WAITING" : diffAbs <= 1.5 ? "DEKAT" : diffAbs <= 5 ? "SELISIH" : "JAUH";
 
   return (
     <section className={`bybitTestPanel card ${tone}`}>
@@ -3542,6 +3551,20 @@ function BybitTestFeedPanel({ feed, onRefresh }) {
         <Metric label="Candle Count" value={status?.candleCount ?? "-"} note={`HTTP ${status?.tickerHttpStatus || "-"} / ${status?.klineHttpStatus || "-"}`} />
         <Metric label="Last Update" value={status?.updatedAtText || latest?.updatedAtText || "-"} note={ageMs === null ? "Belum ada update" : `${Math.max(0, Math.round(ageMs / 1000))} detik lalu`} />
         <Metric label="Source" value={status?.source || latest?.source || "php-id-cron"} note="Firebase: /bybit_test/xauusdt" />
+      </div>
+
+      <div className={`bybitCompareBox ${compareTone}`}>
+        <div>
+          <span className="pill mini">MT5 vs BYBIT · ADMIN CHECK</span>
+          <h4>Perbandingan harga sementara</h4>
+          <p>Ini hanya alat bantu admin untuk cek selisih. Belum dipakai signal, chart, atau Telegram.</p>
+        </div>
+        <div className="bybitCompareGrid">
+          <Metric label="MT5 XAUUSD+" value={formatBybitNumber(mt5LastClose)} note={market?.lastCandleTime || mt5LastCandle?.time || market?.receivedAt || "Menunggu MT5"} />
+          <Metric label="Bybit XAUUSDT" value={formatBybitNumber(bybitClose)} note={lastCandle?.time || latest?.updatedAtText || "Menunggu Bybit"} />
+          <Metric label="Selisih" value={diff === null ? "-" : `${diff > 0 ? "+" : ""}${formatBybitNumber(diff)} (${formatSignedPercent(diffPct)})`} note={`Status: ${compareLabel}`} />
+          <Metric label="MT5 Bid / Ask" value={`${formatBybitNumber(mt5Bid)} / ${formatBybitNumber(mt5Ask)}`} note={market?.symbol || "XAUUSD"} />
+        </div>
       </div>
 
       {feed?.error && <div className="bybitFeedError">{feed.error}</div>}
@@ -3568,6 +3591,12 @@ function formatBybitNumber(value, digits = 2) {
     minimumFractionDigits: digits,
     maximumFractionDigits: digits
   });
+}
+
+function formatSignedPercent(value) {
+  const num = Number(value);
+  if (!Number.isFinite(num)) return "-";
+  return `${num > 0 ? "+" : ""}${num.toFixed(3)}%`;
 }
 
 function Metric({ label, value, note }) {

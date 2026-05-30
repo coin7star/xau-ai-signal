@@ -73,3 +73,8 @@ Cara test:
 3. Login sebagai user premium/admin.
 4. Cari panel `BYBIT TEST FEED · READ ONLY`.
 5. Pastikan status `LIVE`, harga XAUUSDT muncul, dan last update berubah.
+
+
+## Step 10D
+- Admin-only Bybit test feed now includes MT5 vs Bybit comparison.
+- Read only: does not change signal, charts, Telegram, or /xauusd/latest.
