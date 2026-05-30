@@ -1,6 +1,6 @@
 {
-  "name": "xau-ai-signal-step8o-order-search-admin",
-  "version": "6.5.8-step8o-order-search",
+  "name": "xau-ai-signal-step9a-custom-firebase-auth-action",
+  "version": "6.6.0-step9a-custom-auth-action",
   "type": "module",
   "scripts": {
     "dev": "vite",

@@ -1,45 +1,58 @@
-# XAU Step 8O Order Search Admin
+# XAU Step 9A Custom Firebase Auth Action Handler
 
 Fitur baru:
-- Search box di Pending Payment Orders.
-- Admin bisa cari order berdasarkan:
-  - Email
-  - UID
-  - Order ID
-  - Paket
-  - Harga
-  - Status
-  - Created At
-  - Premium Until
-  - Admin Note
+- Route custom: /auth-action
+- Reset password bisa diproses di halaman resmi XAU AI Signal.
+- Verify email bisa diproses di halaman resmi XAU AI Signal.
+- Recover email basic support.
+- Forgot password email diarahkan ke:
+  https://www.xauaisignal.online/auth-action
 
-Cara kerja:
-- Search bekerja di dalam filter aktif.
-- Kalau filter Pending aktif, search hanya mencari di order Pending.
-- Kalau filter All aktif, search mencari semua order.
-- Pagination tetap 6 baris.
-- Saat search berubah, halaman reset ke Page 1.
-- Export CSV mengikuti hasil filter + search.
+ENV yang wajib ada di Cloudflare Pages:
+- VITE_APP_URL=https://www.xauaisignal.online
+- APP_URL=https://www.xauaisignal.online
+- DASHBOARD_URL=https://www.xauaisignal.online
+
+Firebase Console:
+1. Authentication > Settings > Authorized domains
+   Pastikan ada:
+   - www.xauaisignal.online
+   - xauaisignal.online
+
+2. Authentication > Templates
+   Custom email domain sudah verified:
+   - noreply@xauaisignal.online
+
+3. Templates > Password reset > Customize action URL
+   Isi:
+   https://www.xauaisignal.online/auth-action
+
+4. Templates > Email address verification > Customize action URL
+   Isi:
+   https://www.xauaisignal.online/auth-action
+
+Catatan:
+- Jika Firebase menolak Action URL di template, minimal kode forgot password sudah mengirim actionCodeSettings ke /auth-action.
+- Email sender tetap noreply@xauaisignal.online setelah custom domain verified.
+- Spam awal masih normal untuk domain baru; klik Report not spam di Gmail untuk melatih reputasi.
 
 Tidak disentuh:
-- Admin row Manage user
 - Chart/candle
 - MQ5
-- Approve/reject logic
-- Telegram/email notify
-- User Payment History
-- Revenue Summary
+- Admin row Manage user
+- Payment orders
+- Revenue summary
+- Export CSV
+- Telegram logic
 
 Cara test:
-1. Login admin.
-2. Buka Admin Panel.
-3. Isi Admin Token.
-4. Klik Refresh Orders.
-5. Pilih filter All.
-6. Ketik email/UID/order ID di Search Order.
-7. Hasil harus menyempit sesuai keyword.
-8. Klik Clear untuk reset search.
-9. Export CSV saat search aktif harus export hasil search saja.
+1. Deploy ke Cloudflare Pages.
+2. Buka https://www.xauaisignal.online
+3. Klik lupa password.
+4. Cek email reset.
+5. Link harus mengarah ke /auth-action atau setelah klik masuk ke halaman reset custom.
+6. Masukkan password baru.
+7. Login dengan password baru.
 
 MQ5:
 - Tidak perlu update.

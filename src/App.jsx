@@ -1,3 +1,4 @@
+import { verifyPasswordResetCode, confirmPasswordReset, applyActionCode } from "firebase/auth";
 const ADMIN_CONTACT_URL = "https://t.me/xauai_signal_bot";
 const ADMIN_CONTACT_LABEL = "Hubungi Admin";
 const PRODUCT_NAME = "XAU AI Signal";
@@ -15,7 +16,204 @@ import { Activity, Bot, Copy, Database, Lock, LogOut, Radio, RefreshCcw, Setting
 import { createPaymentOrder, ensureUserProfile, getUserPaymentOrders,
   getUserProfile, hasFirebaseClientConfig, isPremiumProfile, listenAuth, loginWithEmail, loginWithGoogle, logout, refreshCurrentUser, registerWithEmail, resetPasswordEmail, sendVerificationEmail } from "./firebaseClient";
 
-export default function App() {
+export default 
+function getPublicAppUrl() {
+  
+  if (window.location.pathname === "/auth-action") {
+    return <FirebaseAuthActionPage auth={auth} />;
+  }
+
+return (
+    import.meta.env.VITE_APP_URL ||
+    import.meta.env.VITE_PUBLIC_APP_URL ||
+    window.location.origin
+  ).replace(/\/$/, "");
+}
+
+function getAuthActionParams() {
+  const params = new URLSearchParams(window.location.search);
+
+  return {
+    mode: params.get("mode") || "",
+    oobCode: params.get("oobCode") || "",
+    continueUrl: params.get("continueUrl") || "",
+    lang: params.get("lang") || "id"
+  };
+}
+
+function FirebaseAuthActionPage({ auth }) {
+  const [params] = useState(() => getAuthActionParams());
+  const [email, setEmail] = useState("");
+  const [newPassword, setNewPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [status, setStatus] = useState("loading");
+  const [message, setMessage] = useState("Memvalidasi link keamanan...");
+  const [busy, setBusy] = useState(false);
+
+  const appUrl = getPublicAppUrl();
+  const isResetPassword = params.mode === "resetPassword";
+  const isVerifyEmail = params.mode === "verifyEmail";
+  const isRecoverEmail = params.mode === "recoverEmail";
+
+  useEffect(() => {
+    let active = true;
+
+    async function run() {
+      if (!params.mode || !params.oobCode) {
+        if (!active) return;
+        setStatus("error");
+        setMessage("Link tidak lengkap atau sudah rusak. Silakan minta link baru dari halaman login.");
+        return;
+      }
+
+      try {
+        if (isResetPassword) {
+          const resetEmail = await verifyPasswordResetCode(auth, params.oobCode);
+          if (!active) return;
+          setEmail(resetEmail);
+          setStatus("ready");
+          setMessage("Link valid. Silakan buat sandi baru untuk akun Anda.");
+          return;
+        }
+
+        if (isVerifyEmail || isRecoverEmail) {
+          await applyActionCode(auth, params.oobCode);
+          if (!active) return;
+          setStatus("success");
+          setMessage(isVerifyEmail ? "Email berhasil diverifikasi." : "Perubahan email berhasil dipulihkan.");
+          return;
+        }
+
+        if (!active) return;
+        setStatus("error");
+        setMessage("Tipe aksi Firebase belum didukung oleh halaman ini.");
+      } catch (error) {
+        if (!active) return;
+        console.error("Firebase auth action error:", error);
+        setStatus("error");
+        setMessage("Link tidak valid, sudah kedaluwarsa, atau sudah pernah digunakan. Silakan minta link baru.");
+      }
+    }
+
+    run();
+
+    return () => {
+      active = false;
+    };
+  }, [auth, params.mode, params.oobCode, isResetPassword, isVerifyEmail, isRecoverEmail]);
+
+  async function handleResetPassword(event) {
+    event.preventDefault();
+
+    if (busy) return;
+
+    if (newPassword.length < 6) {
+      setStatus("ready");
+      setMessage("Sandi minimal 6 karakter.");
+      return;
+    }
+
+    if (newPassword !== confirmPassword) {
+      setStatus("ready");
+      setMessage("Konfirmasi sandi belum sama.");
+      return;
+    }
+
+    setBusy(true);
+    setMessage("Menyimpan sandi baru...");
+
+    try {
+      await confirmPasswordReset(auth, params.oobCode, newPassword);
+      setStatus("success");
+      setMessage("Sandi berhasil diganti. Silakan login dengan sandi baru.");
+      setNewPassword("");
+      setConfirmPassword("");
+    } catch (error) {
+      console.error("Confirm password reset error:", error);
+      setStatus("error");
+      setMessage("Gagal mengganti sandi. Link mungkin sudah kedaluwarsa atau sudah digunakan.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <main className="authActionShell">
+      <section className="authActionCard">
+        <div className="authActionIcon">🛡️</div>
+        <span className="pill mini">SECURE ACCOUNT</span>
+        <h1>
+          {isResetPassword
+            ? "Reset Sandi XAU AI Signal"
+            : isVerifyEmail
+              ? "Verifikasi Email"
+              : "Aksi Akun"}
+        </h1>
+        <p className="authActionLead">
+          Halaman aman untuk menyelesaikan proses akun melalui domain resmi XAU AI Signal.
+        </p>
+
+        <div className={`authActionNotice ${status}`}>
+          {message}
+        </div>
+
+        {isResetPassword && status === "ready" ? (
+          <form className="authActionForm" onSubmit={handleResetPassword}>
+            <label>
+              Email akun
+              <input value={email} disabled />
+            </label>
+
+            <label>
+              Sandi baru
+              <input
+                type="password"
+                value={newPassword}
+                placeholder="Minimal 6 karakter"
+                onChange={(event) => setNewPassword(event.target.value)}
+                autoComplete="new-password"
+              />
+            </label>
+
+            <label>
+              Ulangi sandi baru
+              <input
+                type="password"
+                value={confirmPassword}
+                placeholder="Ketik ulang sandi baru"
+                onChange={(event) => setConfirmPassword(event.target.value)}
+                autoComplete="new-password"
+              />
+            </label>
+
+            <button type="submit" disabled={busy}>
+              {busy ? "Menyimpan..." : "Simpan Sandi Baru"}
+            </button>
+          </form>
+        ) : null}
+
+        {status === "success" ? (
+          <a className="authActionPrimaryLink" href={appUrl}>
+            Kembali ke Dashboard
+          </a>
+        ) : null}
+
+        {status === "error" ? (
+          <a className="authActionPrimaryLink" href={appUrl}>
+            Buka Halaman Login
+          </a>
+        ) : null}
+
+        <small className="authActionFootnote">
+          Domain resmi: www.xauaisignal.online
+        </small>
+      </section>
+    </main>
+  );
+}
+
+
+function App() {
   const chartM1Ref = useRef(null);
   const chartM15Ref = useRef(null);
   const chartM1BoxRef = useRef(null);
