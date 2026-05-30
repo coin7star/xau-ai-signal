@@ -78,3 +78,12 @@ Cara test:
 ## Step 10D
 - Admin-only Bybit test feed now includes MT5 vs Bybit comparison.
 - Read only: does not change signal, charts, Telegram, or /xauusd/latest.
+
+
+## Step 10F - Bybit Guard Error Monitor Admin Only
+
+Tambahan:
+- Panel Bybit admin sekarang membaca `/bybit_test/xauusdt/error`.
+- Menampilkan Guard PASSED/FAILED, error terakhir, spread guard, range harga valid.
+- Tetap read-only dan hidden dari user biasa.
+- Tidak mengubah path utama `/xauusd/latest`.

@@ -245,7 +245,7 @@ export default function App() {
   const [showAuthScreen, setShowAuthScreen] = useState(false);
   const [showAdminPanel, setShowAdminPanel] = useState(false);
   const [telegramConnect, setTelegramConnect] = useState(null);
-  const [bybitFeed, setBybitFeed] = useState({ latest: null, status: null, loading: false, error: "" });
+  const [bybitFeed, setBybitFeed] = useState({ latest: null, status: null, cronError: null, loading: false, error: "" });
 
   async function loadData({ includeChart = false, includeHistory = false, includeScalpHistory = false } = {}) {
     try {
@@ -339,17 +339,20 @@ export default function App() {
 
     try {
       const baseUrl = "https://xauusd-signal-web-default-rtdb.firebaseio.com/bybit_test/xauusdt";
-      const [latestRes, statusRes] = await Promise.all([
+      const [latestRes, statusRes, errorRes] = await Promise.all([
         fetch(`${baseUrl}/latest.json?ts=${Date.now()}`, { cache: "no-store" }),
-        fetch(`${baseUrl}/status.json?ts=${Date.now()}`, { cache: "no-store" })
+        fetch(`${baseUrl}/status.json?ts=${Date.now()}`, { cache: "no-store" }),
+        fetch(`${baseUrl}/error.json?ts=${Date.now()}`, { cache: "no-store" })
       ]);
 
       const latest = await latestRes.json();
       const status = await statusRes.json();
+      const cronError = await errorRes.json();
 
       setBybitFeed({
         latest: latest || null,
         status: status || null,
+        cronError: cronError || null,
         loading: false,
         error: ""
       });
@@ -3509,6 +3512,7 @@ function formatHistoryTime(value) {
 function BybitTestFeedPanel({ feed, market, mt5LastCandle, onRefresh }) {
   const latest = feed?.latest || null;
   const status = feed?.status || null;
+  const cronError = feed?.cronError || null;
   const ticker = latest?.ticker || {};
   const lastCandle = latest?.lastCandle || null;
   const lastPrice = Number(latest?.lastPrice ?? ticker?.lastPrice ?? 0);
@@ -3530,6 +3534,12 @@ function BybitTestFeedPanel({ feed, market, mt5LastCandle, onRefresh }) {
   const diffPct = diff !== null && mt5LastClose > 0 ? (diff / mt5LastClose) * 100 : null;
   const compareTone = diffAbs === null ? "wait" : diffAbs <= 1.5 ? "buy" : diffAbs <= 5 ? "wait" : "sell";
   const compareLabel = diffAbs === null ? "WAITING" : diffAbs <= 1.5 ? "DEKAT" : diffAbs <= 5 ? "SELISIH" : "JAUH";
+  const guardState = String(status?.guard || latest?.guard?.state || (latest?.guard?.ok ? "passed" : "") || "-").toUpperCase();
+  const guardOk = status?.guard === "passed" || latest?.guard?.ok === true;
+  const errorOk = cronError?.ok !== false;
+  const errorMessage = cronError?.message || (errorOk ? "No active error" : "-");
+  const errorDetails = cronError?.details ? JSON.stringify(cronError.details) : "";
+  const errorTone = guardOk && errorOk ? "buy" : "sell";
 
   return (
     <section className={`bybitTestPanel card ${tone}`}>
@@ -3551,6 +3561,21 @@ function BybitTestFeedPanel({ feed, market, mt5LastCandle, onRefresh }) {
         <Metric label="Candle Count" value={status?.candleCount ?? "-"} note={`HTTP ${status?.tickerHttpStatus || "-"} / ${status?.klineHttpStatus || "-"}`} />
         <Metric label="Last Update" value={status?.updatedAtText || latest?.updatedAtText || "-"} note={ageMs === null ? "Belum ada update" : `${Math.max(0, Math.round(ageMs / 1000))} detik lalu`} />
         <Metric label="Source" value={status?.source || latest?.source || "php-id-cron"} note="Firebase: /bybit_test/xauusdt" />
+      </div>
+
+      <div className={`bybitGuardBox ${errorTone}`}>
+        <div>
+          <span className="pill mini">CRON GUARD · STEP {status?.step || latest?.step || cronError?.step || "10E"}</span>
+          <h4>Guard & Error Monitor</h4>
+          <p>Monitor ini hanya untuk admin. Fungsinya mengecek apakah cron Bybit aman atau sedang gagal.</p>
+        </div>
+        <div className="bybitGuardGrid">
+          <Metric label="Guard" value={guardState} note={guardOk ? "Data lolos validasi" : "Cek error detail"} />
+          <Metric label="Error" value={errorMessage} note={cronError?.updatedAtText || "Belum ada error log"} />
+          <Metric label="Spread Guard" value={spread === null ? "-" : formatBybitNumber(spread, 3)} note={`Max ${latest?.guard?.maxAllowedSpread ?? 10}`} />
+          <Metric label="Valid Price Range" value={`${latest?.guard?.minValidPrice ?? 1000} - ${latest?.guard?.maxValidPrice ?? 10000}`} note={`Last ${formatBybitNumber(lastPrice)}`} />
+        </div>
+        {errorDetails && <pre className="bybitErrorDetails">{errorDetails}</pre>}
       </div>
 
       <div className={`bybitCompareBox ${compareTone}`}>
@@ -3575,6 +3600,9 @@ function BybitTestFeedPanel({ feed, market, mt5LastCandle, onRefresh }) {
         </button>
         <a href="https://xauusd-signal-web-default-rtdb.firebaseio.com/bybit_test/xauusdt/status.json" target="_blank" rel="noreferrer">
           Cek status JSON
+        </a>
+        <a href="https://xauusd-signal-web-default-rtdb.firebaseio.com/bybit_test/xauusdt/error.json" target="_blank" rel="noreferrer">
+          Cek error JSON
         </a>
         <a href="https://xauusd-signal-web-default-rtdb.firebaseio.com/bybit_test/xauusdt/latest.json" target="_blank" rel="noreferrer">
           Cek latest JSON
