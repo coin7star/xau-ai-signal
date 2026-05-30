@@ -13,19 +13,15 @@ const PACKAGE_30D_PRICE = "Rp30K";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { createChart, ColorType, CrosshairMode } from "lightweight-charts";
 import { Activity, Bot, Copy, Database, Lock, LogOut, Radio, RefreshCcw, Settings, Shield, Sparkles, Target, TrendingDown, TrendingUp, User, Zap } from "lucide-react";
-import { createPaymentOrder, ensureUserProfile, getUserPaymentOrders,
+import { auth, createPaymentOrder, ensureUserProfile, getUserPaymentOrders,
   getUserProfile, hasFirebaseClientConfig, isPremiumProfile, listenAuth, loginWithEmail, loginWithGoogle, logout, refreshCurrentUser, registerWithEmail, resetPasswordEmail, sendVerificationEmail } from "./firebaseClient";
 
-export default 
 function getPublicAppUrl() {
-  
-  if (window.location.pathname === "/auth-action") {
-    return <FirebaseAuthActionPage auth={auth} />;
-  }
-
-return (
+  return (
     import.meta.env.VITE_APP_URL ||
     import.meta.env.VITE_PUBLIC_APP_URL ||
+    import.meta.env.APP_URL ||
+    import.meta.env.DASHBOARD_URL ||
     window.location.origin
   ).replace(/\/$/, "");
 }
@@ -213,7 +209,11 @@ function FirebaseAuthActionPage({ auth }) {
 }
 
 
-function App() {
+export default function App() {
+  if (window.location.pathname === "/auth-action") {
+    return <FirebaseAuthActionPage auth={auth} />;
+  }
+
   const chartM1Ref = useRef(null);
   const chartM15Ref = useRef(null);
   const chartM1BoxRef = useRef(null);

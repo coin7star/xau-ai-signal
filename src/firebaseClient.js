@@ -23,6 +23,24 @@ const firebaseConfig = {
   appId: import.meta.env.VITE_FIREBASE_APP_ID || ""
 };
 
+
+function getPublicAppUrlForAuthActions() {
+  return (
+    import.meta.env.VITE_APP_URL ||
+    import.meta.env.VITE_PUBLIC_APP_URL ||
+    import.meta.env.APP_URL ||
+    import.meta.env.DASHBOARD_URL ||
+    window.location.origin
+  ).replace(/\/$/, "");
+}
+
+function getAuthActionSettings() {
+  return {
+    url: `${getPublicAppUrlForAuthActions()}/auth-action`,
+    handleCodeInApp: false
+  };
+}
+
 export const hasFirebaseClientConfig = Boolean(
   firebaseConfig.apiKey &&
   firebaseConfig.authDomain &&
@@ -57,7 +75,7 @@ export async function resetPasswordEmail(email) {
   if (!auth) throw new Error("Firebase client ENV belum lengkap.");
   if (!email) throw new Error("Isi email akun kamu dulu.");
 
-  await sendPasswordResetEmail(auth, email);
+  await sendPasswordResetEmail(auth, email, getAuthActionSettings());
 
   return { ok: true };
 }
@@ -91,7 +109,7 @@ export async function sendVerificationEmail(user = auth?.currentUser) {
   if (!user) throw new Error("User belum login.");
   if (user.emailVerified) return { ok: true, skipped: "already-verified" };
 
-  await sendEmailVerification(user);
+  await sendEmailVerification(user, getAuthActionSettings());
   return { ok: true };
 }
 

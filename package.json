@@ -1,6 +1,6 @@
 {
-  "name": "xau-ai-signal-step9a-custom-firebase-auth-action",
-  "version": "6.6.0-step9a-custom-auth-action",
+  "name": "xau-ai-signal-step9a-fix-custom-auth-action-route",
+  "version": "6.6.1-step9a-fix-route",
   "type": "module",
   "scripts": {
     "dev": "vite",
