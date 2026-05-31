@@ -1,6 +1,6 @@
 {
-  "name": "xau-ai-signal-step10n-admin-accordion-safe-mode",
-  "version": "7.6.2-step10n-admin-accordion-safe-mode",
+  "name": "xau-ai-signal-step10n-admin-boundary-accordion",
+  "version": "7.6.3-step10n-admin-boundary-accordion",
   "type": "module",
   "scripts": {
     "dev": "vite",
