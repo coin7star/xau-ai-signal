@@ -2,29 +2,36 @@ import { buildTrackerSummary } from "./result-tracker.js";
 
 const H = {
   "Content-Type": "application/json",
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
-  "Access-Control-Allow-Headers": "Content-Type, Authorization"
+  "Access-Control-Allow-Origin": "https://www.xauaisignal.online",
+  "Access-Control-Allow-Methods": "POST, OPTIONS",
+  "Access-Control-Allow-Headers": "Content-Type, Authorization, x-result-cron-secret, x-cron-runner"
 };
 
 export async function onRequest({ request, env }) {
   if (request.method === "OPTIONS") return new Response(null, { status: 204, headers: H });
 
-  if (!["GET", "POST"].includes(request.method)) {
-    return json({ ok: false, error: "Method tidak didukung." }, 405);
+  if (request.method !== "POST") {
+    return json({
+      ok: false,
+      error: "Method tidak didukung. Endpoint cron hanya menerima POST dari PHP.ID runner.",
+      security: "STRICT_POST_ONLY"
+    }, 405);
   }
 
   const dbUrl = (env.FIREBASE_DATABASE_URL || "").replace(/\/$/, "");
   if (!dbUrl) return json({ ok: false, error: "Live Data Engine belum tersambung." }, 500);
 
-  const url = new URL(request.url);
   let body = {};
-  if (request.method === "POST") {
-    try { body = await request.json(); } catch { body = {}; }
-  }
+  try { body = await request.json(); } catch { body = {}; }
 
   const secret = env.RESULT_TRACKER_CRON_SECRET || "";
-  const token = url.searchParams.get("token") || body.token || request.headers.get("x-result-cron-secret") || request.headers.get("Authorization")?.replace("Bearer ", "") || "";
+  const authHeader = request.headers.get("Authorization") || "";
+  const token = request.headers.get("x-result-cron-secret")
+    || authHeader.replace(/^Bearer\s+/i, "")
+    || body.token
+    || "";
+
+  const runnerName = request.headers.get("x-cron-runner") || body.runner || "UNKNOWN_RUNNER";
 
   if (!secret) {
     return json({ ok: false, error: "RESULT_TRACKER_CRON_SECRET belum diset di Cloudflare ENV." }, 500);
@@ -48,7 +55,8 @@ export async function onRequest({ request, env }) {
       message: `Auto Result Cron sedang cooldown ${cooldownSec} detik.`,
       lastRunAt: status.lastRunAt,
       nextAllowedAt: new Date(lastRunMs + cooldownSec * 1000).toISOString(),
-      dataSource: "MT5_VPS_LIVE_FEED_ONLY"
+      dataSource: "MT5_VPS_LIVE_FEED_ONLY",
+      runner: runnerName
     });
   }
 
@@ -62,6 +70,7 @@ export async function onRequest({ request, env }) {
       lastRunAt: new Date(now).toISOString(),
       lastStatus: "MT5_FEED_NOT_FRESH",
       dataSource: "MT5_VPS_LIVE_FEED_ONLY",
+      runner: runnerName,
       liveFeedAgeSec: sourceInfo.ageSec,
       liveFeedTime: sourceInfo.timeText,
       updatedCount: 0,
@@ -74,6 +83,7 @@ export async function onRequest({ request, env }) {
       reason: "MT5_FEED_NOT_FRESH",
       message: "Auto result tidak dijalankan karena live feed MT5/VPS belum fresh.",
       dataSource: "MT5_VPS_LIVE_FEED_ONLY",
+      runner: runnerName,
       liveFeedAgeSec: sourceInfo.ageSec,
       liveFeedTime: sourceInfo.timeText,
       maxAgeSec
@@ -84,6 +94,7 @@ export async function onRequest({ request, env }) {
   const result = {
     ok: true,
     source: "MT5_VPS_LIVE_FEED_ONLY",
+    runner: runnerName,
     message: buildCronMessage(summary),
     ...summary
   };
@@ -98,7 +109,8 @@ export async function onRequest({ request, env }) {
     updatedCount: summary.updatedCount,
     resultAlertSentCount: summary.resultAlertSentCount,
     resultAlertSkippedCount: summary.resultAlertSkippedCount,
-    livePrice: summary.livePrice
+    livePrice: summary.livePrice,
+    runner: runnerName
   });
 
   return json(result);

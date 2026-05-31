@@ -298,3 +298,9 @@ Dashboard sekarang membedakan kondisi market tutup/weekend dengan koneksi live y
 - Menambahkan `cron/result-tracker-cron-runner.php` untuk PHP.ID cron.
 - Auto result memakai live feed utama MT5/VPS dari `/xauusd/latest`, bukan Bybit test feed.
 - Cron dilindungi `RESULT_TRACKER_CRON_SECRET`, cooldown, dan fresh-feed guard.
+
+
+## Step 10U1 - Cron Security Hardening
+- Auto Result Cron endpoint sekarang POST-only.
+- PHP cron runner memakai runner token dan mengirim secret lewat header, bukan query URL Cloudflare.
+- Result tetap memakai data MT5/VPS live feed only, bukan Bybit.

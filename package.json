@@ -1,6 +1,6 @@
 {
-  "name": "xau-ai-signal-step10u-auto-result-cron-runner",
-  "version": "7.13.0-step10u-auto-result-cron-runner",
+  "name": "xau-ai-signal-step10u1-cron-security-hardening",
+  "version": "7.13.1-step10u1-cron-security-hardening",
   "type": "module",
   "scripts": {
     "dev": "vite",
