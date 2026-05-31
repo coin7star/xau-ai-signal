@@ -42,7 +42,7 @@ export async function onRequest({ request, env }) {
   });
 }
 
-async function buildTrackerSummary(dbUrl, env, shouldUpdate) {
+export async function buildTrackerSummary(dbUrl, env, shouldUpdate) {
   const market = await fbGet(dbUrl, "/xauusd/latest");
   const livePrice = getMarketPrice(market);
   const maxItems = Number(env.RESULT_TRACKER_MAX_ITEMS || 20);

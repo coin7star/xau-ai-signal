@@ -291,3 +291,10 @@ Dashboard sekarang membedakan kondisi market tutup/weekend dengan koneksi live y
 - Menambah tombol Test WIN / LOSS / EXPIRED di Admin panel.
 - Test result alert hanya mengirim pesan Telegram dan tidak mengubah history asli.
 - Menyiapkan cooldown opsional `RESULT_ALERT_TEST_COOLDOWN_SEC`.
+
+
+## Step 10U - Auto Result Cron Runner
+- Menambahkan endpoint `/api/result-tracker-cron` untuk menjalankan Auto Result Engine otomatis lewat cron.
+- Menambahkan `cron/result-tracker-cron-runner.php` untuk PHP.ID cron.
+- Auto result memakai live feed utama MT5/VPS dari `/xauusd/latest`, bukan Bybit test feed.
+- Cron dilindungi `RESULT_TRACKER_CRON_SECRET`, cooldown, dan fresh-feed guard.
