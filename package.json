@@ -1,6 +1,6 @@
 {
-  "name": "xau-ai-signal-step10n-admin-panel-accordion",
-  "version": "7.6.0-step10n-admin-panel-accordion",
+  "name": "xau-ai-signal-step10n-admin-panel-accordion-hotfix",
+  "version": "7.6.1-step10n-admin-panel-accordion-hotfix",
   "type": "module",
   "scripts": {
     "dev": "vite",

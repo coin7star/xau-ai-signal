@@ -1201,49 +1201,15 @@ export default function App() {
       )}
 
       {isAdmin && activeDashboardTab === "admin" && (
-        <section className="adminWindowStack">
-          <AdminWindow
-            eyebrow="ADMIN USERS"
-            title="Premium Management"
-            description="Kelola user, role premium, masa aktif, Telegram connect, dan broadcast."
-            meta="User & akses"
-          >
-            <AdminPanel adminToken={adminToken} setAdminToken={setAdminToken} />
-          </AdminWindow>
-
-          <AdminWindow
-            eyebrow="PAYMENT CONTROL"
-            title="Payment Orders"
-            description="Review order pending, approve pembayaran, dan export laporan CSV."
-            meta="Order premium"
-          >
-            <AdminOrdersPanel adminToken={adminToken} />
-          </AdminWindow>
-
-          <AdminWindow
-            eyebrow="MARKET BRIDGE"
-            title="Backup Market Engine"
-            description="Pantau feed cadangan, guard monitor, perbandingan harga, dan safe cron status."
-            meta={bybitFeed?.status || "Standby"}
-          >
-            <BybitTestFeedPanel feed={bybitFeed} market={market} mt5LastCandle={lastCandle} onRefresh={loadBybitTestFeed} />
-          </AdminWindow>
-
-          <AdminWindow
-            eyebrow="AI MARKET ANALYSIS"
-            title="Analisa AI Sinkron"
-            description="Cek ringkasan AI untuk kondisi market terbaru tanpa membuat halaman admin terlalu panjang."
-            meta={aiAnalysis?.mode === "ai-live" ? "AI Live" : "Fallback"}
-          >
-            <section className="aiPanel card adminWindowInnerCard">
-              <div className="strategyHeader">
-                <div><span className="pill mini"><Sparkles size={14} /> AI MARKET ANALYSIS</span><h3>Analisa AI sinkron</h3></div>
-                <div className={`biasBadge ${aiAnalysis?.mode === "ai-live" ? "buy" : "wait"}`}>{aiAnalysis?.mode === "ai-live" ? "AI Live" : "Fallback"}</div>
-              </div>
-              <div className="aiText">{formatAiText(aiAnalysis?.analysis || "Menunggu analisa AI...")}</div>
-            </section>
-          </AdminWindow>
-        </section>
+        <AdminAccordionDashboard
+          adminToken={adminToken}
+          setAdminToken={setAdminToken}
+          bybitFeed={bybitFeed}
+          market={market}
+          lastCandle={lastCandle}
+          loadBybitTestFeed={loadBybitTestFeed}
+          aiAnalysis={aiAnalysis}
+        />
       )}
 
       <footer>Bukan financial advice. Demo first, XAUUSD galak bro 😭</footer>
@@ -1658,6 +1624,102 @@ function formatShortDateTime(value) {
     hour: "2-digit",
     minute: "2-digit"
   });
+}
+
+
+
+function AdminAccordionDashboard({ adminToken, setAdminToken, bybitFeed, market, lastCandle, loadBybitTestFeed, aiAnalysis }) {
+  const [activeAdminPanel, setActiveAdminPanel] = useState("");
+
+  const panels = [
+    {
+      id: "premium",
+      eyebrow: "ADMIN USERS",
+      title: "Premium Management",
+      description: "Kelola user, role premium, masa aktif, Telegram connect, dan broadcast.",
+      meta: "User & akses",
+      render: () => <AdminPanel adminToken={adminToken} setAdminToken={setAdminToken} />
+    },
+    {
+      id: "orders",
+      eyebrow: "PAYMENT CONTROL",
+      title: "Payment Orders",
+      description: "Review order pending, approve pembayaran, dan export laporan CSV.",
+      meta: "Order premium",
+      render: () => <AdminOrdersPanel adminToken={adminToken} />
+    },
+    {
+      id: "backup",
+      eyebrow: "MARKET BRIDGE",
+      title: "Backup Market Engine",
+      description: "Pantau feed cadangan, guard monitor, perbandingan harga, dan safe cron status.",
+      meta: bybitFeed?.status || "Standby",
+      render: () => <BybitTestFeedPanel feed={bybitFeed} market={market} mt5LastCandle={lastCandle} onRefresh={loadBybitTestFeed} />
+    },
+    {
+      id: "ai",
+      eyebrow: "AI MARKET ANALYSIS",
+      title: "Analisa AI Sinkron",
+      description: "Cek ringkasan AI untuk kondisi market terbaru tanpa membuat halaman admin terlalu panjang.",
+      meta: aiAnalysis?.mode === "ai-live" ? "AI Live" : "Fallback",
+      render: () => (
+        <section className="aiPanel card adminWindowInnerCard">
+          <div className="strategyHeader">
+            <div><span className="pill mini"><Sparkles size={14} /> AI MARKET ANALYSIS</span><h3>Analisa AI sinkron</h3></div>
+            <div className={`biasBadge ${aiAnalysis?.mode === "ai-live" ? "buy" : "wait"}`}>{aiAnalysis?.mode === "ai-live" ? "AI Live" : "Fallback"}</div>
+          </div>
+          <div className="aiText">{formatAiText(aiAnalysis?.analysis || "Menunggu analisa AI...")}</div>
+        </section>
+      )
+    }
+  ];
+
+  const selectedPanel = panels.find((panel) => panel.id === activeAdminPanel);
+
+  return (
+    <section className="adminWindowStack adminWindowLauncherStack">
+      <div className="adminWindowIntro card">
+        <span className="pill mini"><Settings size={14} /> ADMIN CONTROL CENTER</span>
+        <h3>Panel Admin</h3>
+        <p>Pilih jendela yang mau dibuka. Detail panel baru dimuat setelah diklik, jadi dashboard admin lebih ringan dan tidak blank.</p>
+      </div>
+
+      <div className="adminWindowGrid">
+        {panels.map((panel) => {
+          const active = activeAdminPanel === panel.id;
+          return (
+            <button
+              key={panel.id}
+              type="button"
+              className={`adminWindowLaunch card ${active ? "active" : ""}`}
+              onClick={() => setActiveAdminPanel(active ? "" : panel.id)}
+            >
+              <div>
+                <span className="pill mini">{panel.eyebrow}</span>
+                <h3>{panel.title}</h3>
+                <p>{panel.description}</p>
+              </div>
+              <b>{active ? "Tutup" : "Buka"}</b>
+              <small>{panel.meta}</small>
+            </button>
+          );
+        })}
+      </div>
+
+      {selectedPanel && (
+        <section className="adminWindowActivePanel">
+          <div className="adminWindowActiveHeader">
+            <div>
+              <span className="pill mini">{selectedPanel.eyebrow}</span>
+              <h3>{selectedPanel.title}</h3>
+            </div>
+            <button type="button" onClick={() => setActiveAdminPanel("")}>Tutup Panel</button>
+          </div>
+          {selectedPanel.render()}
+        </section>
+      )}
+    </section>
+  );
 }
 
 

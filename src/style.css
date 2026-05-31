@@ -3924,3 +3924,119 @@ canvas {
     padding: 0 12px 12px;
   }
 }
+
+/* Step 10N Hotfix - Admin launcher accordion: lazy render panels */
+.adminWindowLauncherStack {
+  gap: 14px;
+}
+
+.adminWindowIntro {
+  padding: 22px;
+}
+
+.adminWindowIntro h3 {
+  margin: 12px 0 6px;
+  font-size: clamp(22px, 3vw, 32px);
+}
+
+.adminWindowIntro p {
+  margin: 0;
+  color: #aeb9d8;
+}
+
+.adminWindowGrid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.adminWindowLaunch {
+  width: 100%;
+  text-align: left;
+  padding: 20px;
+  border-radius: 24px;
+  background: linear-gradient(135deg, rgba(255,255,255,.08), rgba(255,255,255,.035));
+  color: #f8fbff;
+  border: 1px solid rgba(255,255,255,.13);
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 10px 16px;
+  align-items: start;
+}
+
+.adminWindowLaunch h3 {
+  margin: 12px 0 6px;
+  font-size: 21px;
+}
+
+.adminWindowLaunch p {
+  margin: 0;
+  color: #aeb9d8;
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+.adminWindowLaunch b {
+  align-self: start;
+  padding: 10px 13px;
+  border-radius: 999px;
+  background: rgba(103,232,249,.14);
+  color: #a5f3fc;
+  border: 1px solid rgba(103,232,249,.22);
+}
+
+.adminWindowLaunch small {
+  grid-column: 1 / -1;
+  margin-top: 6px;
+  color: #fde68a;
+  font-weight: 900;
+}
+
+.adminWindowLaunch.active {
+  border-color: rgba(250,204,21,.45);
+  box-shadow: 0 0 28px rgba(250,204,21,.08);
+}
+
+.adminWindowActivePanel {
+  display: grid;
+  gap: 14px;
+}
+
+.adminWindowActiveHeader {
+  display: flex;
+  justify-content: space-between;
+  gap: 14px;
+  align-items: center;
+  padding: 18px 20px;
+  border-radius: 24px;
+  background: rgba(15,23,42,.62);
+  border: 1px solid rgba(255,255,255,.12);
+}
+
+.adminWindowActiveHeader h3 {
+  margin: 10px 0 0;
+  font-size: 24px;
+}
+
+.adminWindowActiveHeader button {
+  border-radius: 999px;
+  padding: 11px 14px;
+  background: rgba(255,77,109,.12);
+  color: #ffd1d8;
+  border: 1px solid rgba(255,77,109,.24);
+}
+
+@media (max-width: 760px) {
+  .adminWindowGrid {
+    grid-template-columns: 1fr;
+  }
+
+  .adminWindowActiveHeader {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .adminWindowActiveHeader button {
+    justify-content: center;
+  }
+}

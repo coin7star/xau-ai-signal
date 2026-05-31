@@ -233,3 +233,8 @@ Dashboard sekarang membedakan kondisi market tutup/weekend dengan koneksi live y
 ## Step 10N - Admin Panel Accordion
 - Tab Admin dibuat model jendela buka/tutup.
 - Premium Management, Payment Orders, Backup Market Engine, dan Analisa AI dipisah agar dashboard tidak panjang ke bawah.
+
+
+## Step 10N Hotfix - Admin Blank Fix
+- Tab Admin tidak lagi langsung memuat semua panel sekaligus.
+- Panel admin dimuat setelah jendela diklik agar lebih ringan dan mencegah blank page.
