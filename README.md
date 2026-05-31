@@ -125,3 +125,19 @@ Contoh output:
 
 Detail lengkap ada di `docs/STEP10H_HUMAN_REASON_BUILDER.md`.
 
+
+## Cloudflare Pages Deploy Note
+
+Repo ini sengaja tidak memakai `package-lock.json` supaya Cloudflare Pages memakai `npm install`, bukan `npm ci` / clean install. Ini mengikuti setup deploy sebelumnya yang lebih lancar di Cloudflare Pages.
+
+Recommended Cloudflare Pages build command:
+
+```txt
+npm install && npm run build
+```
+
+Build output directory:
+
+```txt
+dist
+```
