@@ -716,7 +716,7 @@ export default function App() {
   ];
   const historyStats = callHistory?.stats || {};
   const scalpStats = scalpHistory?.stats || {};
-  const telegramStatus = signal?.telegram?.ok ? "Telegram OK" : signal?.telegram?.skipped || "Telegram standby";
+  const telegramStatus = formatSignalAlertStatus(signal?.telegram);
   const premiumActive = isPremiumProfile(authProfile);
   const roleLabel = authProfile?.role?.toUpperCase?.() || "FREE";
   const isAdmin = authProfile?.role === "admin";
@@ -1273,6 +1273,22 @@ function getMt5Status(market) {
     label: isStale ? "Live feed reconnecting" : "Live market online",
     lastText: formatAge(ageMs)
   };
+}
+
+function formatSignalAlertStatus(telegram = {}) {
+  if (telegram?.ok) return "Signal Alert Terkirim";
+
+  const skipped = String(telegram?.skipped || telegram?.reason || "").toLowerCase();
+
+  if (skipped === "not-call-signal") return "Menunggu setup valid";
+  if (skipped === "duplicate-alert") return "Alert sudah dikirim";
+  if (skipped === "cooldown-active") return "Alert cooldown aktif";
+  if (skipped === "telegram-bot-token-missing") return "Alert gateway belum aktif";
+  if (skipped === "telegram-chat-id-missing") return "Telegram belum terhubung";
+  if (skipped.includes("missing")) return "Alert belum lengkap";
+  if (skipped.includes("error")) return "Alert perlu dicek";
+
+  return "Signal Alert Standby";
 }
 
 function formatAge(ageMs) {

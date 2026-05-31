@@ -197,3 +197,7 @@ Catatan deploy Cloudflare:
 - Tidak memakai `package-lock.json`.
 - Build command tetap `npm install && npm run build`.
 - Output directory tetap `dist`.
+
+## Step 10J Patch — Premium Alert Status Copy
+
+Badge status alert di header dashboard dibuat lebih premium dan user friendly. Istilah internal seperti `not-call-signal` tidak lagi tampil ke user, diganti menjadi label yang lebih jelas seperti `Menunggu setup valid` atau `Signal Alert Standby`.

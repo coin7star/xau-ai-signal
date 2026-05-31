@@ -1,6 +1,6 @@
 {
-  "name": "xau-ai-signal-step10j-scalp-mode-tab",
-  "version": "7.3.4-step10j-scalp-mode-tab",
+  "name": "xau-ai-signal-step10j-premium-alert-status-copy",
+  "version": "7.3.5-step10j-premium-alert-status-copy",
   "type": "module",
   "scripts": {
     "dev": "vite",
