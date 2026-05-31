@@ -809,6 +809,21 @@ export default function App() {
           <h2>{readableSignal}</h2>
           <div className="confidence">{signal?.confidence || 0}% confidence</div>
           <p>{signal?.reason || "Menunggu candle MT5..."}</p>
+          {signal?.reasonDetails?.checklist?.length > 0 && (
+            <div className="reasonBuilderBox">
+              <div className="reasonBuilderTitle"><Sparkles size={14} /> AI Reason Builder</div>
+              <ul>
+                {signal.reasonDetails.checklist.slice(0, 5).map((item, idx) => (
+                  <li key={`reason-${idx}`}>{item}</li>
+                ))}
+              </ul>
+              {signal.reasonDetails.blockers?.length > 0 && (
+                <div className="reasonBlockers">
+                  <b>Yang ditunggu:</b> {signal.reasonDetails.blockers.slice(0, 3).join(", ")}
+                </div>
+              )}
+            </div>
+          )}
           <div className="tradePlan">
             <div><small>Entry</small><strong>{signal?.entry || "-"}</strong></div>
             <div><small>Stop Loss</small><strong>{signal?.sl || "-"}</strong></div>
@@ -3540,6 +3555,14 @@ function BybitTestFeedPanel({ feed, market, mt5LastCandle, onRefresh }) {
   const errorMessage = cronError?.message || (errorOk ? "No active error" : "-");
   const errorDetails = cronError?.details ? JSON.stringify(cronError.details) : "";
   const errorTone = guardOk && errorOk ? "buy" : "sell";
+  const rateLimit = latest?.rateLimit || status?.rateLimit || {};
+  const safeCron = status?.safeCron || {};
+  const cooldownLeft = Number(status?.cooldownLeftSeconds || cronError?.cooldownLeftSeconds || 0);
+  const latestAgeSeconds = status?.latestAgeSeconds ?? (ageMs === null ? null : Math.max(0, Math.round(ageMs / 1000)));
+  const safeState = status?.state || (isLive ? "live" : label.toLowerCase());
+  const safeMessage = status?.message || "Menunggu status safe cron.";
+  const tickerRate = rateLimit?.ticker || {};
+  const klineRate = rateLimit?.kline || {};
 
   return (
     <section className={`bybitTestPanel card ${tone}`}>
@@ -3589,6 +3612,22 @@ function BybitTestFeedPanel({ feed, market, mt5LastCandle, onRefresh }) {
           <Metric label="Bybit XAUUSDT" value={formatBybitNumber(bybitClose)} note={lastCandle?.time || latest?.updatedAtText || "Menunggu Bybit"} />
           <Metric label="Selisih" value={diff === null ? "-" : `${diff > 0 ? "+" : ""}${formatBybitNumber(diff)} (${formatSignedPercent(diffPct)})`} note={`Status: ${compareLabel}`} />
           <Metric label="MT5 Bid / Ask" value={`${formatBybitNumber(mt5Bid)} / ${formatBybitNumber(mt5Ask)}`} note={market?.symbol || "XAUUSD"} />
+        </div>
+      </div>
+
+      <div className={`bybitGuardBox ${cooldownLeft > 0 ? "wait" : errorTone}`}>
+        <div>
+          <span className="pill mini">RATE LIMIT SAFE · STEP {status?.step || latest?.step || cronError?.step || "10G"}</span>
+          <h4>Safe Cron Status</h4>
+          <p>{safeMessage}</p>
+        </div>
+        <div className="bybitGuardGrid">
+          <Metric label="Cron State" value={safeState} note={cooldownLeft > 0 ? `Cooldown ${cooldownLeft}s` : "Aman dipanggil via cron 1 menit"} />
+          <Metric label="Latest Age" value={latestAgeSeconds === null ? "-" : `${latestAgeSeconds}s`} note={`Fresh guard ${safeCron?.freshDataSeconds ?? 50}s`} />
+          <Metric label="Min Run Gap" value={`${safeCron?.minRunGapSeconds ?? 45}s`} note={`Request gap ${safeCron?.requestGapMs ?? rateLimit?.requestGapMs ?? 750}ms`} />
+          <Metric label="Request Count" value={rateLimit?.requestCount ?? "-"} note="Ticker + Kline, berurutan" />
+          <Metric label="Ticker Limit" value={tickerRate?.status ?? tickerRate?.limit ?? "-"} note={tickerRate?.resetTimestamp ? `Reset ${tickerRate.resetTimestamp}` : "Header Bybit jika tersedia"} />
+          <Metric label="Kline Limit" value={klineRate?.status ?? klineRate?.limit ?? "-"} note={klineRate?.resetTimestamp ? `Reset ${klineRate.resetTimestamp}` : "Header Bybit jika tersedia"} />
         </div>
       </div>
 

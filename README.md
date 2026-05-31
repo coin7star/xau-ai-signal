@@ -87,3 +87,41 @@ Tambahan:
 - Menampilkan Guard PASSED/FAILED, error terakhir, spread guard, range harga valid.
 - Tetap read-only dan hidden dari user biasa.
 - Tidak mengubah path utama `/xauusd/latest`.
+
+
+## Step 10G - Bybit Rate Limit Safe Cron
+
+Tambahan aman:
+- File cron baru: `cron/bybit-xauusdt-safe-cron.php`.
+- Cron membaca endpoint resmi Bybit V5 `GET /v5/market/tickers` dan `GET /v5/market/kline`.
+- Ada `minRunGap`, `freshDataSeconds`, request gap, dan cooldown otomatis saat Bybit rate-limit/error.
+- Jika Bybit error, data `/bybit_test/xauusdt/latest` lama tidak dihapus agar panel admin tidak blank.
+- Panel admin Bybit sekarang menampilkan status `RATE LIMIT SAFE · STEP 10G`.
+- Tetap read-only: tidak mengubah MT5 utama, signal utama, Telegram utama, atau path `/xauusd/latest`.
+
+Cara pakai cepat:
+1. Upload folder project ini ke GitHub.
+2. Redeploy Cloudflare Pages untuk update panel admin.
+3. Upload `cron/bybit-xauusdt-safe-cron.php` ke PHP.ID / hosting cron.
+4. Set `FIREBASE_DATABASE_URL` dan `BYBIT_CRON_SECRET` di hosting cron.
+5. Jalankan cron tiap 1 menit ke:
+   `https://domain-cron-kamu.com/bybit-xauusdt-safe-cron.php?token=ISI_BYBIT_CRON_SECRET`
+6. Login dashboard sebagai admin, lalu cek panel Bybit.
+
+Detail lengkap ada di `docs/STEP10G_BYBIT_SAFE_CRON.md`.
+
+## Step 10H - Human-readable Reason Builder
+
+Tambahan:
+- Signal utama sekarang punya `reasonDetails` untuk menjelaskan alasan sinyal secara lebih manusiawi.
+- Output `reason` tidak lagi hanya list indikator pendek, tapi dirangkai seperti analisa trader: bias EMA, kondisi RSI, MFI, OB M15, risiko ATR, dan aksi yang ditunggu.
+- Dashboard menampilkan box `AI Reason Builder` dengan checklist mudah dibaca pemula.
+- Ada `blockers` / `Yang ditunggu` agar user tahu kenapa sinyal masih WAIT atau READY.
+- Tidak mengubah rule entry utama: CALL tetap butuh EMA cross + RSI + MFI + OB M15 cocok.
+- Tidak mengubah Telegram utama, histori, MT5, Firebase path utama, atau Bybit cron.
+
+Contoh output:
+`Belum ada CALL valid. Bias utama masih bearish karena EMA 9 berada di bawah EMA 20. RSI lebih mendukung SELL, tapi filter lain belum lengkap. Aksi: tunggu harga dekat Bearish OB M15.`
+
+Detail lengkap ada di `docs/STEP10H_HUMAN_REASON_BUILDER.md`.
+

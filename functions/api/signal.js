@@ -183,6 +183,45 @@ export function buildSignal(candles, candlesM15, market) {
     reasons.push("OB M15 belum aktif karena data M15 belum cukup. Pastikan EA terbaru sudah dipasang.");
   }
 
+  const humanReason = buildHumanSignalReason({
+    finalSignal,
+    signalLabel,
+    callStage,
+    confidence,
+    close,
+    ema9,
+    ema20,
+    gap,
+    gapThreshold,
+    gapClosing,
+    emaCross,
+    rsi14,
+    mfi14,
+    atr14,
+    bullOb,
+    bearOb,
+    bullObStatus: bullOb?.status || "none",
+    bearObStatus: bearOb?.status || "none",
+    m15Ready: m15.length >= 50,
+    buyScore,
+    sellScore,
+    buyAllMatch,
+    sellAllMatch,
+    readyBuyAllMatch,
+    readySellAllMatch,
+    rsiBuyOk,
+    rsiSellOk,
+    mfiBuyOk,
+    mfiSellOk,
+    obBuyOk,
+    obSellOk,
+    bullishCrossNow,
+    bearishCrossNow,
+    readyBuy,
+    readySell,
+    legacyReasons: reasons
+  });
+
   return {
     ok: true,
     pair: "XAUUSD",
@@ -194,7 +233,8 @@ export function buildSignal(candles, candlesM15, market) {
     sl: round(sl),
     tp: round(tp),
     confidence,
-    reason: reasons.slice(0, 7).join(" "),
+    reason: humanReason.summary,
+    reasonDetails: humanReason,
     mode: "firebase-mt5-data",
     strategy: {
       trendBias,
@@ -252,6 +292,165 @@ export function buildSignal(candles, candlesM15, market) {
 }
 
 
+
+
+function buildHumanSignalReason(ctx = {}) {
+  const direction = ctx.finalSignal?.includes("BUY") ? "BUY" : ctx.finalSignal?.includes("SELL") ? "SELL" : "WAIT";
+  const isCall = ctx.callStage === "CALL";
+  const isReady = ctx.callStage === "READY";
+
+  const title = isCall
+    ? `CALL ${direction} valid.`
+    : isReady
+      ? `${ctx.signalLabel || "READY"}. Belum entry penuh, tunggu candle konfirmasi.`
+      : "Belum ada CALL valid.";
+
+  const biasLine = buildBiasLine(ctx);
+  const emaLine = buildEmaLine(ctx);
+  const rsiLine = buildRsiLine(ctx, direction);
+  const mfiLine = buildMfiLine(ctx, direction);
+  const obLine = buildObLine(ctx, direction);
+  const riskLine = buildRiskLine(ctx);
+
+  const checklist = [
+    emaLine,
+    rsiLine,
+    mfiLine,
+    obLine,
+    riskLine
+  ].filter(Boolean);
+
+  const blockers = buildSignalBlockers(ctx, direction);
+  const action = isCall
+    ? `Aksi: ${direction} boleh dipantau sesuai entry, SL, dan TP di dashboard.`
+    : isReady
+      ? "Aksi: tunggu cross/close candle berikutnya supaya sinyal tidak masuk terlalu cepat."
+      : blockers.length
+        ? `Aksi: tunggu ${blockers[0].toLowerCase()}.`
+        : "Aksi: tunggu kombinasi EMA, RSI, MFI, dan OB M15 lebih rapi.";
+
+  const summaryParts = [title, biasLine, ...checklist.slice(0, 4), action];
+
+  return {
+    version: "10H-human-readable-reason-builder",
+    title,
+    summary: summaryParts.join(" "),
+    action,
+    direction,
+    bias: biasLine,
+    checklist,
+    blockers,
+    score: {
+      buy: round(ctx.buyScore),
+      sell: round(ctx.sellScore),
+      confidence: ctx.confidence
+    },
+    raw: (ctx.legacyReasons || []).slice(0, 8)
+  };
+}
+
+function buildBiasLine(ctx = {}) {
+  if (Number(ctx.ema9) > Number(ctx.ema20)) {
+    return "Bias utama masih bullish karena EMA 9 berada di atas EMA 20.";
+  }
+
+  if (Number(ctx.ema9) < Number(ctx.ema20)) {
+    return "Bias utama masih bearish karena EMA 9 berada di bawah EMA 20.";
+  }
+
+  return "Bias utama masih netral karena EMA 9 dan EMA 20 sangat rapat.";
+}
+
+function buildEmaLine(ctx = {}) {
+  if (ctx.bullishCrossNow) return "EMA: bullish cross baru terjadi, momentum BUY mulai aktif.";
+  if (ctx.bearishCrossNow) return "EMA: bearish cross baru terjadi, momentum SELL mulai aktif.";
+  if (ctx.readyBuy) return "EMA: jarak EMA makin dekat ke bullish cross, status masih siap-siap BUY.";
+  if (ctx.readySell) return "EMA: jarak EMA makin dekat ke bearish cross, status masih siap-siap SELL.";
+  if (Number(ctx.ema9) > Number(ctx.ema20)) return "EMA: trend pendek masih condong naik, tapi belum tentu cukup untuk CALL.";
+  if (Number(ctx.ema9) < Number(ctx.ema20)) return "EMA: trend pendek masih condong turun, tapi belum tentu cukup untuk CALL.";
+  return "EMA: belum memberi arah yang jelas.";
+}
+
+function buildRsiLine(ctx = {}, direction = "WAIT") {
+  const rsi = round(ctx.rsi14);
+  if (direction === "BUY") {
+    return ctx.rsiBuyOk ? `RSI: ${rsi} masih sehat untuk BUY.` : `RSI: ${rsi} belum ideal untuk BUY.`;
+  }
+  if (direction === "SELL") {
+    return ctx.rsiSellOk ? `RSI: ${rsi} masih sehat untuk SELL.` : `RSI: ${rsi} belum ideal untuk SELL.`;
+  }
+  if (ctx.rsiBuyOk && !ctx.rsiSellOk) return `RSI: ${rsi} lebih mendukung BUY, tapi filter lain belum lengkap.`;
+  if (ctx.rsiSellOk && !ctx.rsiBuyOk) return `RSI: ${rsi} lebih mendukung SELL, tapi filter lain belum lengkap.`;
+  return `RSI: ${rsi} masih netral/belum kuat.`;
+}
+
+function buildMfiLine(ctx = {}, direction = "WAIT") {
+  const mfiValue = round(ctx.mfi14);
+  if (direction === "BUY") {
+    return ctx.mfiBuyOk ? `MFI: ${mfiValue} menunjukkan buyer masih mendukung.` : `MFI: ${mfiValue} belum cukup mendukung buyer.`;
+  }
+  if (direction === "SELL") {
+    return ctx.mfiSellOk ? `MFI: ${mfiValue} menunjukkan seller masih mendukung.` : `MFI: ${mfiValue} belum cukup mendukung seller.`;
+  }
+  if (ctx.mfiBuyOk && !ctx.mfiSellOk) return `MFI: ${mfiValue} condong ke buyer, tapi belum cukup untuk CALL.`;
+  if (ctx.mfiSellOk && !ctx.mfiBuyOk) return `MFI: ${mfiValue} condong ke seller, tapi belum cukup untuk CALL.`;
+  return `MFI: ${mfiValue} belum memberi dorongan jelas.`;
+}
+
+function buildObLine(ctx = {}, direction = "WAIT") {
+  if (!ctx.m15Ready) return "OB M15: belum aktif karena data M15 belum cukup.";
+
+  if (direction === "BUY") {
+    if (ctx.obBuyOk) return `OB M15: harga dekat Bullish OB fresh/valid (${ctx.bullObStatus}).`;
+    return "OB M15: harga belum berada di area Bullish OB valid.";
+  }
+
+  if (direction === "SELL") {
+    if (ctx.obSellOk) return `OB M15: harga dekat Bearish OB fresh/valid (${ctx.bearObStatus}).`;
+    return "OB M15: harga belum berada di area Bearish OB valid.";
+  }
+
+  if (ctx.obBuyOk) return `OB M15: area Bullish OB masih relevan (${ctx.bullObStatus}).`;
+  if (ctx.obSellOk) return `OB M15: area Bearish OB masih relevan (${ctx.bearObStatus}).`;
+  return "OB M15: belum ada area OB valid yang benar-benar dekat harga.";
+}
+
+function buildRiskLine(ctx = {}) {
+  const atrValue = Number(ctx.atr14 || 0);
+  const close = Number(ctx.close || 0);
+  if (!Number.isFinite(atrValue) || !Number.isFinite(close) || atrValue <= 0 || close <= 0) {
+    return "Risk: data volatilitas belum cukup rapi.";
+  }
+
+  const atrPct = (atrValue / close) * 100;
+  if (atrPct >= 0.18) return `Risk: volatilitas cukup tinggi, ukuran lot harus lebih hati-hati. ATR sekitar ${round(atrValue)}.`;
+  if (atrPct <= 0.04) return `Risk: market relatif pelan, tunggu candle konfirmasi agar tidak fake signal. ATR sekitar ${round(atrValue)}.`;
+  return `Risk: volatilitas masih normal. ATR sekitar ${round(atrValue)}.`;
+}
+
+function buildSignalBlockers(ctx = {}, direction = "WAIT") {
+  const blockers = [];
+
+  if (direction === "BUY") {
+    if (!ctx.bullishCrossNow && !ctx.readyBuy) blockers.push("EMA BUY belum cross/ready");
+    if (!ctx.rsiBuyOk) blockers.push("RSI BUY belum ideal");
+    if (!ctx.mfiBuyOk) blockers.push("MFI BUY belum mendukung");
+    if (!ctx.obBuyOk) blockers.push("harga belum dekat Bullish OB M15");
+  } else if (direction === "SELL") {
+    if (!ctx.bearishCrossNow && !ctx.readySell) blockers.push("EMA SELL belum cross/ready");
+    if (!ctx.rsiSellOk) blockers.push("RSI SELL belum ideal");
+    if (!ctx.mfiSellOk) blockers.push("MFI SELL belum mendukung");
+    if (!ctx.obSellOk) blockers.push("harga belum dekat Bearish OB M15");
+  } else {
+    if (!ctx.bullishCrossNow && !ctx.bearishCrossNow && !ctx.readyBuy && !ctx.readySell) blockers.push("EMA belum cross atau mendekati cross");
+    if (!ctx.rsiBuyOk && !ctx.rsiSellOk) blockers.push("RSI belum masuk zona ideal");
+    if (!ctx.mfiBuyOk && !ctx.mfiSellOk) blockers.push("MFI belum mendukung arah jelas");
+    if (!ctx.obBuyOk && !ctx.obSellOk) blockers.push("harga belum dekat OB M15 valid");
+  }
+
+  if (!ctx.m15Ready) blockers.push("data M15 belum cukup untuk validasi OB");
+  return blockers.slice(0, 6);
+}
 
 function buildM1ScalpingStrategy(candles, closes, context = {}) {
   const structure = buildM1StructureEngulfingEmaScalp(candles, closes, context);

@@ -1,6 +1,6 @@
 {
-  "name": "xau-ai-signal-step10c-hotfix-bybit-panel-blank",
-  "version": "6.9.1-step10c-hotfix-bybit-panel-blank",
+  "name": "xau-ai-signal-step10h-human-reason-builder",
+  "version": "7.1.0-step10h-human-readable-reason-builder",
   "type": "module",
   "scripts": {
     "dev": "vite",

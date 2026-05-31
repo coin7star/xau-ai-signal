@@ -3139,6 +3139,11 @@ canvas {
   background: rgba(127, 29, 29, .12);
 }
 
+.bybitGuardBox.wait {
+  border-color: rgba(250, 204, 21, .30);
+  background: rgba(113, 63, 18, .12);
+}
+
 .bybitGuardBox h4 {
   margin: 10px 0 4px;
   font-size: 1.15rem;
@@ -3245,4 +3250,46 @@ canvas {
   .bybitTestGrid {
     grid-template-columns: 1fr;
   }
+}
+
+.reasonBuilderBox {
+  margin-top: 14px;
+  padding: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.055);
+}
+
+.reasonBuilderTitle {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  opacity: 0.9;
+  margin-bottom: 8px;
+}
+
+.reasonBuilderBox ul {
+  margin: 0;
+  padding-left: 18px;
+  display: grid;
+  gap: 6px;
+}
+
+.reasonBuilderBox li {
+  font-size: 13px;
+  line-height: 1.45;
+  opacity: 0.92;
+}
+
+.reasonBlockers {
+  margin-top: 10px;
+  padding-top: 9px;
+  border-top: 1px solid rgba(255, 255, 255, 0.11);
+  font-size: 12.5px;
+  line-height: 1.45;
+  opacity: 0.9;
 }
