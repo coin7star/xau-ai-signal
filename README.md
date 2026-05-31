@@ -334,3 +334,9 @@ Dashboard sekarang membedakan kondisi market tutup/weekend dengan koneksi live y
 - Panel Broadcast Telegram manual dibuat lebih premium dan jelas.
 - Tambah estimated receiver, preview pesan, counter karakter, dan cooldown anti-spam.
 - Manual Broadcast tetap berbeda dari Auto Signal Alert.
+
+
+## Step 10Z - Auto Signal Multi-user Dry Run
+- Menambahkan simulasi penerima auto signal multi-user.
+- Admin bisa melihat eligible receiver dan skipped user tanpa mengirim Telegram.
+- Persiapan aman sebelum multi-user Telegram alert live.

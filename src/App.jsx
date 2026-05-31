@@ -2042,6 +2042,8 @@ function AdminPanel({ adminToken, setAdminToken }) {
   const [customDate, setCustomDate] = useState("");
   const [broadcastText, setBroadcastText] = useState("");
   const [broadcastTarget, setBroadcastTarget] = useState("premium_connected");
+  const [dryRunBusy, setDryRunBusy] = useState(false);
+  const [dryRunResult, setDryRunResult] = useState(null);
   const [expandedUid, setExpandedUid] = useState("");
   const [page, setPage] = useState(1);
 
@@ -2155,6 +2157,46 @@ function AdminPanel({ adminToken, setAdminToken }) {
       setMessage(err.message || String(err));
     } finally {
       setBusy(false);
+    }
+  }
+
+  async function runMultiUserDryRun() {
+    if (!adminToken) {
+      setMessage("Isi ADMIN_ACTION_TOKEN dulu.");
+      return;
+    }
+
+    setDryRunBusy(true);
+    setMessage("");
+
+    try {
+      const res = await fetch("/api/telegram-multi-user-dry-run", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${adminToken}`
+        },
+        body: JSON.stringify({
+          token: adminToken,
+          signalType: "MAIN_SIGNAL",
+          signalLabel: "Simulasi auto signal premium",
+          alertKind: "main"
+        })
+      });
+
+      const json = await res.json();
+
+      if (!json.ok) {
+        setMessage(json.error || "Dry run gagal.");
+        return;
+      }
+
+      setDryRunResult(json);
+      setMessage(`Dry run selesai. Eligible ${json.eligibleCount || 0}, skipped ${json.skippedCount || 0}. Tidak ada Telegram yang dikirim.`);
+    } catch (err) {
+      setMessage(err.message || String(err));
+    } finally {
+      setDryRunBusy(false);
     }
   }
 
@@ -2358,6 +2400,65 @@ function AdminPanel({ adminToken, setAdminToken }) {
               {busy ? "Mengirim..." : "Send Broadcast"}
             </button>
           </div>
+        </div>
+
+        <div className="multiUserDryRunBox">
+          <div className="dryRunHeader">
+            <div>
+              <span className="pill mini"><Radio size={14} /> AUTO ALERT DRY RUN</span>
+              <h4>Auto Signal Multi-user Dry Run</h4>
+              <p>Simulasi penerima auto signal premium tanpa mengirim pesan Telegram. Aman untuk cek sebelum fitur multi-user alert live.</p>
+            </div>
+            <button type="button" onClick={runMultiUserDryRun} disabled={dryRunBusy || !adminToken}>
+              {dryRunBusy ? "Scanning..." : "Run Dry Run"}
+            </button>
+          </div>
+
+          <div className="dryRunSummaryGrid">
+            <div>
+              <small>Mode</small>
+              <b>Simulasi</b>
+              <span>Tidak kirim Telegram</span>
+            </div>
+            <div>
+              <small>Target</small>
+              <b>Premium/Admin</b>
+              <span>Telegram connected + alert ON</span>
+            </div>
+            <div>
+              <small>Eligible</small>
+              <b>{dryRunResult?.eligibleCount ?? "-"}</b>
+              <span>Siap menerima auto signal</span>
+            </div>
+            <div>
+              <small>Skipped</small>
+              <b>{dryRunResult?.skippedCount ?? "-"}</b>
+              <span>Free/offline/alert OFF</span>
+            </div>
+          </div>
+
+          {dryRunResult && (
+            <div className="dryRunResultGrid">
+              <div className="dryRunList ready">
+                <b>Receiver Ready</b>
+                {(dryRunResult.eligible || []).slice(0, 6).map((item, index) => (
+                  <span key={`${item.uid || item.email || index}-ready`}>
+                    {item.email || item.uid || "User"} · {item.role} · {item.reason}
+                  </span>
+                ))}
+                {!dryRunResult.eligible?.length && <span>Belum ada receiver eligible.</span>}
+              </div>
+              <div className="dryRunList skipped">
+                <b>Skipped</b>
+                {(dryRunResult.skipped || []).slice(0, 6).map((item, index) => (
+                  <span key={`${item.uid || item.email || index}-skip`}>
+                    {item.email || item.uid || "User"} · {item.role} · {item.reason}
+                  </span>
+                ))}
+                {!dryRunResult.skipped?.length && <span>Tidak ada user yang diskip.</span>}
+              </div>
+            </div>
+          )}
         </div>
       </details>
 

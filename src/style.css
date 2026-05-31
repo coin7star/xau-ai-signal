@@ -4867,3 +4867,114 @@ canvas {
     justify-content: center;
   }
 }
+
+/* Step 10Z - Auto Signal Multi-user Dry Run */
+.multiUserDryRunBox {
+  margin-top: 16px;
+  padding: 20px;
+  border-radius: 22px;
+  background: linear-gradient(135deg, rgba(8, 47, 73, 0.58), rgba(15, 23, 42, 0.76));
+  border: 1px solid rgba(103, 232, 249, 0.20);
+}
+
+.dryRunHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 16px;
+  margin-bottom: 16px;
+}
+
+.dryRunHeader h4 {
+  margin: 10px 0 6px;
+  font-size: 22px;
+}
+
+.dryRunHeader p {
+  margin: 0;
+  color: #aec0df;
+}
+
+.dryRunHeader button {
+  white-space: nowrap;
+  background: linear-gradient(135deg, #67e8f9, #a78bfa);
+  color: #06111f;
+}
+
+.dryRunSummaryGrid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 12px;
+  margin-bottom: 14px;
+}
+
+.dryRunSummaryGrid > div,
+.dryRunList {
+  padding: 15px;
+  border-radius: 18px;
+  background: rgba(2, 6, 23, 0.58);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.dryRunSummaryGrid small {
+  margin-bottom: 8px;
+}
+
+.dryRunSummaryGrid b {
+  display: block;
+  font-size: 22px;
+  margin-bottom: 4px;
+}
+
+.dryRunSummaryGrid span,
+.dryRunList span {
+  color: #aebee1;
+  font-size: 13px;
+  line-height: 1.45;
+}
+
+.dryRunResultGrid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+
+.dryRunList {
+  display: grid;
+  gap: 8px;
+}
+
+.dryRunList b {
+  color: #e2e8f0;
+}
+
+.dryRunList.ready {
+  border-color: rgba(34, 197, 94, 0.25);
+}
+
+.dryRunList.skipped {
+  border-color: rgba(250, 204, 21, 0.22);
+}
+
+@media (max-width: 860px) {
+  .dryRunHeader,
+  .dryRunResultGrid {
+    grid-template-columns: 1fr;
+    flex-direction: column;
+  }
+
+  .dryRunSummaryGrid {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .dryRunHeader button {
+    width: 100%;
+    justify-content: center;
+  }
+}
+
+@media (max-width: 560px) {
+  .dryRunSummaryGrid {
+    grid-template-columns: 1fr;
+  }
+}
