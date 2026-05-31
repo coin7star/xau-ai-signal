@@ -1,6 +1,6 @@
 {
-  "name": "xau-ai-signal-step10w-performance-analytics-upgrade",
-  "version": "7.15.0-step10w-performance-analytics-upgrade",
+  "name": "xau-ai-signal-step10x-signal-quality-guard-v2",
+  "version": "7.16.0-step10x-signal-quality-guard-v2",
   "type": "module",
   "scripts": {
     "dev": "vite",

@@ -793,6 +793,7 @@ export default function App() {
   }
 
   const signalTone = isBuy ? "buy" : isSell ? "sell" : isReady ? "ready" : "wait";
+  const qualityGuard = signal?.qualityGuard || signal?.strategy?.qualityGuard || null;
   const readableSignal = signal?.signalLabel || signal?.signal || "WAIT";
   const trendBias = signal?.strategy?.trendBias || "-";
   const smc = signal?.strategy?.smc;
@@ -1005,6 +1006,8 @@ export default function App() {
 
       {activeDashboardTab === "signal" && (
         <>
+          <SignalQualityGuardPanel guard={qualityGuard} />
+
           <section className="hero cleanHero compactHero">
             <div className={`signalBox card ${signalTone}`}>
               <div className="signalTop"><b>{market?.symbol || "XAUUSD"}</b><span>{lastUpdate}</span></div>
@@ -4486,6 +4489,60 @@ function Metric({ label, value, note }) {
       <span>{note}</span>
     </div>
   );
+}
+
+
+function SignalQualityGuardPanel({ guard }) {
+  if (!guard) return null;
+
+  const tone = guard.status === "SAFE" ? "safe" : guard.status === "CAUTION" ? "caution" : "wait";
+  const checks = Array.isArray(guard.checks) ? guard.checks : [];
+  const blockers = Array.isArray(guard.blockers) ? guard.blockers : [];
+  const metrics = guard.metrics || {};
+
+  return (
+    <section className={`qualityGuardPanel card ${tone}`}>
+      <div className="qualityGuardTop">
+        <div>
+          <span className="pill mini"><Shield size={14} /> SIGNAL QUALITY GUARD V2</span>
+          <h3>{guard.label || "Market Safety Check"}</h3>
+          <p>{guard.message || "Guard memantau kualitas signal sebelum CALL."}</p>
+        </div>
+        <div className={`qualityGuardScore ${tone}`}>
+          <b>{guard.score ?? 0}%</b>
+          <span>{guard.decision === "CALL_ALLOWED" ? "CALL allowed" : "CALL guarded"}</span>
+        </div>
+      </div>
+
+      <div className="qualityGuardChecks">
+        {checks.map((item, idx) => (
+          <div key={`${item.name}-${idx}`} className={`qualityGuardCheck ${item.status === "PASS" ? "pass" : "wait"}`}>
+            <b>{item.name}</b>
+            <strong>{item.status === "PASS" ? "PASS" : "WAIT"}</strong>
+            <span>{item.note}</span>
+          </div>
+        ))}
+      </div>
+
+      <div className="qualityGuardFooter">
+        <div>
+          <b>Yang ditahan:</b> {blockers.length ? blockers.slice(0, 4).join(" · ") : "Tidak ada blocker utama."}
+        </div>
+        <div>
+          <b>Metric:</b> Spread {metrics.spread ?? "-"} / max {metrics.maxSpread ?? "-"} · ATR {metrics.atr14 ?? "-"} · Feed {formatAgeCompact(metrics.feedAgeSec)}
+        </div>
+      </div>
+    </section>
+  );
+}
+
+function formatAgeCompact(seconds) {
+  if (seconds === null || seconds === undefined) return "-";
+  const sec = Number(seconds);
+  if (!Number.isFinite(sec)) return "-";
+  if (sec < 60) return `${Math.round(sec)} detik`;
+  if (sec < 3600) return `${Math.round(sec / 60)} menit`;
+  return `${Math.round(sec / 3600)} jam`;
 }
 
 function SnapshotRow({ row, defaultOpen = false }) {

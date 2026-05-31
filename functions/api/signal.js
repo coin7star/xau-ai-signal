@@ -127,6 +127,30 @@ export function buildSignal(candles, candlesM15, market) {
   const readyBuyAllMatch = readyBuy && rsiBuyOk && mfiBuyOk && obBuyOk;
   const readySellAllMatch = readySell && rsiSellOk && mfiSellOk && obSellOk;
 
+  const signalQualityGuard = buildSignalQualityGuardV2({
+    market,
+    m1,
+    m15,
+    close,
+    atr14,
+    confidence: 0,
+    buyAllMatch,
+    sellAllMatch,
+    readyBuyAllMatch,
+    readySellAllMatch,
+    rsiBuyOk,
+    rsiSellOk,
+    mfiBuyOk,
+    mfiSellOk,
+    obBuyOk,
+    obSellOk,
+    bullishCrossNow,
+    bearishCrossNow,
+    readyBuy,
+    readySell,
+    m15Ready: m15.length >= 50
+  });
+
   if (readyBuyAllMatch) {
     finalSignal = "READY_BUY";
     callStage = "READY";
@@ -168,6 +192,37 @@ export function buildSignal(candles, candlesM15, market) {
     : callStage === "CALL"
       ? Math.min(95, Math.max(68, Math.round(score)))
       : Math.min(60, Math.max(45, Math.round(score)));
+
+  const finalQualityGuard = buildSignalQualityGuardV2({
+    market,
+    m1,
+    m15,
+    close,
+    atr14,
+    confidence,
+    buyAllMatch,
+    sellAllMatch,
+    readyBuyAllMatch,
+    readySellAllMatch,
+    rsiBuyOk,
+    rsiSellOk,
+    mfiBuyOk,
+    mfiSellOk,
+    obBuyOk,
+    obSellOk,
+    bullishCrossNow,
+    bearishCrossNow,
+    readyBuy,
+    readySell,
+    m15Ready: m15.length >= 50
+  });
+
+  if (callStage === "CALL" && !finalQualityGuard.allowCall) {
+    finalSignal = "WAIT";
+    callStage = "WAIT";
+    signalLabel = "WAIT";
+    reasons.push(`Signal Quality Guard menahan CALL: ${finalQualityGuard.blockers[0] || "market belum ideal"}.`);
+  }
 
   const trendBias = ema9 > ema20 ? "Bullish" : ema9 < ema20 ? "Bearish" : "Netral";
   const scalping = buildM1ScalpingStrategy(m1, closes, {
@@ -219,6 +274,7 @@ export function buildSignal(candles, candlesM15, market) {
     bearishCrossNow,
     readyBuy,
     readySell,
+    qualityGuard: finalQualityGuard,
     legacyReasons: reasons
   });
 
@@ -235,6 +291,7 @@ export function buildSignal(candles, candlesM15, market) {
     confidence,
     reason: humanReason.summary,
     reasonDetails: humanReason,
+    qualityGuard: finalQualityGuard,
     mode: "firebase-mt5-data",
     strategy: {
       trendBias,
@@ -275,6 +332,7 @@ export function buildSignal(candles, candlesM15, market) {
       sellScore: round(sellScore),
       score: round(score),
       scalping,
+      qualityGuard: finalQualityGuard,
       probability: buildProbability(signalLabel, callStage, buyScore, sellScore, {
         rsiBuyOk,
         rsiSellOk,
@@ -294,6 +352,107 @@ export function buildSignal(candles, candlesM15, market) {
 
 
 
+
+function buildSignalQualityGuardV2(ctx = {}) {
+  const market = ctx.market || {};
+  const checks = [];
+  const blockers = [];
+  const warnings = [];
+  const bid = Number(market.bid || 0);
+  const ask = Number(market.ask || 0);
+  const spread = bid > 0 && ask > 0 ? Math.abs(ask - bid) : null;
+  const close = Number(ctx.close || 0);
+  const atr14 = Number(ctx.atr14 || 0);
+  const candleCount = Array.isArray(ctx.m1) ? ctx.m1.length : 0;
+  const m15Count = Array.isArray(ctx.m15) ? ctx.m15.length : 0;
+  const confidence = Number(ctx.confidence || 0);
+  const feedInfo = getSignalFeedFreshness(market);
+
+  const maxSpread = close > 0 ? Math.max(0.8, close * 0.00045) : 2;
+  const candleRange = getLastCandleRange(ctx.m1);
+  const atrRiskLimit = close > 0 ? close * 0.0014 : 999;
+  const candleRiskLimit = atr14 > 0 ? atr14 * 2.8 : 999;
+
+  const feedPassed = feedInfo.ageSec === null || feedInfo.ageSec <= 1800;
+  const spreadPassed = spread === null || spread <= maxSpread;
+  const dataPassed = candleCount >= 50 && m15Count >= 50;
+  const volatilityPassed = atr14 <= atrRiskLimit && candleRange <= candleRiskLimit;
+  const confidencePassed = confidence >= 68;
+  const obPassed = Boolean(ctx.obBuyOk || ctx.obSellOk || ctx.readyBuyAllMatch || ctx.readySellAllMatch || ctx.buyAllMatch || ctx.sellAllMatch);
+  const setupPassed = Boolean(ctx.buyAllMatch || ctx.sellAllMatch || ctx.readyBuyAllMatch || ctx.readySellAllMatch);
+
+  checks.push(makeGuardCheck("Live Feed", feedPassed ? "PASS" : "WAIT", feedPassed ? "Data market masih layak dipakai." : "Live feed MT5/VPS belum fresh."));
+  checks.push(makeGuardCheck("Spread", spreadPassed ? "PASS" : "WAIT", spread === null ? "Spread belum terbaca, guard tetap hati-hati." : `Spread ${round(spread)} / batas ${round(maxSpread)}.`));
+  checks.push(makeGuardCheck("Data", dataPassed ? "PASS" : "WAIT", `M1 ${candleCount} candle · M15 ${m15Count} candle.`));
+  checks.push(makeGuardCheck("Volatility", volatilityPassed ? "PASS" : "WAIT", atr14 ? `ATR ${round(atr14)} masih dalam batas aman.` : "ATR belum terbaca."));
+  checks.push(makeGuardCheck("Confidence", confidencePassed ? "PASS" : "WAIT", `Confidence ${confidence || 0}% · minimal 68% untuk CALL.`));
+  checks.push(makeGuardCheck("Setup", setupPassed ? "PASS" : "WAIT", setupPassed ? "Kombinasi EMA/RSI/MFI/OB mulai cocok." : "Setup utama belum lengkap."));
+  checks.push(makeGuardCheck("OB M15", obPassed ? "PASS" : "WAIT", obPassed ? "Filter OB M15 mendukung setup." : "Harga belum dekat OB M15 valid."));
+
+  if (!feedPassed) blockers.push("live feed MT5/VPS belum fresh");
+  if (!spreadPassed) blockers.push("spread belum aman");
+  if (!dataPassed) blockers.push("data candle M1/M15 belum cukup");
+  if (!volatilityPassed) blockers.push("volatilitas candle/ATR terlalu tinggi");
+  if (!confidencePassed) blockers.push("confidence belum cukup untuk CALL");
+  if (!setupPassed) blockers.push("kombinasi EMA/RSI/MFI/OB belum lengkap");
+  if (!obPassed) blockers.push("OB M15 belum mendukung");
+
+  if (spread === null) warnings.push("Spread belum terbaca dari bid/ask.");
+  if (feedInfo.ageSec !== null && feedInfo.ageSec > 900) warnings.push("Feed mulai tua, hati-hati sebelum entry.");
+
+  const allowCall = feedPassed && spreadPassed && dataPassed && volatilityPassed && confidencePassed && setupPassed && obPassed;
+  const passedCount = checks.filter((c) => c.status === "PASS").length;
+  const score = Math.round((passedCount / Math.max(checks.length, 1)) * 100);
+
+  const status = allowCall ? "SAFE" : score >= 70 ? "CAUTION" : "WAIT";
+  const label = allowCall ? "Market Safety: SAFE" : score >= 70 ? "Market Safety: CAUTION" : "Market Safety: WAIT";
+  const decision = allowCall ? "CALL_ALLOWED" : "CALL_BLOCKED";
+  const message = allowCall
+    ? "Signal Quality Guard lolos. Market cukup aman untuk CALL jika setup utama valid."
+    : `Signal Quality Guard menahan CALL: ${blockers.slice(0, 2).join(" dan ") || "market belum ideal"}.`;
+
+  return {
+    version: "10X-signal-quality-guard-v2",
+    status,
+    label,
+    decision,
+    allowCall,
+    score,
+    passedCount,
+    totalChecks: checks.length,
+    blockers,
+    warnings,
+    checks,
+    metrics: {
+      spread: spread === null ? null : round(spread),
+      maxSpread: round(maxSpread),
+      atr14: round(atr14),
+      candleRange: round(candleRange),
+      feedAgeSec: feedInfo.ageSec,
+      feedTime: feedInfo.timeText || null,
+      confidence
+    },
+    message
+  };
+}
+
+function makeGuardCheck(name, status, note) {
+  return { name, status, note };
+}
+
+function getLastCandleRange(candles = []) {
+  const last = Array.isArray(candles) ? candles[candles.length - 1] : null;
+  if (!last) return 0;
+  return Math.abs(Number(last.high || 0) - Number(last.low || 0));
+}
+
+function getSignalFeedFreshness(market = {}) {
+  const timeValue = market.receivedAt || market.lastCandleTime || market.serverTime || market.updatedAt || market.time || null;
+  const ms = new Date(timeValue || 0).getTime();
+  if (!timeValue || Number.isNaN(ms) || ms <= 0) return { ageSec: null, timeText: timeValue || null };
+  return { ageSec: Math.max(0, Math.round((Date.now() - ms) / 1000)), timeText: timeValue };
+}
+
 function buildHumanSignalReason(ctx = {}) {
   const direction = ctx.finalSignal?.includes("BUY") ? "BUY" : ctx.finalSignal?.includes("SELL") ? "SELL" : "WAIT";
   const isCall = ctx.callStage === "CALL";
@@ -311,13 +470,17 @@ function buildHumanSignalReason(ctx = {}) {
   const mfiLine = buildMfiLine(ctx, direction);
   const obLine = buildObLine(ctx, direction);
   const riskLine = buildRiskLine(ctx);
+  const guardLine = ctx.qualityGuard?.allowCall
+    ? "Quality Guard: market lolos safety check."
+    : ctx.qualityGuard?.message || "Quality Guard: menunggu market lebih aman.";
 
   const checklist = [
     emaLine,
     rsiLine,
     mfiLine,
     obLine,
-    riskLine
+    riskLine,
+    guardLine
   ].filter(Boolean);
 
   const blockers = buildSignalBlockers(ctx, direction);

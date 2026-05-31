@@ -316,3 +316,9 @@ Dashboard sekarang membedakan kondisi market tutup/weekend dengan koneksi live y
 - Performance Analytics 7/30 hari di-upgrade.
 - Tambah EXPIRED, Clean WR, Total WR, dan Best Snapshot yang lebih informatif.
 - Analytics mengikuti result dari Auto Result Engine / Auto Result Cron.
+
+
+## Step 10X - Signal Quality Guard v2
+- Menambahkan panel market safety check di tab Sinyal.
+- Guard mengecek feed MT5/VPS, spread, data candle, volatilitas, confidence, setup, dan OB M15.
+- CALL bisa ditahan menjadi WAIT jika kualitas market belum aman.
