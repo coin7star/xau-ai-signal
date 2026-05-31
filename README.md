@@ -310,3 +310,9 @@ Dashboard sekarang membedakan kondisi market tutup/weekend dengan koneksi live y
 - Menambahkan panel Auto Result Cron Monitor di dashboard History.
 - Dashboard bisa melihat last run, feed age, scanned, updated, dan Telegram sent.
 - Source result tetap MT5/VPS Live Feed, bukan Bybit.
+
+
+## Step 10W - Performance Analytics Upgrade
+- Performance Analytics 7/30 hari di-upgrade.
+- Tambah EXPIRED, Clean WR, Total WR, dan Best Snapshot yang lebih informatif.
+- Analytics mengikuti result dari Auto Result Engine / Auto Result Cron.

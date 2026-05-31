@@ -1,6 +1,6 @@
 {
-  "name": "xau-ai-signal-step10v-cron-health-monitor",
-  "version": "7.14.0-step10v-cron-health-monitor",
+  "name": "xau-ai-signal-step10w-performance-analytics-upgrade",
+  "version": "7.15.0-step10w-performance-analytics-upgrade",
   "type": "module",
   "scripts": {
     "dev": "vite",

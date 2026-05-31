@@ -1936,6 +1936,14 @@
   color: #ffe879;
 }
 
+.performanceHighlight span {
+  display: block;
+  margin-top: 6px;
+  color: #a7f3d0;
+  font-size: 12px;
+  font-weight: 800;
+}
+
 .performanceGrid {
   display: grid;
   grid-template-columns: repeat(4,1fr);
@@ -1990,6 +1998,27 @@
   grid-template-columns: repeat(4,1fr);
   gap: 8px;
   margin: 16px 0;
+}
+
+.performanceBars.performanceBarsFive {
+  grid-template-columns: repeat(5, 1fr);
+}
+
+.performanceSubRate {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  align-items: center;
+  margin-top: 12px;
+  color: #b9f3ff;
+  font-size: 12px;
+  font-weight: 900;
+}
+
+.performanceSubRate em {
+  font-style: normal;
+  color: #ffe879;
+  opacity: 0.9;
 }
 
 .performanceBars div {
@@ -2087,6 +2116,10 @@
   .performanceHighlight {
     width: 100%;
     text-align: left;
+  }
+
+  .performanceBars.performanceBarsFive {
+    grid-template-columns: repeat(2, 1fr);
   }
 }
 

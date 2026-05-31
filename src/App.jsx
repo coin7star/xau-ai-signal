@@ -2684,12 +2684,13 @@ function PerformanceAnalyticsPanel({ callHistory, scalpHistory, isAdmin }) {
       <div className="sectionTitle">
         <div>
           <span className="pill mini">PERFORMANCE ANALYTICS</span>
-          <h3>Winrate 7/30 Hari</h3>
-          <span>Ringkasan performa dari signal yang sudah punya result WIN / LOSS / BE.</span>
+          <h3>Analytics 7/30 Hari</h3>
+          <span>Ringkasan performa dari Auto Result Engine: WIN / LOSS / BE / EXPIRED. Signal RUNNING tidak masuk hitungan winrate.</span>
         </div>
         <div className="performanceHighlight">
           <small>Best Snapshot</small>
-          <b>{best ? `${best.label} · ${best.winRate}% WR` : "Waiting data"}</b>
+          <b>{best ? `${best.label} · ${best.cleanWinRate}% Clean WR` : "Waiting data"}</b>
+          {best ? <span>{best.wins} WIN dari {best.closed} closed · {best.expired} expired</span> : <span>Menunggu result tertutup.</span>}
         </div>
       </div>
 
@@ -2707,13 +2708,13 @@ function PerformanceAnalyticsPanel({ callHistory, scalpHistory, isAdmin }) {
         </div>
         <div>
           <b>Catatan</b>
-          <span>Winrate dihitung dari result yang sudah closed. OPEN tidak masuk hitungan WR.</span>
+          <span>Clean WR dihitung dari WIN / LOSS / BE. EXPIRED dipisah sebagai setup yang habis waktu, dan RUNNING tidak dihitung.</span>
         </div>
       </div>
 
       {isAdmin && (
         <div className="performanceAdminNote">
-          Admin mode: update result dari CALL/SCALP History agar analytics 7/30 hari tetap akurat.
+          Analytics otomatis mengikuti result terbaru dari Auto Result Engine dan Auto Result Cron. Pastikan cron tetap aktif agar WIN / LOSS / EXPIRED selalu sinkron.
         </div>
       )}
     </section>
@@ -2721,7 +2722,7 @@ function PerformanceAnalyticsPanel({ callHistory, scalpHistory, isAdmin }) {
 }
 
 function PerformanceCard({ title, period, stats }) {
-  const wrClass = stats.winRate >= 70 ? "strong" : stats.winRate >= 50 ? "normal" : "weak";
+  const wrClass = stats.cleanWinRate >= 70 ? "strong" : stats.cleanWinRate >= 50 ? "normal" : "weak";
 
   return (
     <div className="performanceCard">
@@ -2730,10 +2731,15 @@ function PerformanceCard({ title, period, stats }) {
           <span>{title}</span>
           <h4>{period}</h4>
         </div>
-        <b className={wrClass}>{stats.winRate}%</b>
+        <b className={wrClass}>{stats.cleanWinRate}%</b>
       </div>
 
-      <div className="performanceBars">
+      <div className="performanceSubRate">
+        <span>Clean WR</span>
+        <em>Total WR {stats.totalWinRate}%</em>
+      </div>
+
+      <div className="performanceBars performanceBarsFive">
         <div>
           <small>Closed</small>
           <strong>{stats.closed}</strong>
@@ -2750,13 +2756,17 @@ function PerformanceCard({ title, period, stats }) {
           <small>BE</small>
           <strong>{stats.be}</strong>
         </div>
+        <div>
+          <small>EXP</small>
+          <strong>{stats.expired}</strong>
+        </div>
       </div>
 
       <div className="wrBar">
-        <i style={{ width: `${Math.min(100, Math.max(0, stats.winRate))}%` }} />
+        <i style={{ width: `${Math.min(100, Math.max(0, stats.cleanWinRate))}%` }} />
       </div>
 
-      <p>{stats.total} total signal · {stats.open} masih OPEN</p>
+      <p>{stats.total} total signal · {stats.open} RUNNING · {stats.expired} EXPIRED</p>
     </div>
   );
 }
@@ -2815,7 +2825,7 @@ function buildPerformanceStats(items, days) {
   const from = now - days * 24 * 60 * 60 * 1000;
 
   const filtered = (items || []).filter((item) => {
-    const t = parseHistoryTimeMs(item.createdAt || item.candleTime || item.time || item.timestamp);
+    const t = parseHistoryTimeMs(item.createdAt || item.candleTime || item.time || item.timestamp || item.closedAt || item.resultAt);
     if (!t) return true; // data lama tanpa timestamp tetap dihitung supaya tidak kosong
     return t >= from;
   });
@@ -2823,29 +2833,37 @@ function buildPerformanceStats(items, days) {
   let wins = 0;
   let losses = 0;
   let be = 0;
+  let expired = 0;
   let open = 0;
 
   filtered.forEach((item) => {
-    const result = String(item.result || item.status || "OPEN").toUpperCase();
+    const result = formatResultStatus(item);
 
     if (result === "WIN") wins += 1;
     else if (result === "LOSS") losses += 1;
-    else if (result === "BE" || result === "BREAKEVEN") be += 1;
+    else if (result === "BE") be += 1;
+    else if (result === "EXPIRED") expired += 1;
     else open += 1;
   });
 
   const closed = wins + losses + be;
-  const winRate = closed > 0 ? Math.round((wins / closed) * 100) : 0;
+  const totalClosed = closed + expired;
+  const cleanWinRate = closed > 0 ? Math.round((wins / closed) * 100) : 0;
+  const totalWinRate = totalClosed > 0 ? Math.round((wins / totalClosed) * 100) : 0;
 
   return {
     days,
     total: filtered.length,
     closed,
+    totalClosed,
     wins,
     losses,
     be,
+    expired,
     open,
-    winRate
+    winRate: cleanWinRate,
+    cleanWinRate,
+    totalWinRate
   };
 }
 
@@ -2861,27 +2879,33 @@ function parseHistoryTimeMs(value) {
 }
 
 function pickBestPerformance(statsList) {
-  const valid = statsList.filter((item) => item.closed >= 3);
+  const valid = statsList.filter((item) => item.closed > 0 || item.expired > 0);
   if (!valid.length) return null;
 
   return valid.sort((a, b) => {
-    if (b.winRate !== a.winRate) return b.winRate - a.winRate;
-    return b.closed - a.closed;
+    if (b.cleanWinRate !== a.cleanWinRate) return b.cleanWinRate - a.cleanWinRate;
+    if (b.closed !== a.closed) return b.closed - a.closed;
+    return b.totalClosed - a.totalClosed;
   })[0];
 }
 
 function buildPerformanceSummary(call7, call30, scalp7, scalp30) {
   const parts = [];
 
-  if (call7.closed > 0) parts.push(`MAIN CALL 7D WR ${call7.winRate}% dari ${call7.closed} closed signal`);
-  if (scalp7.closed > 0) parts.push(`SCALP M1 7D WR ${scalp7.winRate}% dari ${scalp7.closed} closed signal`);
+  if (call7.closed > 0 || call7.expired > 0) {
+    parts.push(`MAIN CALL 7D Clean WR ${call7.cleanWinRate}% · ${call7.wins}W/${call7.losses}L/${call7.be}BE · ${call7.expired} EXP`);
+  }
+
+  if (scalp7.closed > 0 || scalp7.expired > 0) {
+    parts.push(`SCALP M1 7D Clean WR ${scalp7.cleanWinRate}% · ${scalp7.wins}W/${scalp7.losses}L/${scalp7.be}BE · ${scalp7.expired} EXP`);
+  }
 
   if (!parts.length) {
-    if (call30.closed || scalp30.closed) {
-      return `Data 7 hari masih tipis. 30D: MAIN CALL ${call30.winRate}% WR, SCALP M1 ${scalp30.winRate}% WR.`;
+    if (call30.closed || call30.expired || scalp30.closed || scalp30.expired) {
+      return `Data 7 hari masih tipis. 30D: MAIN CALL ${call30.cleanWinRate}% Clean WR (${call30.expired} EXP), SCALP M1 ${scalp30.cleanWinRate}% Clean WR (${scalp30.expired} EXP).`;
     }
 
-    return "Analytics akan makin akurat setelah result WIN/LOSS/BE mulai terkumpul.";
+    return "Analytics akan makin akurat setelah Auto Result Engine mengumpulkan result WIN / LOSS / BE / EXPIRED.";
   }
 
   return parts.join(" · ");
