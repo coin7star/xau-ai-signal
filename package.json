@@ -1,6 +1,6 @@
 {
-  "name": "xau-ai-signal-step10o-telegram-connect-guard",
-  "version": "7.7.0-step10o-telegram-connect-guard",
+  "name": "xau-ai-signal-step10p-telegram-connect-ux-polish",
+  "version": "7.8.0-step10p-telegram-connect-ux-polish",
   "type": "module",
   "scripts": {
     "dev": "vite",

@@ -1582,68 +1582,88 @@ function TelegramConnectPanel({ user, profile, telegramConnect, onRefresh }) {
   if (!canConnect) return null;
 
   return (
-    <section className="telegramConnectPanel card">
+    <section className={`telegramConnectPanel card ${connected ? "connectedMode" : "setupMode"}`}>
       <div className="telegramConnectHeader">
         <div>
           <span className="pill mini"><Bot size={14} /> TELEGRAM ALERT</span>
-          <h3>Connect Telegram Alert</h3>
-          <p>Hubungkan akun dashboard ke bot Telegram agar alert premium masuk langsung ke chat kamu.</p>
+          <h3>{connected ? "Telegram Alert Aktif" : "Connect Telegram Alert"}</h3>
+          <p>
+            {connected
+              ? "Akun Telegram sudah terhubung. Alert utama akan masuk otomatis saat ada setup valid."
+              : "Hubungkan akun dashboard ke bot Telegram agar alert premium masuk langsung ke chat kamu."}
+          </p>
         </div>
         <div className={`telegramStatusBadge ${connected ? "connected" : ""}`}>
-          {connected ? "Connected" : "Not Connected"}
+          {connected ? "Aktif" : "Belum Terhubung"}
         </div>
       </div>
 
-      <div className="telegramSecurityWarning">
-        <b>⚠️ Security Note</b>
-        <span>Jangan share kode connect ke siapa pun. Siapa pun yang memakai kode ini bisa menghubungkan Telegram ke akun kamu.</span>
-        <span>Kode hanya aktif 15 menit, sekali pakai, dan kode lama otomatis invalid kalau kamu generate kode baru.</span>
-      </div>
+      {!connected && (
+        <>
+          <div className="telegramSecurityWarning">
+            <b>⚠️ Security Note</b>
+            <span>Jangan bagikan connect code ke siapa pun. Kode ini hanya untuk akun Telegram milik kamu.</span>
+            <span>Kode aktif 15 menit, sekali pakai, dan kode lama otomatis invalid saat kamu generate kode baru.</span>
+          </div>
 
-      <div className="telegramConnectSteps">
-        <b>Cara connect:</b>
-        <span>1. Klik <b>Generate Connect Code</b>.</span>
-        <span>2. Klik <b>Copy Command</b>.</span>
-        <span>3. Buka bot Telegram XAU AI.</span>
-        <span>4. Paste command, contoh <code>/connect XAU-123456</code>.</span>
-        <span>5. Balik ke dashboard lalu klik <b>Refresh Status</b>.</span>
-      </div>
+          <div className="telegramConnectSteps">
+            <b>Cara connect:</b>
+            <span>1. Klik <b>Generate Connect Code</b>.</span>
+            <span>2. Klik <b>Copy Command</b>.</span>
+            <span>3. Buka bot Telegram XAU AI.</span>
+            <span>4. Paste command, contoh <code>/connect XAU-123456</code>.</span>
+            <span>5. Balik ke dashboard lalu klik <b>Refresh Status</b>.</span>
+          </div>
+        </>
+      )}
 
-      <div className="telegramConnectGrid">
-        <div className="telegramConnectBox">
-          <span>Status</span>
-          <b>{connected ? "Telegram Connected" : "Belum connect"}</b>
-          <small>{connected ? `Chat ID: ${telegramConnect?.telegramChatId || "-"}` : "Generate kode lalu kirim command ke bot."}</small>
+      {connected ? (
+        <div className="telegramConnectedSummary">
+          <div className="telegramConnectedIcon">✓</div>
+          <div>
+            <b>Telegram siap menerima alert premium</b>
+            <span>Chat ID: {telegramConnect?.telegramChatId || "-"}</span>
+          </div>
+          <div className="telegramConnectedMeta">
+            <small>Main Signal Alert</small>
+            <strong>ON</strong>
+          </div>
         </div>
+      ) : (
+        <div className="telegramConnectGrid">
+          <div className="telegramConnectBox">
+            <span>Status</span>
+            <b>Belum connect</b>
+            <small>Generate kode lalu kirim command ke bot Telegram.</small>
+          </div>
 
-        <div className="telegramConnectBox">
-          <span>Connect Code</span>
-          <b>{connected ? "Terkunci" : (telegramConnect?.telegramCode || "-")}</b>
-          <small>{connected ? "Kode connect dinonaktifkan karena Telegram sudah terhubung." : (telegramConnect?.telegramCodeExpiresAt ? `Expired: ${formatShortDateTime(telegramConnect.telegramCodeExpiresAt)} · sekali pakai` : "Kode aktif 15 menit dan sekali pakai.")}</small>
-        </div>
+          <div className="telegramConnectBox">
+            <span>Connect Code</span>
+            <b>{telegramConnect?.telegramCode || "-"}</b>
+            <small>{telegramConnect?.telegramCodeExpiresAt ? `Expired: ${formatShortDateTime(telegramConnect.telegramCodeExpiresAt)} · sekali pakai` : "Kode aktif 15 menit dan sekali pakai."}</small>
+          </div>
 
-        <div className="telegramConnectBox commandBox">
-          <span>Command ke Bot</span>
-          <b>{displayCommand}</b>
-          <small>{connected ? "Untuk membuat kode baru, disconnect Telegram dulu." : (commandText ? "Tap Copy Command, lalu paste ke bot Telegram." : "Generate kode dulu untuk membuat command asli.")}</small>
+          <div className="telegramConnectBox commandBox">
+            <span>Command ke Bot</span>
+            <b>{displayCommand}</b>
+            <small>{commandText ? "Tap Copy Command, lalu paste ke bot Telegram." : "Generate kode dulu untuk membuat command asli."}</small>
+          </div>
         </div>
-      </div>
+      )}
 
       {message && <div className="adminMessage">{message}</div>}
 
-      <div className="telegramActions">
-        {!connected ? (
-          <button type="button" onClick={generateCode} disabled={busy}>
-            {busy ? "Loading..." : "Generate Connect Code"}
-          </button>
-        ) : (
-          <button type="button" disabled className="lockedBtn">
-            Telegram Sudah Terhubung
-          </button>
+      <div className="telegramActions compact">
+        {!connected && (
+          <>
+            <button type="button" onClick={generateCode} disabled={busy}>
+              {busy ? "Loading..." : "Generate Connect Code"}
+            </button>
+            <button type="button" className="copyBtn" onClick={copyCommand} disabled={busy || !commandText}>
+              <Copy size={16} /> Copy Command
+            </button>
+          </>
         )}
-        <button type="button" className="copyBtn" onClick={copyCommand} disabled={busy || connected || !commandText}>
-          <Copy size={16} /> Copy Command
-        </button>
         <button type="button" onClick={onRefresh} disabled={busy}>
           Refresh Status
         </button>
@@ -1655,12 +1675,13 @@ function TelegramConnectPanel({ user, profile, telegramConnect, onRefresh }) {
       </div>
 
       <p className="miniNote">
-        Setelah status Connected, akun ini siap menerima auto alert MAIN CALL via Telegram.
+        {connected
+          ? "Kalau ingin mengganti akun Telegram, klik Disconnect terlebih dulu lalu generate kode baru."
+          : "Setelah status aktif, akun ini siap menerima auto alert MAIN CALL via Telegram."}
       </p>
     </section>
   );
 }
-
 function formatShortDateTime(value) {
   if (!value) return "-";
   return new Date(value).toLocaleString("id-ID", {

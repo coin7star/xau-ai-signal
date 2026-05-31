@@ -246,3 +246,9 @@ Dashboard sekarang membedakan kondisi market tutup/weekend dengan koneksi live y
 - Panel Telegram Connect dibuat lebih aman.
 - User yang sudah connected tidak bisa generate connect code baru sebelum disconnect.
 - Copy command dikunci saat Telegram sudah terhubung.
+
+
+## Step 10P - Telegram Connect UX Polish
+- Panel Telegram Connect dibuat lebih ringkas saat status sudah aktif.
+- Security note dan tutorial hanya tampil saat belum connected.
+- Flow tombol Telegram dibuat sesuai status koneksi.
