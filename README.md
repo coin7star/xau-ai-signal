@@ -230,7 +230,7 @@ Dashboard sekarang membedakan kondisi market tutup/weekend dengan koneksi live y
 - Desktop lebar kembali satu baris, desktop sedang aman dua baris.
 
 
-## Step 10N - Admin Boundary Accordion
-- Tab Admin dibuat accordion buka/tutup.
-- Ditambah error boundary supaya error panel tidak membuat dashboard blank.
-- Isi panel dimuat saat jendela dipilih.
+## Step 10N - Emergency Rollback Stable
+- Rollback ke versi stabil sebelum Admin Accordion karena patch accordion menyebabkan blank screen.
+- Dashboard utama diprioritaskan hidup dulu.
+- Admin Accordion akan dibuat ulang setelah error Console dicek.

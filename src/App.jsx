@@ -1201,17 +1201,17 @@ export default function App() {
       )}
 
       {isAdmin && activeDashboardTab === "admin" && (
-        <AdminErrorBoundary>
-          <AdminAccordionDashboard
-            adminToken={adminToken}
-            setAdminToken={setAdminToken}
-            bybitFeed={bybitFeed}
-            market={market}
-            lastCandle={lastCandle}
-            loadBybitTestFeed={loadBybitTestFeed}
-            aiAnalysis={aiAnalysis}
-          />
-        </AdminErrorBoundary>
+        <>
+          <AdminPanel adminToken={adminToken} setAdminToken={setAdminToken} />
+          <BybitTestFeedPanel feed={bybitFeed} market={market} mt5LastCandle={lastCandle} onRefresh={loadBybitTestFeed} />
+          <section className="aiPanel card">
+            <div className="strategyHeader">
+              <div><span className="pill mini"><Sparkles size={14} /> AI MARKET ANALYSIS</span><h3>Analisa AI sinkron</h3></div>
+              <div className={`biasBadge ${aiAnalysis?.mode === "ai-live" ? "buy" : "wait"}`}>{aiAnalysis?.mode === "ai-live" ? "AI Live" : "Fallback"}</div>
+            </div>
+            <div className="aiText">{formatAiText(aiAnalysis?.analysis || "Menunggu analisa AI...")}</div>
+          </section>
+        </>
       )}
 
       <footer>Bukan financial advice. Demo first, XAUUSD galak bro 😭</footer>
@@ -1221,131 +1221,6 @@ export default function App() {
 
 
 
-
-
-class AdminErrorBoundary extends React.Component {
-  constructor(props) {
-    super(props);
-    this.state = { hasError: false, message: "" };
-  }
-
-  static getDerivedStateFromError(error) {
-    return {
-      hasError: true,
-      message: error?.message || "Panel admin gagal dimuat."
-    };
-  }
-
-  componentDidCatch(error) {
-    console.error("XAU Admin panel error:", error);
-  }
-
-  render() {
-    if (this.state.hasError) {
-      return (
-        <section className="adminErrorCard card">
-          <span className="pill mini"><Settings size={14} /> ADMIN SAFE MODE</span>
-          <h3>Panel admin masuk mode aman</h3>
-          <p>Dashboard utama tetap aman. Panel admin dihentikan sementara karena ada komponen yang gagal dimuat.</p>
-          <small>{this.state.message}</small>
-          <button type="button" onClick={() => this.setState({ hasError: false, message: "" })}>Coba buka ulang</button>
-        </section>
-      );
-    }
-
-    return this.props.children;
-  }
-}
-
-function AdminAccordionDashboard({ adminToken, setAdminToken, bybitFeed, market, lastCandle, loadBybitTestFeed, aiAnalysis }) {
-  const [activeAdminPanel, setActiveAdminPanel] = useState("");
-
-  const panels = [
-    {
-      id: "premium",
-      eyebrow: "USER ACCESS",
-      title: "Premium Management",
-      description: "Kelola user, masa aktif premium, akses admin, dan Telegram connect.",
-      meta: "User & akses",
-      render: () => <AdminPanel adminToken={adminToken} setAdminToken={setAdminToken} />
-    },
-    {
-      id: "market",
-      eyebrow: "MARKET ENGINE",
-      title: "Backup Market Engine",
-      description: "Pantau koneksi market cadangan, validasi feed, dan safe cron status.",
-      meta: bybitFeed?.status || "Standby",
-      render: () => <BybitTestFeedPanel feed={bybitFeed} market={market} mt5LastCandle={lastCandle} onRefresh={loadBybitTestFeed} />
-    },
-    {
-      id: "analysis",
-      eyebrow: "AI ANALYSIS",
-      title: "Analisa AI Sinkron",
-      description: "Lihat ringkasan AI market terbaru tanpa membuat dashboard admin terlalu panjang.",
-      meta: aiAnalysis?.mode === "ai-live" ? "AI Live" : "Fallback",
-      render: () => (
-        <section className="aiPanel card adminAccordionInnerCard">
-          <div className="strategyHeader">
-            <div><span className="pill mini"><Sparkles size={14} /> AI MARKET ANALYSIS</span><h3>Analisa AI sinkron</h3></div>
-            <div className={`biasBadge ${aiAnalysis?.mode === "ai-live" ? "buy" : "wait"}`}>{aiAnalysis?.mode === "ai-live" ? "AI Live" : "Fallback"}</div>
-          </div>
-          <div className="aiText">{formatAiText(aiAnalysis?.analysis || "Menunggu analisa AI...")}</div>
-        </section>
-      )
-    }
-  ];
-
-  const selectedPanel = panels.find((panel) => panel.id === activeAdminPanel) || null;
-
-  return (
-    <section className="adminAccordionShell">
-      <div className="adminWindowIntro card">
-        <span className="pill mini"><Settings size={14} /> ADMIN CONTROL CENTER</span>
-        <h3>Panel Admin</h3>
-        <p>Pilih salah satu jendela. Detail panel baru dimuat saat diklik, jadi halaman admin tidak panjang dan lebih aman.</p>
-      </div>
-
-      <div className="adminAccordionGrid">
-        {panels.map((panel) => {
-          const active = activeAdminPanel === panel.id;
-          return (
-            <button
-              key={panel.id}
-              type="button"
-              className={`adminAccordionTile card ${active ? "active" : ""}`}
-              onClick={() => setActiveAdminPanel(active ? "" : panel.id)}
-            >
-              <div>
-                <span className="pill mini">{panel.eyebrow}</span>
-                <h3>{panel.title}</h3>
-                <p>{panel.description}</p>
-              </div>
-              <div className="adminAccordionTileBottom">
-                <small>{String(panel.meta || "Standby")}</small>
-                <b>{active ? "Tutup" : "Buka"}</b>
-              </div>
-            </button>
-          );
-        })}
-      </div>
-
-      {selectedPanel && (
-        <AdminErrorBoundary key={selectedPanel.id}>
-          <section className="adminAccordionActive">
-            <div className="adminAccordionActiveHeader card">
-              <div>
-                <span className="pill mini">{selectedPanel.eyebrow}</span>
-                <h3>{selectedPanel.title}</h3>
-              </div>
-              <button type="button" onClick={() => setActiveAdminPanel("")}>Tutup Panel</button>
-            </div>
-            {selectedPanel.render()}
-          </section>
-        </AdminErrorBoundary>
-      )}
-    </section>
-  );
-}
 
 function formatPremiumUntil(user) {
   if (!user?.premiumUntil) return "-";

@@ -1,6 +1,6 @@
 {
-  "name": "xau-ai-signal-step10n-admin-boundary-accordion",
-  "version": "7.6.3-step10n-admin-boundary-accordion",
+  "name": "xau-ai-signal-step10n-emergency-rollback-stable",
+  "version": "7.6.4-step10n-emergency-rollback-stable",
   "type": "module",
   "scripts": {
     "dev": "vite",
