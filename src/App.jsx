@@ -83,7 +83,7 @@ function FirebaseAuthActionPage({ auth }) {
 
         if (!active) return;
         setStatus("error");
-        setMessage("Tipe aksi Firebase belum didukung oleh halaman ini.");
+        setMessage("Tipe aksi belum didukung oleh halaman ini.");
       } catch (error) {
         if (!active) return;
         console.error("Firebase auth action error:", error);
@@ -361,7 +361,7 @@ export default function App() {
       setBybitFeed((previous) => ({
         ...previous,
         loading: false,
-        error: error?.message || "Gagal membaca Bybit test feed."
+        error: error?.message || "Gagal membaca backup market stream."
       }));
     }
   }
@@ -740,8 +740,8 @@ export default function App() {
       <main className="page authPage">
         <section className="authCard card">
           <div className="logo big"><Shield size={28} /></div>
-          <h1>Firebase Auth belum diset</h1>
-          <p>Isi ENV VITE_FIREBASE_API_KEY, VITE_FIREBASE_AUTH_DOMAIN, VITE_FIREBASE_DATABASE_URL, VITE_FIREBASE_PROJECT_ID, dan VITE_FIREBASE_APP_ID di Cloudflare Pages.</p>
+          <h1>Konfigurasi akses belum aktif</h1>
+          <p>Lengkapi konfigurasi akses aplikasi di Cloudflare Pages agar login dan dashboard premium bisa digunakan.</p>
         </section>
       </main>
     );
@@ -804,15 +804,15 @@ export default function App() {
       {mt5Status.isStale && (
         <section className="mt5PauseBanner card">
           <div>
-            <span className="pill mini">MARKET DATA OFFLINE MODE</span>
-            <h3>Pembaruan otomatis dijeda sementara</h3>
+            <span className="pill mini">LIVE MARKET SYNC PAUSED</span>
+            <h3>Sinkronisasi market sedang menunggu koneksi stabil</h3>
             <p>
-              Data market terakhir diperbarui {mt5Status.lastText}. Chart/history refresh otomatis dipause.
-              Lite check tetap jalan tiap 60 detik untuk cek MT5 hidup lagi.
+              Data market terakhir masuk {mt5Status.lastText}. Chart dan riwayat dijeda sementara agar dashboard tidak menampilkan data lama sebagai data terbaru.
+              Sistem akan mencoba tersambung kembali otomatis setiap 60 detik.
             </p>
           </div>
           <button type="button" onClick={() => loadData({ includeChart: true, includeHistory: true, includeScalpHistory: true })}>
-            Refresh Manual
+            Cek Ulang Sekarang
           </button>
         </section>
       )}
@@ -912,12 +912,12 @@ export default function App() {
                 <b><i className="obBearDot"></i> Bear OB</b>
                 <b><i className="supportDot"></i> M1 Support</b>
                 <b><i className="resistDot"></i> M1 Resistance</b>
-                <em><span></span> Lite 12s · Chart 45s</em>
+                <em><span></span> Quick scan 12s · Chart sync 45s</em>
               </div>
             </div>
             {chartError && <div className="chartError">Chart error: {chartError}</div>}
             <div className="tvChart" ref={chartM1BoxRef}>
-              {tvM1.length === 0 && <div className="chartEmpty">Menunggu candle M1 dari MT5 / Firebase...</div>}
+              {tvM1.length === 0 && <div className="chartEmpty">Menunggu live candle M1 dari market engine...</div>}
             </div>
           </section>
 
@@ -935,7 +935,7 @@ export default function App() {
               </div>
             </div>
             <div className="tvChart small" ref={chartM15BoxRef}>
-              {tvM15.length === 0 && <div className="chartEmpty">Menunggu candle M15 dari MT5 / Firebase...</div>}
+              {tvM15.length === 0 && <div className="chartEmpty">Menunggu live candle M15 dari market engine...</div>}
             </div>
           </section>
         </>
@@ -997,7 +997,7 @@ export default function App() {
 
             {isAdmin && (
               <div className="adminTokenBox">
-                <span>Admin token untuk update Win/Loss</span>
+                <span>Kode admin untuk update Win/Loss</span>
                 <input
                   value={adminToken}
                   onChange={(event) => saveAdminToken(event.target.value)}
@@ -1049,7 +1049,7 @@ export default function App() {
             <div className="sectionTitle">
               <div>
                 <h3>{isAdmin ? "SCALP M1 Valid History & Manual Result" : "SCALP M1 Performance"}</h3>
-                <span>Cuma SCALP BUY/SELL valid yang disimpan. SCALP WAIT tidak masuk biar Firebase tetap hemat.</span>
+                <span>Hanya SCALP BUY/SELL valid yang disimpan agar riwayat tetap bersih dan ringan.</span>
               </div>
               <div className="historyStats">
                 <b>Total {scalpStats.total || 0}</b>
@@ -1232,7 +1232,7 @@ function getMt5Status(market) {
     return {
       isStale: true,
       ageMs: Infinity,
-      label: "MT5 waiting data",
+      label: "Market feed preparing",
       lastText: "belum ada data"
     };
   }
@@ -1250,8 +1250,8 @@ function getMt5Status(market) {
     return {
       isStale: true,
       ageMs: Infinity,
-      label: "MT5 time unknown",
-      lastText: "waktu tidak valid"
+      label: "Market sync checking",
+      lastText: "sedang dicek"
     };
   }
 
@@ -1262,7 +1262,7 @@ function getMt5Status(market) {
   return {
     isStale,
     ageMs,
-    label: isStale ? "MT5/VPS offline · refresh paused" : "MT5 live",
+    label: isStale ? "Live feed reconnecting" : "Live market online",
     lastText: formatAge(ageMs)
   };
 }
@@ -1802,7 +1802,7 @@ function AdminPanel({ adminToken, setAdminToken }) {
         })}
 
         {!pagedUsers.length && (
-          <div className="emptyHistory">Belum ada user sesuai filter, atau token admin belum diisi.</div>
+          <div className="emptyHistory">Belum ada user sesuai filter, atau kode admin belum diisi.</div>
         )}
       </div>
         <AdminOrdersPanel adminToken={adminToken} />
@@ -2462,7 +2462,7 @@ function AdminOrdersPanel({ adminToken }) {
 
   async function loadOrders() {
     if (!adminToken) {
-      setOrderMessage("Isi admin token dulu untuk melihat order.");
+      setOrderMessage("Isi kode admin dulu untuk melihat order.");
       return;
     }
 
@@ -2495,7 +2495,7 @@ function AdminOrdersPanel({ adminToken }) {
 
   async function updateOrder(order, action) {
     if (!adminToken) {
-      setOrderMessage("Isi admin token dulu.");
+      setOrderMessage("Isi kode admin dulu.");
       return;
     }
 
@@ -2528,7 +2528,7 @@ function AdminOrdersPanel({ adminToken }) {
         ? " Notif Telegram user terkirim."
         : data.telegramNotify?.skipped
           ? notifyReason === "telegram-bot-token-missing"
-            ? " Bot token Telegram belum tersedia."
+            ? " Koneksi Telegram belum tersedia."
             : " User belum connect Telegram / chat ID tidak ditemukan."
           : " Notif Telegram user tidak terkirim.";
 
@@ -2548,7 +2548,7 @@ function AdminOrdersPanel({ adminToken }) {
 
   async function saveOrderNote(order, note) {
     if (!adminToken) {
-      setOrderMessage("Isi admin token dulu.");
+      setOrderMessage("Isi kode admin dulu.");
       return;
     }
 
@@ -3612,7 +3612,7 @@ function BybitTestFeedPanel({ feed, market, mt5LastCandle, onRefresh }) {
   const cooldownLeft = Number(status?.cooldownLeftSeconds || cronError?.cooldownLeftSeconds || 0);
   const latestAgeSeconds = status?.latestAgeSeconds ?? (ageMs === null ? null : Math.max(0, Math.round(ageMs / 1000)));
   const safeState = status?.state || (isLive ? "live" : label.toLowerCase());
-  const safeMessage = status?.message || "Menunggu status safe cron.";
+  const safeMessage = status?.message || "Menunggu status engine.";
   const tickerRate = rateLimit?.ticker || {};
   const klineRate = rateLimit?.kline || {};
 
@@ -3620,10 +3620,10 @@ function BybitTestFeedPanel({ feed, market, mt5LastCandle, onRefresh }) {
     <section className={`bybitTestPanel card ${tone}`}>
       <div className="strategyHeader">
         <div>
-          <span className="pill mini"><Database size={14} /> BYBIT TEST FEED · READ ONLY</span>
-          <h3>XAUUSDT Perpetual dari PHP.ID Cron</h3>
+          <span className="pill mini"><Database size={14} /> BACKUP MARKET ENGINE · READ ONLY</span>
+          <h3>Premium Backup Market Stream</h3>
           <p className="bybitTestSubtitle">
-            Panel ini hanya membaca path test Firebase. Data MT5 utama, chart utama, signal utama, dan Telegram tidak diganti.
+            Panel ini memantau koneksi market cadangan. Signal utama, chart utama, dan notifikasi premium tetap berjalan seperti biasa.
           </p>
         </div>
         <div className={`biasBadge ${tone}`}>{label}</div>
@@ -3635,14 +3635,14 @@ function BybitTestFeedPanel({ feed, market, mt5LastCandle, onRefresh }) {
         <Metric label="Last Candle M1" value={formatBybitNumber(lastCandle?.close)} note={lastCandle?.time || "Menunggu candle"} />
         <Metric label="Candle Count" value={status?.candleCount ?? "-"} note={`HTTP ${status?.tickerHttpStatus || "-"} / ${status?.klineHttpStatus || "-"}`} />
         <Metric label="Last Update" value={status?.updatedAtText || latest?.updatedAtText || "-"} note={ageMs === null ? "Belum ada update" : `${Math.max(0, Math.round(ageMs / 1000))} detik lalu`} />
-        <Metric label="Source" value={status?.source || latest?.source || "php-id-cron"} note="Firebase: /bybit_test/xauusdt" />
+        <Metric label="Feed Engine" value="Premium Market Bridge" note="Live backup stream" />
       </div>
 
       <div className={`bybitGuardBox ${errorTone}`}>
         <div>
-          <span className="pill mini">CRON GUARD · STEP {status?.step || latest?.step || cronError?.step || "10E"}</span>
+          <span className="pill mini">ENGINE GUARD · STEP {status?.step || latest?.step || cronError?.step || "10E"}</span>
           <h4>Guard & Error Monitor</h4>
-          <p>Monitor ini hanya untuk admin. Fungsinya mengecek apakah cron Bybit aman atau sedang gagal.</p>
+          <p>Monitor ini hanya untuk admin. Fungsinya mengecek apakah live market bridge berjalan stabil atau butuh perhatian.</p>
         </div>
         <div className="bybitGuardGrid">
           <Metric label="Guard" value={guardState} note={guardOk ? "Data lolos validasi" : "Cek error detail"} />
@@ -3655,31 +3655,31 @@ function BybitTestFeedPanel({ feed, market, mt5LastCandle, onRefresh }) {
 
       <div className={`bybitCompareBox ${compareTone}`}>
         <div>
-          <span className="pill mini">MT5 vs BYBIT · ADMIN CHECK</span>
+          <span className="pill mini">BROKER FEED CHECK · ADMIN</span>
           <h4>Perbandingan harga sementara</h4>
           <p>Ini hanya alat bantu admin untuk cek selisih. Belum dipakai signal, chart, atau Telegram.</p>
         </div>
         <div className="bybitCompareGrid">
-          <Metric label="MT5 XAUUSD+" value={formatBybitNumber(mt5LastClose)} note={market?.lastCandleTime || mt5LastCandle?.time || market?.receivedAt || "Menunggu MT5"} />
-          <Metric label="Bybit XAUUSDT" value={formatBybitNumber(bybitClose)} note={lastCandle?.time || latest?.updatedAtText || "Menunggu Bybit"} />
+          <Metric label="Primary Feed" value={formatBybitNumber(mt5LastClose)} note={market?.lastCandleTime || mt5LastCandle?.time || market?.receivedAt || "Menunggu feed utama"} />
+          <Metric label="Backup Feed" value={formatBybitNumber(bybitClose)} note={lastCandle?.time || latest?.updatedAtText || "Menunggu backup feed"} />
           <Metric label="Selisih" value={diff === null ? "-" : `${diff > 0 ? "+" : ""}${formatBybitNumber(diff)} (${formatSignedPercent(diffPct)})`} note={`Status: ${compareLabel}`} />
-          <Metric label="MT5 Bid / Ask" value={`${formatBybitNumber(mt5Bid)} / ${formatBybitNumber(mt5Ask)}`} note={market?.symbol || "XAUUSD"} />
+          <Metric label="Primary Bid / Ask" value={`${formatBybitNumber(mt5Bid)} / ${formatBybitNumber(mt5Ask)}`} note={market?.symbol || "XAUUSD"} />
         </div>
       </div>
 
       <div className={`bybitGuardBox ${cooldownLeft > 0 ? "wait" : errorTone}`}>
         <div>
-          <span className="pill mini">RATE LIMIT SAFE · STEP {status?.step || latest?.step || cronError?.step || "10G"}</span>
+          <span className="pill mini">SAFE MARKET BRIDGE · STEP {status?.step || latest?.step || cronError?.step || "10G"}</span>
           <h4>Safe Cron Status</h4>
           <p>{safeMessage}</p>
         </div>
         <div className="bybitGuardGrid">
-          <Metric label="Cron State" value={safeState} note={cooldownLeft > 0 ? `Cooldown ${cooldownLeft}s` : "Aman dipanggil via cron 1 menit"} />
+          <Metric label="Bridge State" value={safeState} note={cooldownLeft > 0 ? `Cooling down ${cooldownLeft}s` : "Stable 1-minute sync"} />
           <Metric label="Latest Age" value={latestAgeSeconds === null ? "-" : `${latestAgeSeconds}s`} note={`Fresh guard ${safeCron?.freshDataSeconds ?? 50}s`} />
           <Metric label="Min Run Gap" value={`${safeCron?.minRunGapSeconds ?? 45}s`} note={`Request gap ${safeCron?.requestGapMs ?? rateLimit?.requestGapMs ?? 750}ms`} />
           <Metric label="Request Count" value={rateLimit?.requestCount ?? "-"} note="Ticker + Kline, berurutan" />
-          <Metric label="Ticker Limit" value={tickerRate?.status ?? tickerRate?.limit ?? "-"} note={tickerRate?.resetTimestamp ? `Reset ${tickerRate.resetTimestamp}` : "Header Bybit jika tersedia"} />
-          <Metric label="Kline Limit" value={klineRate?.status ?? klineRate?.limit ?? "-"} note={klineRate?.resetTimestamp ? `Reset ${klineRate.resetTimestamp}` : "Header Bybit jika tersedia"} />
+          <Metric label="Price Stream Health" value={tickerRate?.status ?? tickerRate?.limit ?? "-"} note={tickerRate?.resetTimestamp ? `Reset ${tickerRate.resetTimestamp}` : "Monitoring active"} />
+          <Metric label="Candle Stream Health" value={klineRate?.status ?? klineRate?.limit ?? "-"} note={klineRate?.resetTimestamp ? `Reset ${klineRate.resetTimestamp}` : "Monitoring active"} />
         </div>
       </div>
 
@@ -3687,16 +3687,16 @@ function BybitTestFeedPanel({ feed, market, mt5LastCandle, onRefresh }) {
 
       <div className="bybitTestActions">
         <button type="button" onClick={onRefresh} disabled={feed?.loading}>
-          <RefreshCcw size={15} /> {feed?.loading ? "Loading..." : "Refresh Bybit Feed"}
+          <RefreshCcw size={15} /> {feed?.loading ? "Loading..." : "Refresh Backup Feed"}
         </button>
         <a href="https://xauusd-signal-web-default-rtdb.firebaseio.com/bybit_test/xauusdt/status.json" target="_blank" rel="noreferrer">
-          Cek status JSON
+          Cek status engine
         </a>
         <a href="https://xauusd-signal-web-default-rtdb.firebaseio.com/bybit_test/xauusdt/error.json" target="_blank" rel="noreferrer">
-          Cek error JSON
+          Cek catatan error
         </a>
         <a href="https://xauusd-signal-web-default-rtdb.firebaseio.com/bybit_test/xauusdt/latest.json" target="_blank" rel="noreferrer">
-          Cek latest JSON
+          Cek data terbaru
         </a>
       </div>
     </section>

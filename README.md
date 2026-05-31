@@ -176,3 +176,9 @@ Yang diubah:
 - Pesan pindah fitur dibuat lebih profesional.
 
 Catatan teknis tetap aman: perubahan ini hanya copywriting Telegram, tidak mengubah Firebase, signal logic, MQ5, cron, atau Telegram connection flow.
+
+## Step 10J Patch — Premium Offline Copy
+
+- Mengganti kalimat offline/pause yang terlalu teknis menjadi bahasa premium dan user-friendly.
+- Istilah backend seperti Firebase/RTDB/MT5/VPS tidak ditampilkan lagi di area utama user.
+- Tidak mengubah logic signal, Telegram, MQ5, Firebase, atau cron.
