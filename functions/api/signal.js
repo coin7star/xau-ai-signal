@@ -1026,7 +1026,7 @@ async function maybeSendTelegramAlert(env, dbUrl, signal, market) {
   }
 
   for (const recipient of recipients) {
-    const sent = await sendTelegram(env.TELEGRAM_BOT_TOKEN, recipient.chatId, message);
+    const sent = await sendTelegram(env.TELEGRAM_BOT_TOKEN, recipient.chatId, message, env.DASHBOARD_URL);
 
     results.push({
       uid: recipient.uid || null,
@@ -1153,48 +1153,165 @@ function maskChatId(value) {
 function buildTelegramMessage(signal, market) {
   const s = signal.strategy || {};
   const c = s.confirmation || {};
+  const signalCode = String(signal.signal || "WAIT").toUpperCase();
+  const isBuy = signalCode.includes("BUY");
+  const isSell = signalCode.includes("SELL");
+  const isCall = signal.callStage === "CALL";
+  const isReady = signal.callStage === "READY";
+  const direction = isBuy ? "BUY" : isSell ? "SELL" : "WAIT";
+  const pair = market?.symbol || signal.pair || "XAUUSD";
+  const confidence = Number(signal.confidence || 0);
+
   const rawBullOb = s.orderBlock?.bullish;
   const rawBearOb = s.orderBlock?.bearish;
   const obBull = getFreshObForDisplay(rawBullOb);
   const obBear = getFreshObForDisplay(rawBearOb);
-
-  const emoji = signal.signal === "BUY" ? "🟢" : signal.signal === "SELL" ? "🔴" : "🟡";
-  const title = signal.callStage === "CALL" ? "CALL SIGNAL VALID" : "READY ALERT";
-
-  const obText = signal.signal.includes("BUY")
+  const obText = isBuy
     ? formatOb(obBull)
-    : signal.signal.includes("SELL")
+    : isSell
       ? formatOb(obBear)
       : `Bull ${formatOb(obBull)} | Bear ${formatOb(obBear)}`;
 
+  const header = buildTelegramSignalHeader({ isCall, isReady, direction });
+  const action = buildTelegramAction({ isCall, isReady, direction });
+  const reasonLines = buildTelegramReasonLines(signal, s, c, obText);
+  const quality = buildTelegramQuality(confidence, signal.callStage);
+  const entry = formatPrice(signal.entry);
+  const sl = formatPrice(signal.sl);
+  const tp = formatPrice(signal.tp);
+  const lastPrice = formatPrice(market?.bid || market?.lastPrice || market?.close || signal.entry);
+  const candleTime = signal.candleTime || market?.serverTime || market?.receivedAt || "-";
+  const dashboardUrl = "https://www.xauaisignal.online";
+
   return [
-    `${emoji} <b>${title} - ${escapeHtml(signal.signalLabel || signal.signal)}</b>`,
-    ``,
-    `<b>Pair:</b> ${escapeHtml(market?.symbol || signal.pair || "XAUUSD")}`,
-    `<b>TF Signal:</b> ${escapeHtml(market?.timeframe || "M1")}`,
-    `<b>TF OB:</b> M15`,
-    `<b>Main Confidence:</b> ${signal.confidence}%`,
-    ``,
-    `<b>Area Entry:</b> ${signal.entry}`,
-    `<b>Safety SL:</b> ${signal.sl || "-"}`,
-    `<b>Target TP:</b> ${signal.tp || "-"}`,
-    ``,
-    `<b>RSI:</b> ${s.rsi} | <b>MFI:</b> ${s.mfi}`,
-    `<b>EMA9/20:</b> ${s.ema9} / ${s.ema20}`,
-    `<b>EMA Status:</b> ${escapeHtml(humanize(s.emaCross))}`,
-    `<b>OB M15:</b> ${escapeHtml(obText)}`,
-    ``,
-    `✅ <b>Checklist Setup:</b>`,
-    `RSI BUY ${c.rsiBuyOk ? "✅" : "❌"} | MFI BUY ${c.mfiBuyOk ? "✅" : "❌"} | OB BUY ${c.obBuyOk ? "✅" : "❌"}`,
-    `RSI SELL ${c.rsiSellOk ? "✅" : "❌"} | MFI SELL ${c.mfiSellOk ? "✅" : "❌"} | OB SELL ${c.obSellOk ? "✅" : "❌"}`,
-    ``,
-    `🧠 <b>Main AI Note:</b> ${escapeHtml(signal.reason || "-")}`,
-    ``,
+    `${header.emoji} <b>${header.title}</b>`,
+    `<i>${header.subtitle}</i>`,
+    "",
+    `<b>Signal:</b> ${escapeHtml(direction)}`,
+    `<b>Pair:</b> ${escapeHtml(pair)}`,
+    `<b>Confidence:</b> ${confidence}% · ${escapeHtml(quality)}`,
+    `<b>Last Price:</b> ${escapeHtml(lastPrice)}`,
+    "",
+    `📍 <b>Trade Plan</b>`,
+    `<b>Entry Area:</b> ${escapeHtml(entry)}`,
+    `<b>Stop Loss:</b> ${escapeHtml(sl)}`,
+    `<b>Take Profit:</b> ${escapeHtml(tp)}`,
+    "",
+    `🧠 <b>Market Reason</b>`,
+    ...reasonLines,
+    "",
+    `✅ <b>Setup Snapshot</b>`,
+    `RSI ${formatIndicator(s.rsi)} · MFI ${formatIndicator(s.mfi)}`,
+    `EMA 9/20 ${formatIndicator(s.ema9)} / ${formatIndicator(s.ema20)}`,
+    `OB M15: ${escapeHtml(obText)}`,
+    "",
+    `🎯 <b>Action</b>`,
+    escapeHtml(action),
+    "",
+    `🕒 <b>Market Time:</b> ${escapeHtml(candleTime)}`,
+    `🚀 <b>Dashboard:</b> ${escapeHtml(dashboardUrl)}`,
+    "",
     `<i>Bukan financial advice. Demo first, risk management wajib.</i>`
   ].join("\n");
 }
 
-async function sendTelegram(botToken, chatId, text) {
+function buildTelegramSignalHeader({ isCall, isReady, direction }) {
+  if (isCall && direction === "BUY") {
+    return {
+      emoji: "🟢",
+      title: "XAU AI CALL · BUY",
+      subtitle: "Setup utama sudah valid berdasarkan engine premium."
+    };
+  }
+
+  if (isCall && direction === "SELL") {
+    return {
+      emoji: "🔴",
+      title: "XAU AI CALL · SELL",
+      subtitle: "Setup utama sudah valid berdasarkan engine premium."
+    };
+  }
+
+  if (isReady) {
+    return {
+      emoji: "🟡",
+      title: `XAU AI READY · ${direction}`,
+      subtitle: "Setup mulai terbentuk, tunggu konfirmasi final."
+    };
+  }
+
+  return {
+    emoji: "⚪",
+    title: "XAU AI MONITOR",
+    subtitle: "Belum ada setup utama yang valid."
+  };
+}
+
+function buildTelegramAction({ isCall, isReady, direction }) {
+  if (isCall) {
+    return `${direction} valid. Tetap pakai risk management, lot kecil dulu, dan pastikan spread aman sebelum entry.`;
+  }
+
+  if (isReady) {
+    return `Setup ${direction} mulai siap. Tunggu candle konfirmasi sebelum entry.`;
+  }
+
+  return "Tunggu setup berikutnya. Jangan entry saat konfirmasi belum lengkap.";
+}
+
+function buildTelegramQuality(confidence, callStage) {
+  if (callStage === "CALL" && confidence >= 80) return "Premium High Conviction";
+  if (callStage === "CALL") return "Premium Valid Setup";
+  if (callStage === "READY") return "Setup Forming";
+  if (confidence >= 65) return "Watchlist";
+  return "Monitoring";
+}
+
+function buildTelegramReasonLines(signal, s, c, obText) {
+  const lines = [];
+  const emaStatus = humanize(s.emaCross || "WAIT");
+
+  if (s.emaCross) lines.push(`• EMA membaca: ${escapeHtml(emaStatus)}.`);
+
+  if (c.rsiBuyOk || c.rsiSellOk) {
+    lines.push(`• RSI ${formatIndicator(s.rsi)} sudah mendukung arah setup.`);
+  } else {
+    lines.push(`• RSI ${formatIndicator(s.rsi)} belum jadi konfirmasi utama.`);
+  }
+
+  if (c.mfiBuyOk || c.mfiSellOk) {
+    lines.push(`• MFI ${formatIndicator(s.mfi)} menunjukkan aliran market mulai searah.`);
+  } else {
+    lines.push(`• MFI ${formatIndicator(s.mfi)} masih perlu konfirmasi tambahan.`);
+  }
+
+  if (c.obBuyOk || c.obSellOk) {
+    lines.push(`• Area OB M15 masih relevan: ${escapeHtml(obText)}.`);
+  } else {
+    lines.push("• Area OB M15 belum menjadi area eksekusi utama.");
+  }
+
+  if (signal.reason) {
+    const cleanReason = String(signal.reason).replace(/\s+/g, " ").trim();
+    if (cleanReason) lines.push(`• Catatan AI: ${escapeHtml(cleanReason)}`);
+  }
+
+  return lines.slice(0, 5);
+}
+
+function formatPrice(value) {
+  const n = Number(value);
+  if (!Number.isFinite(n) || n <= 0) return "-";
+  return n.toFixed(2);
+}
+
+function formatIndicator(value) {
+  const n = Number(value);
+  if (!Number.isFinite(n)) return "-";
+  return n.toFixed(2);
+}
+
+async function sendTelegram(botToken, chatId, text, dashboardUrl = "") {
   const url = `https://api.telegram.org/bot${botToken}/sendMessage`;
 
   const res = await fetch(url, {
@@ -1204,7 +1321,12 @@ async function sendTelegram(botToken, chatId, text) {
       chat_id: chatId,
       text,
       parse_mode: "HTML",
-      disable_web_page_preview: true
+      disable_web_page_preview: true,
+      reply_markup: dashboardUrl ? {
+        inline_keyboard: [[
+          { text: "🚀 Open Premium Dashboard", web_app: { url: dashboardUrl } }
+        ]]
+      } : undefined
     })
   });
 

@@ -252,3 +252,10 @@ Dashboard sekarang membedakan kondisi market tutup/weekend dengan koneksi live y
 - Panel Telegram Connect dibuat lebih ringkas saat status sudah aktif.
 - Security note dan tutorial hanya tampil saat belum connected.
 - Flow tombol Telegram dibuat sesuai status koneksi.
+
+
+## Step 10Q - Telegram Alert Premium Format
+- Format MAIN CALL Telegram dibuat lebih premium.
+- Alert READY dan CALL dibedakan.
+- Pesan Telegram menampilkan trade plan, market reason, setup snapshot, dan tombol dashboard.
+- Tidak mengubah logic signal utama.

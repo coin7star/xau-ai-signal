@@ -1,6 +1,6 @@
 {
-  "name": "xau-ai-signal-step10p-telegram-connect-ux-polish",
-  "version": "7.8.0-step10p-telegram-connect-ux-polish",
+  "name": "xau-ai-signal-step10q-telegram-alert-premium-format",
+  "version": "7.9.0-step10q-telegram-alert-premium-format",
   "type": "module",
   "scripts": {
     "dev": "vite",

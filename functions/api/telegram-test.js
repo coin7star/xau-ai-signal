@@ -12,10 +12,15 @@ export async function onRequest({ env }) {
   }
 
   const text = [
-    "✅ <b>XAU AI Premium Alert Test</b>",
+    "🟢 <b>XAU AI PREMIUM ALERT TEST</b>",
+    "<i>Premium notification gateway sudah aktif.</i>",
     "",
-    "Premium alert channel sudah terhubung.",
-    "Signal notification gateway siap dipakai.",
+    "<b>Signal:</b> TEST MODE",
+    "<b>Pair:</b> XAUUSD+",
+    "<b>Confidence:</b> 100% · Gateway Check",
+    "",
+    "🚀 <b>Status</b>",
+    "Premium alert channel siap menerima MAIN CALL berikutnya.",
     "",
     "<i>Bukan financial advice.</i>"
   ].join("\n");
