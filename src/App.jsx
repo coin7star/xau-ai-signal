@@ -846,11 +846,11 @@ export default function App() {
 
       <div className="dataTickerBar slimTicker">
         <div className="tickerTrack">
-          <span><Database size={14} /> Source: <b>Firebase RTDB</b></span>
-          <span><Activity size={14} /> M1: <b>{candlesM1.length || market?.m1Count || 0} data</b></span>
-          <span><Shield size={14} /> M15: <b>{candlesM15.length || market?.m15Count || 0} data</b></span>
-          <span>{isSell ? <TrendingDown size={14} /> : <TrendingUp size={14} />} Last close: <b>{lastCandle?.close || "-"}</b></span>
-          <span><Radio size={14} /> Data: <b>{market?.receivedAt ? "Active" : "Waiting"}</b></span>
+          <span><Database size={14} /> Market Feed: <b>Premium Live Engine</b></span>
+          <span><Activity size={14} /> M1 Stream: <b>{candlesM1.length || market?.m1Count || 0} candles</b></span>
+          <span><Shield size={14} /> M15 Stream: <b>{candlesM15.length || market?.m15Count || 0} candles</b></span>
+          <span>{isSell ? <TrendingDown size={14} /> : <TrendingUp size={14} />} Last Price: <b>{lastCandle?.close || "-"}</b></span>
+          <span><Radio size={14} /> Feed Status: <b>{market?.receivedAt ? "Online" : "Syncing"}</b></span>
         </div>
       </div>
 

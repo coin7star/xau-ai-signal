@@ -1,6 +1,6 @@
 {
-  "name": "xau-ai-signal-step10j-compact-snapshot-accordion",
-  "version": "7.3.0-step10j-compact-snapshot-accordion",
+  "name": "xau-ai-signal-step10j-premium-feed-label",
+  "version": "7.3.1-step10j-premium-feed-label",
   "type": "module",
   "scripts": {
     "dev": "vite",

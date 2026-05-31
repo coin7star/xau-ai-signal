@@ -155,3 +155,8 @@ Signal card sekarang lebih bersih. Paragraf reason panjang di bawah confidence d
 ## Step 10J — Compact Snapshot Accordion
 
 Panel `RSI + MFI + EMA + OB M15` sekarang dirapikan menjadi baris accordion yang bisa dibuka/tutup saat diklik. Ini membuat dashboard premium lebih bersih dan lebih siap kalau nanti ditambah strategi atau indikator baru. Tidak mengubah logic signal utama, MT5, Telegram, Firebase, atau Bybit cron.
+
+
+## Step 10J Patch — Premium Feed Label
+
+Status bar dashboard dibuat lebih premium dengan label `Market Feed: Premium Live Engine`, `M1 Stream`, `M15 Stream`, `Last Price`, dan `Feed Status`. Tidak ada perubahan logic backend.
