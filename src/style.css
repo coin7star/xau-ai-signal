@@ -4290,3 +4290,57 @@ canvas {
     width: 100%;
   }
 }
+
+/* Step 10T1 - Telegram Result Alert Test Buttons */
+.resultAlertTestPanel {
+  border-radius: 22px;
+}
+
+.resultAlertTestGrid div:first-child {
+  border-color: rgba(34, 255, 170, 0.18);
+}
+
+.resultAlertTestActions {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.resultAlertTestActions button {
+  justify-content: center;
+  border-radius: 16px;
+  padding: 14px 16px;
+  color: #f8fbff;
+  border: 1px solid rgba(255,255,255,.12);
+  background: rgba(255,255,255,.08);
+}
+
+.resultAlertTestActions button.win {
+  background: rgba(34, 255, 170, 0.14);
+  border-color: rgba(34, 255, 170, 0.24);
+  color: #a6ffd8;
+}
+
+.resultAlertTestActions button.loss {
+  background: rgba(255, 77, 109, 0.14);
+  border-color: rgba(255, 77, 109, 0.24);
+  color: #ffc2cc;
+}
+
+.resultAlertTestActions button.expired {
+  background: rgba(148, 163, 184, 0.14);
+  border-color: rgba(148, 163, 184, 0.22);
+  color: #dbeafe;
+}
+
+.resultAlertTestActions button:disabled {
+  opacity: .55;
+  cursor: not-allowed;
+  transform: none;
+}
+
+@media (max-width: 820px) {
+  .resultAlertTestActions {
+    grid-template-columns: 1fr;
+  }
+}

@@ -1,6 +1,6 @@
 {
-  "name": "xau-ai-signal-step10t-telegram-result-alert",
-  "version": "7.12.0-step10t-telegram-result-alert",
+  "name": "xau-ai-signal-step10t1-telegram-result-alert-test",
+  "version": "7.12.1-step10t1-telegram-result-alert-test",
   "type": "module",
   "scripts": {
     "dev": "vite",

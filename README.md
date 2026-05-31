@@ -284,3 +284,10 @@ Dashboard sekarang membedakan kondisi market tutup/weekend dengan koneksi live y
 - Auto Result Engine mengirim alert Telegram saat signal menjadi WIN / LOSS / EXPIRED.
 - Result alert memakai format premium dan tombol dashboard.
 - Anti duplicate menggunakan `resultAlertSent`.
+
+
+## Step 10T1 - Telegram Result Alert Test
+- Menambah endpoint aman `/api/result-alert-test` khusus POST + admin token.
+- Menambah tombol Test WIN / LOSS / EXPIRED di Admin panel.
+- Test result alert hanya mengirim pesan Telegram dan tidak mengubah history asli.
+- Menyiapkan cooldown opsional `RESULT_ALERT_TEST_COOLDOWN_SEC`.

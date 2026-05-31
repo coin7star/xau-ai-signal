@@ -1283,6 +1283,16 @@ export default function App() {
 
           <details className="adminWindow card">
             <summary>
+              <span>Result Alert Test</span>
+              <small>Test notifikasi WIN, LOSS, dan EXPIRED tanpa mengubah history asli.</small>
+            </summary>
+            <div className="adminWindowBody">
+              <AdminResultAlertTestPanel adminToken={adminToken} />
+            </div>
+          </details>
+
+          <details className="adminWindow card">
+            <summary>
               <span>Backup Market Engine</span>
               <small>Monitor koneksi market cadangan dan guard status.</small>
             </summary>
@@ -1830,6 +1840,92 @@ function AdminTelegramTestPanel({ adminToken }) {
           <Radio size={15} /> {sending ? "Mengirim..." : "Kirim Test Alert"}
         </button>
       </div>
+    </section>
+  );
+}
+
+
+function AdminResultAlertTestPanel({ adminToken }) {
+  const [message, setMessage] = useState("");
+  const [sendingType, setSendingType] = useState("");
+  const [lastResult, setLastResult] = useState(null);
+
+  async function sendResultTest(result) {
+    if (!adminToken) {
+      setMessage("Isi kode admin dulu sebelum kirim test result alert.");
+      return;
+    }
+
+    try {
+      setSendingType(result);
+      setMessage(`Mengirim test result alert ${result}...`);
+
+      const res = await fetch("/api/result-alert-test", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${adminToken}`
+        },
+        body: JSON.stringify({ result, source: "admin-dashboard" })
+      });
+
+      const data = await res.json().catch(() => ({}));
+
+      if (!res.ok || !data.ok) {
+        const retryText = data.retryAfterSec ? ` Coba lagi sekitar ${data.retryAfterSec} detik.` : "";
+        throw new Error(`${data.error || "Gagal mengirim test result alert."}${retryText}`);
+      }
+
+      setLastResult({ result: data.result || result, sentAt: data.sentAt || new Date().toISOString() });
+      setMessage(data.message || `Test result alert ${result} berhasil dikirim ke Telegram.`);
+    } catch (err) {
+      setMessage(err?.message || "Gagal mengirim test result alert.");
+    } finally {
+      setSendingType("");
+    }
+  }
+
+  return (
+    <section className="adminTelegramTestPanel resultAlertTestPanel">
+      <div className="adminTelegramTestHeader">
+        <span className="pill mini"><Target size={14} /> RESULT TEST</span>
+        <h3>Telegram Result Alert Test</h3>
+        <p>Test format WIN, LOSS, dan EXPIRED ke Telegram tanpa mengubah history asli. Cocok untuk cek tampilan alert sebelum auto result berjalan live.</p>
+      </div>
+
+      <div className="adminTelegramTestGrid resultAlertTestGrid">
+        <div>
+          <small>Mode test</small>
+          <b>History Aman</b>
+          <span>Pesan hanya dikirim ke Telegram, tidak update data signal.</span>
+        </div>
+        <div>
+          <small>Endpoint</small>
+          <b>Admin Protected</b>
+          <span>Hanya menerima POST dengan kode admin atau secret test.</span>
+        </div>
+        <div>
+          <small>Terakhir test</small>
+          <b>{lastResult ? lastResult.result : "Belum ada"}</b>
+          <span>{lastResult?.sentAt ? formatShortDateTime(lastResult.sentAt) : "Pilih tombol WIN / LOSS / EXPIRED."}</span>
+        </div>
+      </div>
+
+      {message && <div className="adminMessage">{message}</div>}
+
+      <div className="resultAlertTestActions">
+        <button type="button" className="win" onClick={() => sendResultTest("WIN")} disabled={Boolean(sendingType) || !adminToken}>
+          ✅ {sendingType === "WIN" ? "Mengirim..." : "Test WIN"}
+        </button>
+        <button type="button" className="loss" onClick={() => sendResultTest("LOSS")} disabled={Boolean(sendingType) || !adminToken}>
+          ❌ {sendingType === "LOSS" ? "Mengirim..." : "Test LOSS"}
+        </button>
+        <button type="button" className="expired" onClick={() => sendResultTest("EXPIRED")} disabled={Boolean(sendingType) || !adminToken}>
+          ⚪ {sendingType === "EXPIRED" ? "Mengirim..." : "Test EXPIRED"}
+        </button>
+      </div>
+
+      <p className="miniNote">Gunakan tombol ini hanya untuk cek format result alert. Untuk result asli tetap lewat Auto Result Engine.</p>
     </section>
   );
 }
