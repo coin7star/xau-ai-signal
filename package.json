@@ -1,6 +1,6 @@
 {
-  "name": "xau-ai-signal-step10z-auto-signal-multi-user-dry-run",
-  "version": "7.18.0-step10z-auto-signal-multi-user-dry-run",
+  "name": "xau-ai-signal-step10z1-telegram-alert-auto-on-info",
+  "version": "7.18.1-step10z1-telegram-alert-auto-on-info",
   "type": "module",
   "scripts": {
     "dev": "vite",

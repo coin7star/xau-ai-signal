@@ -139,7 +139,9 @@ async function handleConnect(env, message, args) {
     `Role: <b>${escapeHtml(user.role || "-")}</b>`,
     "",
     "Mulai sekarang akun ini sudah terhubung ke Telegram.",
-    "Premium alert siap dipakai untuk sinyal berikutnya."
+    "Main Signal Alert: ON otomatis.",
+    "Result Alert: ON otomatis.",
+    "Kalau ingin berhenti menerima sinyal/result, matikan dari dashboard Telegram panel."
   ].join("\n");
 }
 

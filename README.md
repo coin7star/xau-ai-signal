@@ -340,3 +340,9 @@ Dashboard sekarang membedakan kondisi market tutup/weekend dengan koneksi live y
 - Menambahkan simulasi penerima auto signal multi-user.
 - Admin bisa melihat eligible receiver dan skipped user tanpa mengirim Telegram.
 - Persiapan aman sebelum multi-user Telegram alert live.
+
+
+## Step 10Z1 - Telegram Alert Auto-ON Info
+- User yang berhasil connect Telegram otomatis mendapatkan Main Signal Alert ON dan Result Alert ON.
+- User bisa mematikan alert sendiri dari Telegram panel.
+- UI Telegram panel memberi info jelas bahwa OFF berarti tidak menerima sinyal/result alert.

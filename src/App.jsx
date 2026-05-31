@@ -1735,7 +1735,7 @@ function TelegramConnectPanel({ user, profile, telegramConnect, onRefresh }) {
           <h3>{connected ? "Telegram Alert Aktif" : "Connect Telegram Alert"}</h3>
           <p>
             {connected
-              ? "Akun Telegram sudah terhubung. Alert utama akan masuk otomatis saat ada setup valid."
+              ? "Akun Telegram sudah terhubung. Main Signal dan Result Alert otomatis aktif. Kamu bisa matikan manual kalau tidak ingin menerima notifikasi."
               : "Hubungkan akun dashboard ke bot Telegram agar alert premium masuk langsung ke chat kamu."}
           </p>
         </div>
@@ -1769,6 +1769,7 @@ function TelegramConnectPanel({ user, profile, telegramConnect, onRefresh }) {
           <div>
             <b>Telegram siap menerima alert premium</b>
             <span>Chat ID: {telegramConnect?.telegramChatId || "-"}</span>
+            <small>Default setelah connect: Main Signal ON dan Result Alert ON.</small>
           </div>
           <div className="telegramConnectedMeta">
             <small>Premium Alert</small>
@@ -1801,7 +1802,7 @@ function TelegramConnectPanel({ user, profile, telegramConnect, onRefresh }) {
         <div className="telegramAlertPrepPanel">
           <div>
             <b>Premium Alert Preferences</b>
-            <span>Persiapan multi-user alert. Nanti alert personal akan mengikuti toggle ini.</span>
+            <span>Alert otomatis aktif setelah Telegram connected. Matikan toggle hanya kalau kamu tidak ingin menerima notifikasi.</span>
           </div>
           <div className="telegramAlertToggleGrid">
             <button
@@ -1821,7 +1822,7 @@ function TelegramConnectPanel({ user, profile, telegramConnect, onRefresh }) {
               Result Alert: {resultAlert ? "ON" : "OFF"}
             </button>
           </div>
-          <small>Broadcast multi-user belum diaktifkan di Step 10Y. Ini baru menyimpan preferensi aman untuk Step 11.</small>
+          <small>Kalau Main Signal Alert OFF, kamu tidak akan menerima sinyal otomatis. Kalau Result Alert OFF, kamu tidak akan menerima update WIN / LOSS / EXPIRED. Broadcast manual admin tetap terpisah.</small>
         </div>
       )}
 
@@ -1850,8 +1851,8 @@ function TelegramConnectPanel({ user, profile, telegramConnect, onRefresh }) {
 
       <p className="miniNote">
         {connected
-          ? "Kalau ingin mengganti akun Telegram, klik Disconnect terlebih dulu lalu generate kode baru."
-          : "Setelah status aktif, akun ini siap menerima auto alert MAIN CALL via Telegram."}
+          ? "Alert ON berarti Telegram akan menerima notifikasi premium sesuai toggle. Kalau OFF, sinyal/result tidak dikirim ke Telegram akun ini."
+          : "Setelah status aktif, Main Signal Alert dan Result Alert otomatis ON. Kamu bisa matikan manual nanti."}
       </p>
     </section>
   );

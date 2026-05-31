@@ -45,7 +45,9 @@ export async function onRequest({ request, env }) {
 
   return json({
     ok: true,
-    message: "Preferensi Telegram alert berhasil disimpan.",
+    message: enabled
+      ? "Preferensi Telegram alert berhasil disimpan."
+      : "Semua Telegram alert dimatikan. Akun ini tidak akan menerima Main Signal atau Result Alert.",
     telegramAlerts: {
       enabled,
       mainSignal,
