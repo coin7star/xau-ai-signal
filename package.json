@@ -1,6 +1,6 @@
 {
-  "name": "xau-ai-signal-step10q-telegram-alert-premium-format",
-  "version": "7.9.0-step10q-telegram-alert-premium-format",
+  "name": "xau-ai-signal-step10q1-secure-telegram-test-endpoint",
+  "version": "7.9.1-step10q1-secure-telegram-test-endpoint",
   "type": "module",
   "scripts": {
     "dev": "vite",

@@ -1220,6 +1220,16 @@ export default function App() {
 
           <details className="adminWindow card">
             <summary>
+              <span>Telegram Alert Test</span>
+              <small>Kirim test alert premium dengan akses admin dan cooldown anti-spam.</small>
+            </summary>
+            <div className="adminWindowBody">
+              <AdminTelegramTestPanel adminToken={adminToken} />
+            </div>
+          </details>
+
+          <details className="adminWindow card">
+            <summary>
               <span>Backup Market Engine</span>
               <small>Monitor koneksi market cadangan dan guard status.</small>
             </summary>
@@ -1692,6 +1702,84 @@ function formatShortDateTime(value) {
   });
 }
 
+
+
+function AdminTelegramTestPanel({ adminToken }) {
+  const [message, setMessage] = useState("");
+  const [sending, setSending] = useState(false);
+  const [lastSentAt, setLastSentAt] = useState(null);
+
+  async function sendTelegramTest() {
+    if (!adminToken) {
+      setMessage("Isi kode admin dulu sebelum kirim test alert.");
+      return;
+    }
+
+    try {
+      setSending(true);
+      setMessage("Mengirim premium test alert...");
+
+      const res = await fetch("/api/telegram-test", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${adminToken}`
+        },
+        body: JSON.stringify({ source: "admin-dashboard" })
+      });
+
+      const data = await res.json().catch(() => ({}));
+
+      if (!res.ok || !data.ok) {
+        const retryText = data.retryAfterSec ? ` Coba lagi sekitar ${data.retryAfterSec} detik.` : "";
+        throw new Error(`${data.error || "Gagal mengirim test alert."}${retryText}`);
+      }
+
+      setLastSentAt(new Date());
+      setMessage(data.message || "Test alert premium berhasil dikirim ke Telegram.");
+    } catch (err) {
+      setMessage(err?.message || "Gagal mengirim test alert.");
+    } finally {
+      setSending(false);
+    }
+  }
+
+  return (
+    <section className="adminTelegramTestPanel">
+      <div className="adminTelegramTestHeader">
+        <span className="pill mini"><Radio size={14} /> SECURE TEST</span>
+        <h3>Telegram Premium Alert Test</h3>
+        <p>Endpoint test sekarang dilindungi kode admin, hanya menerima request POST, dan memiliki cooldown anti-spam.</p>
+      </div>
+
+      <div className="adminTelegramTestGrid">
+        <div>
+          <small>Status keamanan</small>
+          <b>Admin Protected</b>
+          <span>URL test tidak lagi bisa dipakai bebas dari browser.</span>
+        </div>
+        <div>
+          <small>Cooldown</small>
+          <b>Anti-spam aktif</b>
+          <span>Default 30 detik, bisa diatur dari ENV.</span>
+        </div>
+        <div>
+          <small>Terakhir test</small>
+          <b>{lastSentAt ? lastSentAt.toLocaleTimeString("id-ID", { hour: "2-digit", minute: "2-digit" }) : "Belum ada"}</b>
+          <span>Test dikirim ke chat ID global admin.</span>
+        </div>
+      </div>
+
+      {message && <div className="adminMessage">{message}</div>}
+
+      <div className="adminTelegramTestActions">
+        <button type="button" onClick={sendTelegramTest} disabled={sending || !adminToken}>
+          <Radio size={15} /> {sending ? "Mengirim..." : "Kirim Test Alert"}
+        </button>
+      </div>
+    </section>
+  );
+}
 
 function AdminPanel({ adminToken, setAdminToken }) {
   const [users, setUsers] = useState([]);

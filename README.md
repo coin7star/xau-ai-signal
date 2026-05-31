@@ -259,3 +259,9 @@ Dashboard sekarang membedakan kondisi market tutup/weekend dengan koneksi live y
 - Alert READY dan CALL dibedakan.
 - Pesan Telegram menampilkan trade plan, market reason, setup snapshot, dan tombol dashboard.
 - Tidak mengubah logic signal utama.
+
+
+## Step 10Q1 - Secure Telegram Test Endpoint
+- `/api/telegram-test` tidak lagi public GET.
+- Test alert sekarang dilindungi admin token/secret, method POST, dan cooldown anti-spam.
+- Tombol test alert tersedia di tab Admin.

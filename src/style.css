@@ -3988,3 +3988,63 @@ canvas {
     justify-content: center;
   }
 }
+
+/* Step 10Q1 - Secure Telegram Test Endpoint */
+.adminTelegramTestPanel {
+  display: grid;
+  gap: 16px;
+}
+
+.adminTelegramTestHeader h3 {
+  margin: 10px 0 6px;
+  font-size: clamp(22px, 3vw, 30px);
+}
+
+.adminTelegramTestHeader p {
+  margin: 0;
+  color: #a8b5d8;
+}
+
+.adminTelegramTestGrid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.adminTelegramTestGrid div {
+  padding: 16px;
+  border-radius: 18px;
+  background: rgba(0,0,0,.24);
+  border: 1px solid rgba(255,255,255,.08);
+  display: grid;
+  gap: 5px;
+}
+
+.adminTelegramTestGrid b {
+  color: #eaf2ff;
+  font-size: 18px;
+}
+
+.adminTelegramTestGrid span {
+  color: #99a8ca;
+  font-size: 13px;
+  line-height: 1.45;
+}
+
+.adminTelegramTestActions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.adminTelegramTestActions button:disabled {
+  opacity: .55;
+  cursor: not-allowed;
+  transform: none;
+}
+
+@media (max-width: 820px) {
+  .adminTelegramTestGrid {
+    grid-template-columns: 1fr;
+  }
+}
