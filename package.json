@@ -1,6 +1,6 @@
 {
-  "name": "xau-ai-signal-step10h-human-reason-builder",
-  "version": "7.1.0-step10h-human-readable-reason-builder",
+  "name": "xau-ai-signal-step10i-compact-dashboard-tabs",
+  "version": "7.2.0-step10i-compact-dashboard-tabs",
   "type": "module",
   "scripts": {
     "dev": "vite",

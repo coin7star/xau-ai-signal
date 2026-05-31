@@ -244,6 +244,7 @@ export default function App() {
   const [authLoading, setAuthLoading] = useState(true);
   const [showAuthScreen, setShowAuthScreen] = useState(false);
   const [showAdminPanel, setShowAdminPanel] = useState(false);
+  const [activeDashboardTab, setActiveDashboardTab] = useState("signal");
   const [telegramConnect, setTelegramConnect] = useState(null);
   const [bybitFeed, setBybitFeed] = useState({ latest: null, status: null, cronError: null, loading: false, error: "" });
 
@@ -528,7 +529,7 @@ export default function App() {
     });
 
     return () => cancelAnimationFrame(frame);
-  }, [authUser, authProfile?.role, authProfile?.premiumUntil, tvM1, tvM15]);
+  }, [authUser, authProfile?.role, authProfile?.premiumUntil, activeDashboardTab, tvM1, tvM15]);
 
   useEffect(() => updateChart(seriesM1Ref.current, chartM1Ref.current, tvM1), [tvM1]);
   useEffect(() => updateChart(seriesM15Ref.current, chartM15Ref.current, tvM15), [tvM15]);
@@ -719,14 +720,22 @@ export default function App() {
     return <PaywallScreen user={authUser} profile={authProfile} onLogout={logout} />;
   }
 
+  const dashboardTabs = [
+    { id: "signal", label: "Sinyal", icon: <Zap size={15} /> },
+    { id: "chart", label: "Candle", icon: <Activity size={15} /> },
+    { id: "history", label: "History", icon: <Target size={15} /> },
+    { id: "telegram", label: "Telegram", icon: <Radio size={15} /> },
+    ...(isAdmin ? [{ id: "admin", label: "Admin", icon: <Settings size={15} /> }] : [])
+  ];
+
   return (
-    <main className="page">
+    <main className="page compactDashboardPage">
       <header className="nav">
         <div className="brand">
           <div className="logo"><Bot size={22} /></div>
           <div>
             <b>XAU AI Signal</b>
-            <span>Telegram Webhook Commands · RSI · MFI · EMA · OB M15</span>
+            <span>Premium dashboard · Signal · Candle · History</span>
           </div>
         </div>
         <div className="navActions">
@@ -736,30 +745,11 @@ export default function App() {
           <div className={`premiumExpiryBadge ${premiumInfo.expired ? "expired" : ""}`}>
             <Shield size={15} /> {premiumInfo.label}
           </div>
-          {isAdmin && (
-            <button className="navBtn" type="button" onClick={() => setShowAdminPanel((value) => !value)}>
-              <Settings size={16} /> Admin
-            </button>
-          )}
           <button className="navBtn danger" type="button" onClick={logout}>
             <LogOut size={16} /> Logout
           </button>
         </div>
       </header>
-
-      {!isAdmin && (
-        <section className="premiumSystemCard card">
-          <div>
-            <span className="pill mini">SYSTEM STATUS</span>
-            <h3>XAU Signal Dashboard Active</h3>
-            <p>Dashboard premium aktif untuk memantau market signal, Telegram alert, chart, dan performance history.</p>
-          </div>
-          <div className="premiumSystemPills">
-            <b>Beta Premium</b>
-            <span>Produk beta aktif</span>
-          </div>
-        </section>
-      )}
 
       {mt5Status.isStale && (
         <section className="mt5PauseBanner card">
@@ -777,63 +767,34 @@ export default function App() {
         </section>
       )}
 
-
-      <TelegramConnectPanel
-        user={authUser}
-        profile={authProfile}
-        telegramConnect={telegramConnect}
-        onRefresh={loadTelegramConnectStatus}
-      />
-
-
-      {isAdmin && showAdminPanel && (
-        <AdminPanel adminToken={adminToken} setAdminToken={setAdminToken} />
-      )}
-
-      {isAdmin && (
-<section className="hero cleanHero">
-        <div className="intro card">
-          <span className="pill"><Zap size={15} /> BOT COMMAND READY</span>
-          <h1>/signal, /status, /help sekarang bisa jalan.</h1>
-          <p>
-            Setelah webhook diset, Telegram bot bisa membalas command langsung dari Firebase dan signal terbaru.
-          </p>
-          <div className="actions">
-            <button onClick={() => loadData({ includeChart: true, includeHistory: true, includeScalpHistory: true })} disabled={loading}><RefreshCcw size={16} /> {loading ? "Loading..." : "Refresh"}</button>
-            <a href="/api/telegram-set-webhook" target="_blank" rel="noreferrer">Set Webhook</a>
-          </div>
+      <section className="dashboardTabs card">
+        <div className="dashboardTabScroll">
+          {dashboardTabs.map((tab) => (
+            <button
+              key={tab.id}
+              type="button"
+              className={`dashboardTabBtn ${activeDashboardTab === tab.id ? "active" : ""}`}
+              onClick={() => {
+                setActiveDashboardTab(tab.id);
+                if (tab.id === "chart") {
+                  requestAnimationFrame(() => {
+                    initChart("M1");
+                    initChart("M15");
+                  });
+                }
+              }}
+            >
+              {tab.icon}
+              {tab.label}
+            </button>
+          ))}
         </div>
-
-        <div className={`signalBox card ${signalTone}`}>
-          <div className="signalTop"><b>{market?.symbol || "XAUUSD"}</b><span>{lastUpdate}</span></div>
-          <h2>{readableSignal}</h2>
-          <div className="confidence">{signal?.confidence || 0}% confidence</div>
-          <p>{signal?.reason || "Menunggu candle MT5..."}</p>
-          {signal?.reasonDetails?.checklist?.length > 0 && (
-            <div className="reasonBuilderBox">
-              <div className="reasonBuilderTitle"><Sparkles size={14} /> AI Reason Builder</div>
-              <ul>
-                {signal.reasonDetails.checklist.slice(0, 5).map((item, idx) => (
-                  <li key={`reason-${idx}`}>{item}</li>
-                ))}
-              </ul>
-              {signal.reasonDetails.blockers?.length > 0 && (
-                <div className="reasonBlockers">
-                  <b>Yang ditunggu:</b> {signal.reasonDetails.blockers.slice(0, 3).join(", ")}
-                </div>
-              )}
-            </div>
-          )}
-          <div className="tradePlan">
-            <div><small>Entry</small><strong>{signal?.entry || "-"}</strong></div>
-            <div><small>Stop Loss</small><strong>{signal?.sl || "-"}</strong></div>
-            <div><small>Take Profit</small><strong>{signal?.tp || "-"}</strong></div>
-          </div>
-        </div>
+        <button onClick={() => loadData({ includeChart: true, includeHistory: true, includeScalpHistory: true })} disabled={loading} className="dashboardRefreshBtn">
+          <RefreshCcw size={15} /> {loading ? "Loading..." : "Refresh"}
+        </button>
       </section>
-      )}
 
-      <div className="dataTickerBar">
+      <div className="dataTickerBar slimTicker">
         <div className="tickerTrack">
           <span><Database size={14} /> Source: <b>Firebase RTDB</b></span>
           <span><Activity size={14} /> M1: <b>{candlesM1.length || market?.m1Count || 0} data</b></span>
@@ -843,245 +804,290 @@ export default function App() {
         </div>
       </div>
 
-      {isAdmin && (
-        <BybitTestFeedPanel feed={bybitFeed} market={market} mt5LastCandle={lastCandle} onRefresh={loadBybitTestFeed} />
-      )}
-
-      {isAdmin && (
-<section className="aiPanel card">
-        <div className="strategyHeader">
-          <div><span className="pill mini"><Sparkles size={14} /> AI MARKET ANALYSIS</span><h3>Analisa AI sinkron</h3></div>
-          <div className={`biasBadge ${aiAnalysis?.mode === "ai-live" ? "buy" : "wait"}`}>{aiAnalysis?.mode === "ai-live" ? "AI Live" : "Fallback"}</div>
-        </div>
-        <div className="aiText">{formatAiText(aiAnalysis?.analysis || "Menunggu analisa AI...")}</div>
-      </section>
-      )}
-
-      <section className="strategyPanel card">
-        <div className="strategyHeader">
-          <div><span className="pill mini"><Target size={14} /> CONFIRMATION SNAPSHOT</span><h3>RSI + MFI + EMA + OB M15</h3></div>
-          <div className={`biasBadge ${signalTone}`}>{trendBias}</div>
-        </div>
-        <div className="strategyCleanGrid four">
-          <Metric label="RSI 14" value={signal?.strategy?.rsi ?? "-"} note={`BUY ${confirmation.rsiBuyOk ? "OK" : "-"} · SELL ${confirmation.rsiSellOk ? "OK" : "-"}`} />
-          <Metric label="MFI 14" value={signal?.strategy?.mfi ?? "-"} note={`BUY ${confirmation.mfiBuyOk ? "OK" : "-"} · SELL ${confirmation.mfiSellOk ? "OK" : "-"}`} />
-          <Metric label="EMA Cross" value={humanize(signal?.strategy?.emaCross)} note={signal?.strategy?.crossAlert?.message || "-"} />
-          <Metric label="Fresh OB M15" value={obCardValue} note={obCardNote} />
-          <Metric label="Probability" value={`${probability.score || 0}% · ${probability.label || "LOW"}`} note={(probability.checklist || []).join(" · ") || "Menunggu score"} />
-          <Metric label="M1 Scalp" value={`${scalping.label || "SCALP WAIT"}`} note={`${scalping.confidence || 0}% · ${scalping.action || "WAIT"}`} />
-        </div>
-      </section>
-
-
-
-      <section className={`scalpPanel card ${String(scalping.action || "WAIT").toLowerCase()}`}>
-        <div className="strategyHeader">
-          <div>
-            <span className="pill mini"><Zap size={14} /> M1 SR + EMA SCALP</span>
-            <h3>{scalping.label || "SCALP WAIT"}</h3>
-          </div>
-          <div className={`biasBadge ${scalping.action === "SCALP_BUY" ? "buy" : scalping.action === "SCALP_SELL" ? "sell" : "wait"}`}>
-            {scalping.confidence || 0}% scalp
-          </div>
-        </div>
-
-        <div className="scalpGrid">
-          <Metric label="Scalp Entry" value={scalping.entry || "-"} note="Area acuan kalau scalp sudah valid" />
-          <Metric label="Scalp SL" value={scalping.sl || "-"} note="SL dari candle touch S/R + 1.5 ATR" />
-          <Metric label="Scalp TP" value={scalping.tp || "-"} note="Target cepat RR 1 : 1.25" />
-          <Metric label="EMA 5/13" value={`${scalping.ema5 || "-"} / ${scalping.ema13 || "-"}`} note="EMA cepat buat baca gas/rem M1" />
-          <Metric label="Scalp Strength" value={`${scalping.score || 0}/100`} note="Minimal 58/100 untuk SCALP BUY/SELL" />
-        </div>
-
-        <p className="scalpReason">{scalping.reason}</p>
-        <p className="scalpWarning">Mode scalp baru pakai struktur M1: buy di last swing low M1 + bullish engulfing, sell di last swing high M1 + bearish engulfing. CALL utama tetap lebih saklek.</p>
-      </section>
-
-
-      <UserPaymentHistoryCard user={authUser} />
-      <PerformanceAnalyticsPanel
-        callHistory={callHistory}
-        scalpHistory={scalpHistory}
-        isAdmin={isAdmin}
-      />
-
-      <section className="historyPanel card">
-        <div className="sectionTitle">
-          <div>
-            <h3>{isAdmin ? "CALL History & Manual Result" : "CALL History & Performance"}</h3>
-            <span>{isAdmin ? "Auto-save saat CALL valid. Admin bisa tandai hasil manual untuk track performa." : "Riwayat CALL valid, result, dan performa signal terbaru."}</span>
-          </div>
-          <div className="historyStats">
-            <b>Total {historyStats.total || 0}</b>
-            <b>Open {historyStats.open || 0}</b>
-            <b>Win {historyStats.wins || 0}</b>
-            <b>Loss {historyStats.losses || 0}</b>
-            <b>BE {historyStats.be || 0}</b>
-            <em>WR {historyStats.winRate || 0}%</em>
-          </div>
-        </div>
-
-        {!isAdmin && (
-          <div className="premiumViewerNote">
-            Pantau riwayat signal valid, result, dan winrate secara transparan.
-          </div>
-        )}
-
-        {isAdmin && (
-          <div className="adminTokenBox">
-            <span>Admin token untuk update Win/Loss</span>
-            <input
-              value={adminToken}
-              onChange={(event) => saveAdminToken(event.target.value)}
-              placeholder="Isi ADMIN_ACTION_TOKEN Cloudflare"
-              type="password"
-            />
-          </div>
-        )}
-
-        <div className="historyTable">
-          <div className={`historyHead ${isAdmin ? "adminMode" : "viewerMode"}`}>
-            <span>Time</span>
-            <span>Signal</span>
-            <span>Entry</span>
-            <span>SL / TP</span>
-            <span>Prob</span>
-            <span>Result</span>
-            {isAdmin && <span>Action</span>}
-          </div>
-
-          {(callHistory?.history || []).slice(0, 12).map((item) => (
-            <div className={`historyRow ${isAdmin ? "adminMode" : "viewerMode"}`} key={item.id}>
-              <span>{formatHistoryTime(item.createdAt || item.candleTime)}</span>
-              <strong className={String(item.signal || "").toLowerCase()}>{item.signal}</strong>
-              <span>{item.entry}</span>
-              <span>{item.sl || "-"} / {item.tp || "-"}</span>
-              <span>{item.probability?.score ?? item.confidence ?? "-"}%</span>
-              <span className={`resultBadge ${(item.result || item.status || "OPEN").toLowerCase()}`}>
-                {item.result || item.status || "OPEN"}
-              </span>
-              {isAdmin && (
-                <div className="historyActions">
-                  <button type="button" onClick={() => updateCallResult(item.id, "WIN")}>WIN</button>
-                  <button type="button" onClick={() => updateCallResult(item.id, "LOSS")}>LOSS</button>
-                  <button type="button" onClick={() => updateCallResult(item.id, "BE")}>BE</button>
-                  <button type="button" onClick={() => updateCallResult(item.id, "OPEN")}>OPEN</button>
+      {activeDashboardTab === "signal" && (
+        <>
+          <section className="hero cleanHero compactHero">
+            <div className={`signalBox card ${signalTone}`}>
+              <div className="signalTop"><b>{market?.symbol || "XAUUSD"}</b><span>{lastUpdate}</span></div>
+              <h2>{readableSignal}</h2>
+              <div className="confidence">{signal?.confidence || 0}% confidence</div>
+              <p>{signal?.reason || "Menunggu candle MT5..."}</p>
+              {signal?.reasonDetails?.checklist?.length > 0 && (
+                <div className="reasonBuilderBox">
+                  <div className="reasonBuilderTitle"><Sparkles size={14} /> AI Reason Builder</div>
+                  <ul>
+                    {signal.reasonDetails.checklist.slice(0, 5).map((item, idx) => (
+                      <li key={`reason-${idx}`}>{item}</li>
+                    ))}
+                  </ul>
+                  {signal.reasonDetails.blockers?.length > 0 && (
+                    <div className="reasonBlockers">
+                      <b>Yang ditunggu:</b> {signal.reasonDetails.blockers.slice(0, 3).join(", ")}
+                    </div>
+                  )}
                 </div>
               )}
+              <div className="tradePlan">
+                <div><small>Entry</small><strong>{signal?.entry || "-"}</strong></div>
+                <div><small>Stop Loss</small><strong>{signal?.sl || "-"}</strong></div>
+                <div><small>Take Profit</small><strong>{signal?.tp || "-"}</strong></div>
+              </div>
             </div>
-          ))}
 
-          {(!callHistory?.history || callHistory.history.length === 0) && (
-            <div className="emptyHistory">Belum ada CALL valid. History otomatis muncul saat signal BUY/SELL CALL.</div>
-          )}
-        </div>
-      </section>
+            <section className="strategyPanel card compactImportantCard">
+              <div className="strategyHeader">
+                <div><span className="pill mini"><Target size={14} /> SNAPSHOT</span><h3>RSI + MFI + EMA + OB M15</h3></div>
+                <div className={`biasBadge ${signalTone}`}>{trendBias}</div>
+              </div>
+              <div className="strategyCleanGrid four">
+                <Metric label="RSI 14" value={signal?.strategy?.rsi ?? "-"} note={`BUY ${confirmation.rsiBuyOk ? "OK" : "-"} · SELL ${confirmation.rsiSellOk ? "OK" : "-"}`} />
+                <Metric label="MFI 14" value={signal?.strategy?.mfi ?? "-"} note={`BUY ${confirmation.mfiBuyOk ? "OK" : "-"} · SELL ${confirmation.mfiSellOk ? "OK" : "-"}`} />
+                <Metric label="EMA Cross" value={humanize(signal?.strategy?.emaCross)} note={signal?.strategy?.crossAlert?.message || "-"} />
+                <Metric label="Fresh OB M15" value={obCardValue} note={obCardNote} />
+                <Metric label="Probability" value={`${probability.score || 0}% · ${probability.label || "LOW"}`} note={(probability.checklist || []).join(" · ") || "Menunggu score"} />
+                <Metric label="M1 Scalp" value={`${scalping.label || "SCALP WAIT"}`} note={`${scalping.confidence || 0}% · ${scalping.action || "WAIT"}`} />
+              </div>
+            </section>
+          </section>
+        </>
+      )}
 
+      {activeDashboardTab === "chart" && (
+        <>
+          <section className="chartWrap card">
+            <div className="sectionTitle">
+              <div><h3>Live M1 Candlestick Chart</h3><span>{market?.symbol || "XAUUSD"} · M1 · Bid {market?.bid || "-"} · Spread {spread}</span></div>
+              <div className="legend">
+                <b><i className="bullDot"></i> Bullish</b>
+                <b><i className="bearDot"></i> Bearish</b>
+                <b><i className="ema9Dot"></i> EMA 9</b>
+                <b><i className="ema20Dot"></i> EMA 20</b>
+                <b><i className="obBullDot"></i> Bull OB</b>
+                <b><i className="obBearDot"></i> Bear OB</b>
+                <b><i className="supportDot"></i> M1 Support</b>
+                <b><i className="resistDot"></i> M1 Resistance</b>
+                <em><span></span> Lite 12s · Chart 45s</em>
+              </div>
+            </div>
+            {chartError && <div className="chartError">Chart error: {chartError}</div>}
+            <div className="tvChart" ref={chartM1BoxRef}>
+              {tvM1.length === 0 && <div className="chartEmpty">Menunggu candle M1 dari MT5 / Firebase...</div>}
+            </div>
+          </section>
 
-      <section className="historyPanel card scalpHistoryPanel">
-        <div className="sectionTitle">
-          <div>
-            <h3>{isAdmin ? "SCALP M1 Valid History & Manual Result" : "SCALP M1 Performance"}</h3>
-            <span>Cuma SCALP BUY/SELL valid yang disimpan. SCALP WAIT tidak masuk biar Firebase tetap hemat.</span>
-          </div>
-          <div className="historyStats">
-            <b>Total {scalpStats.total || 0}</b>
-            <b>Open {scalpStats.open || 0}</b>
-            <b>Win {scalpStats.wins || 0}</b>
-            <b>Loss {scalpStats.losses || 0}</b>
-            <b>BE {scalpStats.be || 0}</b>
-            <em>WR {scalpStats.winRate || 0}%</em>
-          </div>
-        </div>
+          <section className="chartWrap card">
+            <div className="sectionTitle">
+              <div><h3>Live M15 Order Block Chart</h3><span>{market?.symbol || "XAUUSD"} · M15 · OB validation chart</span></div>
+              <div className="legend">
+                <b><i className="bullDot"></i> Bullish</b>
+                <b><i className="bearDot"></i> Bearish</b>
+                <b><i className="ema9Dot"></i> EMA 9</b>
+                <b><i className="ema20Dot"></i> EMA 20</b>
+                <b><i className="obBullDot"></i> Bull OB</b>
+                <b><i className="obBearDot"></i> Bear OB</b>
+                <em><span></span> Fresh OB M15</em>
+              </div>
+            </div>
+            <div className="tvChart small" ref={chartM15BoxRef}>
+              {tvM15.length === 0 && <div className="chartEmpty">Menunggu candle M15 dari MT5 / Firebase...</div>}
+            </div>
+          </section>
+        </>
+      )}
 
-        {!isAdmin && (
-          <div className="premiumViewerNote scalpViewerNote">
-            Pantau performa SCALP M1 valid, result, dan winrate secara ringkas.
-          </div>
-        )}
+      {activeDashboardTab === "history" && (
+        <>
+          <section className={`scalpPanel card ${String(scalping.action || "WAIT").toLowerCase()}`}>
+            <div className="strategyHeader">
+              <div>
+                <span className="pill mini"><Zap size={14} /> M1 SR + EMA SCALP</span>
+                <h3>{scalping.label || "SCALP WAIT"}</h3>
+              </div>
+              <div className={`biasBadge ${scalping.action === "SCALP_BUY" ? "buy" : scalping.action === "SCALP_SELL" ? "sell" : "wait"}`}>
+                {scalping.confidence || 0}% scalp
+              </div>
+            </div>
 
-        <div className="historyTable">
-          <div className={`historyHead ${isAdmin ? "adminMode" : "viewerMode"}`}>
-            <span>Time</span>
-            <span>Signal</span>
-            <span>Entry</span>
-            <span>SL / TP</span>
-            <span>Score</span>
-            <span>Result</span>
-            {isAdmin && <span>Action</span>}
-          </div>
+            <div className="scalpGrid">
+              <Metric label="Scalp Entry" value={scalping.entry || "-"} note="Area acuan kalau scalp sudah valid" />
+              <Metric label="Scalp SL" value={scalping.sl || "-"} note="SL dari candle touch S/R + 1.5 ATR" />
+              <Metric label="Scalp TP" value={scalping.tp || "-"} note="Target cepat RR 1 : 1.25" />
+              <Metric label="EMA 5/13" value={`${scalping.ema5 || "-"} / ${scalping.ema13 || "-"}`} note="EMA cepat buat baca gas/rem M1" />
+              <Metric label="Scalp Strength" value={`${scalping.score || 0}/100`} note="Minimal 58/100 untuk SCALP BUY/SELL" />
+            </div>
 
-          {(scalpHistory?.history || []).slice(0, 10).map((item) => (
-            <div className={`historyRow ${isAdmin ? "adminMode" : "viewerMode"}`} key={item.id}>
-              <span>{formatHistoryTime(item.createdAt || item.candleTime)}</span>
-              <strong className={String(item.signal || "").toLowerCase()}>{item.signal}</strong>
-              <span>{item.entry}</span>
-              <span>{item.sl || "-"} / {item.tp || "-"}</span>
-              <span>{item.score ?? item.confidence ?? "-"}%</span>
-              <span className={`resultBadge ${(item.result || item.status || "OPEN").toLowerCase()}`}>
-                {item.result || item.status || "OPEN"}
-              </span>
-              {isAdmin && (
-                <div className="historyActions">
-                  <button type="button" onClick={() => updateScalpResult(item.id, "WIN")}>WIN</button>
-                  <button type="button" onClick={() => updateScalpResult(item.id, "LOSS")}>LOSS</button>
-                  <button type="button" onClick={() => updateScalpResult(item.id, "BE")}>BE</button>
-                  <button type="button" onClick={() => updateScalpResult(item.id, "OPEN")}>OPEN</button>
+            <p className="scalpReason">{scalping.reason}</p>
+            <p className="scalpWarning">Mode scalp baru pakai struktur M1: buy di last swing low M1 + bullish engulfing, sell di last swing high M1 + bearish engulfing. CALL utama tetap lebih saklek.</p>
+          </section>
+
+          <UserPaymentHistoryCard user={authUser} />
+          <PerformanceAnalyticsPanel
+            callHistory={callHistory}
+            scalpHistory={scalpHistory}
+            isAdmin={isAdmin}
+          />
+
+          <section className="historyPanel card">
+            <div className="sectionTitle">
+              <div>
+                <h3>{isAdmin ? "CALL History & Manual Result" : "CALL History & Performance"}</h3>
+                <span>{isAdmin ? "Auto-save saat CALL valid. Admin bisa tandai hasil manual untuk track performa." : "Riwayat CALL valid, result, dan performa signal terbaru."}</span>
+              </div>
+              <div className="historyStats">
+                <b>Total {historyStats.total || 0}</b>
+                <b>Open {historyStats.open || 0}</b>
+                <b>Win {historyStats.wins || 0}</b>
+                <b>Loss {historyStats.losses || 0}</b>
+                <b>BE {historyStats.be || 0}</b>
+                <em>WR {historyStats.winRate || 0}%</em>
+              </div>
+            </div>
+
+            {!isAdmin && (
+              <div className="premiumViewerNote">
+                Pantau riwayat signal valid, result, dan winrate secara transparan.
+              </div>
+            )}
+
+            {isAdmin && (
+              <div className="adminTokenBox">
+                <span>Admin token untuk update Win/Loss</span>
+                <input
+                  value={adminToken}
+                  onChange={(event) => saveAdminToken(event.target.value)}
+                  placeholder="Isi ADMIN_ACTION_TOKEN Cloudflare"
+                  type="password"
+                />
+              </div>
+            )}
+
+            <div className="historyTable">
+              <div className={`historyHead ${isAdmin ? "adminMode" : "viewerMode"}`}>
+                <span>Time</span>
+                <span>Signal</span>
+                <span>Entry</span>
+                <span>SL / TP</span>
+                <span>Prob</span>
+                <span>Result</span>
+                {isAdmin && <span>Action</span>}
+              </div>
+
+              {(callHistory?.history || []).slice(0, 12).map((item) => (
+                <div className={`historyRow ${isAdmin ? "adminMode" : "viewerMode"}`} key={item.id}>
+                  <span>{formatHistoryTime(item.createdAt || item.candleTime)}</span>
+                  <strong className={String(item.signal || "").toLowerCase()}>{item.signal}</strong>
+                  <span>{item.entry}</span>
+                  <span>{item.sl || "-"} / {item.tp || "-"}</span>
+                  <span>{item.probability?.score ?? item.confidence ?? "-"}%</span>
+                  <span className={`resultBadge ${(item.result || item.status || "OPEN").toLowerCase()}`}>
+                    {item.result || item.status || "OPEN"}
+                  </span>
+                  {isAdmin && (
+                    <div className="historyActions">
+                      <button type="button" onClick={() => updateCallResult(item.id, "WIN")}>WIN</button>
+                      <button type="button" onClick={() => updateCallResult(item.id, "LOSS")}>LOSS</button>
+                      <button type="button" onClick={() => updateCallResult(item.id, "BE")}>BE</button>
+                      <button type="button" onClick={() => updateCallResult(item.id, "OPEN")}>OPEN</button>
+                    </div>
+                  )}
                 </div>
+              ))}
+
+              {(!callHistory?.history || callHistory.history.length === 0) && (
+                <div className="emptyHistory">Belum ada CALL valid. History otomatis muncul saat signal BUY/SELL CALL.</div>
               )}
             </div>
-          ))}
+          </section>
 
-          {(!scalpHistory?.history || scalpHistory.history.length === 0) && (
-            <div className="emptyHistory">Belum ada SCALP BUY/SELL valid. History akan muncul otomatis saat scalp mode valid.</div>
-          )}
-        </div>
-      </section>
+          <section className="historyPanel card scalpHistoryPanel">
+            <div className="sectionTitle">
+              <div>
+                <h3>{isAdmin ? "SCALP M1 Valid History & Manual Result" : "SCALP M1 Performance"}</h3>
+                <span>Cuma SCALP BUY/SELL valid yang disimpan. SCALP WAIT tidak masuk biar Firebase tetap hemat.</span>
+              </div>
+              <div className="historyStats">
+                <b>Total {scalpStats.total || 0}</b>
+                <b>Open {scalpStats.open || 0}</b>
+                <b>Win {scalpStats.wins || 0}</b>
+                <b>Loss {scalpStats.losses || 0}</b>
+                <b>BE {scalpStats.be || 0}</b>
+                <em>WR {scalpStats.winRate || 0}%</em>
+              </div>
+            </div>
 
-      <section className="chartWrap card">
-        <div className="sectionTitle">
-          <div><h3>Live M1 Candlestick Chart</h3><span>{market?.symbol || "XAUUSD"} · M1 · Bid {market?.bid || "-"} · Spread {spread}</span></div>
-          <div className="legend">
-            <b><i className="bullDot"></i> Bullish</b>
-            <b><i className="bearDot"></i> Bearish</b>
-            <b><i className="ema9Dot"></i> EMA 9</b>
-            <b><i className="ema20Dot"></i> EMA 20</b>
-            <b><i className="obBullDot"></i> Bull OB</b>
-            <b><i className="obBearDot"></i> Bear OB</b>
-            <b><i className="supportDot"></i> M1 Support</b>
-            <b><i className="resistDot"></i> M1 Resistance</b>
-            <em><span></span> Lite 12s · Chart 45s</em>
-          </div>
-        </div>
-        {chartError && <div className="chartError">Chart error: {chartError}</div>}
-        <div className="tvChart" ref={chartM1BoxRef}>
-          {tvM1.length === 0 && <div className="chartEmpty">Menunggu candle M1 dari MT5 / Firebase...</div>}
-        </div>
-      </section>
+            {!isAdmin && (
+              <div className="premiumViewerNote scalpViewerNote">
+                Pantau performa SCALP M1 valid, result, dan winrate secara ringkas.
+              </div>
+            )}
 
-      <section className="chartWrap card">
-        <div className="sectionTitle">
-          <div><h3>Live M15 Order Block Chart</h3><span>{market?.symbol || "XAUUSD"} · M15 · OB validation chart</span></div>
-          <div className="legend">
-            <b><i className="bullDot"></i> Bullish</b>
-            <b><i className="bearDot"></i> Bearish</b>
-            <b><i className="ema9Dot"></i> EMA 9</b>
-            <b><i className="ema20Dot"></i> EMA 20</b>
-            <b><i className="obBullDot"></i> Bull OB</b>
-            <b><i className="obBearDot"></i> Bear OB</b>
-            <em><span></span> Fresh OB M15</em>
-          </div>
-        </div>
-        <div className="tvChart small" ref={chartM15BoxRef}>
-          {tvM15.length === 0 && <div className="chartEmpty">Menunggu candle M15 dari MT5 / Firebase...</div>}
-        </div>
-      </section>
+            <div className="historyTable">
+              <div className={`historyHead ${isAdmin ? "adminMode" : "viewerMode"}`}>
+                <span>Time</span>
+                <span>Signal</span>
+                <span>Entry</span>
+                <span>SL / TP</span>
+                <span>Score</span>
+                <span>Result</span>
+                {isAdmin && <span>Action</span>}
+              </div>
+
+              {(scalpHistory?.history || []).slice(0, 10).map((item) => (
+                <div className={`historyRow ${isAdmin ? "adminMode" : "viewerMode"}`} key={item.id}>
+                  <span>{formatHistoryTime(item.createdAt || item.candleTime)}</span>
+                  <strong className={String(item.signal || "").toLowerCase()}>{item.signal}</strong>
+                  <span>{item.entry}</span>
+                  <span>{item.sl || "-"} / {item.tp || "-"}</span>
+                  <span>{item.score ?? item.confidence ?? "-"}%</span>
+                  <span className={`resultBadge ${(item.result || item.status || "OPEN").toLowerCase()}`}>
+                    {item.result || item.status || "OPEN"}
+                  </span>
+                  {isAdmin && (
+                    <div className="historyActions">
+                      <button type="button" onClick={() => updateScalpResult(item.id, "WIN")}>WIN</button>
+                      <button type="button" onClick={() => updateScalpResult(item.id, "LOSS")}>LOSS</button>
+                      <button type="button" onClick={() => updateScalpResult(item.id, "BE")}>BE</button>
+                      <button type="button" onClick={() => updateScalpResult(item.id, "OPEN")}>OPEN</button>
+                    </div>
+                  )}
+                </div>
+              ))}
+
+              {(!scalpHistory?.history || scalpHistory.history.length === 0) && (
+                <div className="emptyHistory">Belum ada SCALP BUY/SELL valid. History akan muncul otomatis saat scalp mode valid.</div>
+              )}
+            </div>
+          </section>
+        </>
+      )}
+
+      {activeDashboardTab === "telegram" && (
+        <TelegramConnectPanel
+          user={authUser}
+          profile={authProfile}
+          telegramConnect={telegramConnect}
+          onRefresh={loadTelegramConnectStatus}
+        />
+      )}
+
+      {isAdmin && activeDashboardTab === "admin" && (
+        <>
+          <AdminPanel adminToken={adminToken} setAdminToken={setAdminToken} />
+          <BybitTestFeedPanel feed={bybitFeed} market={market} mt5LastCandle={lastCandle} onRefresh={loadBybitTestFeed} />
+          <section className="aiPanel card">
+            <div className="strategyHeader">
+              <div><span className="pill mini"><Sparkles size={14} /> AI MARKET ANALYSIS</span><h3>Analisa AI sinkron</h3></div>
+              <div className={`biasBadge ${aiAnalysis?.mode === "ai-live" ? "buy" : "wait"}`}>{aiAnalysis?.mode === "ai-live" ? "AI Live" : "Fallback"}</div>
+            </div>
+            <div className="aiText">{formatAiText(aiAnalysis?.analysis || "Menunggu analisa AI...")}</div>
+          </section>
+        </>
+      )}
 
       <footer>Bukan financial advice. Demo first, XAUUSD galak bro 😭</footer>
     </main>
   );
 }
-
 
 
 

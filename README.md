@@ -141,3 +141,8 @@ Build output directory:
 ```txt
 dist
 ```
+
+
+## Step 10I — Compact Dashboard Tabs
+
+Dashboard premium sekarang dibuat lebih rapi dengan tab/navbar: Sinyal, Candle, History, Telegram, dan Admin. Default user premium hanya melihat bagian penting dulu agar tidak semak. Tidak ada package-lock.json dan build Cloudflare tetap pakai `npm install && npm run build`.
