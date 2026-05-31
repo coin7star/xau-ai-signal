@@ -664,6 +664,56 @@ export default function App() {
     tp: "-",
     reason: "Menunggu data M1."
   };
+  const snapshotRows = [
+    {
+      id: "rsi",
+      title: "RSI 14",
+      value: signal?.strategy?.rsi ?? "-",
+      status: confirmation.rsiBuyOk ? "BUY OK" : confirmation.rsiSellOk ? "SELL OK" : "WAIT",
+      note: `BUY ${confirmation.rsiBuyOk ? "OK" : "-"} · SELL ${confirmation.rsiSellOk ? "OK" : "-"}`,
+      detail: "RSI membaca momentum harga. Untuk CALL, RSI idealnya mendukung arah sinyal dan tidak bertabrakan dengan filter lain."
+    },
+    {
+      id: "mfi",
+      title: "MFI 14",
+      value: signal?.strategy?.mfi ?? "-",
+      status: confirmation.mfiBuyOk ? "BUY OK" : confirmation.mfiSellOk ? "SELL OK" : "WAIT",
+      note: `BUY ${confirmation.mfiBuyOk ? "OK" : "-"} · SELL ${confirmation.mfiSellOk ? "OK" : "-"}`,
+      detail: "MFI membaca tekanan buyer/seller berdasarkan harga dan volume. Ini membantu konfirmasi apakah dorongan market cukup kuat."
+    },
+    {
+      id: "ema",
+      title: "EMA Cross",
+      value: humanize(signal?.strategy?.emaCross),
+      status: trendBias,
+      note: signal?.strategy?.crossAlert?.message || "Menunggu EMA cross.",
+      detail: "EMA 9 dan EMA 20 dipakai sebagai filter trend pendek. CALL utama lebih aman saat arah EMA cocok dengan strategi."
+    },
+    {
+      id: "obm15",
+      title: "Fresh OB M15",
+      value: obCardValue,
+      status: freshBullOb ? "BUY AREA" : freshBearOb ? "SELL AREA" : "WAIT",
+      note: obCardNote,
+      detail: "Order Block M15 dipakai sebagai area penting. Fresh OB lebih diprioritaskan karena belum terlalu sering disentuh harga."
+    },
+    {
+      id: "probability",
+      title: "Probability",
+      value: `${probability.score || 0}% · ${probability.label || "LOW"}`,
+      status: probability.label || "LOW",
+      note: (probability.checklist || []).join(" · ") || "Menunggu score.",
+      detail: "Probability adalah rangkuman kecocokan beberapa filter. Semakin banyak filter cocok, semakin tinggi score sinyal."
+    },
+    {
+      id: "scalp",
+      title: "M1 Scalp",
+      value: scalping.label || "SCALP WAIT",
+      status: scalping.action || "WAIT",
+      note: `${scalping.confidence || 0}% · ${scalping.action || "WAIT"}`,
+      detail: scalping.reason || "M1 Scalp membaca peluang cepat berdasarkan struktur M1, EMA, dan konfirmasi candle."
+    }
+  ];
   const historyStats = callHistory?.stats || {};
   const scalpStats = scalpHistory?.stats || {};
   const telegramStatus = signal?.telegram?.ok ? "Telegram OK" : signal?.telegram?.skipped || "Telegram standby";
@@ -838,13 +888,10 @@ export default function App() {
                 <div><span className="pill mini"><Target size={14} /> SNAPSHOT</span><h3>RSI + MFI + EMA + OB M15</h3></div>
                 <div className={`biasBadge ${signalTone}`}>{trendBias}</div>
               </div>
-              <div className="strategyCleanGrid four">
-                <Metric label="RSI 14" value={signal?.strategy?.rsi ?? "-"} note={`BUY ${confirmation.rsiBuyOk ? "OK" : "-"} · SELL ${confirmation.rsiSellOk ? "OK" : "-"}`} />
-                <Metric label="MFI 14" value={signal?.strategy?.mfi ?? "-"} note={`BUY ${confirmation.mfiBuyOk ? "OK" : "-"} · SELL ${confirmation.mfiSellOk ? "OK" : "-"}`} />
-                <Metric label="EMA Cross" value={humanize(signal?.strategy?.emaCross)} note={signal?.strategy?.crossAlert?.message || "-"} />
-                <Metric label="Fresh OB M15" value={obCardValue} note={obCardNote} />
-                <Metric label="Probability" value={`${probability.score || 0}% · ${probability.label || "LOW"}`} note={(probability.checklist || []).join(" · ") || "Menunggu score"} />
-                <Metric label="M1 Scalp" value={`${scalping.label || "SCALP WAIT"}`} note={`${scalping.confidence || 0}% · ${scalping.action || "WAIT"}`} />
+              <div className="snapshotAccordion">
+                {snapshotRows.map((row, index) => (
+                  <SnapshotRow key={row.id} row={row} defaultOpen={index < 2} />
+                ))}
               </div>
             </section>
           </section>
@@ -3678,6 +3725,22 @@ function Metric({ label, value, note }) {
       <strong title={String(value || "-")}>{value || "-"}</strong>
       <span>{note}</span>
     </div>
+  );
+}
+
+function SnapshotRow({ row, defaultOpen = false }) {
+  return (
+    <details className="snapshotRow" open={defaultOpen}>
+      <summary>
+        <span className="snapshotRowTitle">{row.title}</span>
+        <span className="snapshotRowValue" title={String(row.value || "-")}>{row.value || "-"}</span>
+        <span className="snapshotRowStatus">{row.status || "WAIT"}</span>
+      </summary>
+      <div className="snapshotRowBody">
+        <p>{row.note || "Menunggu data."}</p>
+        <small>{row.detail}</small>
+      </div>
+    </details>
   );
 }
 function humanize(value) { if (!value) return "-"; return String(value).replaceAll("_", " "); }

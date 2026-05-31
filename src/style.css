@@ -3386,3 +3386,133 @@ canvas {
     grid-template-columns: 1fr;
   }
 }
+
+/* Step 10J - Compact Snapshot Accordion */
+.snapshotAccordion {
+  display: grid;
+  gap: 10px;
+}
+
+.snapshotRow {
+  border: 1px solid rgba(255, 255, 255, 0.10);
+  border-radius: 18px;
+  background: rgba(0, 0, 0, 0.22);
+  overflow: hidden;
+}
+
+.snapshotRow[open] {
+  border-color: rgba(103, 232, 249, 0.22);
+  background: linear-gradient(135deg, rgba(15, 23, 42, 0.86), rgba(2, 6, 23, 0.72));
+}
+
+.snapshotRow summary {
+  list-style: none;
+  display: grid;
+  grid-template-columns: minmax(110px, 0.8fr) minmax(120px, 1fr) auto;
+  align-items: center;
+  gap: 12px;
+  padding: 14px 16px;
+  cursor: pointer;
+}
+
+.snapshotRow summary::-webkit-details-marker {
+  display: none;
+}
+
+.snapshotRow summary::before {
+  content: "+";
+  width: 24px;
+  height: 24px;
+  display: inline-grid;
+  place-items: center;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.08);
+  color: #67e8f9;
+  font-weight: 900;
+  grid-column: 1;
+  grid-row: 1;
+  justify-self: start;
+}
+
+.snapshotRow[open] summary::before {
+  content: "−";
+  color: #fde68a;
+}
+
+.snapshotRowTitle {
+  color: #aeb9d8;
+  font-size: 13px;
+  font-weight: 800;
+  padding-left: 34px;
+  grid-column: 1;
+}
+
+.snapshotRowValue {
+  color: #f8fbff;
+  font-size: 18px;
+  font-weight: 950;
+  line-height: 1.15;
+  text-transform: uppercase;
+  overflow-wrap: anywhere;
+}
+
+.snapshotRowStatus {
+  justify-self: end;
+  padding: 8px 10px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.08);
+  color: #fde68a;
+  font-size: 11px;
+  font-weight: 950;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.snapshotRowBody {
+  padding: 0 16px 15px 50px;
+  display: grid;
+  gap: 6px;
+}
+
+.snapshotRowBody p {
+  margin: 0;
+  color: #d7e0f7;
+  font-size: 13px;
+  line-height: 1.55;
+}
+
+.snapshotRowBody small {
+  margin: 0;
+  color: #91a4c9;
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+@media (max-width: 720px) {
+  .snapshotRow summary {
+    grid-template-columns: 1fr;
+    gap: 8px;
+  }
+
+  .snapshotRow summary::before {
+    grid-column: 1;
+  }
+
+  .snapshotRowTitle {
+    padding-left: 34px;
+  }
+
+  .snapshotRowValue {
+    padding-left: 34px;
+    font-size: 17px;
+  }
+
+  .snapshotRowStatus {
+    justify-self: start;
+    margin-left: 34px;
+  }
+
+  .snapshotRowBody {
+    padding-left: 50px;
+  }
+}

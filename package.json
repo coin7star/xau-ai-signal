@@ -1,6 +1,6 @@
 {
-  "name": "xau-ai-signal-step10i-clean-signal-card",
-  "version": "7.2.1-step10i-clean-signal-card",
+  "name": "xau-ai-signal-step10j-compact-snapshot-accordion",
+  "version": "7.3.0-step10j-compact-snapshot-accordion",
   "type": "module",
   "scripts": {
     "dev": "vite",

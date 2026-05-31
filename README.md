@@ -151,3 +151,7 @@ Dashboard premium sekarang dibuat lebih rapi dengan tab/navbar: Sinyal, Candle, 
 ## Step 10I Patch - Clean Signal Card
 
 Signal card sekarang lebih bersih. Paragraf reason panjang di bawah confidence dihapus karena sudah terwakili oleh box AI Reason Builder. Patch ini hanya perubahan UI kecil dan tetap aman untuk Cloudflare tanpa package-lock.json.
+
+## Step 10J — Compact Snapshot Accordion
+
+Panel `RSI + MFI + EMA + OB M15` sekarang dirapikan menjadi baris accordion yang bisa dibuka/tutup saat diklik. Ini membuat dashboard premium lebih bersih dan lebih siap kalau nanti ditambah strategi atau indikator baru. Tidak mengubah logic signal utama, MT5, Telegram, Firebase, atau Bybit cron.
