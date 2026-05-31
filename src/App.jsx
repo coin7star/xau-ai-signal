@@ -503,6 +503,12 @@ export default function App() {
   const tvM1 = useMemo(() => candlesToTradingView(candlesM1), [candlesM1]);
   const tvM15 = useMemo(() => candlesToTradingView(candlesM15), [candlesM15]);
   const lastCandle = candlesM1[candlesM1.length - 1];
+  const marketSession = getMarketSessionStatus({
+    market,
+    mt5Status,
+    m1Count: tvM1.length || market?.m1Count || 0,
+    m15Count: tvM15.length || market?.m15Count || 0
+  });
 
   const isBuy = signal?.signal === "BUY";
   const isSell = signal?.signal === "SELL";
@@ -861,7 +867,7 @@ export default function App() {
           </div>
         </div>
         <div className="navActions">
-          <div className={`live ${mt5Status.isStale ? "stale" : ""}`}><Radio size={14} /> {mt5Status.label}</div>
+          <div className={`live ${marketSession.type !== "online" ? "stale" : ""}`}><Radio size={14} /> {marketSession.navLabel}</div>
           <div className="live"><Radio size={14} /> {telegramStatus}</div>
           <div className="accountBadge"><User size={15} /> {roleLabel}</div>
           <div className={`premiumExpiryBadge ${premiumInfo.expired ? "expired" : ""}`}>
@@ -874,17 +880,14 @@ export default function App() {
       </header>
 
       {mt5Status.isStale && (
-        <section className="mt5PauseBanner card">
+        <section className={`mt5PauseBanner card ${marketSession.type}`}>
           <div>
-            <span className="pill mini">LIVE MARKET SYNC PAUSED</span>
-            <h3>Sinkronisasi market sedang menunggu koneksi stabil</h3>
-            <p>
-              Data market terakhir masuk {mt5Status.lastText}. Chart dan riwayat dijeda sementara agar dashboard tidak menampilkan data lama sebagai data terbaru.
-              Sistem akan mencoba tersambung kembali otomatis setiap 60 detik.
-            </p>
+            <span className="pill mini">{marketSession.pill}</span>
+            <h3>{marketSession.title}</h3>
+            <p>{marketSession.description}</p>
           </div>
           <button type="button" onClick={() => loadData({ includeChart: true, includeHistory: true, includeScalpHistory: true })}>
-            Cek Ulang Sekarang
+            {marketSession.buttonLabel}
           </button>
         </section>
       )}
@@ -922,7 +925,7 @@ export default function App() {
           <span><Activity size={14} /> M1 Stream: <b>{candlesM1.length || market?.m1Count || 0} candles</b></span>
           <span><Shield size={14} /> M15 Stream: <b>{candlesM15.length || market?.m15Count || 0} candles</b></span>
           <span>{isSell ? <TrendingDown size={14} /> : <TrendingUp size={14} />} Last Price: <b>{lastCandle?.close || "-"}</b></span>
-          <span><Radio size={14} /> Feed Status: <b>{market?.receivedAt ? "Online" : "Syncing"}</b></span>
+          <span><Radio size={14} /> Feed Status: <b>{marketSession.feedLabel}</b></span>
         </div>
       </div>
 
@@ -974,7 +977,7 @@ export default function App() {
         <>
           <section className="chartWrap card">
             <div className="sectionTitle">
-              <div><h3>Live M1 Candlestick Chart</h3><span>{market?.symbol || "XAUUSD"} · M1 · Bid {market?.bid || "-"} · Spread {spread}</span></div>
+              <div><h3>Live M1 Candlestick Chart</h3><span>{market?.symbol || "XAUUSD"} · M1 · {marketSession.chartStatusText} · Bid {market?.bid || "-"} · Spread {spread}</span></div>
               <div className="legend">
                 <b><i className="bullDot"></i> Bullish</b>
                 <b><i className="bearDot"></i> Bearish</b>
@@ -987,15 +990,16 @@ export default function App() {
                 <em><span></span> Quick scan 12s · Chart sync 45s</em>
               </div>
             </div>
+            {marketSession.chartNotice && <div className={`chartSessionNotice ${marketSession.type}`}>{marketSession.chartNotice}</div>}
             {chartError && <div className="chartError">Chart error: {chartError}</div>}
             <div className="tvChart" ref={chartM1BoxRef}>
-              {tvM1.length === 0 && <div className="chartEmpty">Menunggu live candle M1 dari market engine...</div>}
+              {tvM1.length === 0 && <div className="chartEmpty">{marketSession.emptyM1Text}</div>}
             </div>
           </section>
 
           <section className="chartWrap card">
             <div className="sectionTitle">
-              <div><h3>Live M15 Order Block Chart</h3><span>{market?.symbol || "XAUUSD"} · M15 · OB validation chart</span></div>
+              <div><h3>Live M15 Order Block Chart</h3><span>{market?.symbol || "XAUUSD"} · M15 · {marketSession.chartStatusText}</span></div>
               <div className="legend">
                 <b><i className="bullDot"></i> Bullish</b>
                 <b><i className="bearDot"></i> Bearish</b>
@@ -1006,8 +1010,9 @@ export default function App() {
                 <em><span></span> Fresh OB M15</em>
               </div>
             </div>
+            {marketSession.chartNotice && <div className={`chartSessionNotice ${marketSession.type}`}>{marketSession.chartNotice}</div>}
             <div className="tvChart small" ref={chartM15BoxRef}>
-              {tvM15.length === 0 && <div className="chartEmpty">Menunggu live candle M15 dari market engine...</div>}
+              {tvM15.length === 0 && <div className="chartEmpty">{marketSession.emptyM15Text}</div>}
             </div>
           </section>
         </>
@@ -1303,6 +1308,79 @@ function getPremiumInfo(profile) {
 
 
 
+
+function getMarketSessionStatus({ market, mt5Status, m1Count = 0, m15Count = 0 }) {
+  const weekendPause = isForexWeekendPause();
+  const hasStoredCandles = Number(m1Count || 0) + Number(m15Count || 0) > 0;
+  const lastText = mt5Status?.lastText || "belum ada data";
+  const lastPrice = market?.lastClose || market?.bid || market?.ask || "-";
+
+  if (!mt5Status?.isStale) {
+    return {
+      type: "online",
+      navLabel: "Live market online",
+      feedLabel: "Online",
+      pill: "LIVE MARKET ONLINE",
+      title: "Live market tersambung",
+      description: "Live candle sedang aktif dan dashboard membaca data terbaru.",
+      buttonLabel: "Refresh",
+      chartStatusText: "Live session active",
+      chartNotice: "",
+      emptyM1Text: "Menunggu live candle M1 dari market engine...",
+      emptyM15Text: "Menunggu live candle M15 dari market engine..."
+    };
+  }
+
+  if (weekendPause) {
+    return {
+      type: "session-paused",
+      navLabel: "Market session paused",
+      feedLabel: hasStoredCandles ? "Session Paused" : "Waiting Session",
+      pill: "MARKET SESSION PAUSED",
+      title: "Market sedang dalam sesi jeda",
+      description: hasStoredCandles
+        ? `Sesi XAU/forex sedang tutup. Dashboard tetap menampilkan candle terakhir dari ${lastText} agar chart masih bisa dibaca. Sistem akan aktif otomatis saat market buka kembali.`
+        : "Sesi XAU/forex sedang tutup dan belum ada candle tersimpan untuk ditampilkan. Sistem akan mengambil data baru otomatis saat market buka kembali.",
+      buttonLabel: "Cek Data Terakhir",
+      chartStatusText: `Market paused · Last price ${lastPrice}`,
+      chartNotice: hasStoredCandles
+        ? `Market sedang jeda. Chart menampilkan candle terakhir yang tersimpan, bukan candle live baru.`
+        : "Market sedang jeda dan candle terakhir belum tersedia di dashboard ini.",
+      emptyM1Text: "Market sedang jeda. Candle M1 terakhir belum tersedia di dashboard ini.",
+      emptyM15Text: "Market sedang jeda. Candle M15 terakhir belum tersedia di dashboard ini."
+    };
+  }
+
+  return {
+    type: "reconnecting",
+    navLabel: "Live feed reconnecting",
+    feedLabel: "Reconnecting",
+    pill: "LIVE MARKET SYNC PAUSED",
+    title: "Sinkronisasi market sedang menunggu koneksi stabil",
+    description: `Data market terakhir masuk ${lastText}. Chart dan riwayat dijeda sementara agar dashboard tidak menampilkan data lama sebagai data terbaru. Sistem akan mencoba tersambung kembali otomatis setiap 60 detik.`,
+    buttonLabel: "Cek Ulang Sekarang",
+    chartStatusText: "Live feed reconnecting",
+    chartNotice: hasStoredCandles
+      ? "Koneksi live sedang disambungkan ulang. Chart tetap menampilkan candle terakhir yang tersimpan."
+      : "Koneksi live sedang disambungkan ulang. Menunggu candle tersimpan dari market engine.",
+    emptyM1Text: "Menunggu candle M1 dari market engine...",
+    emptyM15Text: "Menunggu candle M15 dari market engine..."
+  };
+}
+
+function isForexWeekendPause(now = new Date()) {
+  const day = now.getUTCDay();
+  const hour = now.getUTCHours();
+  const minute = now.getUTCMinutes();
+  const minutes = hour * 60 + minute;
+  const fridayClose = 22 * 60;
+  const sundayOpen = 22 * 60;
+
+  if (day === 6) return true;
+  if (day === 5 && minutes >= fridayClose) return true;
+  if (day === 0 && minutes < sundayOpen) return true;
+  return false;
+}
 
 function getMt5Status(market) {
   const rawTime = market?.receivedAt || market?.serverReceivedAt || market?.updatedAt || market?.timestamp || null;

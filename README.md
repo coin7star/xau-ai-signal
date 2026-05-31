@@ -212,3 +212,7 @@ Cloudflare safe: tidak memakai `package-lock.json`, tidak menyertakan `node_modu
 ## Step 10K — Chart Tab Stability Fix
 
 Patch ini memperbaiki chart Candle yang kadang kosong setelah pindah tab atau reload. Chart M1/M15 sekarang otomatis dibuat ulang saat tab Candle dibuka, lalu data candle, EMA, OB, support, dan resistance disinkronkan ulang.
+
+## Step 10L — Weekend / Market Closed Friendly Mode
+
+Dashboard sekarang membedakan kondisi market tutup/weekend dengan koneksi live yang benar-benar terputus. Saat XAU/forex sedang jeda, UI menampilkan status **Market Session Paused**, tetap menampilkan candle terakhir yang tersimpan, dan memberi pesan yang lebih profesional untuk user premium.

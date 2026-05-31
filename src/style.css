@@ -3533,3 +3533,47 @@ canvas {
     padding-left: 52px;
   }
 }
+
+/* Step 10L Weekend / Market Closed Friendly Mode */
+.mt5PauseBanner.session-paused {
+  border-color: rgba(103, 232, 249, .24);
+  background: linear-gradient(135deg, rgba(103,232,249,.13), rgba(15,23,42,.86));
+}
+
+.mt5PauseBanner.session-paused .pill {
+  background: rgba(103, 232, 249, .15);
+  color: #a5f3fc;
+}
+
+.mt5PauseBanner.reconnecting {
+  border-color: rgba(255, 184, 77, .22);
+}
+
+.chartSessionNotice {
+  margin: 0 0 14px;
+  padding: 12px 14px;
+  border-radius: 16px;
+  font-weight: 900;
+  line-height: 1.5;
+  color: #dbeafe;
+  background: rgba(148, 163, 184, .10);
+  border: 1px solid rgba(148, 163, 184, .16);
+}
+
+.chartSessionNotice.session-paused {
+  color: #cffafe;
+  background: rgba(103, 232, 249, .10);
+  border-color: rgba(103, 232, 249, .18);
+}
+
+.chartSessionNotice.reconnecting {
+  color: #fff2c2;
+  background: rgba(255, 232, 121, .10);
+  border-color: rgba(255, 232, 121, .18);
+}
+
+@media(max-width: 720px) {
+  .chartSessionNotice {
+    font-size: 13px;
+  }
+}
