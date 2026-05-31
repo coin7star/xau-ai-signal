@@ -1,6 +1,6 @@
 {
-  "name": "xau-ai-signal-step10i-compact-dashboard-tabs",
-  "version": "7.2.0-step10i-compact-dashboard-tabs",
+  "name": "xau-ai-signal-step10i-clean-signal-card",
+  "version": "7.2.1-step10i-clean-signal-card",
   "type": "module",
   "scripts": {
     "dev": "vite",

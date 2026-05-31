@@ -811,7 +811,6 @@ export default function App() {
               <div className="signalTop"><b>{market?.symbol || "XAUUSD"}</b><span>{lastUpdate}</span></div>
               <h2>{readableSignal}</h2>
               <div className="confidence">{signal?.confidence || 0}% confidence</div>
-              <p>{signal?.reason || "Menunggu candle MT5..."}</p>
               {signal?.reasonDetails?.checklist?.length > 0 && (
                 <div className="reasonBuilderBox">
                   <div className="reasonBuilderTitle"><Sparkles size={14} /> AI Reason Builder</div>
