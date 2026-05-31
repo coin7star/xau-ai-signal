@@ -795,7 +795,7 @@ export default function App() {
   const scalpStats = scalpHistory?.stats || {};
   const telegramStatus = formatSignalAlertStatus(signal?.telegram);
   const premiumActive = isPremiumProfile(authProfile);
-  const roleLabel = authProfile?.role?.toUpperCase?.() || "FREE";
+  const roleLabel = getRoleBadgeLabel(authProfile);
   const isAdmin = authProfile?.role === "admin";
   const premiumInfo = getPremiumInfo(authProfile);
   const emailVerified = Boolean(authUser?.emailVerified || authProfile?.emailVerified || authProfile?.emailCodeVerified);
@@ -858,22 +858,22 @@ export default function App() {
 
   return (
     <main className="page compactDashboardPage">
-      <header className="nav">
-        <div className="brand">
-          <div className="logo"><Bot size={22} /></div>
-          <div>
+      <header className="nav dashboardHeader">
+        <div className="brand dashboardBrand">
+          <div className="logo dashboardLogo"><Bot size={22} /></div>
+          <div className="dashboardBrandText">
             <b>XAU AI Signal</b>
             <span>Premium dashboard · Signal · Candle · Scalp Mode</span>
           </div>
         </div>
-        <div className="navActions">
-          <div className={`live ${marketSession.type !== "online" ? "stale" : ""}`}><Radio size={14} /> {marketSession.navLabel}</div>
-          <div className="live"><Radio size={14} /> {telegramStatus}</div>
-          <div className="accountBadge"><User size={15} /> {roleLabel}</div>
-          <div className={`premiumExpiryBadge ${premiumInfo.expired ? "expired" : ""}`}>
+        <div className="navActions dashboardHeaderActions">
+          <div className={`live headerBadge headerFeedBadge ${marketSession.type !== "online" ? "stale" : ""}`}><Radio size={14} /> {marketSession.navLabel}</div>
+          <div className="live headerBadge headerAlertBadge"><Radio size={14} /> {telegramStatus}</div>
+          <div className="accountBadge headerBadge headerRoleBadge"><User size={15} /> {roleLabel}</div>
+          <div className={`premiumExpiryBadge headerBadge headerAccessBadge ${premiumInfo.expired ? "expired" : ""}`}>
             <Shield size={15} /> {premiumInfo.label}
           </div>
-          <button className="navBtn danger" type="button" onClick={logout}>
+          <button className="navBtn danger headerBadge headerLogoutBtn" type="button" onClick={logout}>
             <LogOut size={16} /> Logout
           </button>
         </div>
@@ -1241,11 +1241,18 @@ function formatPremiumUntil(user) {
 }
 
 
+function getRoleBadgeLabel(profile) {
+  if (!profile?.role) return "Free";
+  if (profile.role === "admin") return "Admin";
+  if (profile.role === "premium") return "Premium";
+  return "Free";
+}
+
 function getPremiumInfo(profile) {
   if (!profile) {
     return {
-      label: "FREE",
-      detail: "Belum ada akses premium",
+      label: "Free Plan",
+      detail: "Akses premium belum aktif",
       dateText: "-",
       expired: true
     };
@@ -1253,8 +1260,8 @@ function getPremiumInfo(profile) {
 
   if (profile.role === "admin") {
     return {
-      label: "ADMIN ACCESS",
-      detail: "Akses admin aktif tanpa batas normal",
+      label: "Akses Admin",
+      detail: "Hak akses admin aktif tanpa batas waktu",
       dateText: "Lifetime admin",
       expired: false
     };
@@ -1264,8 +1271,8 @@ function getPremiumInfo(profile) {
 
   if (profile.role !== "premium") {
     return {
-      label: "FREE",
-      detail: "Belum ada akses premium",
+      label: "Free Plan",
+      detail: "Akses premium belum aktif",
       dateText: "-",
       expired: true
     };
@@ -1273,8 +1280,8 @@ function getPremiumInfo(profile) {
 
   if (!until) {
     return {
-      label: "PREMIUM EXPIRED",
-      detail: "Tanggal expired belum diset",
+      label: "Premium Berakhir",
+      detail: "Masa aktif premium belum terdeteksi",
       dateText: "-",
       expired: true
     };

@@ -216,3 +216,9 @@ Patch ini memperbaiki chart Candle yang kadang kosong setelah pindah tab atau re
 ## Step 10L — Weekend / Market Closed Friendly Mode
 
 Dashboard sekarang membedakan kondisi market tutup/weekend dengan koneksi live yang benar-benar terputus. Saat XAU/forex sedang jeda, UI menampilkan status **Market Session Paused**, tetap menampilkan candle terakhir yang tersimpan, dan memberi pesan yang lebih profesional untuk user premium.
+
+
+## Step 10M - Mobile Header Polish
+- Header dashboard premium di HP dibuat lebih rapi.
+- Badge status disusun lebih nyaman dibaca di layar kecil.
+- Label role dan akses dibuat lebih user friendly.

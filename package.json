@@ -1,6 +1,6 @@
 {
-  "name": "xau-ai-signal-step10l-weekend-market-closed-friendly-mode",
-  "version": "7.5.0-step10l-weekend-market-closed-friendly-mode",
+  "name": "xau-ai-signal-step10m-mobile-header-polish",
+  "version": "7.5.1-step10m-mobile-header-polish",
   "type": "module",
   "scripts": {
     "dev": "vite",
