@@ -1084,8 +1084,8 @@ export default function App() {
                   <span>{item.entry}</span>
                   <span>{item.sl || "-"} / {item.tp || "-"}</span>
                   <span>{item.score ?? item.confidence ?? "-"}%</span>
-                  <span className={`resultBadge ${(item.result || item.status || "OPEN").toLowerCase()}`}>
-                    {item.result || item.status || "OPEN"}
+                  <span className={`resultBadge ${getResultStatusTone(item)}`}>
+                    {formatResultStatus(item)}
                   </span>
                   {isAdmin && (
                     <div className="historyActions">
@@ -1109,6 +1109,12 @@ export default function App() {
       {activeDashboardTab === "history" && (
         <>
           <UserPaymentHistoryCard user={authUser} />
+          <ResultTrackerPrepPanel
+            callHistory={callHistory}
+            scalpHistory={scalpHistory}
+            market={market}
+            signal={signal}
+          />
           <PerformanceAnalyticsPanel
             callHistory={callHistory}
             scalpHistory={scalpHistory}
@@ -1167,8 +1173,8 @@ export default function App() {
                   <span>{item.entry}</span>
                   <span>{item.sl || "-"} / {item.tp || "-"}</span>
                   <span>{item.probability?.score ?? item.confidence ?? "-"}%</span>
-                  <span className={`resultBadge ${(item.result || item.status || "OPEN").toLowerCase()}`}>
-                    {item.result || item.status || "OPEN"}
+                  <span className={`resultBadge ${getResultStatusTone(item)}`}>
+                    {formatResultStatus(item)}
                   </span>
                   {isAdmin && (
                     <div className="historyActions">
@@ -2308,6 +2314,77 @@ function UserPaymentHistoryCard({ user }) {
 }
 
 
+function ResultTrackerPrepPanel({ callHistory, scalpHistory, market, signal }) {
+  const callItems = callHistory?.history || [];
+  const scalpItems = scalpHistory?.history || [];
+  const allItems = [
+    ...callItems.map((item) => ({ ...item, trackerType: "MAIN CALL" })),
+    ...scalpItems.map((item) => ({ ...item, trackerType: "SCALP M1" }))
+  ];
+  const runningItems = allItems.filter((item) => isOpenResult(item)).slice(0, 5);
+  const closedItems = allItems.filter((item) => !isOpenResult(item));
+  const lastPrice = getTrackerMarketPrice(market, signal);
+  const trackerReady = runningItems.length > 0 && lastPrice;
+
+  return (
+    <section className="resultTrackerPanel card">
+      <div className="sectionTitle">
+        <div>
+          <span className="pill mini"><Target size={14} /> RESULT TRACKER LITE</span>
+          <h3>Auto Result Prep</h3>
+          <span>Fondasi untuk tracking RUNNING / WIN / LOSS / EXPIRED sebelum engine otomatis diaktifkan.</span>
+        </div>
+        <div className={`trackerStatusBadge ${trackerReady ? "ready" : "standby"}`}>
+          {trackerReady ? "Tracker Ready" : "Standby"}
+        </div>
+      </div>
+
+      <div className="trackerSummaryGrid">
+        <div>
+          <small>Running Signal</small>
+          <strong>{runningItems.length}</strong>
+          <span>Signal yang masih menunggu hasil final.</span>
+        </div>
+        <div>
+          <small>Closed Signal</small>
+          <strong>{closedItems.length}</strong>
+          <span>Signal yang sudah punya hasil WIN / LOSS / BE.</span>
+        </div>
+        <div>
+          <small>Live Price Check</small>
+          <strong>{lastPrice ? formatPrice(lastPrice) : "-"}</strong>
+          <span>Harga acuan untuk engine auto result berikutnya.</span>
+        </div>
+      </div>
+
+      <div className="trackerLiteNotice">
+        <b>Mode Lite aktif</b>
+        <span>Step ini baru menyiapkan tampilan dan status tracking. Auto WIN/LOSS penuh akan diaktifkan di step berikutnya agar aman.</span>
+      </div>
+
+      <div className="trackerQueue">
+        <div className="trackerQueueHead">
+          <span>Signal</span>
+          <span>Entry</span>
+          <span>SL / TP</span>
+          <span>Status</span>
+        </div>
+        {runningItems.map((item) => (
+          <div className="trackerQueueRow" key={`${item.trackerType}-${item.id || item.createdAt || item.candleTime}`}>
+            <strong className={String(item.signal || "").toLowerCase()}>{item.trackerType} · {item.signal || "-"}</strong>
+            <span>{item.entry || "-"}</span>
+            <span>{item.sl || "-"} / {item.tp || "-"}</span>
+            <em className={`resultBadge ${getResultStatusTone(item)}`}>{formatResultStatus(item)}</em>
+          </div>
+        ))}
+        {runningItems.length === 0 && (
+          <div className="trackerEmpty">Belum ada signal RUNNING. Tracker akan menampilkan antrian saat ada CALL/SCALP valid yang masih open.</div>
+        )}
+      </div>
+    </section>
+  );
+}
+
 function PerformanceAnalyticsPanel({ callHistory, scalpHistory, isAdmin }) {
   const callItems = callHistory?.history || [];
   const scalpItems = scalpHistory?.history || [];
@@ -2404,6 +2481,55 @@ function PerformanceCard({ title, period, stats }) {
       <p>{stats.total} total signal · {stats.open} masih OPEN</p>
     </div>
   );
+}
+
+function isOpenResult(item) {
+  const result = String(item?.result || item?.status || "OPEN").toUpperCase();
+  return ["OPEN", "RUNNING", "PENDING", "WAITING"].includes(result);
+}
+
+function formatResultStatus(item) {
+  const raw = String(item?.result || item?.status || "OPEN").toUpperCase();
+  if (raw === "OPEN") return "RUNNING";
+  if (raw === "BE" || raw === "BREAKEVEN") return "BE";
+  if (raw === "WIN") return "WIN";
+  if (raw === "LOSS") return "LOSS";
+  if (raw === "EXPIRED") return "EXPIRED";
+  if (raw === "RUNNING") return "RUNNING";
+  return raw || "RUNNING";
+}
+
+function getResultStatusTone(item) {
+  const status = formatResultStatus(item).toLowerCase();
+  if (status === "running") return "running";
+  if (status === "expired") return "expired";
+  if (status === "be") return "be";
+  if (status === "win") return "win";
+  if (status === "loss") return "loss";
+  return "open";
+}
+
+function getTrackerMarketPrice(market, signal) {
+  const direct = Number(
+    market?.lastPrice ??
+    market?.price ??
+    market?.latest?.lastPrice ??
+    market?.m1?.lastPrice ??
+    signal?.entry ??
+    0
+  );
+  if (Number.isFinite(direct) && direct > 0) return direct;
+
+  const m1 = market?.m1 || market?.candles?.m1 || market?.candlesM1 || [];
+  const last = Array.isArray(m1) ? m1[m1.length - 1] : null;
+  const price = Number(last?.close ?? last?.c ?? 0);
+  return Number.isFinite(price) && price > 0 ? price : 0;
+}
+
+function formatPrice(value) {
+  const n = Number(value);
+  if (!Number.isFinite(n)) return "-";
+  return n.toFixed(2);
 }
 
 function buildPerformanceStats(items, days) {

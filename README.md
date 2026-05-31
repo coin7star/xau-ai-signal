@@ -265,3 +265,10 @@ Dashboard sekarang membedakan kondisi market tutup/weekend dengan koneksi live y
 - `/api/telegram-test` tidak lagi public GET.
 - Test alert sekarang dilindungi admin token/secret, method POST, dan cooldown anti-spam.
 - Tombol test alert tersedia di tab Admin.
+
+
+## Step 10R Lite - Result Tracker UI Prep
+- Menambahkan panel Result Tracker Lite di tab History.
+- Menyiapkan status RUNNING / WIN / LOSS / BE / EXPIRED untuk auto result engine berikutnya.
+- OPEN ditampilkan sebagai RUNNING agar lebih user friendly.
+- Tidak mengubah MQ5, Telegram alert, Firebase rules, atau Bybit cron.

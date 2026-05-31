@@ -1,6 +1,6 @@
 {
-  "name": "xau-ai-signal-step10q1-secure-telegram-test-endpoint",
-  "version": "7.9.1-step10q1-secure-telegram-test-endpoint",
+  "name": "xau-ai-signal-step10r-lite-result-tracker-ui-prep",
+  "version": "7.10.0-step10r-lite-result-tracker-ui-prep",
   "type": "module",
   "scripts": {
     "dev": "vite",

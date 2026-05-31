@@ -4048,3 +4048,167 @@ canvas {
     grid-template-columns: 1fr;
   }
 }
+
+
+/* Step 10R Lite - Result Tracker UI Prep */
+.resultTrackerPanel {
+  padding: 28px;
+  margin-bottom: 20px;
+}
+
+.trackerStatusBadge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 140px;
+  padding: 12px 16px;
+  border-radius: 999px;
+  font-weight: 1000;
+  border: 1px solid rgba(255,255,255,.12);
+  background: rgba(255,255,255,.08);
+  color: #dbeafe;
+}
+
+.trackerStatusBadge.ready {
+  background: rgba(34,255,170,.13);
+  color: #a6ffd8;
+  border-color: rgba(34,255,170,.24);
+}
+
+.trackerStatusBadge.standby {
+  background: rgba(255,232,121,.12);
+  color: #ffe879;
+  border-color: rgba(255,232,121,.22);
+}
+
+.trackerSummaryGrid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+  margin: 16px 0;
+}
+
+.trackerSummaryGrid > div {
+  padding: 18px;
+  border-radius: 20px;
+  background: rgba(0,0,0,.24);
+  border: 1px solid rgba(255,255,255,.08);
+}
+
+.trackerSummaryGrid small,
+.trackerSummaryGrid span {
+  color: #9fb0d6;
+}
+
+.trackerSummaryGrid strong {
+  display: block;
+  margin: 7px 0 6px;
+  font-size: 28px;
+  color: #f8fbff;
+}
+
+.trackerLiteNotice {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  padding: 15px 16px;
+  margin-bottom: 14px;
+  border-radius: 18px;
+  background: linear-gradient(135deg, rgba(250,204,21,.12), rgba(34,197,94,.08));
+  border: 1px solid rgba(250,204,21,.18);
+}
+
+.trackerLiteNotice b {
+  color: #fde68a;
+  white-space: nowrap;
+}
+
+.trackerLiteNotice span {
+  color: #dbeafe;
+  line-height: 1.45;
+}
+
+.trackerQueue {
+  display: grid;
+  gap: 8px;
+}
+
+.trackerQueueHead,
+.trackerQueueRow {
+  display: grid;
+  grid-template-columns: 1.2fr .7fr 1fr .7fr;
+  gap: 10px;
+  align-items: center;
+}
+
+.trackerQueueHead {
+  padding: 0 14px 6px;
+  color: #91a1c8;
+  text-transform: uppercase;
+  letter-spacing: .08em;
+  font-size: 12px;
+  font-weight: 900;
+}
+
+.trackerQueueRow {
+  padding: 13px 14px;
+  border-radius: 16px;
+  background: rgba(0,0,0,.24);
+  border: 1px solid rgba(255,255,255,.08);
+}
+
+.trackerQueueRow span {
+  color: #d7e0f7;
+  font-weight: 800;
+}
+
+.trackerQueueRow strong.buy,
+.trackerQueueRow strong.call_buy,
+.trackerQueueRow strong.scalp_buy {
+  color: #9fffd5;
+}
+
+.trackerQueueRow strong.sell,
+.trackerQueueRow strong.call_sell,
+.trackerQueueRow strong.scalp_sell {
+  color: #ffb1c0;
+}
+
+.trackerEmpty {
+  padding: 18px;
+  border-radius: 18px;
+  background: rgba(255,255,255,.05);
+  border: 1px dashed rgba(255,255,255,.16);
+  color: #a8b5d8;
+  font-weight: 800;
+}
+
+.resultBadge.running {
+  background: rgba(96,165,250,.14);
+  color: #bfdbfe;
+}
+
+.resultBadge.expired {
+  background: rgba(148,163,184,.14);
+  color: #cbd5e1;
+}
+
+@media (max-width: 860px) {
+  .trackerSummaryGrid {
+    grid-template-columns: 1fr;
+  }
+
+  .trackerLiteNotice {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .trackerQueueHead {
+    display: none;
+  }
+
+  .trackerQueueRow {
+    grid-template-columns: 1fr;
+  }
+}
