@@ -1,6 +1,6 @@
 {
-  "name": "xau-ai-signal-step10r-lite-result-tracker-ui-prep",
-  "version": "7.10.0-step10r-lite-result-tracker-ui-prep",
+  "name": "xau-ai-signal-step10s-auto-result-engine",
+  "version": "7.11.0-step10s-auto-result-engine",
   "type": "module",
   "scripts": {
     "dev": "vite",

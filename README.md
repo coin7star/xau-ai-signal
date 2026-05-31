@@ -272,3 +272,9 @@ Dashboard sekarang membedakan kondisi market tutup/weekend dengan koneksi live y
 - Menyiapkan status RUNNING / WIN / LOSS / BE / EXPIRED untuk auto result engine berikutnya.
 - OPEN ditampilkan sebagai RUNNING agar lebih user friendly.
 - Tidak mengubah MQ5, Telegram alert, Firebase rules, atau Bybit cron.
+
+
+## Step 10S - Auto Result Engine
+- Menambahkan endpoint `/api/result-tracker` untuk cek TP/SL/expired pada signal RUNNING.
+- Admin bisa menjalankan pengecekan dari tab History.
+- Belum mengirim result otomatis ke Telegram; disiapkan untuk step berikutnya.

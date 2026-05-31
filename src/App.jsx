@@ -249,6 +249,7 @@ export default function App() {
   const [activeDashboardTab, setActiveDashboardTab] = useState("signal");
   const [telegramConnect, setTelegramConnect] = useState(null);
   const [bybitFeed, setBybitFeed] = useState({ latest: null, status: null, cronError: null, loading: false, error: "" });
+  const [resultTracker, setResultTracker] = useState({ loading: false, message: "", lastRun: null, updated: [] });
 
   async function loadData({ includeChart = false, includeHistory = false, includeScalpHistory = false } = {}) {
     try {
@@ -424,6 +425,48 @@ export default function App() {
       await loadScalpHistoryData();
     } catch (err) {
       alert(err.message || String(err));
+    }
+  }
+
+  async function runAutoResultTracker() {
+    if (!adminToken) {
+      alert("Isi Kode admin dulu sebelum menjalankan Auto Result Engine.");
+      return;
+    }
+
+    try {
+      setResultTracker((prev) => ({ ...prev, loading: true, message: "Mengecek signal RUNNING..." }));
+
+      const res = await fetch("/api/result-tracker", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${adminToken}`
+        },
+        body: JSON.stringify({ token: adminToken })
+      });
+      const json = await res.json();
+
+      if (!json.ok) {
+        setResultTracker((prev) => ({ ...prev, loading: false, message: json.error || "Auto Result Engine gagal dijalankan." }));
+        alert(json.error || "Auto Result Engine gagal dijalankan.");
+        return;
+      }
+
+      setResultTracker({
+        loading: false,
+        message: json.message || "Auto Result Engine selesai mengecek signal.",
+        lastRun: json.checkedAt || new Date().toISOString(),
+        updated: json.updated || [],
+        updatedCount: json.updatedCount || 0,
+        scanned: json.scanned || 0,
+        livePrice: json.livePrice || 0
+      });
+
+      await loadData({ includeChart: false, includeHistory: true, includeScalpHistory: true });
+    } catch (err) {
+      setResultTracker((prev) => ({ ...prev, loading: false, message: err?.message || String(err) }));
+      alert(err?.message || String(err));
     }
   }
 
@@ -1114,6 +1157,10 @@ export default function App() {
             scalpHistory={scalpHistory}
             market={market}
             signal={signal}
+            isAdmin={isAdmin}
+            adminToken={adminToken}
+            trackerState={resultTracker}
+            onRunTracker={runAutoResultTracker}
           />
           <PerformanceAnalyticsPanel
             callHistory={callHistory}
@@ -2314,7 +2361,7 @@ function UserPaymentHistoryCard({ user }) {
 }
 
 
-function ResultTrackerPrepPanel({ callHistory, scalpHistory, market, signal }) {
+function ResultTrackerPrepPanel({ callHistory, scalpHistory, market, signal, isAdmin, adminToken, trackerState, onRunTracker }) {
   const callItems = callHistory?.history || [];
   const scalpItems = scalpHistory?.history || [];
   const allItems = [
@@ -2325,6 +2372,8 @@ function ResultTrackerPrepPanel({ callHistory, scalpHistory, market, signal }) {
   const closedItems = allItems.filter((item) => !isOpenResult(item));
   const lastPrice = getTrackerMarketPrice(market, signal);
   const trackerReady = runningItems.length > 0 && lastPrice;
+  const updatedCount = trackerState?.updatedCount || 0;
+  const scannedCount = trackerState?.scanned || 0;
 
   return (
     <section className="resultTrackerPanel card">
@@ -2332,10 +2381,10 @@ function ResultTrackerPrepPanel({ callHistory, scalpHistory, market, signal }) {
         <div>
           <span className="pill mini"><Target size={14} /> RESULT TRACKER LITE</span>
           <h3>Auto Result Prep</h3>
-          <span>Fondasi untuk tracking RUNNING / WIN / LOSS / EXPIRED sebelum engine otomatis diaktifkan.</span>
+          <span>Engine otomatis untuk cek signal RUNNING berdasarkan live price, TP, SL, dan batas waktu.</span>
         </div>
         <div className={`trackerStatusBadge ${trackerReady ? "ready" : "standby"}`}>
-          {trackerReady ? "Tracker Ready" : "Standby"}
+          {trackerReady ? "Engine Ready" : "Standby"}
         </div>
       </div>
 
@@ -2357,10 +2406,31 @@ function ResultTrackerPrepPanel({ callHistory, scalpHistory, market, signal }) {
         </div>
       </div>
 
-      <div className="trackerLiteNotice">
-        <b>Mode Lite aktif</b>
-        <span>Step ini baru menyiapkan tampilan dan status tracking. Auto WIN/LOSS penuh akan diaktifkan di step berikutnya agar aman.</span>
+      <div className="trackerLiteNotice autoEngineNotice">
+        <b>Auto Result Engine aktif</b>
+        <span>Engine mengecek signal RUNNING. BUY akan WIN saat harga menyentuh TP dan LOSS saat menyentuh SL. SELL berlaku sebaliknya.</span>
       </div>
+
+      {isAdmin && (
+        <div className="trackerControlBox">
+          <div>
+            <b>Manual Engine Check</b>
+            <span>{trackerState?.message || "Klik tombol untuk mengecek RUNNING signal sekarang."}</span>
+            {trackerState?.lastRun ? <small>Terakhir cek: {formatHistoryTime(trackerState.lastRun)} · Scan {scannedCount} · Update {updatedCount}</small> : null}
+          </div>
+          <button type="button" onClick={onRunTracker} disabled={trackerState?.loading || !adminToken}>
+            <RefreshCcw size={15} /> {trackerState?.loading ? "Checking..." : "Cek Auto Result"}
+          </button>
+        </div>
+      )}
+
+      {trackerState?.updated?.length > 0 && (
+        <div className="trackerUpdateList">
+          {trackerState.updated.slice(0, 5).map((item) => (
+            <span key={`${item.type}-${item.id}`}>{item.type} · {item.result} · {formatPrice(item.price)}</span>
+          ))}
+        </div>
+      )}
 
       <div className="trackerQueue">
         <div className="trackerQueueHead">

@@ -4212,3 +4212,81 @@ canvas {
     grid-template-columns: 1fr;
   }
 }
+
+/* Step 10S - Auto Result Engine */
+.autoEngineNotice {
+  background: linear-gradient(135deg, rgba(34,255,170,.12), rgba(96,165,250,.10));
+  border-color: rgba(34,255,170,.20);
+}
+
+.trackerControlBox {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 14px;
+  padding: 16px;
+  margin-bottom: 14px;
+  border-radius: 20px;
+  background: rgba(15, 23, 42, .74);
+  border: 1px solid rgba(255,255,255,.10);
+}
+
+.trackerControlBox div {
+  display: grid;
+  gap: 5px;
+}
+
+.trackerControlBox b {
+  color: #f8fbff;
+  font-size: 15px;
+}
+
+.trackerControlBox span,
+.trackerControlBox small {
+  color: #9fb0d6;
+  line-height: 1.45;
+}
+
+.trackerControlBox button {
+  flex-shrink: 0;
+  border-radius: 16px;
+  padding: 13px 16px;
+  background: linear-gradient(135deg, #22ffaa, #67e8f9);
+  color: #041018;
+}
+
+.trackerControlBox button:disabled {
+  opacity: .55;
+  cursor: not-allowed;
+  filter: grayscale(.4);
+}
+
+.trackerUpdateList {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 14px;
+}
+
+.trackerUpdateList span {
+  display: inline-flex;
+  padding: 9px 11px;
+  border-radius: 999px;
+  background: rgba(34,255,170,.12);
+  border: 1px solid rgba(34,255,170,.20);
+  color: #a6ffd8;
+  font-weight: 900;
+  font-size: 12px;
+}
+
+@media (max-width: 860px) {
+  .trackerControlBox {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .trackerControlBox button {
+    justify-content: center;
+    width: 100%;
+  }
+}
