@@ -12,7 +12,7 @@ const PACKAGE_30D_PRICE = "Rp30K";
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { createChart, ColorType, CrosshairMode } from "lightweight-charts";
-import { Activity, Bot, Copy, Database, Lock, LogOut, Radio, RefreshCcw, Settings, Shield, Sparkles, Target, TrendingDown, TrendingUp, User, Zap } from "lucide-react";
+import { Activity, Bot, Clock, Copy, Database, Lock, LogOut, Radio, RefreshCcw, Settings, Shield, Sparkles, Target, TrendingDown, TrendingUp, User, Zap } from "lucide-react";
 import { auth, createPaymentOrder, ensureUserProfile, getUserPaymentOrders,
   getUserProfile, hasFirebaseClientConfig, isPremiumProfile, listenAuth, loginWithEmail, loginWithGoogle, logout, refreshCurrentUser, registerWithEmail, resetPasswordEmail, sendVerificationEmail } from "./firebaseClient";
 
@@ -773,7 +773,8 @@ export default function App() {
   const dashboardTabs = [
     { id: "signal", label: "Sinyal", icon: <Zap size={15} /> },
     { id: "chart", label: "Candle", icon: <Activity size={15} /> },
-    { id: "history", label: "History", icon: <Target size={15} /> },
+    { id: "scalp", label: "Scalp Mode", icon: <Target size={15} /> },
+    { id: "history", label: "History", icon: <Clock size={15} /> },
     { id: "telegram", label: "Telegram", icon: <Radio size={15} /> },
     ...(isAdmin ? [{ id: "admin", label: "Admin", icon: <Settings size={15} /> }] : [])
   ];
@@ -785,7 +786,7 @@ export default function App() {
           <div className="logo"><Bot size={22} /></div>
           <div>
             <b>XAU AI Signal</b>
-            <span>Premium dashboard · Signal · Candle · History</span>
+            <span>Premium dashboard · Signal · Candle · Scalp Mode</span>
           </div>
         </div>
         <div className="navActions">
@@ -941,7 +942,7 @@ export default function App() {
         </>
       )}
 
-      {activeDashboardTab === "history" && (
+      {activeDashboardTab === "scalp" && (
         <>
           <section className={`scalpPanel card ${String(scalping.action || "WAIT").toLowerCase()}`}>
             <div className="strategyHeader">
@@ -966,6 +967,71 @@ export default function App() {
             <p className="scalpWarning">Mode scalp baru pakai struktur M1: buy di last swing low M1 + bullish engulfing, sell di last swing high M1 + bearish engulfing. CALL utama tetap lebih saklek.</p>
           </section>
 
+
+          <section className="historyPanel card scalpHistoryPanel">
+            <div className="sectionTitle">
+              <div>
+                <h3>{isAdmin ? "SCALP M1 Valid History & Manual Result" : "SCALP M1 Performance"}</h3>
+                <span>Hanya SCALP BUY/SELL valid yang disimpan agar riwayat tetap bersih dan ringan.</span>
+              </div>
+              <div className="historyStats">
+                <b>Total {scalpStats.total || 0}</b>
+                <b>Open {scalpStats.open || 0}</b>
+                <b>Win {scalpStats.wins || 0}</b>
+                <b>Loss {scalpStats.losses || 0}</b>
+                <b>BE {scalpStats.be || 0}</b>
+                <em>WR {scalpStats.winRate || 0}%</em>
+              </div>
+            </div>
+
+            {!isAdmin && (
+              <div className="premiumViewerNote scalpViewerNote">
+                Pantau performa SCALP M1 valid, result, dan winrate secara ringkas.
+              </div>
+            )}
+
+            <div className="historyTable">
+              <div className={`historyHead ${isAdmin ? "adminMode" : "viewerMode"}`}>
+                <span>Time</span>
+                <span>Signal</span>
+                <span>Entry</span>
+                <span>SL / TP</span>
+                <span>Score</span>
+                <span>Result</span>
+                {isAdmin && <span>Action</span>}
+              </div>
+
+              {(scalpHistory?.history || []).slice(0, 10).map((item) => (
+                <div className={`historyRow ${isAdmin ? "adminMode" : "viewerMode"}`} key={item.id}>
+                  <span>{formatHistoryTime(item.createdAt || item.candleTime)}</span>
+                  <strong className={String(item.signal || "").toLowerCase()}>{item.signal}</strong>
+                  <span>{item.entry}</span>
+                  <span>{item.sl || "-"} / {item.tp || "-"}</span>
+                  <span>{item.score ?? item.confidence ?? "-"}%</span>
+                  <span className={`resultBadge ${(item.result || item.status || "OPEN").toLowerCase()}`}>
+                    {item.result || item.status || "OPEN"}
+                  </span>
+                  {isAdmin && (
+                    <div className="historyActions">
+                      <button type="button" onClick={() => updateScalpResult(item.id, "WIN")}>WIN</button>
+                      <button type="button" onClick={() => updateScalpResult(item.id, "LOSS")}>LOSS</button>
+                      <button type="button" onClick={() => updateScalpResult(item.id, "BE")}>BE</button>
+                      <button type="button" onClick={() => updateScalpResult(item.id, "OPEN")}>OPEN</button>
+                    </div>
+                  )}
+                </div>
+              ))}
+
+              {(!scalpHistory?.history || scalpHistory.history.length === 0) && (
+                <div className="emptyHistory">Belum ada SCALP BUY/SELL valid. History akan muncul otomatis saat scalp mode valid.</div>
+              )}
+            </div>
+          </section>
+        </>
+      )}
+
+      {activeDashboardTab === "history" && (
+        <>
           <UserPaymentHistoryCard user={authUser} />
           <PerformanceAnalyticsPanel
             callHistory={callHistory}
@@ -1045,65 +1111,7 @@ export default function App() {
             </div>
           </section>
 
-          <section className="historyPanel card scalpHistoryPanel">
-            <div className="sectionTitle">
-              <div>
-                <h3>{isAdmin ? "SCALP M1 Valid History & Manual Result" : "SCALP M1 Performance"}</h3>
-                <span>Hanya SCALP BUY/SELL valid yang disimpan agar riwayat tetap bersih dan ringan.</span>
-              </div>
-              <div className="historyStats">
-                <b>Total {scalpStats.total || 0}</b>
-                <b>Open {scalpStats.open || 0}</b>
-                <b>Win {scalpStats.wins || 0}</b>
-                <b>Loss {scalpStats.losses || 0}</b>
-                <b>BE {scalpStats.be || 0}</b>
-                <em>WR {scalpStats.winRate || 0}%</em>
-              </div>
-            </div>
 
-            {!isAdmin && (
-              <div className="premiumViewerNote scalpViewerNote">
-                Pantau performa SCALP M1 valid, result, dan winrate secara ringkas.
-              </div>
-            )}
-
-            <div className="historyTable">
-              <div className={`historyHead ${isAdmin ? "adminMode" : "viewerMode"}`}>
-                <span>Time</span>
-                <span>Signal</span>
-                <span>Entry</span>
-                <span>SL / TP</span>
-                <span>Score</span>
-                <span>Result</span>
-                {isAdmin && <span>Action</span>}
-              </div>
-
-              {(scalpHistory?.history || []).slice(0, 10).map((item) => (
-                <div className={`historyRow ${isAdmin ? "adminMode" : "viewerMode"}`} key={item.id}>
-                  <span>{formatHistoryTime(item.createdAt || item.candleTime)}</span>
-                  <strong className={String(item.signal || "").toLowerCase()}>{item.signal}</strong>
-                  <span>{item.entry}</span>
-                  <span>{item.sl || "-"} / {item.tp || "-"}</span>
-                  <span>{item.score ?? item.confidence ?? "-"}%</span>
-                  <span className={`resultBadge ${(item.result || item.status || "OPEN").toLowerCase()}`}>
-                    {item.result || item.status || "OPEN"}
-                  </span>
-                  {isAdmin && (
-                    <div className="historyActions">
-                      <button type="button" onClick={() => updateScalpResult(item.id, "WIN")}>WIN</button>
-                      <button type="button" onClick={() => updateScalpResult(item.id, "LOSS")}>LOSS</button>
-                      <button type="button" onClick={() => updateScalpResult(item.id, "BE")}>BE</button>
-                      <button type="button" onClick={() => updateScalpResult(item.id, "OPEN")}>OPEN</button>
-                    </div>
-                  )}
-                </div>
-              ))}
-
-              {(!scalpHistory?.history || scalpHistory.history.length === 0) && (
-                <div className="emptyHistory">Belum ada SCALP BUY/SELL valid. History akan muncul otomatis saat scalp mode valid.</div>
-              )}
-            </div>
-          </section>
         </>
       )}
 

@@ -1,6 +1,6 @@
 {
-  "name": "xau-ai-signal-step10j-premium-feed-label",
-  "version": "7.3.3-step10j-premium-offline-copy",
+  "name": "xau-ai-signal-step10j-scalp-mode-tab",
+  "version": "7.3.4-step10j-scalp-mode-tab",
   "type": "module",
   "scripts": {
     "dev": "vite",

@@ -182,3 +182,18 @@ Catatan teknis tetap aman: perubahan ini hanya copywriting Telegram, tidak mengu
 - Mengganti kalimat offline/pause yang terlalu teknis menjadi bahasa premium dan user-friendly.
 - Istilah backend seperti Firebase/RTDB/MT5/VPS tidak ditampilkan lagi di area utama user.
 - Tidak mengubah logic signal, Telegram, MQ5, Firebase, atau cron.
+
+
+## Step 10J Patch 7.3.4 — Scalp Mode Tab
+
+Dashboard sekarang memisahkan panel M1 SR + EMA Scalp ke tab khusus **Scalp Mode**.
+
+Tujuan update:
+- Tab History tetap fokus ke riwayat CALL dan analytics.
+- Setup scalping M1 tidak memenuhi halaman utama.
+- Nanti kalau ada strategi scalping baru, indikator tambahan, atau filter M1 baru, semuanya bisa dikembangkan di tab Scalp Mode tanpa membuat dashboard terlihat ramai.
+
+Catatan deploy Cloudflare:
+- Tidak memakai `package-lock.json`.
+- Build command tetap `npm install && npm run build`.
+- Output directory tetap `dist`.
