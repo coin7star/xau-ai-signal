@@ -1,6 +1,6 @@
 {
-  "name": "xau-ai-signal-step10j-premium-alert-status-copy",
-  "version": "7.3.5-step10j-premium-alert-status-copy",
+  "name": "xau-ai-signal-step10j-snapshot-row-alignment",
+  "version": "7.3.6-step10j-snapshot-row-alignment",
   "type": "module",
   "scripts": {
     "dev": "vite",

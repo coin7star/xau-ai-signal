@@ -201,3 +201,10 @@ Catatan deploy Cloudflare:
 ## Step 10J Patch — Premium Alert Status Copy
 
 Badge status alert di header dashboard dibuat lebih premium dan user friendly. Istilah internal seperti `not-call-signal` tidak lagi tampil ke user, diganti menjadi label yang lebih jelas seperti `Menunggu setup valid` atau `Signal Alert Standby`.
+
+
+## Step 10J Patch 7.3.6 - Snapshot Row Alignment
+
+Panel `RSI + MFI + EMA + OB M15` dirapikan lagi agar judul indikator lebih dekat dengan tombol buka/tutup dan sejajar rapi dengan nilai serta status. Patch ini hanya mengubah tampilan accordion snapshot, tidak mengubah logic signal, MT5, Telegram, Firebase, Bybit cron, atau aturan premium.
+
+Cloudflare safe: tidak memakai `package-lock.json`, tidak menyertakan `node_modules`, dan build tetap `npm install && npm run build`.

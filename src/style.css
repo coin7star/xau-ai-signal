@@ -3387,7 +3387,7 @@ canvas {
   }
 }
 
-/* Step 10J - Compact Snapshot Accordion */
+/* Step 10J Patch - Compact Snapshot Accordion tidy alignment */
 .snapshotAccordion {
   display: grid;
   gap: 10px;
@@ -3408,10 +3408,11 @@ canvas {
 .snapshotRow summary {
   list-style: none;
   display: grid;
-  grid-template-columns: minmax(110px, 0.8fr) minmax(120px, 1fr) auto;
+  grid-template-columns: 28px minmax(120px, 0.72fr) minmax(150px, 1fr) auto;
   align-items: center;
-  gap: 12px;
-  padding: 14px 16px;
+  column-gap: 10px;
+  min-height: 54px;
+  padding: 12px 16px;
   cursor: pointer;
 }
 
@@ -3421,8 +3422,8 @@ canvas {
 
 .snapshotRow summary::before {
   content: "+";
-  width: 24px;
-  height: 24px;
+  width: 26px;
+  height: 26px;
   display: inline-grid;
   place-items: center;
   border-radius: 999px;
@@ -3430,8 +3431,8 @@ canvas {
   color: #67e8f9;
   font-weight: 900;
   grid-column: 1;
-  grid-row: 1;
   justify-self: start;
+  align-self: center;
 }
 
 .snapshotRow[open] summary::before {
@@ -3440,23 +3441,27 @@ canvas {
 }
 
 .snapshotRowTitle {
+  grid-column: 2;
   color: #aeb9d8;
   font-size: 13px;
-  font-weight: 800;
-  padding-left: 34px;
-  grid-column: 1;
+  font-weight: 850;
+  line-height: 1.15;
+  align-self: center;
 }
 
 .snapshotRowValue {
+  grid-column: 3;
   color: #f8fbff;
   font-size: 18px;
   font-weight: 950;
   line-height: 1.15;
   text-transform: uppercase;
   overflow-wrap: anywhere;
+  align-self: center;
 }
 
 .snapshotRowStatus {
+  grid-column: 4;
   justify-self: end;
   padding: 8px 10px;
   border-radius: 999px;
@@ -3464,12 +3469,14 @@ canvas {
   color: #fde68a;
   font-size: 11px;
   font-weight: 950;
+  line-height: 1;
   text-transform: uppercase;
   white-space: nowrap;
+  align-self: center;
 }
 
 .snapshotRowBody {
-  padding: 0 16px 15px 50px;
+  padding: 0 16px 15px 54px;
   display: grid;
   gap: 6px;
 }
@@ -3490,29 +3497,39 @@ canvas {
 
 @media (max-width: 720px) {
   .snapshotRow summary {
-    grid-template-columns: 1fr;
-    gap: 8px;
+    grid-template-columns: 28px 1fr auto;
+    grid-template-areas:
+      "toggle title status"
+      "toggle value value";
+    gap: 7px 10px;
+    min-height: 62px;
+    padding: 12px 14px;
   }
 
   .snapshotRow summary::before {
-    grid-column: 1;
+    grid-area: toggle;
+    align-self: start;
+    margin-top: 1px;
   }
 
   .snapshotRowTitle {
-    padding-left: 34px;
+    grid-area: title;
+    padding-left: 0;
   }
 
   .snapshotRowValue {
-    padding-left: 34px;
+    grid-area: value;
+    padding-left: 0;
     font-size: 17px;
   }
 
   .snapshotRowStatus {
-    justify-self: start;
-    margin-left: 34px;
+    grid-area: status;
+    justify-self: end;
+    margin-left: 0;
   }
 
   .snapshotRowBody {
-    padding-left: 50px;
+    padding-left: 52px;
   }
 }
