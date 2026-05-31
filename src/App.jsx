@@ -1201,17 +1201,49 @@ export default function App() {
       )}
 
       {isAdmin && activeDashboardTab === "admin" && (
-        <>
-          <AdminPanel adminToken={adminToken} setAdminToken={setAdminToken} />
-          <BybitTestFeedPanel feed={bybitFeed} market={market} mt5LastCandle={lastCandle} onRefresh={loadBybitTestFeed} />
-          <section className="aiPanel card">
-            <div className="strategyHeader">
-              <div><span className="pill mini"><Sparkles size={14} /> AI MARKET ANALYSIS</span><h3>Analisa AI sinkron</h3></div>
-              <div className={`biasBadge ${aiAnalysis?.mode === "ai-live" ? "buy" : "wait"}`}>{aiAnalysis?.mode === "ai-live" ? "AI Live" : "Fallback"}</div>
+        <section className="adminWindowStack">
+          <div className="adminWindowIntro card">
+            <span className="pill mini"><Settings size={14} /> ADMIN WORKSPACE</span>
+            <h3>Panel Admin</h3>
+            <p>Setiap panel dibuat seperti jendela. Klik judul panel untuk buka/tutup detail.</p>
+          </div>
+
+          <details className="adminWindow card" open>
+            <summary>
+              <span>Premium & Payment Management</span>
+              <small>User premium, akses admin, Telegram user, dan order pembayaran.</small>
+            </summary>
+            <div className="adminWindowBody">
+              <AdminPanel adminToken={adminToken} setAdminToken={setAdminToken} />
             </div>
-            <div className="aiText">{formatAiText(aiAnalysis?.analysis || "Menunggu analisa AI...")}</div>
-          </section>
-        </>
+          </details>
+
+          <details className="adminWindow card">
+            <summary>
+              <span>Backup Market Engine</span>
+              <small>Monitor koneksi market cadangan dan guard status.</small>
+            </summary>
+            <div className="adminWindowBody">
+              <BybitTestFeedPanel feed={bybitFeed} market={market} mt5LastCandle={lastCandle} onRefresh={loadBybitTestFeed} />
+            </div>
+          </details>
+
+          <details className="adminWindow card">
+            <summary>
+              <span>Analisa AI Sinkron</span>
+              <small>Status analisa AI live/fallback untuk dashboard.</small>
+            </summary>
+            <div className="adminWindowBody">
+              <section className="aiPanel card adminNestedPanel">
+                <div className="strategyHeader">
+                  <div><span className="pill mini"><Sparkles size={14} /> AI MARKET ANALYSIS</span><h3>Analisa AI sinkron</h3></div>
+                  <div className={`biasBadge ${aiAnalysis?.mode === "ai-live" ? "buy" : "wait"}`}>{aiAnalysis?.mode === "ai-live" ? "AI Live" : "Fallback"}</div>
+                </div>
+                <div className="aiText">{formatAiText(aiAnalysis?.analysis || "Menunggu analisa AI...")}</div>
+              </section>
+            </div>
+          </details>
+        </section>
       )}
 
       <footer>Bukan financial advice. Demo first, XAUUSD galak bro 😭</footer>

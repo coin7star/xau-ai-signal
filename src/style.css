@@ -3789,3 +3789,103 @@ canvas {
     min-width: 240px;
   }
 }
+
+/* Step 10N Lite - Admin windows accordion (safe native details) */
+.adminWindowStack {
+  display: grid;
+  gap: 14px;
+}
+
+.adminWindowIntro {
+  padding: 22px 24px;
+}
+
+.adminWindowIntro h3 {
+  margin: 12px 0 6px;
+  font-size: clamp(24px, 3vw, 34px);
+}
+
+.adminWindowIntro p {
+  margin: 0;
+  color: #aeb9d8;
+}
+
+.adminWindow {
+  overflow: hidden;
+}
+
+.adminWindow summary {
+  list-style: none;
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 10px;
+  align-items: center;
+  padding: 18px 22px;
+  cursor: pointer;
+  user-select: none;
+  border-radius: 28px;
+}
+
+.adminWindow summary::-webkit-details-marker {
+  display: none;
+}
+
+.adminWindow summary::after {
+  content: "+ Buka";
+  padding: 9px 12px;
+  border-radius: 999px;
+  background: rgba(103, 232, 249, 0.13);
+  border: 1px solid rgba(103, 232, 249, 0.22);
+  color: #a5f3fc;
+  font-size: 12px;
+  font-weight: 1000;
+  white-space: nowrap;
+}
+
+.adminWindow[open] summary::after {
+  content: "− Tutup";
+  background: rgba(250, 204, 21, 0.13);
+  border-color: rgba(250, 204, 21, 0.28);
+  color: #fde68a;
+}
+
+.adminWindow summary span {
+  display: block;
+  font-size: clamp(18px, 2vw, 24px);
+  font-weight: 1000;
+  color: #f8fbff;
+}
+
+.adminWindow summary small {
+  display: block;
+  margin-top: 5px;
+  color: #9fb0d6;
+  font-weight: 700;
+  line-height: 1.45;
+}
+
+.adminWindowBody {
+  padding: 0 12px 12px;
+}
+
+.adminWindowBody > .card,
+.adminNestedPanel {
+  margin-bottom: 0 !important;
+  box-shadow: none;
+  background: rgba(7, 11, 23, 0.42);
+}
+
+@media (max-width: 720px) {
+  .adminWindow summary {
+    grid-template-columns: 1fr;
+    padding: 16px;
+  }
+
+  .adminWindow summary::after {
+    width: fit-content;
+  }
+
+  .adminWindowBody {
+    padding: 0 8px 8px;
+  }
+}

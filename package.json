@@ -1,6 +1,6 @@
 {
-  "name": "xau-ai-signal-step10n-emergency-rollback-stable",
-  "version": "7.6.4-step10n-emergency-rollback-stable",
+  "name": "xau-ai-signal-step10n-admin-windows-lite",
+  "version": "7.6.5-step10n-admin-windows-lite",
   "type": "module",
   "scripts": {
     "dev": "vite",

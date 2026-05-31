@@ -234,3 +234,9 @@ Dashboard sekarang membedakan kondisi market tutup/weekend dengan koneksi live y
 - Rollback ke versi stabil sebelum Admin Accordion karena patch accordion menyebabkan blank screen.
 - Dashboard utama diprioritaskan hidup dulu.
 - Admin Accordion akan dibuat ulang setelah error Console dicek.
+
+
+## Step 10N - Admin Windows Lite
+- Tab Admin dibuat lebih ringkas dengan panel buka/tutup.
+- Menggunakan native details/summary agar lebih aman dari crash React.
+- Panel lama tetap dipakai, hanya dibungkus seperti jendela.
