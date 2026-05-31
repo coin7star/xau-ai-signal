@@ -3790,153 +3790,19 @@ canvas {
   }
 }
 
-/* Step 10N - Admin window accordion */
-.adminWindowStack {
+/* Step 10N Hotfix - Admin Accordion Safe Mode */
+.adminSafeStack {
   display: grid;
-  gap: 14px;
-  margin-bottom: 22px;
-}
-
-.adminWindow {
-  overflow: hidden;
-  border-radius: 24px;
-}
-
-.adminWindow > summary {
-  list-style: none;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 18px;
-  padding: 18px 20px;
-  min-height: 96px;
-}
-
-.adminWindow > summary::-webkit-details-marker {
-  display: none;
-}
-
-.adminWindowLeft {
-  display: flex;
-  align-items: center;
-  gap: 16px;
-  min-width: 0;
-}
-
-.adminWindowLeft .pill {
-  flex-shrink: 0;
-}
-
-.adminWindowLeft h3 {
-  margin: 0 0 5px;
-  font-size: clamp(20px, 2.4vw, 28px);
-  letter-spacing: -0.03em;
-}
-
-.adminWindowLeft p {
-  margin: 0;
-  color: #aeb9d8;
-  font-size: 14px;
-  line-height: 1.5;
-}
-
-.adminWindowRight {
-  display: inline-flex;
-  align-items: center;
-  gap: 10px;
-  flex-shrink: 0;
-}
-
-.adminWindowRight span {
-  border-radius: 999px;
-  padding: 9px 12px;
-  background: rgba(255,255,255,0.08);
-  color: #dbeafe;
-  font-weight: 900;
-  font-size: 12px;
-}
-
-.adminWindowToggle {
-  border-radius: 999px;
-  padding: 10px 14px;
-  background: rgba(103,232,249,0.12);
-  color: #90f3ff;
-  border: 1px solid rgba(103,232,249,0.18);
-  font-size: 13px;
-}
-
-.adminWindow[open] .adminWindowToggle {
-  background: rgba(250,204,21,0.14);
-  color: #fde68a;
-  border-color: rgba(250,204,21,0.22);
-}
-
-.adminWindow[open] .adminWindowToggle::before {
-  content: "Tutup · ";
-}
-
-.adminWindow:not([open]) .adminWindowToggle::before {
-  content: "+ ";
-}
-
-.adminWindowBody {
-  padding: 0 18px 18px;
-}
-
-.adminWindowBody > .card,
-.adminWindowBody > .adminPanel,
-.adminWindowBody > .aiPanel {
-  margin: 0;
-  box-shadow: none;
-  background: rgba(2, 6, 23, 0.34);
-}
-
-.adminWindowInnerCard {
-  margin: 0;
-}
-
-.adminWindowBody .compactAdminPanel,
-.adminWindowBody .aiPanel {
-  margin-bottom: 0;
-}
-
-@media (max-width: 720px) {
-  .adminWindow > summary {
-    align-items: flex-start;
-    flex-direction: column;
-    min-height: auto;
-    padding: 16px;
-  }
-
-  .adminWindowLeft {
-    align-items: flex-start;
-    flex-direction: column;
-    gap: 10px;
-  }
-
-  .adminWindowRight {
-    width: 100%;
-    justify-content: space-between;
-  }
-
-  .adminWindowBody {
-    padding: 0 12px 12px;
-  }
-}
-
-/* Step 10N Hotfix - Admin launcher accordion: lazy render panels */
-.adminWindowLauncherStack {
   gap: 14px;
 }
 
 .adminWindowIntro {
-  padding: 22px;
+  padding: 22px 24px;
 }
 
 .adminWindowIntro h3 {
   margin: 12px 0 6px;
-  font-size: clamp(22px, 3vw, 32px);
+  font-size: clamp(24px, 3vw, 34px);
 }
 
 .adminWindowIntro p {
@@ -3944,99 +3810,106 @@ canvas {
   color: #aeb9d8;
 }
 
-.adminWindowGrid {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 14px;
+.adminSafeWindow {
+  overflow: hidden;
 }
 
-.adminWindowLaunch {
-  width: 100%;
-  text-align: left;
-  padding: 20px;
-  border-radius: 24px;
-  background: linear-gradient(135deg, rgba(255,255,255,.08), rgba(255,255,255,.035));
-  color: #f8fbff;
-  border: 1px solid rgba(255,255,255,.13);
-  display: grid;
-  grid-template-columns: 1fr auto;
-  gap: 10px 16px;
-  align-items: start;
+.adminSafeWindow summary {
+  list-style: none;
+  cursor: pointer;
+  padding: 20px 22px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 18px;
 }
 
-.adminWindowLaunch h3 {
-  margin: 12px 0 6px;
-  font-size: 21px;
+.adminSafeWindow summary::-webkit-details-marker {
+  display: none;
 }
 
-.adminWindowLaunch p {
+.adminSafeWindowLeft {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  min-width: 0;
+}
+
+.adminSafeWindowLeft h3 {
+  margin: 0 0 5px;
+  font-size: clamp(20px, 2vw, 26px);
+}
+
+.adminSafeWindowLeft p {
   margin: 0;
   color: #aeb9d8;
   font-size: 14px;
-  line-height: 1.5;
+  line-height: 1.45;
 }
 
-.adminWindowLaunch b {
-  align-self: start;
-  padding: 10px 13px;
-  border-radius: 999px;
-  background: rgba(103,232,249,.14);
-  color: #a5f3fc;
-  border: 1px solid rgba(103,232,249,.22);
-}
-
-.adminWindowLaunch small {
-  grid-column: 1 / -1;
-  margin-top: 6px;
-  color: #fde68a;
-  font-weight: 900;
-}
-
-.adminWindowLaunch.active {
-  border-color: rgba(250,204,21,.45);
-  box-shadow: 0 0 28px rgba(250,204,21,.08);
-}
-
-.adminWindowActivePanel {
-  display: grid;
-  gap: 14px;
-}
-
-.adminWindowActiveHeader {
+.adminSafeWindowRight {
   display: flex;
-  justify-content: space-between;
-  gap: 14px;
   align-items: center;
-  padding: 18px 20px;
-  border-radius: 24px;
-  background: rgba(15,23,42,.62);
-  border: 1px solid rgba(255,255,255,.12);
+  gap: 10px;
+  flex-shrink: 0;
 }
 
-.adminWindowActiveHeader h3 {
-  margin: 10px 0 0;
-  font-size: 24px;
-}
-
-.adminWindowActiveHeader button {
+.adminSafeWindowRight span,
+.adminSafeWindowRight b {
   border-radius: 999px;
-  padding: 11px 14px;
-  background: rgba(255,77,109,.12);
-  color: #ffd1d8;
-  border: 1px solid rgba(255,77,109,.24);
+  padding: 9px 12px;
+  font-size: 12px;
+  font-weight: 1000;
+  background: rgba(255,255,255,.08);
+  color: #dbeafe;
+  white-space: nowrap;
 }
 
-@media (max-width: 760px) {
-  .adminWindowGrid {
-    grid-template-columns: 1fr;
-  }
+.adminSafeWindowRight b {
+  background: rgba(34,255,170,.12);
+  color: #a6ffd8;
+  border: 1px solid rgba(34,255,170,.22);
+}
 
-  .adminWindowActiveHeader {
-    align-items: stretch;
+.adminSafeWindow[open] {
+  border-color: rgba(103,232,249,.28);
+  box-shadow: 0 20px 70px rgba(0,0,0,.22);
+}
+
+.adminSafeWindow[open] .adminSafeWindowRight b::before {
+  content: "Tutup";
+}
+
+.adminSafeWindow[open] .adminSafeWindowRight b {
+  font-size: 0;
+}
+
+.adminSafeWindow[open] .adminSafeWindowRight b::before {
+  font-size: 12px;
+}
+
+.adminSafeWindowBody {
+  padding: 0 18px 18px;
+}
+
+.adminSafeWindowBody > .card,
+.adminAccordionBodyCard {
+  margin-bottom: 0;
+}
+
+@media (max-width: 720px) {
+  .adminSafeWindow summary {
+    align-items: flex-start;
     flex-direction: column;
   }
 
-  .adminWindowActiveHeader button {
-    justify-content: center;
+  .adminSafeWindowLeft {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .adminSafeWindowRight {
+    width: 100%;
+    justify-content: space-between;
   }
 }

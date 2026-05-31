@@ -229,12 +229,7 @@ Dashboard sekarang membedakan kondisi market tutup/weekend dengan koneksi live y
 - HP tetap memakai layout grid rapi.
 - Desktop lebar kembali satu baris, desktop sedang aman dua baris.
 
-
-## Step 10N - Admin Panel Accordion
-- Tab Admin dibuat model jendela buka/tutup.
-- Premium Management, Payment Orders, Backup Market Engine, dan Analisa AI dipisah agar dashboard tidak panjang ke bawah.
-
-
-## Step 10N Hotfix - Admin Blank Fix
-- Tab Admin tidak lagi langsung memuat semua panel sekaligus.
-- Panel admin dimuat setelah jendela diklik agar lebih ringan dan mencegah blank page.
+## Step 10N - Admin Accordion Safe Mode
+- Hotfix tab Admin blank.
+- Menggunakan base stabil Step 10M.
+- Panel Admin dibuat buka/tutup dengan `details/summary` agar halaman tidak panjang.
