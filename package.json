@@ -1,6 +1,6 @@
 {
-  "name": "xau-ai-signal-step10y-telegram-multi-user-alert-prep",
-  "version": "7.17.0-step10y-telegram-multi-user-alert-prep",
+  "name": "xau-ai-signal-step10y1-broadcast-panel-polish",
+  "version": "7.17.1-step10y1-broadcast-panel-polish",
   "type": "module",
   "scripts": {
     "dev": "vite",

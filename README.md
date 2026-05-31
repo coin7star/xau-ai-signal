@@ -328,3 +328,9 @@ Dashboard sekarang membedakan kondisi market tutup/weekend dengan koneksi live y
 - Menyiapkan preferensi Telegram alert per user.
 - Tambah toggle Main Signal Alert dan Result Alert di panel Telegram.
 - Tambah admin stat Alert ON untuk persiapan multi-user premium alert.
+
+
+## Step 10Y1 - Broadcast Panel Polish
+- Panel Broadcast Telegram manual dibuat lebih premium dan jelas.
+- Tambah estimated receiver, preview pesan, counter karakter, dan cooldown anti-spam.
+- Manual Broadcast tetap berbeda dari Auto Signal Alert.

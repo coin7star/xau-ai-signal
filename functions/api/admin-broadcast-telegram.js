@@ -12,6 +12,7 @@ export async function onRequest({ request, env }) {
   const dbUrl = (env.FIREBASE_DATABASE_URL || "").replace(/\/$/, "");
   const adminToken = env.ADMIN_ACTION_TOKEN || "";
   const botToken = env.TELEGRAM_BOT_TOKEN || "";
+  const cooldownSec = Math.max(10, Number(env.TELEGRAM_BROADCAST_COOLDOWN_SEC || 60));
 
   if (!dbUrl) return json({ ok: false, error: "FIREBASE_DATABASE_URL belum diset" }, 500);
   if (!botToken) return json({ ok: false, error: "TELEGRAM_BOT_TOKEN belum diset" }, 500);
@@ -35,6 +36,22 @@ export async function onRequest({ request, env }) {
     return json({ ok: false, error: "Isi broadcast minimal 3 karakter" }, 400);
   }
 
+  if (text.length > 900) {
+    return json({ ok: false, error: "Broadcast maksimal 900 karakter agar tetap nyaman dibaca." }, 400);
+  }
+
+  const guard = await fbGet(dbUrl, "/xauusd/telegram/broadcastGuard/latest");
+  const lastSentAt = guard?.sentAt ? new Date(guard.sentAt).getTime() : 0;
+  const waitMs = cooldownSec * 1000 - (Date.now() - lastSentAt);
+  if (lastSentAt && waitMs > 0) {
+    return json({
+      ok: false,
+      error: `Broadcast cooldown aktif. Coba lagi sekitar ${Math.ceil(waitMs / 1000)} detik.`,
+      cooldownSec,
+      retryAfterSec: Math.ceil(waitMs / 1000)
+    }, 429);
+  }
+
   const usersRaw = await fbGet(dbUrl, "/users");
   const users = Object.values(usersRaw || {}).filter(Boolean);
 
@@ -55,7 +72,7 @@ export async function onRequest({ request, env }) {
   });
 
   const finalText = [
-    "📣 <b>XAU AI Signal Broadcast</b>",
+    "📣 <b>XAU AI Signal · Official Broadcast</b>",
     "",
     escapeHtml(text),
     "",
@@ -79,6 +96,8 @@ export async function onRequest({ request, env }) {
   const failedCount = results.length - successCount;
   const logId = safeKey(new Date().toISOString());
 
+  const sentAt = new Date().toISOString();
+
   await fbPut(dbUrl, `/xauusd/telegram/broadcastLogs/${logId}`, {
     text,
     target,
@@ -86,7 +105,17 @@ export async function onRequest({ request, env }) {
     successCount,
     failedCount,
     results,
-    createdAt: new Date().toISOString()
+    createdAt: sentAt,
+    manualBroadcast: true
+  });
+
+  await fbPut(dbUrl, "/xauusd/telegram/broadcastGuard/latest", {
+    sentAt,
+    target,
+    totalRecipients: results.length,
+    successCount,
+    failedCount,
+    cooldownSec
   });
 
   return json({

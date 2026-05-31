@@ -2047,6 +2047,8 @@ function AdminPanel({ adminToken, setAdminToken }) {
 
   const pageSize = 6;
   const stats = useMemo(() => buildAdminStats(users), [users]);
+  const broadcastInfo = useMemo(() => buildBroadcastTargetInfo(users, broadcastTarget), [users, broadcastTarget]);
+  const broadcastPreviewText = broadcastText.trim() || "Tulis pesan broadcast untuk melihat preview.";
 
   const filteredUsers = users.filter((user) => {
     const text = `${user.email || ""} ${user.uid || ""} ${user.role || ""}`.toLowerCase();
@@ -2191,7 +2193,7 @@ function AdminPanel({ adminToken, setAdminToken }) {
         return;
       }
 
-      setMessage(`Broadcast selesai. Success ${json.successCount}/${json.totalRecipients}, failed ${json.failedCount}.`);
+      setMessage(`Broadcast selesai. Terkirim ${json.successCount}/${json.totalRecipients}, gagal ${json.failedCount}.`);
     } catch (err) {
       setMessage(err.message || String(err));
     } finally {
@@ -2302,25 +2304,60 @@ function AdminPanel({ adminToken, setAdminToken }) {
           </label>
         </div>
 
-        <div className="adminBroadcastBox compact">
-          <div>
-            <span className="pill mini"><Bot size={14} /> BROADCAST</span>
-            <h4>Broadcast Telegram</h4>
-            <p>Kirim pesan ke user Telegram yang sudah connect.</p>
+        <div className="adminBroadcastBox compact premiumBroadcastBox">
+          <div className="broadcastHeader">
+            <div>
+              <span className="pill mini"><Bot size={14} /> MANUAL BROADCAST</span>
+              <h4>Broadcast Telegram</h4>
+              <p>Kirim pengumuman manual ke user Telegram yang sudah connect. Ini berbeda dari Auto Signal Alert.</p>
+            </div>
+            <div className="broadcastReceiverCard">
+              <span>Estimated Receiver</span>
+              <b>{broadcastInfo.count}</b>
+              <small>{broadcastInfo.label}</small>
+            </div>
           </div>
-          <select value={broadcastTarget} onChange={(event) => setBroadcastTarget(event.target.value)}>
-            <option value="premium_connected">Premium/Admin Connected</option>
-            <option value="all_connected">All Connected</option>
-            <option value="admin_connected">Admin Connected</option>
-          </select>
-          <textarea
-            value={broadcastText}
-            onChange={(event) => setBroadcastText(event.target.value)}
-            placeholder="Contoh: XAU AI update malam ini."
-          />
-          <button type="button" onClick={broadcastTelegram} disabled={busy}>
-            Send Broadcast
-          </button>
+
+          <div className="broadcastGrid">
+            <label>
+              Target Broadcast
+              <select value={broadcastTarget} onChange={(event) => setBroadcastTarget(event.target.value)}>
+                <option value="premium_connected">Premium/Admin Connected</option>
+                <option value="all_connected">All Connected</option>
+                <option value="admin_connected">Admin Connected</option>
+              </select>
+            </label>
+            <div className="broadcastSafetyNote">
+              <b>Manual Broadcast</b>
+              <span>Gunakan untuk update penting saja. Auto Signal dan Result Alert tetap mengikuti preferensi user.</span>
+            </div>
+          </div>
+
+          <label className="broadcastTextareaLabel">
+            Isi Pesan
+            <textarea
+              value={broadcastText}
+              onChange={(event) => setBroadcastText(event.target.value)}
+              maxLength={900}
+              placeholder="Contoh: XAU AI update malam ini. Market sedang jeda, dashboard tetap menampilkan candle terakhir."
+            />
+          </label>
+
+          <div className="broadcastPreviewBox">
+            <span>Preview Telegram</span>
+            <p>{broadcastPreviewText}</p>
+            <small>{broadcastText.trim().length}/900 karakter</small>
+          </div>
+
+          <div className="broadcastFooter">
+            <div>
+              <b>{broadcastInfo.count} penerima terdeteksi</b>
+              <span>Target: {broadcastInfo.label} · Cooldown server aktif untuk anti-spam.</span>
+            </div>
+            <button type="button" onClick={broadcastTelegram} disabled={busy || !broadcastText.trim()}>
+              {busy ? "Mengirim..." : "Send Broadcast"}
+            </button>
+          </div>
         </div>
       </details>
 
@@ -2392,6 +2429,50 @@ function AdminPanel({ adminToken, setAdminToken }) {
         <AdminOrdersPanel adminToken={adminToken} />
     </section>
   );
+}
+
+function buildBroadcastTargetInfo(users, target) {
+  const connected = (users || []).filter((user) => user?.telegramConnected && user?.telegramChatId);
+  const premium = connected.filter((user) => isBroadcastPremium(user));
+  const admin = connected.filter((user) => user?.role === "admin");
+
+  if (target === "all_connected") {
+    return {
+      count: uniqueTelegramCount(connected),
+      label: "Semua Telegram connected"
+    };
+  }
+
+  if (target === "admin_connected") {
+    return {
+      count: uniqueTelegramCount(admin),
+      label: "Admin connected"
+    };
+  }
+
+  return {
+    count: uniqueTelegramCount(premium),
+    label: "Premium/Admin connected"
+  };
+}
+
+function uniqueTelegramCount(users) {
+  const seen = new Set();
+  (users || []).forEach((user) => {
+    const chatId = String(user?.telegramChatId || "");
+    if (chatId) seen.add(chatId);
+  });
+  return seen.size;
+}
+
+function isBroadcastPremium(user) {
+  if (!user) return false;
+  if (user.status && user.status !== "active") return false;
+  if (user.role === "admin") return true;
+  if (user.role !== "premium") return false;
+  const until = user.premiumUntil || user.expiredAt || null;
+  if (!until) return false;
+  return new Date(until).getTime() > Date.now();
 }
 
 function AdminStat({ label, value }) {

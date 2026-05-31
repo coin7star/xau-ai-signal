@@ -4744,3 +4744,126 @@ canvas {
     grid-template-columns: 1fr;
   }
 }
+
+/* Step 10Y1 - Broadcast Panel Polish */
+.premiumBroadcastBox {
+  gap: 16px;
+}
+
+.broadcastHeader {
+  display: flex;
+  justify-content: space-between;
+  gap: 18px;
+  align-items: flex-start;
+}
+
+.broadcastReceiverCard {
+  min-width: 180px;
+  padding: 16px;
+  border-radius: 18px;
+  background: rgba(0, 0, 0, 0.28);
+  border: 1px solid rgba(255, 255, 255, 0.10);
+  text-align: right;
+}
+
+.broadcastReceiverCard span,
+.broadcastPreviewBox span,
+.broadcastFooter span,
+.broadcastSafetyNote span {
+  display: block;
+  color: #9fb0d6;
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+.broadcastReceiverCard b {
+  display: block;
+  font-size: 34px;
+  color: #a7f3d0;
+  margin: 4px 0;
+}
+
+.broadcastGrid {
+  display: grid;
+  grid-template-columns: minmax(260px, .75fr) 1fr;
+  gap: 14px;
+}
+
+.broadcastGrid label,
+.broadcastTextareaLabel {
+  display: grid;
+  gap: 8px;
+  color: #c7d2fe;
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: .08em;
+  font-weight: 1000;
+}
+
+.broadcastSafetyNote,
+.broadcastPreviewBox {
+  padding: 14px 16px;
+  border-radius: 18px;
+  background: rgba(255, 232, 121, 0.10);
+  border: 1px solid rgba(255, 232, 121, 0.18);
+}
+
+.broadcastSafetyNote b {
+  display: block;
+  margin-bottom: 5px;
+  color: #fde68a;
+}
+
+.broadcastPreviewBox {
+  background: rgba(15, 23, 42, 0.58);
+  border-color: rgba(103, 232, 249, 0.16);
+}
+
+.broadcastPreviewBox p {
+  margin: 8px 0 10px;
+  color: #e5edff;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.broadcastFooter {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  align-items: center;
+  padding-top: 4px;
+}
+
+.broadcastFooter b {
+  display: block;
+  color: #dff7ff;
+  margin-bottom: 4px;
+}
+
+.adminBroadcastBox .broadcastFooter button:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+  filter: grayscale(0.4);
+}
+
+@media (max-width: 760px) {
+  .broadcastHeader,
+  .broadcastFooter {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .broadcastReceiverCard {
+    min-width: 0;
+    text-align: left;
+  }
+
+  .broadcastGrid {
+    grid-template-columns: 1fr;
+  }
+
+  .adminBroadcastBox .broadcastFooter button {
+    width: 100%;
+    justify-content: center;
+  }
+}
