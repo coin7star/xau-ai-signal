@@ -250,6 +250,7 @@ export default function App() {
   const [telegramConnect, setTelegramConnect] = useState(null);
   const [bybitFeed, setBybitFeed] = useState({ latest: null, status: null, cronError: null, loading: false, error: "" });
   const [resultTracker, setResultTracker] = useState({ loading: false, message: "", lastRun: null, updated: [] });
+  const [cronHealth, setCronHealth] = useState({ loading: false, data: null, error: "" });
 
   async function loadData({ includeChart = false, includeHistory = false, includeScalpHistory = false } = {}) {
     try {
@@ -375,6 +376,25 @@ export default function App() {
     return loadData({ includeChart: false, includeScalpHistory: true });
   }
 
+
+  async function loadCronHealth() {
+    setCronHealth((prev) => ({ ...prev, loading: true, error: "" }));
+
+    try {
+      const res = await fetch(`/api/result-cron-status?ts=${Date.now()}`, { cache: "no-store" });
+      const json = await res.json();
+
+      if (!json.ok) {
+        setCronHealth({ loading: false, data: null, error: json.error || "Gagal membaca status cron." });
+        return;
+      }
+
+      setCronHealth({ loading: false, data: json, error: "" });
+    } catch (error) {
+      setCronHealth({ loading: false, data: null, error: error?.message || "Gagal membaca status cron." });
+    }
+  }
+
   async function updateCallResult(id, result) {
     if (!id) return;
 
@@ -464,6 +484,7 @@ export default function App() {
       });
 
       await loadData({ includeChart: false, includeHistory: true, includeScalpHistory: true });
+      await loadCronHealth();
     } catch (err) {
       setResultTracker((prev) => ({ ...prev, loading: false, message: err?.message || String(err) }));
       alert(err?.message || String(err));
@@ -540,6 +561,16 @@ export default function App() {
 
     return () => clearInterval(interval);
   }, [authUser, authProfile?.role]);
+
+
+  useEffect(() => {
+    if (!authUser || !isPremiumProfile(authProfile)) return;
+
+    loadCronHealth();
+    const interval = setInterval(loadCronHealth, 60000);
+
+    return () => clearInterval(interval);
+  }, [authUser, authProfile?.role, authProfile?.premiumUntil]);
 
   const candlesM1 = Array.isArray(market?.candles) ? market.candles : [];
   const candlesM15 = Array.isArray(market?.candlesM15) ? market.candlesM15 : [];
@@ -1161,6 +1192,8 @@ export default function App() {
             adminToken={adminToken}
             trackerState={resultTracker}
             onRunTracker={runAutoResultTracker}
+            cronHealth={cronHealth}
+            onRefreshCronHealth={loadCronHealth}
           />
           <PerformanceAnalyticsPanel
             callHistory={callHistory}
@@ -2457,7 +2490,7 @@ function UserPaymentHistoryCard({ user }) {
 }
 
 
-function ResultTrackerPrepPanel({ callHistory, scalpHistory, market, signal, isAdmin, adminToken, trackerState, onRunTracker }) {
+function ResultTrackerPrepPanel({ callHistory, scalpHistory, market, signal, isAdmin, adminToken, trackerState, onRunTracker, cronHealth, onRefreshCronHealth }) {
   const callItems = callHistory?.history || [];
   const scalpItems = scalpHistory?.history || [];
   const allItems = [
@@ -2503,6 +2536,8 @@ function ResultTrackerPrepPanel({ callHistory, scalpHistory, market, signal, isA
           <span>Harga acuan untuk engine auto result berikutnya.</span>
         </div>
       </div>
+
+      <CronHealthMonitor cronHealth={cronHealth} onRefresh={onRefreshCronHealth} />
 
       <div className="trackerLiteNotice autoEngineNotice">
         <b>Auto Result Engine aktif</b>
@@ -2554,6 +2589,78 @@ function ResultTrackerPrepPanel({ callHistory, scalpHistory, market, signal, isA
       </div>
     </section>
   );
+}
+
+
+function CronHealthMonitor({ cronHealth, onRefresh }) {
+  const data = cronHealth?.data || null;
+  const tone = data?.tone || "standby";
+  const statusLabel = data?.label || (cronHealth?.loading ? "Loading" : "Belum ada data");
+  const lastRunText = data?.lastRunAt ? formatHistoryTime(data.lastRunAt) : "-";
+  const lastRunAge = data?.lastRunAgeSec != null ? formatSecondsToAge(data.lastRunAgeSec) : "-";
+  const feedAge = data?.liveFeedAgeSec != null ? formatSecondsToAge(data.liveFeedAgeSec) : "-";
+  const bybitLabel = data?.bybitUsed ? "Dipakai" : "Tidak dipakai";
+
+  return (
+    <div className={`cronHealthPanel ${tone}`}>
+      <div className="cronHealthTop">
+        <div>
+          <span className="pill mini">AUTO RESULT CRON</span>
+          <h4>Cron Health Monitor</h4>
+          <p>Memantau auto result dari cron PHP.ID. Source result tetap dari live feed MT5/VPS.</p>
+        </div>
+        <div className={`cronHealthBadge ${tone}`}>{statusLabel}</div>
+      </div>
+
+      {cronHealth?.error && (
+        <div className="cronHealthError">{cronHealth.error}</div>
+      )}
+
+      <div className="cronHealthGrid">
+        <div>
+          <small>Last Run</small>
+          <strong>{lastRunText}</strong>
+          <span>{lastRunAge}</span>
+        </div>
+        <div>
+          <small>MT5/VPS Feed Age</small>
+          <strong>{feedAge}</strong>
+          <span>{data?.liveFeedTime ? `Feed time: ${formatHistoryTime(data.liveFeedTime)}` : "Menunggu feed terbaru"}</span>
+        </div>
+        <div>
+          <small>Last Action</small>
+          <strong>{data ? `Scan ${data.scanned || 0} · Update ${data.updatedCount || 0}` : "-"}</strong>
+          <span>Telegram {data?.resultAlertSentCount || 0} sent · {data?.resultAlertSkippedCount || 0} skipped</span>
+        </div>
+        <div>
+          <small>Source</small>
+          <strong>MT5/VPS Live Feed</strong>
+          <span>Bybit used: {bybitLabel}</span>
+        </div>
+      </div>
+
+      <div className="cronHealthFooter">
+        <span>{data?.action || "Cron status akan tampil setelah runner pertama berjalan."}</span>
+        <button type="button" onClick={onRefresh} disabled={cronHealth?.loading}>
+          <RefreshCcw size={14} /> {cronHealth?.loading ? "Refreshing..." : "Refresh Cron"}
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function formatSecondsToAge(value) {
+  const sec = Number(value);
+  if (!Number.isFinite(sec) || sec < 0) return "-";
+  if (sec < 60) return `${Math.round(sec)} detik`;
+  const min = Math.floor(sec / 60);
+  if (min < 60) return `${min} menit`;
+  const hour = Math.floor(min / 60);
+  const restMin = min % 60;
+  if (hour < 24) return restMin ? `${hour} jam ${restMin} menit` : `${hour} jam`;
+  const day = Math.floor(hour / 24);
+  const restHour = hour % 24;
+  return restHour ? `${day} hari ${restHour} jam` : `${day} hari`;
 }
 
 function PerformanceAnalyticsPanel({ callHistory, scalpHistory, isAdmin }) {

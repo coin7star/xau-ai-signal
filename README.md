@@ -304,3 +304,9 @@ Dashboard sekarang membedakan kondisi market tutup/weekend dengan koneksi live y
 - Auto Result Cron endpoint sekarang POST-only.
 - PHP cron runner memakai runner token dan mengirim secret lewat header, bukan query URL Cloudflare.
 - Result tetap memakai data MT5/VPS live feed only, bukan Bybit.
+
+
+## Step 10V - Cron Health Monitor
+- Menambahkan panel Auto Result Cron Monitor di dashboard History.
+- Dashboard bisa melihat last run, feed age, scanned, updated, dan Telegram sent.
+- Source result tetap MT5/VPS Live Feed, bukan Bybit.

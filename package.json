@@ -1,6 +1,6 @@
 {
-  "name": "xau-ai-signal-step10u1-cron-security-hardening",
-  "version": "7.13.1-step10u1-cron-security-hardening",
+  "name": "xau-ai-signal-step10v-cron-health-monitor",
+  "version": "7.14.0-step10v-cron-health-monitor",
   "type": "module",
   "scripts": {
     "dev": "vite",
