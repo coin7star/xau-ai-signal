@@ -218,6 +218,8 @@ export default function App() {
   const chartM15Ref = useRef(null);
   const chartM1BoxRef = useRef(null);
   const chartM15BoxRef = useRef(null);
+  const chartM1ResizeObserverRef = useRef(null);
+  const chartM15ResizeObserverRef = useRef(null);
   const seriesM1Ref = useRef(null);
   const seriesM15Ref = useRef(null);
 
@@ -308,12 +310,14 @@ export default function App() {
   async function reloadChartsNow() {
     await loadChartData();
 
+    resetChart("M1");
+    resetChart("M15");
+
     setTimeout(() => {
       initChart("M1");
       initChart("M15");
-      updateChart(seriesM1Ref.current, chartM1Ref.current, tvM1);
-      updateChart(seriesM15Ref.current, chartM15Ref.current, tvM15);
-    }, 120);
+      syncChartData();
+    }, 180);
   }
 
   async function loadHistoryData() {
@@ -506,33 +510,32 @@ export default function App() {
   const spread = market?.ask && market?.bid ? Math.abs(Number(market.ask) - Number(market.bid)).toFixed(2) : "-";
 
   useEffect(() => {
-    if (!authUser || !isPremiumProfile(authProfile)) return;
+    if (!authUser || !isPremiumProfile(authProfile) || activeDashboardTab !== "chart") return;
 
-    const frame = requestAnimationFrame(() => {
+    // Chart memakai canvas internal. Saat tab Candle ditutup, DOM chart ikut hilang,
+    // jadi instance lama harus dibersihkan dan dibuat ulang saat tab dibuka lagi.
+    resetChart("M1");
+    resetChart("M15");
+
+    const timer = setTimeout(() => {
       initChart("M1");
       initChart("M15");
+      syncChartData();
+    }, 180);
 
-      setTimeout(() => {
-        updateChart(seriesM1Ref.current, chartM1Ref.current, tvM1);
-        updateChart(seriesM15Ref.current, chartM15Ref.current, tvM15);
+    return () => {
+      clearTimeout(timer);
+      resetChart("M1");
+      resetChart("M15");
+    };
+  }, [authUser, authProfile?.role, authProfile?.premiumUntil, activeDashboardTab]);
 
-        if (ema9M1Ref.current && ema20M1Ref.current && tvM1.length > 0) {
-          ema9M1Ref.current.setData(buildEMAData(tvM1, 9));
-          ema20M1Ref.current.setData(buildEMAData(tvM1, 20));
-        }
-
-        if (ema9M15Ref.current && ema20M15Ref.current && tvM15.length > 0) {
-          ema9M15Ref.current.setData(buildEMAData(tvM15, 9));
-          ema20M15Ref.current.setData(buildEMAData(tvM15, 20));
-        }
-      }, 0);
-    });
-
-    return () => cancelAnimationFrame(frame);
-  }, [authUser, authProfile?.role, authProfile?.premiumUntil, activeDashboardTab, tvM1, tvM15]);
-
-  useEffect(() => updateChart(seriesM1Ref.current, chartM1Ref.current, tvM1), [tvM1]);
-  useEffect(() => updateChart(seriesM15Ref.current, chartM15Ref.current, tvM15), [tvM15]);
+  useEffect(() => {
+    if (!authUser || !isPremiumProfile(authProfile) || activeDashboardTab !== "chart") return;
+    initChart("M1");
+    initChart("M15");
+    syncChartData();
+  }, [tvM1, tvM15, activeDashboardTab]);
 
   useEffect(() => {
     if (ema9M1Ref.current && ema20M1Ref.current && tvM1.length > 0) {
@@ -572,15 +575,80 @@ export default function App() {
     signal?.strategy?.scalping?.resistanceTouches
   ]);
 
+  function resetChart(type) {
+    const chartRef = type === "M1" ? chartM1Ref : chartM15Ref;
+    const seriesRef = type === "M1" ? seriesM1Ref : seriesM15Ref;
+    const resizeObserverRef = type === "M1" ? chartM1ResizeObserverRef : chartM15ResizeObserverRef;
+
+    try {
+      if (resizeObserverRef.current) resizeObserverRef.current.disconnect();
+    } catch {}
+    resizeObserverRef.current = null;
+
+    try {
+      if (type === "M1") {
+        clearStructureLines(srLinesM1Ref);
+        clearObLines(obLinesM1Ref);
+      } else {
+        clearObLines(obLinesM15Ref);
+      }
+    } catch {}
+
+    try {
+      if (chartRef.current) chartRef.current.remove();
+    } catch {}
+
+    chartRef.current = null;
+    seriesRef.current = null;
+
+    if (type === "M1") {
+      ema9M1Ref.current = null;
+      ema20M1Ref.current = null;
+    } else {
+      ema9M15Ref.current = null;
+      ema20M15Ref.current = null;
+    }
+  }
+
+  function syncChartData() {
+    updateChart(seriesM1Ref.current, chartM1Ref.current, tvM1);
+    updateChart(seriesM15Ref.current, chartM15Ref.current, tvM15);
+
+    if (ema9M1Ref.current && ema20M1Ref.current && tvM1.length > 0) {
+      ema9M1Ref.current.setData(buildEMAData(tvM1, 9));
+      ema20M1Ref.current.setData(buildEMAData(tvM1, 20));
+    }
+
+    if (ema9M15Ref.current && ema20M15Ref.current && tvM15.length > 0) {
+      ema9M15Ref.current.setData(buildEMAData(tvM15, 9));
+      ema20M15Ref.current.setData(buildEMAData(tvM15, 20));
+    }
+
+    const bullish = getFreshOb(signal?.strategy?.orderBlock?.bullish);
+    const bearish = getFreshOb(signal?.strategy?.orderBlock?.bearish);
+
+    if (seriesM1Ref.current) {
+      addObLines(seriesM1Ref.current, obLinesM1Ref, bullish, bearish);
+      addStructureLines(seriesM1Ref.current, srLinesM1Ref, signal?.strategy?.scalping);
+    }
+
+    if (seriesM15Ref.current) {
+      addObLines(seriesM15Ref.current, obLinesM15Ref, bullish, bearish);
+    }
+  }
+
   function initChart(type) {
     const boxRef = type === "M1" ? chartM1BoxRef : chartM15BoxRef;
     const chartRef = type === "M1" ? chartM1Ref : chartM15Ref;
     const seriesRef = type === "M1" ? seriesM1Ref : seriesM15Ref;
     if (!boxRef.current || chartRef.current) return;
 
+    const containerWidth = Math.floor(boxRef.current.getBoundingClientRect().width || boxRef.current.clientWidth || 0);
+    if (containerWidth < 40) return;
+
     try {
       const chart = createChart(boxRef.current, {
-        width: boxRef.current.clientWidth || 900,
+        width: containerWidth,
         height: type === "M1" ? 500 : 420,
         layout: { background: { type: ColorType.Solid, color: "#070b17" }, textColor: "#cbd5e1" },
         grid: { vertLines: { color: "rgba(255,255,255,0.06)" }, horzLines: { color: "rgba(255,255,255,0.06)" } },
@@ -619,9 +687,12 @@ export default function App() {
       }
       const resizeObserver = new ResizeObserver(() => {
         if (!boxRef.current || !chartRef.current) return;
-        chartRef.current.applyOptions({ width: boxRef.current.clientWidth || 900 });
+        const nextWidth = Math.floor(boxRef.current.getBoundingClientRect().width || boxRef.current.clientWidth || 0);
+        if (nextWidth > 40) chartRef.current.applyOptions({ width: nextWidth });
       });
       resizeObserver.observe(boxRef.current);
+      const resizeObserverRef = type === "M1" ? chartM1ResizeObserverRef : chartM15ResizeObserverRef;
+      resizeObserverRef.current = resizeObserver;
       setChartError("");
     } catch (err) {
       setChartError(err.message || String(err));

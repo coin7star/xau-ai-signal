@@ -1,6 +1,6 @@
 {
-  "name": "xau-ai-signal-step10j-snapshot-row-alignment",
-  "version": "7.3.6-step10j-snapshot-row-alignment",
+  "name": "xau-ai-signal-step10k-chart-tab-stability",
+  "version": "7.4.0-step10k-chart-tab-stability",
   "type": "module",
   "scripts": {
     "dev": "vite",

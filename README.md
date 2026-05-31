@@ -208,3 +208,7 @@ Badge status alert di header dashboard dibuat lebih premium dan user friendly. I
 Panel `RSI + MFI + EMA + OB M15` dirapikan lagi agar judul indikator lebih dekat dengan tombol buka/tutup dan sejajar rapi dengan nilai serta status. Patch ini hanya mengubah tampilan accordion snapshot, tidak mengubah logic signal, MT5, Telegram, Firebase, Bybit cron, atau aturan premium.
 
 Cloudflare safe: tidak memakai `package-lock.json`, tidak menyertakan `node_modules`, dan build tetap `npm install && npm run build`.
+
+## Step 10K — Chart Tab Stability Fix
+
+Patch ini memperbaiki chart Candle yang kadang kosong setelah pindah tab atau reload. Chart M1/M15 sekarang otomatis dibuat ulang saat tab Candle dibuka, lalu data candle, EMA, OB, support, dan resistance disinkronkan ulang.
