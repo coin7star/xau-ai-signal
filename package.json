@@ -1,6 +1,6 @@
 {
-  "name": "xau-ai-signal-step10m-desktop-header-balance",
-  "version": "7.5.2-step10m-desktop-header-balance",
+  "name": "xau-ai-signal-step10n-admin-panel-accordion",
+  "version": "7.6.0-step10n-admin-panel-accordion",
   "type": "module",
   "scripts": {
     "dev": "vite",

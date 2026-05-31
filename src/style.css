@@ -3789,3 +3789,138 @@ canvas {
     min-width: 240px;
   }
 }
+
+/* Step 10N - Admin window accordion */
+.adminWindowStack {
+  display: grid;
+  gap: 14px;
+  margin-bottom: 22px;
+}
+
+.adminWindow {
+  overflow: hidden;
+  border-radius: 24px;
+}
+
+.adminWindow > summary {
+  list-style: none;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 18px;
+  padding: 18px 20px;
+  min-height: 96px;
+}
+
+.adminWindow > summary::-webkit-details-marker {
+  display: none;
+}
+
+.adminWindowLeft {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  min-width: 0;
+}
+
+.adminWindowLeft .pill {
+  flex-shrink: 0;
+}
+
+.adminWindowLeft h3 {
+  margin: 0 0 5px;
+  font-size: clamp(20px, 2.4vw, 28px);
+  letter-spacing: -0.03em;
+}
+
+.adminWindowLeft p {
+  margin: 0;
+  color: #aeb9d8;
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+.adminWindowRight {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  flex-shrink: 0;
+}
+
+.adminWindowRight span {
+  border-radius: 999px;
+  padding: 9px 12px;
+  background: rgba(255,255,255,0.08);
+  color: #dbeafe;
+  font-weight: 900;
+  font-size: 12px;
+}
+
+.adminWindowToggle {
+  border-radius: 999px;
+  padding: 10px 14px;
+  background: rgba(103,232,249,0.12);
+  color: #90f3ff;
+  border: 1px solid rgba(103,232,249,0.18);
+  font-size: 13px;
+}
+
+.adminWindow[open] .adminWindowToggle {
+  background: rgba(250,204,21,0.14);
+  color: #fde68a;
+  border-color: rgba(250,204,21,0.22);
+}
+
+.adminWindow[open] .adminWindowToggle::before {
+  content: "Tutup · ";
+}
+
+.adminWindow:not([open]) .adminWindowToggle::before {
+  content: "+ ";
+}
+
+.adminWindowBody {
+  padding: 0 18px 18px;
+}
+
+.adminWindowBody > .card,
+.adminWindowBody > .adminPanel,
+.adminWindowBody > .aiPanel {
+  margin: 0;
+  box-shadow: none;
+  background: rgba(2, 6, 23, 0.34);
+}
+
+.adminWindowInnerCard {
+  margin: 0;
+}
+
+.adminWindowBody .compactAdminPanel,
+.adminWindowBody .aiPanel {
+  margin-bottom: 0;
+}
+
+@media (max-width: 720px) {
+  .adminWindow > summary {
+    align-items: flex-start;
+    flex-direction: column;
+    min-height: auto;
+    padding: 16px;
+  }
+
+  .adminWindowLeft {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 10px;
+  }
+
+  .adminWindowRight {
+    width: 100%;
+    justify-content: space-between;
+  }
+
+  .adminWindowBody {
+    padding: 0 12px 12px;
+  }
+}

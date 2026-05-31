@@ -1201,17 +1201,49 @@ export default function App() {
       )}
 
       {isAdmin && activeDashboardTab === "admin" && (
-        <>
-          <AdminPanel adminToken={adminToken} setAdminToken={setAdminToken} />
-          <BybitTestFeedPanel feed={bybitFeed} market={market} mt5LastCandle={lastCandle} onRefresh={loadBybitTestFeed} />
-          <section className="aiPanel card">
-            <div className="strategyHeader">
-              <div><span className="pill mini"><Sparkles size={14} /> AI MARKET ANALYSIS</span><h3>Analisa AI sinkron</h3></div>
-              <div className={`biasBadge ${aiAnalysis?.mode === "ai-live" ? "buy" : "wait"}`}>{aiAnalysis?.mode === "ai-live" ? "AI Live" : "Fallback"}</div>
-            </div>
-            <div className="aiText">{formatAiText(aiAnalysis?.analysis || "Menunggu analisa AI...")}</div>
-          </section>
-        </>
+        <section className="adminWindowStack">
+          <AdminWindow
+            eyebrow="ADMIN USERS"
+            title="Premium Management"
+            description="Kelola user, role premium, masa aktif, Telegram connect, dan broadcast."
+            meta="User & akses"
+          >
+            <AdminPanel adminToken={adminToken} setAdminToken={setAdminToken} />
+          </AdminWindow>
+
+          <AdminWindow
+            eyebrow="PAYMENT CONTROL"
+            title="Payment Orders"
+            description="Review order pending, approve pembayaran, dan export laporan CSV."
+            meta="Order premium"
+          >
+            <AdminOrdersPanel adminToken={adminToken} />
+          </AdminWindow>
+
+          <AdminWindow
+            eyebrow="MARKET BRIDGE"
+            title="Backup Market Engine"
+            description="Pantau feed cadangan, guard monitor, perbandingan harga, dan safe cron status."
+            meta={bybitFeed?.status || "Standby"}
+          >
+            <BybitTestFeedPanel feed={bybitFeed} market={market} mt5LastCandle={lastCandle} onRefresh={loadBybitTestFeed} />
+          </AdminWindow>
+
+          <AdminWindow
+            eyebrow="AI MARKET ANALYSIS"
+            title="Analisa AI Sinkron"
+            description="Cek ringkasan AI untuk kondisi market terbaru tanpa membuat halaman admin terlalu panjang."
+            meta={aiAnalysis?.mode === "ai-live" ? "AI Live" : "Fallback"}
+          >
+            <section className="aiPanel card adminWindowInnerCard">
+              <div className="strategyHeader">
+                <div><span className="pill mini"><Sparkles size={14} /> AI MARKET ANALYSIS</span><h3>Analisa AI sinkron</h3></div>
+                <div className={`biasBadge ${aiAnalysis?.mode === "ai-live" ? "buy" : "wait"}`}>{aiAnalysis?.mode === "ai-live" ? "AI Live" : "Fallback"}</div>
+              </div>
+              <div className="aiText">{formatAiText(aiAnalysis?.analysis || "Menunggu analisa AI...")}</div>
+            </section>
+          </AdminWindow>
+        </section>
       )}
 
       <footer>Bukan financial advice. Demo first, XAUUSD galak bro 😭</footer>
@@ -1629,6 +1661,29 @@ function formatShortDateTime(value) {
 }
 
 
+function AdminWindow({ eyebrow, title, description, meta, children }) {
+  return (
+    <details className="adminWindow card">
+      <summary>
+        <div className="adminWindowLeft">
+          <span className="pill mini">{eyebrow}</span>
+          <div>
+            <h3>{title}</h3>
+            <p>{description}</p>
+          </div>
+        </div>
+        <div className="adminWindowRight">
+          <span>{meta}</span>
+          <b className="adminWindowToggle">Buka</b>
+        </div>
+      </summary>
+      <div className="adminWindowBody">
+        {children}
+      </div>
+    </details>
+  );
+}
+
 function AdminPanel({ adminToken, setAdminToken }) {
   const [users, setUsers] = useState([]);
   const [busy, setBusy] = useState(false);
@@ -1985,7 +2040,6 @@ function AdminPanel({ adminToken, setAdminToken }) {
           <div className="emptyHistory">Belum ada user sesuai filter, atau kode admin belum diisi.</div>
         )}
       </div>
-        <AdminOrdersPanel adminToken={adminToken} />
     </section>
   );
 }

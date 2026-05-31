@@ -228,3 +228,8 @@ Dashboard sekarang membedakan kondisi market tutup/weekend dengan koneksi live y
 - Header dashboard PC dirapikan lagi setelah mobile polish.
 - HP tetap memakai layout grid rapi.
 - Desktop lebar kembali satu baris, desktop sedang aman dua baris.
+
+
+## Step 10N - Admin Panel Accordion
+- Tab Admin dibuat model jendela buka/tutup.
+- Premium Management, Payment Orders, Backup Market Engine, dan Analisa AI dipisah agar dashboard tidak panjang ke bawah.
