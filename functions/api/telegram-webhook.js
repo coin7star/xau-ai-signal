@@ -117,6 +117,10 @@ async function handleConnect(env, message, args) {
     telegramUsername: from.username || chat.username || "",
     telegramFirstName: from.first_name || chat.first_name || "",
     telegramConnectedAt: now,
+    telegramAlertEnabled: true,
+    telegramAlertMainSignal: true,
+    telegramAlertResult: true,
+    telegramAlertUpdatedAt: now,
     telegramConnectCode: null,
     telegramConnectExpiresAt: null,
     updatedAt: now
@@ -158,6 +162,10 @@ async function handleDisconnect(env, message) {
     telegramUsername: null,
     telegramFirstName: null,
     telegramConnectedAt: null,
+    telegramAlertEnabled: false,
+    telegramAlertMainSignal: false,
+    telegramAlertResult: false,
+    telegramAlertUpdatedAt: new Date().toISOString(),
     updatedAt: new Date().toISOString()
   });
 

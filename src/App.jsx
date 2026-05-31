@@ -1613,6 +1613,43 @@ function TelegramConnectPanel({ user, profile, telegramConnect, onRefresh }) {
   const canConnect = profile?.role === "premium" || profile?.role === "admin";
   const commandText = !connected && telegramConnect?.telegramCode ? `/connect ${telegramConnect.telegramCode}` : "";
   const displayCommand = connected ? "Telegram sudah terhubung" : (commandText || "/connect XAU-123456");
+  const alertPrefs = telegramConnect?.telegramAlerts || {};
+  const mainSignalAlert = alertPrefs.mainSignal !== false;
+  const resultAlert = alertPrefs.result !== false;
+  const anyAlertEnabled = alertPrefs.enabled !== false && (mainSignalAlert || resultAlert);
+
+  async function updateAlertPreference(nextPrefs) {
+    if (!connected) return;
+
+    setBusy(true);
+    setMessage("");
+
+    try {
+      const res = await fetch("/api/telegram-alert-preferences", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          uid: user?.uid,
+          mainSignal: nextPrefs.mainSignal,
+          result: nextPrefs.result
+        })
+      });
+
+      const json = await res.json();
+
+      if (!json.ok) {
+        setMessage(json.error || "Gagal menyimpan preferensi Telegram alert.");
+        return;
+      }
+
+      setMessage("Preferensi Telegram alert berhasil disimpan.");
+      await onRefresh();
+    } catch (err) {
+      setMessage(err.message || String(err));
+    } finally {
+      setBusy(false);
+    }
+  }
 
   async function generateCode() {
     if (connected) {
@@ -1734,8 +1771,8 @@ function TelegramConnectPanel({ user, profile, telegramConnect, onRefresh }) {
             <span>Chat ID: {telegramConnect?.telegramChatId || "-"}</span>
           </div>
           <div className="telegramConnectedMeta">
-            <small>Main Signal Alert</small>
-            <strong>ON</strong>
+            <small>Premium Alert</small>
+            <strong>{anyAlertEnabled ? "ON" : "OFF"}</strong>
           </div>
         </div>
       ) : (
@@ -1757,6 +1794,34 @@ function TelegramConnectPanel({ user, profile, telegramConnect, onRefresh }) {
             <b>{displayCommand}</b>
             <small>{commandText ? "Tap Copy Command, lalu paste ke bot Telegram." : "Generate kode dulu untuk membuat command asli."}</small>
           </div>
+        </div>
+      )}
+
+      {connected && (
+        <div className="telegramAlertPrepPanel">
+          <div>
+            <b>Premium Alert Preferences</b>
+            <span>Persiapan multi-user alert. Nanti alert personal akan mengikuti toggle ini.</span>
+          </div>
+          <div className="telegramAlertToggleGrid">
+            <button
+              type="button"
+              className={`telegramToggleBtn ${mainSignalAlert ? "on" : "off"}`}
+              onClick={() => updateAlertPreference({ mainSignal: !mainSignalAlert, result: resultAlert })}
+              disabled={busy}
+            >
+              Main Signal Alert: {mainSignalAlert ? "ON" : "OFF"}
+            </button>
+            <button
+              type="button"
+              className={`telegramToggleBtn ${resultAlert ? "on" : "off"}`}
+              onClick={() => updateAlertPreference({ mainSignal: mainSignalAlert, result: !resultAlert })}
+              disabled={busy}
+            >
+              Result Alert: {resultAlert ? "ON" : "OFF"}
+            </button>
+          </div>
+          <small>Broadcast multi-user belum diaktifkan di Step 10Y. Ini baru menyimpan preferensi aman untuk Step 11.</small>
         </div>
       )}
 
@@ -2172,6 +2237,7 @@ function AdminPanel({ adminToken, setAdminToken }) {
         <AdminStat label="Expired" value={stats.expired} />
         <AdminStat label="Admin" value={stats.admin} />
         <AdminStat label="Telegram" value={stats.telegramConnected} />
+        <AdminStat label="Alert ON" value={stats.telegramAlertEnabled} />
         <AdminStat label="Free" value={stats.free} />
       </div>
 
@@ -2301,6 +2367,7 @@ function AdminPanel({ adminToken, setAdminToken }) {
                   <div className="detailGrid">
                     <span><b>Created:</b> {formatShortDateTime(user.createdAt)}</span>
                     <span><b>Telegram:</b> {user.telegramUsername ? `@${user.telegramUsername}` : user.telegramChatId ? "Chat ID saved" : "-"}</span>
+                    <span><b>Alert:</b> {formatTelegramAlertPrefs(user)}</span>
                     <span><b>Premium:</b> {formatPremiumUntil(user)}</span>
                   </div>
 
@@ -2343,11 +2410,13 @@ function buildAdminStats(users) {
     premiumActive: 0,
     expired: 0,
     admin: 0,
-    telegramConnected: 0
+    telegramConnected: 0,
+    telegramAlertEnabled: 0
   };
 
   users.forEach((user) => {
     if (user.telegramConnected && user.telegramChatId) stats.telegramConnected += 1;
+    if (user.telegramConnected && user.telegramChatId && user.telegramAlertEnabled !== false) stats.telegramAlertEnabled += 1;
     if (user.role === "admin") {
       stats.admin += 1;
     } else if (user.role === "premium") {
@@ -2374,6 +2443,14 @@ function getRoleStatusLabel(user) {
   if (user.role === "premium" && !isAdminPremiumActive(user)) return "EXPIRED";
   return (user.role || "free").toUpperCase();
 }
+
+function formatTelegramAlertPrefs(user) {
+  if (!user?.telegramConnected || !user?.telegramChatId) return "Belum connect";
+  const main = user.telegramAlertMainSignal !== false ? "Main ON" : "Main OFF";
+  const result = user.telegramAlertResult !== false ? "Result ON" : "Result OFF";
+  return `${main} · ${result}`;
+}
+
 
 
 

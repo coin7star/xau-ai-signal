@@ -1,6 +1,6 @@
 {
-  "name": "xau-ai-signal-step10x-signal-quality-guard-v2",
-  "version": "7.16.0-step10x-signal-quality-guard-v2",
+  "name": "xau-ai-signal-step10y-telegram-multi-user-alert-prep",
+  "version": "7.17.0-step10y-telegram-multi-user-alert-prep",
   "type": "module",
   "scripts": {
     "dev": "vite",

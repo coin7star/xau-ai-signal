@@ -26,6 +26,11 @@ export async function onRequest({ request, env }) {
       telegramChatId: maskChatId(user.telegramChatId),
       telegramUsername: user.telegramUsername || "",
       telegramConnectedAt: user.telegramConnectedAt || null,
+      telegramAlerts: {
+        mainSignal: user.telegramAlertMainSignal !== false,
+        result: user.telegramAlertResult !== false,
+        enabled: user.telegramAlertEnabled !== false
+      },
       telegramCode: user.telegramConnectCode || null,
       telegramCodeExpiresAt: user.telegramConnectExpiresAt || null
     });

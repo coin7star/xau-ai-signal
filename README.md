@@ -322,3 +322,9 @@ Dashboard sekarang membedakan kondisi market tutup/weekend dengan koneksi live y
 - Menambahkan panel market safety check di tab Sinyal.
 - Guard mengecek feed MT5/VPS, spread, data candle, volatilitas, confidence, setup, dan OB M15.
 - CALL bisa ditahan menjadi WAIT jika kualitas market belum aman.
+
+
+## Step 10Y - Telegram Multi-user Alert Prep
+- Menyiapkan preferensi Telegram alert per user.
+- Tambah toggle Main Signal Alert dan Result Alert di panel Telegram.
+- Tambah admin stat Alert ON untuk persiapan multi-user premium alert.

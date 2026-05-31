@@ -4690,3 +4690,57 @@ canvas {
     grid-template-columns: 1fr;
   }
 }
+
+/* Step 10Y - Telegram Multi-user Alert Prep */
+.telegramAlertPrepPanel {
+  display: grid;
+  gap: 14px;
+  margin-top: 14px;
+  padding: 18px;
+  border-radius: 22px;
+  background: rgba(15, 23, 42, 0.58);
+  border: 1px solid rgba(103, 232, 249, 0.16);
+}
+
+.telegramAlertPrepPanel b {
+  display: block;
+  font-size: 18px;
+  margin-bottom: 6px;
+}
+
+.telegramAlertPrepPanel span,
+.telegramAlertPrepPanel small {
+  color: #aeb9d8;
+  line-height: 1.5;
+}
+
+.telegramAlertToggleGrid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.telegramToggleBtn {
+  justify-content: center;
+  border: 1px solid rgba(148, 163, 184, 0.18);
+  background: rgba(148, 163, 184, 0.12);
+  color: #dbeafe;
+}
+
+.telegramToggleBtn.on {
+  background: linear-gradient(135deg, rgba(34,255,170,.18), rgba(103,232,249,.10));
+  color: #a6ffd8;
+  border-color: rgba(34,255,170,.26);
+}
+
+.telegramToggleBtn.off {
+  background: rgba(255,77,109,.10);
+  color: #ffc2cc;
+  border-color: rgba(255,77,109,.20);
+}
+
+@media(max-width: 760px) {
+  .telegramAlertToggleGrid {
+    grid-template-columns: 1fr;
+  }
+}
