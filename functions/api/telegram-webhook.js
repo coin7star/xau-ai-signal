@@ -69,7 +69,7 @@ export async function onRequest({ request, env }) {
 
 async function handleConnect(env, message, args) {
   const dbUrl = (env.FIREBASE_DATABASE_URL || "").replace(/\/$/, "");
-  if (!dbUrl) return "❌ Firebase belum diset.";
+  if (!dbUrl) return "❌ Live Data Engine belum aktif. Silakan cek konfigurasi server.";
 
   const code = String(args[0] || "").trim().toUpperCase();
 
@@ -81,7 +81,7 @@ async function handleConnect(env, message, args) {
       "<code>/connect XAU-123456</code>",
       "",
       "Ambil kode dari dashboard premium kamu:",
-      "Dashboard → Telegram Alert → Generate Connect Code → Copy Command.",
+      "Dashboard → Telegram Premium → Generate Connect Code → Copy Command.",
       "",
       "⚠️ Jangan share kode connect. Kode aktif 15 menit dan sekali pakai."
     ].join("\n");
@@ -135,13 +135,13 @@ async function handleConnect(env, message, args) {
     `Role: <b>${escapeHtml(user.role || "-")}</b>`,
     "",
     "Mulai sekarang akun ini sudah terhubung ke Telegram.",
-    "Auto alert premium siap dipakai untuk step berikutnya."
+    "Premium alert siap dipakai untuk sinyal berikutnya."
   ].join("\n");
 }
 
 async function handleDisconnect(env, message) {
   const dbUrl = (env.FIREBASE_DATABASE_URL || "").replace(/\/$/, "");
-  if (!dbUrl) return "❌ Firebase belum diset.";
+  if (!dbUrl) return "❌ Live Data Engine belum aktif. Silakan cek konfigurasi server.";
 
   const chatId = String(message.chat?.id || "");
   const usersRaw = await fbGet(dbUrl, "/users");
@@ -166,7 +166,7 @@ async function handleDisconnect(env, message) {
 
 async function handleMe(env, message) {
   const dbUrl = (env.FIREBASE_DATABASE_URL || "").replace(/\/$/, "");
-  if (!dbUrl) return "❌ Firebase belum diset.";
+  if (!dbUrl) return "❌ Live Data Engine belum aktif. Silakan cek konfigurasi server.";
 
   const chatId = String(message.chat?.id || "");
   const usersRaw = await fbGet(dbUrl, "/users");
@@ -197,7 +197,7 @@ function buildStartMessage() {
   return [
     "🚀 <b>XAU AI Signal</b>",
     "",
-    "Dashboard sekarang lewat Mini App biar lebih rapi dan hemat.",
+    "Akses utama sekarang lewat Mini App agar pengalaman trading lebih rapi dan premium.",
     "Klik tombol di bawah buat buka dashboard:",
     "",
     "• MAIN CALL Signal",
@@ -208,7 +208,7 @@ function buildStartMessage() {
     "",
     "<b>Cara Connect Telegram:</b>",
     "1. Login dashboard pakai akun premium/admin.",
-    "2. Buka card <b>Telegram Alert</b>.",
+    "2. Buka menu <b>Telegram Premium</b>.",
     "3. Klik <b>Generate Connect Code</b>.",
     "4. Klik <b>Copy Command</b>.",
     "5. Paste command ke bot ini, contoh:",
@@ -217,7 +217,7 @@ function buildStartMessage() {
     "",
     "⚠️ Jangan share kode connect. Siapa pun yang pakai kode bisa connect ke akun kamu.",
     "",
-    "<i>Auto alert MAIN CALL tetap masuk ke chat utama. Multi-user alert lanjut Step 3.</i>"
+    "<i>Main signal alert tetap aktif. Personal premium alert akan mengikuti koneksi akun kamu.</i>"
   ].join("\n");
 }
 
@@ -230,11 +230,11 @@ function buildHelpMessage() {
     "/connect KODE - hubungkan Telegram ke akun premium",
     "/disconnect - putuskan Telegram dari akun",
     "/me - cek koneksi Telegram",
-    "/status - cek koneksi bot",
+    "/status - cek status layanan",
     "/help - panduan penggunaan",
     "",
     "<b>Dashboard Mini App:</b>",
-    "Gunakan tombol di bawah untuk melihat signal, chart, history, dan scalp radar.",
+    "Gunakan tombol di bawah untuk melihat signal, chart, history, dan radar market.",
     "",
     "<i>Demo first. XAUUSD galak, risk management wajib.</i>"
   ].join("\n");
@@ -245,7 +245,7 @@ function buildMovedToDashboardMessage(command) {
     "📲 <b>Fitur ini sekarang ada di Dashboard</b>",
     "",
     `Command <b>${escapeHtml(command)}</b> sudah dipindahkan ke Mini App.`,
-    "Ini dibuat biar tampilan lebih lengkap dan Firebase lebih hemat.",
+    "Fitur ini dipindahkan agar pengalaman trading lebih lengkap dan rapi.",
     "",
     "Klik tombol di bawah buat buka dashboard."
   ].join("\n");
@@ -256,28 +256,28 @@ async function buildStatusMessage(env) {
   const hasTelegram = Boolean(env.TELEGRAM_BOT_TOKEN);
   const dashboardUrl = env.DASHBOARD_URL || "https://xau-ai-signal.pages.dev";
 
-  let firebaseStatus = "belum dicek";
+  let liveEngineStatus = "Checking";
 
   if (dbUrl) {
     try {
       const raw = await fbGet(dbUrl, "/xauusd/latest");
-      firebaseStatus = raw ? "online" : "waiting MT5 data";
+      liveEngineStatus = raw ? "Online" : "Waiting Market Feed";
     } catch {
-      firebaseStatus = "error saat cek Firebase";
+      liveEngineStatus = "Temporary Check Failed";
     }
   } else {
-    firebaseStatus = "FIREBASE_DATABASE_URL belum diset";
+    liveEngineStatus = "Setup Required";
   }
 
   return [
-    "🟢 <b>XAU AI Bot Status</b>",
+    "🟢 <b>XAU AI Premium Status</b>",
     "",
-    `<b>Telegram token:</b> ${hasTelegram ? "OK" : "belum diset"}`,
-    `<b>Firebase:</b> ${escapeHtml(firebaseStatus)}`,
-    `<b>Dashboard:</b> ${escapeHtml(dashboardUrl)}`,
+    `<b>Bot Gateway:</b> ${hasTelegram ? "Online" : "Setup Required"}`,
+    `<b>Live Data Engine:</b> ${escapeHtml(liveEngineStatus)}`,
+    `<b>Premium Dashboard:</b> ${escapeHtml(dashboardUrl)}`,
     "",
-    "<b>Mode:</b> Mini App First + Telegram Connect",
-    "<b>Auto Alert:</b> MAIN CALL tetap aktif"
+    "<b>Access Mode:</b> Mini App + Secure Telegram Connect",
+    "<b>Main Signal Alert:</b> Active"
   ].join("\n");
 }
 
@@ -288,7 +288,7 @@ function buildDashboardKeyboard(env) {
     inline_keyboard: [
       [
         {
-          text: "🚀 Open XAU AI Dashboard",
+          text: "🚀 Open Premium Dashboard",
           web_app: { url }
         }
       ]

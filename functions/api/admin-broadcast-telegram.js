@@ -59,7 +59,7 @@ export async function onRequest({ request, env }) {
     "",
     escapeHtml(text),
     "",
-    "<i>Pesan dari admin XAU AI Signal.</i>"
+    "<i>Official update dari XAU AI Signal.</i>"
   ].join("\n");
 
   const results = [];

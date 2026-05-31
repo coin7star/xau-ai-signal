@@ -160,3 +160,19 @@ Panel `RSI + MFI + EMA + OB M15` sekarang dirapikan menjadi baris accordion yang
 ## Step 10J Patch — Premium Feed Label
 
 Status bar dashboard dibuat lebih premium dengan label `Market Feed: Premium Live Engine`, `M1 Stream`, `M15 Stream`, `Last Price`, dan `Feed Status`. Tidak ada perubahan logic backend.
+
+
+## Step 10J Patch 7.3.2 — Premium Telegram Copy
+
+Telegram bot copywriting dibuat lebih premium dan tidak menampilkan istilah teknis backend seperti Firebase, token, atau bahasa internal admin pada pesan user.
+
+Yang diubah:
+- `/status` sekarang memakai label `XAU AI Premium Status`.
+- `Firebase` diganti menjadi `Live Data Engine`.
+- `Telegram token` diganti menjadi `Bot Gateway`.
+- `Dashboard` diganti menjadi `Premium Dashboard`.
+- `Mode` diganti menjadi `Access Mode`.
+- `Auto Alert` diganti menjadi `Main Signal Alert`.
+- Pesan pindah fitur dibuat lebih profesional.
+
+Catatan teknis tetap aman: perubahan ini hanya copywriting Telegram, tidak mengubah Firebase, signal logic, MQ5, cron, atau Telegram connection flow.

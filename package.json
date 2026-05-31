@@ -1,6 +1,6 @@
 {
   "name": "xau-ai-signal-step10j-premium-feed-label",
-  "version": "7.3.1-step10j-premium-feed-label",
+  "version": "7.3.2-step10j-premium-telegram-copy",
   "type": "module",
   "scripts": {
     "dev": "vite",

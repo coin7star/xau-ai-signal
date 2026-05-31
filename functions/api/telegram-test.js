@@ -12,10 +12,10 @@ export async function onRequest({ env }) {
   }
 
   const text = [
-    "✅ <b>XAU AI Signal Telegram Test</b>",
+    "✅ <b>XAU AI Premium Alert Test</b>",
     "",
-    "Bot sudah terhubung.",
-    "Webhook command juga bisa dites setelah /api/telegram-set-webhook sukses.",
+    "Premium alert channel sudah terhubung.",
+    "Signal notification gateway siap dipakai.",
     "",
     "<i>Bukan financial advice.</i>"
   ].join("\n");
