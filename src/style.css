@@ -3718,3 +3718,74 @@ canvas {
     justify-content: center;
   }
 }
+
+
+/* Step 10M Patch 2 - Desktop header balance */
+@media (min-width: 921px) {
+  .dashboardHeader {
+    height: auto;
+    min-height: 72px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 22px;
+  }
+
+  .dashboardBrand {
+    flex: 0 0 auto;
+    min-width: 330px;
+    max-width: 430px;
+  }
+
+  .dashboardHeaderActions {
+    width: auto;
+    flex: 1 1 auto;
+    justify-content: flex-end;
+    align-items: center;
+    gap: 10px;
+  }
+
+  .headerBadge {
+    min-height: 46px;
+    padding: 10px 14px;
+    border-radius: 999px;
+    font-size: 14px;
+  }
+
+  .headerFeedBadge,
+  .headerAlertBadge {
+    min-width: 220px;
+  }
+
+  .headerRoleBadge,
+  .headerAccessBadge {
+    min-width: 145px;
+    justify-content: center;
+  }
+
+  .headerLogoutBtn {
+    min-width: auto;
+    justify-content: center;
+  }
+}
+
+@media (min-width: 921px) and (max-width: 1240px) {
+  .dashboardHeader {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .dashboardBrand {
+    max-width: none;
+  }
+
+  .dashboardHeaderActions {
+    width: 100%;
+    justify-content: flex-start;
+  }
+
+  .headerFeedBadge,
+  .headerAlertBadge {
+    min-width: 240px;
+  }
+}

@@ -1,6 +1,6 @@
 {
-  "name": "xau-ai-signal-step10m-mobile-header-polish",
-  "version": "7.5.1-step10m-mobile-header-polish",
+  "name": "xau-ai-signal-step10m-desktop-header-balance",
+  "version": "7.5.2-step10m-desktop-header-balance",
   "type": "module",
   "scripts": {
     "dev": "vite",

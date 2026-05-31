@@ -222,3 +222,9 @@ Dashboard sekarang membedakan kondisi market tutup/weekend dengan koneksi live y
 - Header dashboard premium di HP dibuat lebih rapi.
 - Badge status disusun lebih nyaman dibaca di layar kecil.
 - Label role dan akses dibuat lebih user friendly.
+
+
+## Step 10M Patch 2 - Desktop Header Balance
+- Header dashboard PC dirapikan lagi setelah mobile polish.
+- HP tetap memakai layout grid rapi.
+- Desktop lebar kembali satu baris, desktop sedang aman dua baris.
