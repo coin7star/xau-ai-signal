@@ -1,6 +1,6 @@
 {
-  "name": "xau-ai-signal-step10s-auto-result-engine",
-  "version": "7.11.0-step10s-auto-result-engine",
+  "name": "xau-ai-signal-step10t-telegram-result-alert",
+  "version": "7.12.0-step10t-telegram-result-alert",
   "type": "module",
   "scripts": {
     "dev": "vite",

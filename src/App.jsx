@@ -2374,6 +2374,8 @@ function ResultTrackerPrepPanel({ callHistory, scalpHistory, market, signal, isA
   const trackerReady = runningItems.length > 0 && lastPrice;
   const updatedCount = trackerState?.updatedCount || 0;
   const scannedCount = trackerState?.scanned || 0;
+  const resultAlertSentCount = trackerState?.resultAlertSentCount || 0;
+  const resultAlertSkippedCount = trackerState?.resultAlertSkippedCount || 0;
 
   return (
     <section className="resultTrackerPanel card">
@@ -2416,7 +2418,8 @@ function ResultTrackerPrepPanel({ callHistory, scalpHistory, market, signal, isA
           <div>
             <b>Manual Engine Check</b>
             <span>{trackerState?.message || "Klik tombol untuk mengecek RUNNING signal sekarang."}</span>
-            {trackerState?.lastRun ? <small>Terakhir cek: {formatHistoryTime(trackerState.lastRun)} · Scan {scannedCount} · Update {updatedCount}</small> : null}
+            {trackerState?.lastRun ? <small>Terakhir cek: {formatHistoryTime(trackerState.lastRun)} · Scan {scannedCount} · Update {updatedCount} · Telegram {resultAlertSentCount}</small> : null}
+            {resultAlertSkippedCount > 0 ? <small>{resultAlertSkippedCount} result tidak dikirim ke Telegram karena gateway belum siap / disabled.</small> : null}
           </div>
           <button type="button" onClick={onRunTracker} disabled={trackerState?.loading || !adminToken}>
             <RefreshCcw size={15} /> {trackerState?.loading ? "Checking..." : "Cek Auto Result"}
@@ -2427,7 +2430,9 @@ function ResultTrackerPrepPanel({ callHistory, scalpHistory, market, signal, isA
       {trackerState?.updated?.length > 0 && (
         <div className="trackerUpdateList">
           {trackerState.updated.slice(0, 5).map((item) => (
-            <span key={`${item.type}-${item.id}`}>{item.type} · {item.result} · {formatPrice(item.price)}</span>
+            <span key={`${item.type}-${item.id}`}>
+              {item.type} · {item.result} · {formatPrice(item.price)} · Telegram {item.resultAlertSent ? "Sent" : "Standby"}
+            </span>
           ))}
         </div>
       )}

@@ -98,13 +98,29 @@ async function buildTrackerSummary(dbUrl, env, shouldUpdate) {
       delete payload.expireHours;
       delete payload.trackerType;
 
+      const alertResult = await maybeSendResultAlert(env, item, payload, result.result, livePrice, result.note);
+
+      if (alertResult.sent) {
+        payload.resultAlertSent = true;
+        payload.resultAlertSentAt = closedAt;
+        payload.resultAlertChannel = "TELEGRAM_GLOBAL";
+      }
+
+      if (alertResult.skippedReason) {
+        payload.resultAlertSkippedReason = alertResult.skippedReason;
+      }
+
       await fbPut(dbUrl, `${item.path}/${item.id}`, payload);
       updated.push({
         id: item.id,
         type: item.trackerType,
+        signal: item.signal,
         result: result.result,
         price: livePrice,
-        note: result.note
+        note: result.note,
+        resultAlertSent: alertResult.sent,
+        resultAlertStatus: alertResult.status || null,
+        resultAlertSkippedReason: alertResult.skippedReason || null
       });
     }
   }
@@ -113,11 +129,125 @@ async function buildTrackerSummary(dbUrl, env, shouldUpdate) {
     livePrice,
     scanned: allOpen.length,
     updatedCount: updated.length,
+    resultAlertSentCount: updated.filter((item) => item.resultAlertSent).length,
+    resultAlertSkippedCount: updated.filter((item) => item.resultAlertSkippedReason).length,
     updated,
     checked,
     mode: shouldUpdate ? "AUTO_UPDATE" : "PREVIEW",
     checkedAt: new Date().toISOString()
   };
+}
+
+async function maybeSendResultAlert(env, originalItem, closedPayload, result, livePrice, note) {
+  if (String(env.RESULT_ALERT_ENABLED || "true").toLowerCase() === "false") {
+    return { sent: false, skippedReason: "RESULT_ALERT_DISABLED" };
+  }
+
+  if (originalItem.resultAlertSent || closedPayload.resultAlertSent) {
+    return { sent: false, skippedReason: "RESULT_ALERT_ALREADY_SENT" };
+  }
+
+  const botToken = env.TELEGRAM_BOT_TOKEN || "";
+  const chatId = env.TELEGRAM_CHAT_ID || "";
+  if (!botToken || !chatId) {
+    return { sent: false, skippedReason: "TELEGRAM_GATEWAY_NOT_READY" };
+  }
+
+  const dashboardUrl = env.PUBLIC_DASHBOARD_URL || "https://www.xauaisignal.online";
+  const text = buildResultTelegramMessage(originalItem, closedPayload, result, livePrice, note, dashboardUrl);
+  const res = await fetch(`https://api.telegram.org/bot${botToken}/sendMessage`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      chat_id: chatId,
+      text,
+      parse_mode: "HTML",
+      disable_web_page_preview: true,
+      reply_markup: {
+        inline_keyboard: [[
+          { text: "🚀 Open Premium Dashboard", url: dashboardUrl }
+        ]]
+      }
+    })
+  });
+
+  let response = null;
+  try { response = await res.json(); } catch { response = await res.text(); }
+
+  if (!res.ok) {
+    return { sent: false, status: res.status, response, skippedReason: "TELEGRAM_SEND_FAILED" };
+  }
+
+  return { sent: true, status: res.status, response };
+}
+
+function buildResultTelegramMessage(item, payload, result, livePrice, note, dashboardUrl) {
+  const signal = String(item.signal || "-").toUpperCase();
+  const pair = escapeHtml(item.pair || item.symbol || "XAUUSD+");
+  const type = String(item.trackerType || "MAIN_CALL").replace(/_/g, " ");
+  const confidence = Number(item.confidence);
+  const confidenceText = Number.isFinite(confidence) ? `${confidence}%` : "-";
+  const durationText = buildDurationText(item.createdAt || item.candleTime || item.serverTime, payload.closedAt);
+  const title = result === "WIN"
+    ? "✅ XAU AI RESULT · WIN"
+    : result === "LOSS"
+      ? "❌ XAU AI RESULT · LOSS"
+      : "⚪ XAU AI RESULT · EXPIRED";
+
+  const resultLine = result === "WIN"
+    ? "Target profit berhasil tercapai."
+    : result === "LOSS"
+      ? "Setup selesai di area stop loss."
+      : "Setup tidak menyentuh TP/SL dalam batas waktu.";
+
+  const actionLine = result === "WIN"
+    ? "Kunci profit dan tunggu setup premium berikutnya."
+    : result === "LOSS"
+      ? "Tetap disiplin risk management. Fokus pada konsistensi, bukan satu trade."
+      : "Abaikan setup lama dan tunggu peluang baru.";
+
+  return [
+    `<b>${title}</b>`,
+    `<i>${escapeHtml(type)} sudah selesai dipantau oleh Auto Result Engine.</i>`,
+    "",
+    `<b>Signal:</b> ${escapeHtml(signal)} ${pair}`,
+    `<b>Entry:</b> ${formatPrice(item.entry)}`,
+    `<b>Stop Loss:</b> ${formatPrice(item.sl)}`,
+    `<b>Take Profit:</b> ${formatPrice(item.tp)}`,
+    `<b>Result Price:</b> ${formatPrice(livePrice)}`,
+    `<b>Confidence Awal:</b> ${escapeHtml(confidenceText)}`,
+    `<b>Duration:</b> ${escapeHtml(durationText)}`,
+    "",
+    "🎯 <b>Result</b>",
+    escapeHtml(resultLine),
+    note ? escapeHtml(note) : "",
+    "",
+    "🧠 <b>Action</b>",
+    escapeHtml(actionLine),
+    "",
+    `🚀 <b>Dashboard:</b> ${escapeHtml(dashboardUrl)}`,
+    "",
+    "<i>Bukan financial advice.</i>"
+  ].filter(Boolean).join("\n");
+}
+
+function buildDurationText(start, end) {
+  const startMs = new Date(start || 0).getTime();
+  const endMs = new Date(end || Date.now()).getTime();
+  if (!Number.isFinite(startMs) || startMs <= 0 || !Number.isFinite(endMs)) return "-";
+  const minutes = Math.max(0, Math.round((endMs - startMs) / 60000));
+  if (minutes < 60) return `${minutes} menit`;
+  const hours = Math.floor(minutes / 60);
+  const mins = minutes % 60;
+  return mins ? `${hours} jam ${mins} menit` : `${hours} jam`;
+}
+
+function escapeHtml(value) {
+  return String(value ?? "")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;");
 }
 
 function evaluateItem(item, livePrice) {

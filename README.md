@@ -278,3 +278,9 @@ Dashboard sekarang membedakan kondisi market tutup/weekend dengan koneksi live y
 - Menambahkan endpoint `/api/result-tracker` untuk cek TP/SL/expired pada signal RUNNING.
 - Admin bisa menjalankan pengecekan dari tab History.
 - Belum mengirim result otomatis ke Telegram; disiapkan untuk step berikutnya.
+
+
+## Step 10T - Telegram Result Alert
+- Auto Result Engine mengirim alert Telegram saat signal menjadi WIN / LOSS / EXPIRED.
+- Result alert memakai format premium dan tombol dashboard.
+- Anti duplicate menggunakan `resultAlertSent`.
