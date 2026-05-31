@@ -1,6 +1,6 @@
 {
-  "name": "xau-ai-signal-step10z1-telegram-alert-auto-on-info",
-  "version": "7.18.1-step10z1-telegram-alert-auto-on-info",
+  "name": "xau-ai-signal-step10z2-telegram-premium-user-copy",
+  "version": "7.18.2-step10z2-telegram-premium-user-copy",
   "type": "module",
   "scripts": {
     "dev": "vite",

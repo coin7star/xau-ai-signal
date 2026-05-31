@@ -1822,7 +1822,7 @@ function TelegramConnectPanel({ user, profile, telegramConnect, onRefresh }) {
               Result Alert: {resultAlert ? "ON" : "OFF"}
             </button>
           </div>
-          <small>Kalau Main Signal Alert OFF, kamu tidak akan menerima sinyal otomatis. Kalau Result Alert OFF, kamu tidak akan menerima update WIN / LOSS / EXPIRED. Broadcast manual admin tetap terpisah.</small>
+          <small>Kalau Main Signal Alert OFF, kamu tidak akan menerima sinyal otomatis. Kalau Result Alert OFF, kamu tidak akan menerima update WIN / LOSS / EXPIRED. Pengumuman resmi dari XAU AI tetap dikelola terpisah.</small>
         </div>
       )}
 

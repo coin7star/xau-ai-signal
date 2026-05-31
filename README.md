@@ -346,3 +346,8 @@ Dashboard sekarang membedakan kondisi market tutup/weekend dengan koneksi live y
 - User yang berhasil connect Telegram otomatis mendapatkan Main Signal Alert ON dan Result Alert ON.
 - User bisa mematikan alert sendiri dari Telegram panel.
 - UI Telegram panel memberi info jelas bahwa OFF berarti tidak menerima sinyal/result alert.
+
+
+## Step 10Z2 - Telegram Premium User Copy
+- Copywriting panel Telegram untuk user premium dibuat lebih bersih.
+- Istilah `admin` di area user-facing diganti menjadi pengumuman resmi XAU AI.
