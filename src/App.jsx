@@ -1502,10 +1502,15 @@ function TelegramConnectPanel({ user, profile, telegramConnect, onRefresh }) {
   const [message, setMessage] = useState("");
   const connected = Boolean(telegramConnect?.telegramConnected);
   const canConnect = profile?.role === "premium" || profile?.role === "admin";
-  const commandText = telegramConnect?.telegramCode ? `/connect ${telegramConnect.telegramCode}` : "";
-  const displayCommand = commandText || "/connect XAU-123456";
+  const commandText = !connected && telegramConnect?.telegramCode ? `/connect ${telegramConnect.telegramCode}` : "";
+  const displayCommand = connected ? "Telegram sudah terhubung" : (commandText || "/connect XAU-123456");
 
   async function generateCode() {
+    if (connected) {
+      setMessage("Telegram sudah terhubung. Klik Disconnect dulu kalau ingin membuat kode connect baru.");
+      return;
+    }
+
     setBusy(true);
     setMessage("");
 
@@ -1613,24 +1618,30 @@ function TelegramConnectPanel({ user, profile, telegramConnect, onRefresh }) {
 
         <div className="telegramConnectBox">
           <span>Connect Code</span>
-          <b>{telegramConnect?.telegramCode || "-"}</b>
-          <small>{telegramConnect?.telegramCodeExpiresAt ? `Expired: ${formatShortDateTime(telegramConnect.telegramCodeExpiresAt)} · sekali pakai` : "Kode aktif 15 menit dan sekali pakai."}</small>
+          <b>{connected ? "Terkunci" : (telegramConnect?.telegramCode || "-")}</b>
+          <small>{connected ? "Kode connect dinonaktifkan karena Telegram sudah terhubung." : (telegramConnect?.telegramCodeExpiresAt ? `Expired: ${formatShortDateTime(telegramConnect.telegramCodeExpiresAt)} · sekali pakai` : "Kode aktif 15 menit dan sekali pakai.")}</small>
         </div>
 
         <div className="telegramConnectBox commandBox">
           <span>Command ke Bot</span>
           <b>{displayCommand}</b>
-          <small>{commandText ? "Tap Copy Command, lalu paste ke bot Telegram." : "Generate kode dulu untuk membuat command asli."}</small>
+          <small>{connected ? "Untuk membuat kode baru, disconnect Telegram dulu." : (commandText ? "Tap Copy Command, lalu paste ke bot Telegram." : "Generate kode dulu untuk membuat command asli.")}</small>
         </div>
       </div>
 
       {message && <div className="adminMessage">{message}</div>}
 
       <div className="telegramActions">
-        <button type="button" onClick={generateCode} disabled={busy}>
-          {busy ? "Loading..." : "Generate Connect Code"}
-        </button>
-        <button type="button" className="copyBtn" onClick={copyCommand} disabled={busy || !commandText}>
+        {!connected ? (
+          <button type="button" onClick={generateCode} disabled={busy}>
+            {busy ? "Loading..." : "Generate Connect Code"}
+          </button>
+        ) : (
+          <button type="button" disabled className="lockedBtn">
+            Telegram Sudah Terhubung
+          </button>
+        )}
+        <button type="button" className="copyBtn" onClick={copyCommand} disabled={busy || connected || !commandText}>
           <Copy size={16} /> Copy Command
         </button>
         <button type="button" onClick={onRefresh} disabled={busy}>

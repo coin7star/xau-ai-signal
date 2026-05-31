@@ -240,3 +240,9 @@ Dashboard sekarang membedakan kondisi market tutup/weekend dengan koneksi live y
 - Tab Admin dibuat lebih ringkas dengan panel buka/tutup.
 - Menggunakan native details/summary agar lebih aman dari crash React.
 - Panel lama tetap dipakai, hanya dibungkus seperti jendela.
+
+
+## Step 10O - Telegram Connect Guard
+- Panel Telegram Connect dibuat lebih aman.
+- User yang sudah connected tidak bisa generate connect code baru sebelum disconnect.
+- Copy command dikunci saat Telegram sudah terhubung.

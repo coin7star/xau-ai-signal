@@ -1,6 +1,6 @@
 {
-  "name": "xau-ai-signal-step10n-admin-windows-lite",
-  "version": "7.6.5-step10n-admin-windows-lite",
+  "name": "xau-ai-signal-step10o-telegram-connect-guard",
+  "version": "7.7.0-step10o-telegram-connect-guard",
   "type": "module",
   "scripts": {
     "dev": "vite",

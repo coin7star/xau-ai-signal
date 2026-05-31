@@ -3889,3 +3889,13 @@ canvas {
     padding: 0 8px 8px;
   }
 }
+
+
+/* Step 10O - Telegram connect guard */
+.telegramActions .lockedBtn {
+  background: rgba(148, 163, 184, 0.14) !important;
+  color: #cbd5e1 !important;
+  border: 1px solid rgba(148, 163, 184, 0.22) !important;
+  cursor: not-allowed !important;
+  opacity: 0.82;
+}
