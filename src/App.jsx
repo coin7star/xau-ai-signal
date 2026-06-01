@@ -905,7 +905,7 @@ export default function App() {
       value: obCardValue,
       status: freshBullOb ? "BUY AREA" : freshBearOb ? "SELL AREA" : "WAIT",
       note: obCardNote,
-      detail: "Order Block M15 dipakai sebagai area penting. Fresh OB lebih diprioritaskan karena belum terlalu sering disentuh harga."
+      detail: "Order Block M15 tetap dipakai selama belum dibreak jauh. Sekali sentuh tidak langsung menghapus area OB."
     },
     {
       id: "probability",
@@ -4848,11 +4848,9 @@ function getFreshOb(ob) {
   if (!ob) return null;
   if (ob.invalidated || ob.status === "invalid") return null;
 
-  // Tampilkan hanya OB fresh/active.
-  // Mitigated disembunyikan, tapi mitigated sekarang dihitung lebih fair:
-  // harus retrace minimal 50% zona OB setelah BOS.
-  if (ob.status !== "active") return null;
-  if (ob.mitigated) return null;
+  // Step 10AM4: OB M15 tetap terlihat setelah disentuh.
+  // Hilang hanya kalau invalid/deep break atau engine menemukan OB baru yang lebih relevan.
+  if (ob.status && ob.status !== "active" && ob.status !== "mitigated") return null;
 
   const low = Number(ob.low);
   const high = Number(ob.high);

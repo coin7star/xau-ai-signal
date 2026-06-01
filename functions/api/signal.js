@@ -2470,27 +2470,33 @@ function buildObZone(data, bos, origin, direction, atr14, method = "SMC_BOS") {
 
 function updateObStatus(data, ob, direction, atr14) {
   let status = "active";
-  let mitigated = false;
+  let touched = false;
   let invalidated = false;
-  let mitigatedTime = null;
+  let touchedTime = null;
   let invalidatedTime = null;
 
   const low = Number(ob.low);
   const high = Number(ob.high);
+  const zoneSize = Math.max(0.01, high - low);
   const mid = (low + high) / 2;
+
+  // Step 10AM4: OB M15 tidak hilang hanya karena sekali disentuh.
+  // OB tetap tampil sebagai valid zone sampai benar-benar dibreak jauh.
+  const invalidBreakBuffer = Math.max(atr14 * 0.35, zoneSize * 0.25);
 
   const afterBos = data.filter((c) => timeToNum(c.time) > timeToNum(ob.bosTime));
 
   for (const c of afterBos) {
     if (direction === "bullish") {
+      const touchedOb = c.low <= high && c.high >= low;
       const retracedToHalfOb = c.low <= mid;
 
-      if (retracedToHalfOb) {
-        mitigated = true;
-        mitigatedTime = mitigatedTime || c.time;
+      if (touchedOb || retracedToHalfOb) {
+        touched = true;
+        touchedTime = touchedTime || c.time;
       }
 
-      if (c.close < low - atr14 * 0.1) {
+      if (c.close < low - invalidBreakBuffer) {
         invalidated = true;
         invalidatedTime = c.time;
         break;
@@ -2498,14 +2504,15 @@ function updateObStatus(data, ob, direction, atr14) {
     }
 
     if (direction === "bearish") {
+      const touchedOb = c.high >= low && c.low <= high;
       const retracedToHalfOb = c.high >= mid;
 
-      if (retracedToHalfOb) {
-        mitigated = true;
-        mitigatedTime = mitigatedTime || c.time;
+      if (touchedOb || retracedToHalfOb) {
+        touched = true;
+        touchedTime = touchedTime || c.time;
       }
 
-      if (c.close > high + atr14 * 0.1) {
+      if (c.close > high + invalidBreakBuffer) {
         invalidated = true;
         invalidatedTime = c.time;
         break;
@@ -2514,18 +2521,21 @@ function updateObStatus(data, ob, direction, atr14) {
   }
 
   if (invalidated) status = "invalid";
-  else if (mitigated) status = "mitigated";
   else status = "active";
 
   return {
     ...ob,
     status,
-    mitigated,
+    touched,
+    touchedTime,
+    // Backward-compatible fields: existing UI may still read mitigated.
+    mitigated: touched,
+    mitigatedTime: touchedTime,
     invalidated,
-    mitigatedTime,
     invalidatedTime,
-    fresh: status === "active",
-    mitigationRule: "50pct_ob_retrace_after_bos"
+    fresh: !invalidated,
+    invalidBreakBuffer: round(invalidBreakBuffer),
+    mitigationRule: "persistent_ob_until_deep_break"
   };
 }
 
@@ -2618,8 +2628,10 @@ function humanize(value) {
 
 function getFreshObForDisplay(ob) {
   if (!ob) return null;
-  if (ob.status !== "active") return null;
-  if (ob.mitigated || ob.invalidated) return null;
+  if (ob.invalidated || ob.status === "invalid") return null;
+  // Step 10AM4: OB M15 tetap ditampilkan walaupun sudah pernah disentuh.
+  // Hilang hanya saat invalid/deep break atau ketika engine menemukan OB baru yang lebih relevan.
+  if (ob.status && ob.status !== "active" && ob.status !== "mitigated") return null;
   return ob;
 }
 
