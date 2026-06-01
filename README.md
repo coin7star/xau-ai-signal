@@ -477,3 +477,10 @@ Dashboard sekarang membedakan kondisi market tutup/weekend dengan koneksi live y
 - Entry utama menjadi BUY LIMIT / SELL LIMIT di area EMA 9 setelah EMA break.
 - TP memakai swing koreksi, SL RR 1:1.
 - M5 native dari MT5/VPS dipakai jika tersedia, fallback dari agregasi M1.
+
+
+## Step 10AO1 — Main M5 Body Swing TP
+- TP Strategy A M5 sekarang memakai body swing high/low, bukan wick ekstrem.
+- BUY memakai body atas swing high koreksi.
+- SELL memakai body bawah swing low koreksi.
+- SL tetap RR 1:1 dari jarak entry ke TP.

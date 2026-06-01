@@ -1,6 +1,6 @@
 {
-  "name": "xau-ai-signal-step10ao-main-m5-ema-pullback-limit",
-  "version": "7.33.0-step10ao-main-m5-ema-pullback-limit",
+  "name": "xau-ai-signal-step10ao2-main-snapshot-plan-lines",
+  "version": "7.33.2-step10ao2-main-snapshot-plan-lines",
   "type": "module",
   "scripts": {
     "dev": "vite",
