@@ -1,6 +1,6 @@
 {
-  "name": "xau-ai-signal-step10an-m5-engulfing-limit-scalp",
-  "version": "7.32.0-step10an-m5-engulfing-limit-scalp",
+  "name": "xau-ai-signal-step10ao-main-m5-ema-pullback-limit",
+  "version": "7.33.0-step10ao-main-m5-ema-pullback-limit",
   "type": "module",
   "scripts": {
     "dev": "vite",

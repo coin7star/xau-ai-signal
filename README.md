@@ -470,3 +470,10 @@ Dashboard sekarang membedakan kondisi market tutup/weekend dengan koneksi live y
 - SL memakai struktur swing M5 sebelumnya ± 1.5 ATR.
 - TP:SL = 1:1.
 - Max pending: 2 BUY + 2 SELL.
+
+
+## Step 10AO - Main Signal M5 EMA Pullback Limit
+- Sinyal utama diganti ke strategi M5 EMA 9/20 pullback limit.
+- Entry utama menjadi BUY LIMIT / SELL LIMIT di area EMA 9 setelah EMA break.
+- TP memakai swing koreksi, SL RR 1:1.
+- M5 native dari MT5/VPS dipakai jika tersedia, fallback dari agregasi M1.
