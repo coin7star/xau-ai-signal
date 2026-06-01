@@ -1775,11 +1775,35 @@ async function maybeSendTelegramAlert(env, dbUrl, signal, market) {
     signal.candleTime || market?.serverTime || market?.receivedAt || "no-time"
   ].join("|");
 
+  const duplicateKey = buildMainSignalDuplicateKey(signal, market);
+  const duplicateLockPath = `/xauusd/telegram/alertLocks/${safeKey(duplicateKey)}`;
+  const duplicateWindowMs = Number(env.TELEGRAM_ALERT_DEDUP_WINDOW_SEC || 900) * 1000;
+  const nowMs = Date.now();
+
   const lastAlert = await fbGet(dbUrl, "/xauusd/telegram/lastAlert");
+  const lock = await fbGet(dbUrl, duplicateLockPath);
 
   if (lastAlert?.alertKey === alertKey) {
-    return { ok: true, skipped: "duplicate-alert", alertKey };
+    return { ok: true, skipped: "duplicate-alert", alertKey, duplicateKey };
   }
+
+  if (lock?.sentAtMs && nowMs - Number(lock.sentAtMs) <= duplicateWindowMs) {
+    return { ok: true, skipped: "duplicate-main-signal-lock", alertKey, duplicateKey };
+  }
+
+  // Lock sebelum kirim agar kalau /api/signal kepanggil beberapa kali cepat, Telegram tidak spam.
+  await fbPut(dbUrl, duplicateLockPath, {
+    duplicateKey,
+    alertKey,
+    signal: signal.signal,
+    callStage: signal.callStage,
+    entry: signal.entry ?? null,
+    sl: signal.sl ?? null,
+    tp: signal.tp ?? null,
+    sentAtMs: nowMs,
+    lockedAt: new Date(nowMs).toISOString(),
+    ttlSec: Math.round(duplicateWindowMs / 1000)
+  });
 
   const message = buildTelegramMessage(signal, market);
   const recipients = await getTelegramAlertRecipients(env, dbUrl);
@@ -1845,6 +1869,21 @@ async function maybeSendTelegramAlert(env, dbUrl, signal, market) {
     failedCount,
     recipients: results
   };
+}
+
+function buildMainSignalDuplicateKey(signal, market) {
+  const pair = String(signal?.pair || market?.symbol || "XAUUSD").toUpperCase();
+  const direction = String(signal?.signal || "WAIT").toUpperCase();
+  const entry = roundForAlertKey(signal?.entry ?? market?.bid ?? market?.lastClose ?? 0);
+  const sl = roundForAlertKey(signal?.sl ?? 0);
+  const tp = roundForAlertKey(signal?.tp ?? 0);
+  return ["MAIN_SIGNAL", pair, direction, entry, sl, tp].join("|");
+}
+
+function roundForAlertKey(value) {
+  const n = Number(value);
+  if (!Number.isFinite(n)) return "NA";
+  return (Math.round(n * 10) / 10).toFixed(1);
 }
 
 async function getTelegramAlertRecipients(env, dbUrl) {
