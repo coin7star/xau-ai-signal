@@ -1,6 +1,6 @@
 {
-  "name": "xau-ai-signal-step10ap-focus-main-strategy-only",
-  "version": "7.34.0-step10ap-focus-main-strategy-only",
+  "name": "xau-ai-signal-step10aq-m5-only-dynamic-ema-limit",
+  "version": "7.35.0-step10aq-m5-only-dynamic-ema-limit",
   "type": "module",
   "scripts": {
     "dev": "vite",
