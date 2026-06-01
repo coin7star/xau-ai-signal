@@ -381,3 +381,9 @@ Dashboard sekarang membedakan kondisi market tutup/weekend dengan koneksi live y
 - Menambahkan analytics 7D/30D khusus SMC AI / Strategy B.
 - Menambahkan Clean WR, Total WR, Average RR, Average TP/SL, Profit Factor, dan Best Snapshot.
 - Strategy A tetap terpisah dan tidak diubah.
+
+
+## Step 10AE - Strategy Compare A vs B
+- Tambah panel Strategy Lab untuk membandingkan Strategy A dan Strategy B SMC AI.
+- Membandingkan 7D/30D Clean WR, total signal, average RR, expired rate, dan profit factor.
+- Memberi insight ringan tanpa mengubah logic Strategy A maupun Strategy B.

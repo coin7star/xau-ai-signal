@@ -1,6 +1,6 @@
 {
-  "name": "xau-ai-signal-step10ad-strategy-b-stats-7-30-days",
-  "version": "7.22.0-step10ad-strategy-b-stats-7-30-days",
+  "name": "xau-ai-signal-step10ae-strategy-compare-a-vs-b",
+  "version": "7.23.0-step10ae-strategy-compare-a-vs-b",
   "type": "module",
   "scripts": {
     "dev": "vite",

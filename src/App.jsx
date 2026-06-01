@@ -1243,12 +1243,19 @@ export default function App() {
       )}
 
       {activeDashboardTab === "smc" && (
-        <StrategyBSmcPanel
-          strategyB={strategyB}
-          strategyBHistory={strategyBHistory}
-          isAdmin={isAdmin}
-          onUpdateResult={updateStrategyBResult}
-        />
+        <>
+          <StrategyComparePanel
+            callHistory={callHistory}
+            scalpHistory={scalpHistory}
+            strategyBHistory={strategyBHistory}
+          />
+          <StrategyBSmcPanel
+            strategyB={strategyB}
+            strategyBHistory={strategyBHistory}
+            isAdmin={isAdmin}
+            onUpdateResult={updateStrategyBResult}
+          />
+        </>
       )}
 
       {activeDashboardTab === "history" && (
@@ -4811,6 +4818,206 @@ function formatSignedPercent(value) {
   return `${num > 0 ? "+" : ""}${num.toFixed(3)}%`;
 }
 
+
+
+function StrategyComparePanel({ callHistory, scalpHistory, strategyBHistory }) {
+  const strategyAItems = [
+    ...(callHistory?.history || []).map((item) => ({ ...item, compareSource: "MAIN CALL" })),
+    ...(scalpHistory?.history || []).map((item) => ({ ...item, compareSource: "SCALP M1" }))
+  ];
+  const strategyBItems = strategyBHistory?.history || [];
+
+  const a7 = buildCompareStats(strategyAItems, 7, 1.25);
+  const a30 = buildCompareStats(strategyAItems, 30, 1.25);
+  const b7 = buildCompareStats(strategyBItems, 7, 2);
+  const b30 = buildCompareStats(strategyBItems, 30, 2);
+  const insight = buildStrategyCompareInsight(a7, a30, b7, b30);
+
+  return (
+    <section className="strategyComparePanel card">
+      <div className="sectionTitle">
+        <div>
+          <span className="pill mini"><BarChart3 size={14} /> STRATEGY LAB</span>
+          <h3>Compare Strategy A vs Strategy B</h3>
+          <span>Panel ini hanya membandingkan performa. Strategy A tetap utama, Strategy B SMC AI masih live-backtest.</span>
+        </div>
+        <div className="strategyCompareBadge">
+          <b>{insight.badge}</b>
+          <span>{insight.short}</span>
+        </div>
+      </div>
+
+      <div className="strategyCompareGrid">
+        <StrategyCompareCard title="Strategy A" subtitle="Main Signal + Scalp" stats7={a7} stats30={a30} tone="a" />
+        <StrategyCompareCard title="Strategy B" subtitle="SMC AI · OB → Sweep → CHOCH → EMA" stats7={b7} stats30={b30} tone="b" />
+      </div>
+
+      <div className="strategyCompareTable">
+        <div className="strategyCompareHead">
+          <span>Metric</span>
+          <span>Strategy A</span>
+          <span>Strategy B</span>
+          <span>Insight</span>
+        </div>
+        {buildStrategyCompareRows(a30, b30).map((row) => (
+          <div className="strategyCompareRow" key={row.metric}>
+            <span>{row.metric}</span>
+            <b>{row.a}</b>
+            <b>{row.b}</b>
+            <em>{row.note}</em>
+          </div>
+        ))}
+      </div>
+
+      <div className="strategyCompareInsight">
+        <b>AI Lab Insight</b>
+        <span>{insight.detail}</span>
+      </div>
+    </section>
+  );
+}
+
+function StrategyCompareCard({ title, subtitle, stats7, stats30, tone }) {
+  const wrClass = stats30.cleanWinRate >= 70 ? "strong" : stats30.cleanWinRate >= 50 ? "normal" : "weak";
+  return (
+    <div className={`strategyCompareCard ${tone}`}>
+      <div className="strategyCompareCardTop">
+        <div>
+          <b>{title}</b>
+          <span>{subtitle}</span>
+        </div>
+        <strong className={wrClass}>{stats30.cleanWinRate}%</strong>
+      </div>
+      <div className="strategyCompareMiniGrid">
+        <span>7D WR <b>{stats7.cleanWinRate}%</b></span>
+        <span>30D WR <b>{stats30.cleanWinRate}%</b></span>
+        <span>Signal <b>{stats30.total}</b></span>
+        <span>Closed <b>{stats30.closed}</b></span>
+        <span>Expired <b>{stats30.expired}</b></span>
+        <span>Avg RR <b>{stats30.averageRR}</b></span>
+      </div>
+      <p>{stats30.total ? `${stats30.wins} WIN · ${stats30.losses} LOSS · ${stats30.be} BE · ${stats30.expired} EXP dalam 30 hari.` : "Menunggu data result 30 hari."}</p>
+    </div>
+  );
+}
+
+function buildCompareStats(items, days, fallbackRR = 1) {
+  const stats = buildPerformanceStats(items, days);
+  const filtered = filterHistoryByDays(items, days);
+  const closedItems = filtered.filter((item) => ["WIN", "LOSS", "BE"].includes(formatResultStatus(item)));
+  const rrValues = closedItems.map((item) => Number(String(item.rr || item.riskReward || fallbackRR).replace(/[^0-9.]/g, ""))).filter((n) => Number.isFinite(n) && n > 0);
+  const tpValues = closedItems.map((item) => Math.abs(Number(item.tp || 0) - Number(item.entry || 0))).filter((n) => Number.isFinite(n) && n > 0);
+  const slValues = closedItems.map((item) => Math.abs(Number(item.entry || 0) - Number(item.sl || 0))).filter((n) => Number.isFinite(n) && n > 0);
+  const avgRR = rrValues.length ? average(rrValues) : fallbackRR;
+  const avgTP = tpValues.length ? average(tpValues) : 0;
+  const avgSL = slValues.length ? average(slValues) : 0;
+  const grossWin = stats.wins * avgRR;
+  const grossLoss = stats.losses || 0;
+
+  return {
+    ...stats,
+    averageRR: avgRR ? Number(avgRR.toFixed(2)) : 0,
+    averageTP: avgTP ? Number(avgTP.toFixed(2)) : 0,
+    averageSL: avgSL ? Number(avgSL.toFixed(2)) : 0,
+    profitFactor: grossLoss > 0 ? Number((grossWin / grossLoss).toFixed(2)) : stats.wins > 0 ? "∞" : 0,
+    expiredRate: stats.total > 0 ? Math.round((stats.expired / stats.total) * 100) : 0
+  };
+}
+
+function filterHistoryByDays(items, days) {
+  const now = Date.now();
+  const from = now - days * 24 * 60 * 60 * 1000;
+  return (items || []).filter((item) => {
+    const t = parseHistoryTimeMs(item.createdAt || item.candleTime || item.time || item.timestamp || item.closedAt || item.resultAt);
+    if (!t) return true;
+    return t >= from;
+  });
+}
+
+function average(values) {
+  if (!values.length) return 0;
+  return values.reduce((sum, item) => sum + item, 0) / values.length;
+}
+
+function buildStrategyCompareRows(a, b) {
+  return [
+    {
+      metric: "Clean WR 30D",
+      a: `${a.cleanWinRate}%`,
+      b: `${b.cleanWinRate}%`,
+      note: compareHigher(a.cleanWinRate, b.cleanWinRate, "WR")
+    },
+    {
+      metric: "Total Signal",
+      a: String(a.total),
+      b: String(b.total),
+      note: b.total < 5 ? "SMC AI masih butuh data lebih banyak." : "Volume data mulai bisa dibandingkan."
+    },
+    {
+      metric: "Average RR",
+      a: String(a.averageRR),
+      b: String(b.averageRR),
+      note: b.averageRR > a.averageRR ? "SMC AI unggul di reward/risk." : "Strategy A masih lebih stabil di RR aktual."
+    },
+    {
+      metric: "Expired Rate",
+      a: `${a.expiredRate}%`,
+      b: `${b.expiredRate}%`,
+      note: b.expiredRate > a.expiredRate ? "SMC AI lebih sering habis waktu, pantau validitas setup." : "Expired SMC AI masih terkontrol."
+    },
+    {
+      metric: "Profit Factor",
+      a: String(a.profitFactor),
+      b: String(b.profitFactor),
+      note: "PF adalah estimasi sederhana dari result closed."
+    }
+  ];
+}
+
+function compareHigher(a, b, label) {
+  if (a === b) return `${label} keduanya seimbang.`;
+  return b > a ? `Strategy B unggul di ${label}.` : `Strategy A unggul di ${label}.`;
+}
+
+function buildStrategyCompareInsight(a7, a30, b7, b30) {
+  if (b30.total < 5 && a30.total < 5) {
+    return {
+      badge: "Data awal",
+      short: "Belum cukup data",
+      detail: "Strategy A dan SMC AI masih perlu lebih banyak signal closed sebelum keputusan performa bisa dipercaya."
+    };
+  }
+
+  if (b30.total < 5) {
+    return {
+      badge: "SMC AI Testing",
+      short: "Data Strategy B masih tipis",
+      detail: `Strategy A sudah punya ${a30.total} signal 30D, sedangkan SMC AI baru ${b30.total}. Biarkan SMC AI live-backtest dulu sebelum dijadikan alert resmi.`
+    };
+  }
+
+  if (b30.cleanWinRate > a30.cleanWinRate && b30.averageRR >= a30.averageRR) {
+    return {
+      badge: "SMC AI unggul",
+      short: "B lebih kuat di WR/RR",
+      detail: `SMC AI unggul dengan ${b30.cleanWinRate}% Clean WR dan Avg RR ${b30.averageRR}. Tetap pantau sample size dan expired rate sebelum live alert.`
+    };
+  }
+
+  if (a30.cleanWinRate >= b30.cleanWinRate && a30.total >= b30.total) {
+    return {
+      badge: "Strategy A stabil",
+      short: "A masih baseline utama",
+      detail: `Strategy A masih lebih stabil untuk baseline karena data 30D lebih banyak dan Clean WR ${a30.cleanWinRate}%. SMC AI tetap lanjut sebagai eksperimen.`
+    };
+  }
+
+  return {
+    badge: "Mixed result",
+    short: "Perlu observasi lanjut",
+    detail: "Kedua strategi punya kelebihan berbeda. Pakai panel ini untuk memutuskan apakah SMC AI layak naik ke alert Telegram live."
+  };
+}
 
 function StrategyBSmcPanel({ strategyB, strategyBHistory, isAdmin, onUpdateResult }) {
   const action = String(strategyB?.action || "WAIT");
