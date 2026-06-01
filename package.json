@@ -1,6 +1,6 @@
 {
-  "name": "xau-ai-signal-step10am3-main-alert-anti-duplicate-lock",
-  "version": "7.31.3-step10am3-main-alert-anti-duplicate-lock",
+  "name": "xau-ai-signal-step10am4-persistent-ob-m15-rules",
+  "version": "7.31.4-step10am4-persistent-ob-m15-rules",
   "type": "module",
   "scripts": {
     "dev": "vite",

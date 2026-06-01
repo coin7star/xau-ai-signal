@@ -456,3 +456,8 @@ Dashboard sekarang membedakan kondisi market tutup/weekend dengan koneksi live y
 ## Step 10AM2 - Candle Count Copy Polish
 - Signal Quality Guard tidak lagi menampilkan jumlah candle internal.
 - Teks data dibuat lebih singkat dan user-friendly.
+
+
+## Step 10AM4 - Persistent OB M15 Rules
+- OB M15 tidak hilang hanya karena sekali disentuh.
+- OB tetap tampil sampai invalid/deep break atau tergantikan OB baru yang lebih relevan.
