@@ -329,7 +329,6 @@ export default function App() {
 
     setTimeout(() => {
       initChart("M1");
-      initChart("M15");
       syncChartData();
     }, 180);
   }
@@ -643,7 +642,6 @@ export default function App() {
 
     const timer = setTimeout(() => {
       initChart("M1");
-      initChart("M15");
       syncChartData();
     }, 180);
 
@@ -657,7 +655,6 @@ export default function App() {
   useEffect(() => {
     if (!authUser || !isPremiumProfile(authProfile) || activeDashboardTab !== "chart") return;
     initChart("M1");
-    initChart("M15");
     syncChartData();
   }, [tvM1, tvM15, activeDashboardTab]);
 
@@ -676,16 +673,8 @@ export default function App() {
   }, [tvM15]);
 
   useEffect(() => {
-    const bullish = getFreshOb(signal?.strategy?.orderBlock?.bullish);
-    const bearish = getFreshOb(signal?.strategy?.orderBlock?.bearish);
-
-    if (seriesM1Ref.current) {
-      addObLines(seriesM1Ref.current, obLinesM1Ref, bullish, bearish);
-    }
-
-    if (seriesM15Ref.current) {
-      addObLines(seriesM15Ref.current, obLinesM15Ref, bullish, bearish);
-    }
+    clearObLines(obLinesM1Ref);
+    clearObLines(obLinesM15Ref);
   }, [signal]);
 
   useEffect(() => {
@@ -749,18 +738,13 @@ export default function App() {
       ema20M15Ref.current.setData(buildEMAData(tvM15, 20));
     }
 
-    const bullish = getFreshOb(signal?.strategy?.orderBlock?.bullish);
-    const bearish = getFreshOb(signal?.strategy?.orderBlock?.bearish);
-
     if (seriesM1Ref.current) {
-      addObLines(seriesM1Ref.current, obLinesM1Ref, bullish, bearish);
+      clearObLines(obLinesM1Ref);
       addStructureLines(seriesM1Ref.current, srLinesM1Ref, signal?.strategy?.scalping);
       addTradePlanLines(seriesM1Ref.current, planLinesM1Ref, signal?.strategy?.mainM5);
     }
 
-    if (seriesM15Ref.current) {
-      addObLines(seriesM15Ref.current, obLinesM15Ref, bullish, bearish);
-    }
+    clearObLines(obLinesM15Ref);
   }
 
   function initChart(type) {
@@ -1058,7 +1042,6 @@ export default function App() {
                 if (tab.id === "chart") {
                   requestAnimationFrame(() => {
                     initChart("M1");
-                    initChart("M15");
                   });
                 }
               }}
@@ -1077,7 +1060,6 @@ export default function App() {
         <div className="tickerTrack">
           <span><Database size={14} /> Koneksi Market: <b>Live Premium</b></span>
           <span><Activity size={14} /> Grafik M5: <b>{candlesM5.length || market?.m5Count || 0} candle</b></span>
-          <span><Shield size={14} /> Grafik M15: <b>{candlesM15.length || market?.m15Count || 0} candle</b></span>
           <span>{isSell ? <TrendingDown size={14} /> : <TrendingUp size={14} />} Last Price: <b>{lastCandle?.close || "-"}</b></span>
           <span><Radio size={14} /> Status Koneksi: <b>{marketSession.feedLabel}</b></span>
         </div>
@@ -1139,8 +1121,6 @@ export default function App() {
                 <b><i className="bearDot"></i> Bearish</b>
                 <b><i className="ema9Dot"></i> EMA 9</b>
                 <b><i className="ema20Dot"></i> EMA 20</b>
-                <b><i className="obBullDot"></i> Bull OB</b>
-                <b><i className="obBearDot"></i> Bear OB</b>
                 <b><i className="supportDot"></i> M5 Swing Low</b>
                 <b><i className="resistDot"></i> M5 Swing High</b>
                 <b><i className="entryDot"></i> Entry / TP / SL</b>
@@ -1154,24 +1134,7 @@ export default function App() {
             </div>
           </section>
 
-          <section className="chartWrap card">
-            <div className="sectionTitle">
-              <div><h3>Grafik Area M15</h3><span>{market?.symbol || "XAUUSD"} · M15 · {marketSession.chartStatusText}</span></div>
-              <div className="legend">
-                <b><i className="bullDot"></i> Bullish</b>
-                <b><i className="bearDot"></i> Bearish</b>
-                <b><i className="ema9Dot"></i> EMA 9</b>
-                <b><i className="ema20Dot"></i> EMA 20</b>
-                <b><i className="obBullDot"></i> Bull OB</b>
-                <b><i className="obBearDot"></i> Bear OB</b>
-                <em><span></span> Area M15 Fresh</em>
-              </div>
-            </div>
-            {marketSession.chartNotice && <div className={`chartSessionNotice ${marketSession.type}`}>{marketSession.chartNotice}</div>}
-            <div className="tvChart small" ref={chartM15BoxRef}>
-              {tvM15.length === 0 && <div className="chartEmpty">{marketSession.emptyM15Text}</div>}
-            </div>
-          </section>
+
         </>
       )}
 
