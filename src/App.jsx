@@ -10,7 +10,7 @@ const PAYMENT_BANK = "BCA / BRI / Mandiri - hubungi support";
 const PACKAGE_7D_PRICE = "Rp10K";
 const PACKAGE_30D_PRICE = "Rp30K";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { Component, useEffect, useMemo, useRef, useState } from "react";
 import { createChart, ColorType, CrosshairMode } from "lightweight-charts";
 import { Activity, BarChart3, Bot, Clock, Copy, Database, Lock, LogOut, Radio, RefreshCcw, Settings, Shield, Sparkles, Target, TrendingDown, TrendingUp, User, Zap } from "lucide-react";
 import { auth, createPaymentOrder, ensureUserProfile, getUserPaymentOrders,
@@ -209,7 +209,42 @@ function FirebaseAuthActionPage({ auth }) {
   );
 }
 
-export default function App() {
+class DashboardErrorBoundary extends Component {
+  constructor(props) {
+    super(props);
+    this.state = { hasError: false, message: "" };
+  }
+
+  static getDerivedStateFromError(error) {
+    return { hasError: true, message: error?.message || "Dashboard perlu dimuat ulang." };
+  }
+
+  componentDidCatch(error) {
+    console.error("Dashboard safe mode:", error);
+  }
+
+  render() {
+    if (this.state.hasError) {
+      return (
+        <main className="page compactDashboardPage">
+          <section className="card mt5PauseBanner reconnecting">
+            <div>
+              <span className="pill mini">SAFE MODE</span>
+              <h3>Dashboard butuh dimuat ulang</h3>
+              <p>Data market sedang tersambung ulang. Sistem menahan tampilan agar halaman tidak blank.</p>
+              <small>{this.state.message}</small>
+            </div>
+            <button type="button" onClick={() => window.location.reload()}>Muat Ulang</button>
+          </section>
+        </main>
+      );
+    }
+
+    return this.props.children;
+  }
+}
+
+function AppInner() {
   if (window.location.pathname === "/auth-action") {
     return <FirebaseAuthActionPage auth={auth} />;
   }
@@ -659,27 +694,42 @@ export default function App() {
   }, [tvM1, tvM15, activeDashboardTab]);
 
   useEffect(() => {
-    if (ema9M1Ref.current && ema20M1Ref.current && tvM1.length > 0) {
-      ema9M1Ref.current.setData(buildEMAData(tvM1, 9));
-      ema20M1Ref.current.setData(buildEMAData(tvM1, 20));
+    try {
+      if (ema9M1Ref.current && ema20M1Ref.current && tvM1.length > 0) {
+        ema9M1Ref.current.setData(buildEMAData(tvM1, 9));
+        ema20M1Ref.current.setData(buildEMAData(tvM1, 20));
+      }
+    } catch (error) {
+      setChartError(error?.message || "EMA M5 sedang disiapkan ulang.");
     }
   }, [tvM1]);
 
   useEffect(() => {
-    if (ema9M15Ref.current && ema20M15Ref.current && tvM15.length > 0) {
-      ema9M15Ref.current.setData(buildEMAData(tvM15, 9));
-      ema20M15Ref.current.setData(buildEMAData(tvM15, 20));
-    }
+    try {
+      if (ema9M15Ref.current && ema20M15Ref.current && tvM15.length > 0) {
+        ema9M15Ref.current.setData(buildEMAData(tvM15, 9));
+        ema20M15Ref.current.setData(buildEMAData(tvM15, 20));
+      }
+    } catch {}
   }, [tvM15]);
 
   useEffect(() => {
-    clearObLines(obLinesM1Ref);
-    clearObLines(obLinesM15Ref);
-  }, [signal]);
+    try {
+      clearObLines(obLinesM1Ref);
+      clearObLines(obLinesM15Ref);
+      if (seriesM1Ref.current) addTradePlanLines(seriesM1Ref.current, planLinesM1Ref, signal?.strategy?.mainM5);
+    } catch (error) {
+      setChartError(error?.message || "Garis entry sedang disiapkan ulang.");
+    }
+  }, [signal?.strategy?.mainM5?.entry, signal?.strategy?.mainM5?.sl, signal?.strategy?.mainM5?.tp, signal?.strategy?.mainM5?.action]);
 
   useEffect(() => {
-    if (seriesM1Ref.current) {
-      addStructureLines(seriesM1Ref.current, srLinesM1Ref, signal?.strategy?.scalping);
+    try {
+      if (seriesM1Ref.current) {
+        addStructureLines(seriesM1Ref.current, srLinesM1Ref, signal?.strategy?.scalping);
+      }
+    } catch (error) {
+      setChartError(error?.message || "Garis struktur M5 sedang disiapkan ulang.");
     }
   }, [
     signal?.strategy?.scalping?.support,
@@ -725,26 +775,41 @@ export default function App() {
   }
 
   function syncChartData() {
-    updateChart(seriesM1Ref.current, chartM1Ref.current, tvM1);
-    updateChart(seriesM15Ref.current, chartM15Ref.current, tvM15);
-
-    if (ema9M1Ref.current && ema20M1Ref.current && tvM1.length > 0) {
-      ema9M1Ref.current.setData(buildEMAData(tvM1, 9));
-      ema20M1Ref.current.setData(buildEMAData(tvM1, 20));
+    try {
+      updateChart(seriesM1Ref.current, chartM1Ref.current, tvM1);
+      updateChart(seriesM15Ref.current, chartM15Ref.current, tvM15);
+    } catch (error) {
+      setChartError(error?.message || "Grafik sedang disiapkan ulang.");
+      return;
     }
 
-    if (ema9M15Ref.current && ema20M15Ref.current && tvM15.length > 0) {
-      ema9M15Ref.current.setData(buildEMAData(tvM15, 9));
-      ema20M15Ref.current.setData(buildEMAData(tvM15, 20));
+    try {
+      if (ema9M1Ref.current && ema20M1Ref.current && tvM1.length > 0) {
+        ema9M1Ref.current.setData(buildEMAData(tvM1, 9));
+        ema20M1Ref.current.setData(buildEMAData(tvM1, 20));
+      }
+
+      if (ema9M15Ref.current && ema20M15Ref.current && tvM15.length > 0) {
+        ema9M15Ref.current.setData(buildEMAData(tvM15, 9));
+        ema20M15Ref.current.setData(buildEMAData(tvM15, 20));
+      }
+    } catch (error) {
+      setChartError(error?.message || "EMA chart sedang disiapkan ulang.");
     }
 
     if (seriesM1Ref.current) {
-      clearObLines(obLinesM1Ref);
-      addStructureLines(seriesM1Ref.current, srLinesM1Ref, signal?.strategy?.scalping);
-      addTradePlanLines(seriesM1Ref.current, planLinesM1Ref, signal?.strategy?.mainM5);
+      try {
+        clearObLines(obLinesM1Ref);
+        addStructureLines(seriesM1Ref.current, srLinesM1Ref, signal?.strategy?.scalping);
+        addTradePlanLines(seriesM1Ref.current, planLinesM1Ref, signal?.strategy?.mainM5);
+      } catch (error) {
+        setChartError(error?.message || "Garis chart sedang disiapkan ulang.");
+      }
     }
 
-    clearObLines(obLinesM15Ref);
+    try {
+      clearObLines(obLinesM15Ref);
+    } catch {}
   }
 
   function initChart(type) {
@@ -1422,6 +1487,15 @@ export default function App() {
 
       <footer>Bukan financial advice. Demo first, XAUUSD galak bro 😭</footer>
     </main>
+  );
+}
+
+
+export default function App() {
+  return (
+    <DashboardErrorBoundary>
+      <AppInner />
+    </DashboardErrorBoundary>
   );
 }
 
