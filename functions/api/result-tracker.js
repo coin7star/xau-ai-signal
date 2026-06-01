@@ -48,18 +48,22 @@ export async function buildTrackerSummary(dbUrl, env, shouldUpdate) {
   const maxItems = Number(env.RESULT_TRACKER_MAX_ITEMS || 20);
   const mainExpireHours = Number(env.RESULT_TRACKER_MAIN_EXPIRE_HOURS || 24);
   const scalpExpireHours = Number(env.RESULT_TRACKER_SCALP_EXPIRE_HOURS || 4);
+  const strategyBExpireHours = Number(env.RESULT_TRACKER_STRATEGY_B_EXPIRE_HOURS || 24);
 
-  const [callRaw, scalpRaw] = await Promise.all([
+  const [callRaw, scalpRaw, strategyBRaw] = await Promise.all([
     fbGet(dbUrl, "/xauusd/callHistory"),
-    fbGet(dbUrl, "/xauusd/scalpHistory")
+    fbGet(dbUrl, "/xauusd/scalpHistory"),
+    fbGet(dbUrl, "/xauusd/strategyB/history")
   ]);
 
   const callItems = Object.values(callRaw || {}).filter(Boolean);
   const scalpItems = Object.values(scalpRaw || {}).filter(Boolean);
+  const strategyBItems = Object.values(strategyBRaw || {}).filter(Boolean);
 
   const allOpen = [
-    ...callItems.map((item) => ({ ...item, trackerType: "MAIN_CALL", path: "/xauusd/callHistory", expireHours: mainExpireHours })),
-    ...scalpItems.map((item) => ({ ...item, trackerType: "SCALP_M1", path: "/xauusd/scalpHistory", expireHours: scalpExpireHours }))
+    ...callItems.map((item) => ({ ...item, trackerType: "MAIN_CALL", path: "/xauusd/callHistory", expireHours: mainExpireHours, telegramResultAlert: true })),
+    ...scalpItems.map((item) => ({ ...item, trackerType: "SCALP_M1", path: "/xauusd/scalpHistory", expireHours: scalpExpireHours, telegramResultAlert: true })),
+    ...strategyBItems.map((item) => ({ ...item, trackerType: "SMC_AI", path: "/xauusd/strategyB/history", expireHours: strategyBExpireHours, telegramResultAlert: false }))
   ]
     .filter(isOpen)
     .sort((a, b) => String(a.createdAt || "").localeCompare(String(b.createdAt || "")))
@@ -98,7 +102,9 @@ export async function buildTrackerSummary(dbUrl, env, shouldUpdate) {
       delete payload.expireHours;
       delete payload.trackerType;
 
-      const alertResult = await maybeSendResultAlert(env, item, payload, result.result, livePrice, result.note);
+      const alertResult = item.telegramResultAlert
+        ? await maybeSendResultAlert(env, item, payload, result.result, livePrice, result.note)
+        : { sent: false, skippedReason: "STRATEGY_B_LIVE_BACKTEST_ONLY" };
 
       if (alertResult.sent) {
         payload.resultAlertSent = true;
@@ -108,6 +114,10 @@ export async function buildTrackerSummary(dbUrl, env, shouldUpdate) {
 
       if (alertResult.skippedReason) {
         payload.resultAlertSkippedReason = alertResult.skippedReason;
+      }
+
+      if (item.trackerType === "SMC_AI") {
+        payload.resultSourceNote = "Strategy B SMC AI live-backtest result. Telegram alert belum diaktifkan.";
       }
 
       await fbPut(dbUrl, `${item.path}/${item.id}`, payload);
@@ -120,7 +130,8 @@ export async function buildTrackerSummary(dbUrl, env, shouldUpdate) {
         note: result.note,
         resultAlertSent: alertResult.sent,
         resultAlertStatus: alertResult.status || null,
-        resultAlertSkippedReason: alertResult.skippedReason || null
+        resultAlertSkippedReason: alertResult.skippedReason || null,
+        liveBacktestOnly: item.trackerType === "SMC_AI"
       });
     }
   }

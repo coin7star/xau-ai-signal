@@ -367,3 +367,11 @@ Dashboard sekarang membedakan kondisi market tutup/weekend dengan koneksi live y
 - Strategy A tidak diubah dan statistiknya tetap terpisah.
 - Ditambahkan anti duplicate 15 menit untuk mencegah SMC AI menyimpan signal yang sama berulang.
 - Dashboard tab SMC AI menampilkan history, WR, average RR, average TP/SL, dan profit factor sederhana.
+
+
+## Step 10AC - Strategy B Auto Result Tracker
+- Auto Result Engine sekarang ikut memantau history SMC AI di `/xauusd/strategyB/history`.
+- Result SMC AI otomatis berubah dari OPEN/RUNNING menjadi WIN, LOSS, atau EXPIRED memakai live feed utama MT5/VPS.
+- Bybit test feed tetap tidak dipakai untuk result.
+- Strategy B tetap live-backtest only dan belum mengirim Telegram result alert live.
+- Strategy A, CALL History utama, dan SCALP History tetap terpisah.

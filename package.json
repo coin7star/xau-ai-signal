@@ -1,6 +1,6 @@
 {
-  "name": "xau-ai-signal-step10ab-strategy-b-history-live-backtest",
-  "version": "7.20.0-step10ab-strategy-b-history-live-backtest",
+  "name": "xau-ai-signal-step10ac-strategy-b-auto-result-tracker",
+  "version": "7.21.0-step10ac-strategy-b-auto-result-tracker",
   "type": "module",
   "scripts": {
     "dev": "vite",

@@ -4879,7 +4879,7 @@ function StrategyBSmcPanel({ strategyB, strategyBHistory, isAdmin, onUpdateResul
           <div>
             <span className="pill mini"><Clock size={14} /> SMC AI LIVE BACKTEST</span>
             <h3>Strategy B History</h3>
-            <span>History ini terpisah dari Strategy A. Hanya CALL BUY/SELL valid dari SMC AI yang disimpan.</span>
+            <span>History ini terpisah dari Strategy A. Auto Result Tracker ikut memantau WIN / LOSS / EXPIRED dari live feed MT5/VPS, tanpa Telegram live alert dulu.</span>
           </div>
           <div className="historyStats smcStats">
             <b>Total {smcStats.total || 0}</b>
@@ -4896,6 +4896,7 @@ function StrategyBSmcPanel({ strategyB, strategyBHistory, isAdmin, onUpdateResul
           <Metric label="Average TP" value={smcStats.averageTP || "-"} note="Rata-rata jarak TP SMC AI" />
           <Metric label="Average SL" value={smcStats.averageSL || "-"} note="Rata-rata jarak SL SMC AI" />
           <Metric label="Profit Factor" value={smcStats.profitFactor || "-"} note="Estimasi sederhana dari WIN vs LOSS" />
+          <Metric label="Auto Result" value="MT5/VPS" note="Result SMC AI dipantau dari live feed utama, bukan Bybit" />
         </div>
 
         <div className="historyTable strategyBHistoryTable">
