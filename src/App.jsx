@@ -1376,6 +1376,16 @@ export default function App() {
 
           <details className="adminWindow card" open>
             <summary>
+              <span>Strategy Control Center</span>
+              <small>Master switch untuk Main Signal, M1 Scalp, dan SMC AI sebelum masuk multi-user premium.</small>
+            </summary>
+            <div className="adminWindowBody">
+              <AdminStrategyControlCenter adminToken={adminToken} />
+            </div>
+          </details>
+
+          <details className="adminWindow card">
+            <summary>
               <span>Premium & Payment Management</span>
               <small>User premium, akses admin, Telegram user, dan order pembayaran.</small>
             </summary>
@@ -1965,6 +1975,177 @@ function formatShortDateTime(value) {
 }
 
 
+
+
+function AdminStrategyControlCenter({ adminToken }) {
+  const defaultControls = {
+    mainSignalAlert: true,
+    mainSignalResultAlert: true,
+    m1ScalpTracking: true,
+    m1ScalpResultTracking: true,
+    strategyBLiveBacktest: true,
+    strategyBAdminAlert: true,
+    strategyBResultAdminAlert: true,
+    strategyBPremiumUserAlert: false
+  };
+  const [controls, setControls] = useState(defaultControls);
+  const [message, setMessage] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [lastSavedAt, setLastSavedAt] = useState(null);
+
+  useEffect(() => {
+    if (adminToken) loadControls();
+  }, [adminToken]);
+
+  async function loadControls() {
+    if (!adminToken) {
+      setMessage("Isi kode admin dulu untuk membuka Strategy Control Center.");
+      return;
+    }
+
+    try {
+      setBusy(true);
+      const res = await fetch(`/api/strategy-controls?token=${encodeURIComponent(adminToken)}&ts=${Date.now()}`, { cache: "no-store" });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok || !data.ok) throw new Error(data.error || "Gagal load strategy controls.");
+      setControls({ ...defaultControls, ...(data.controls || {}) });
+      setMessage("Strategy control berhasil dimuat.");
+    } catch (err) {
+      setMessage(err?.message || "Gagal load strategy controls.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function saveControls(nextControls = controls) {
+    if (!adminToken) {
+      setMessage("Isi kode admin dulu sebelum menyimpan control.");
+      return;
+    }
+
+    try {
+      setBusy(true);
+      setMessage("Menyimpan Strategy Control Center...");
+      const res = await fetch("/api/strategy-controls", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${adminToken}`
+        },
+        body: JSON.stringify({ token: adminToken, controls: nextControls })
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok || !data.ok) throw new Error(data.error || "Gagal menyimpan strategy controls.");
+      setControls({ ...defaultControls, ...(data.controls || nextControls) });
+      setLastSavedAt(new Date());
+      setMessage(data.message || "Strategy Control Center berhasil disimpan.");
+    } catch (err) {
+      setMessage(err?.message || "Gagal menyimpan strategy controls.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  function toggleControl(key) {
+    const next = { ...controls, [key]: !controls[key] };
+    setControls(next);
+    saveControls(next);
+  }
+
+  const rows = [
+    {
+      key: "mainSignalAlert",
+      title: "Main Signal Alert",
+      mode: controls.mainSignalAlert ? "ON untuk premium user" : "OFF global",
+      desc: "Master switch untuk alert Strategy A / Main Signal. User tetap harus Telegram ON agar menerima alert."
+    },
+    {
+      key: "mainSignalResultAlert",
+      title: "Main Signal Result Alert",
+      mode: controls.mainSignalResultAlert ? "Result alert ON" : "Result alert OFF",
+      desc: "Mengatur WIN / LOSS / EXPIRED alert untuk Main Signal dari Auto Result Engine."
+    },
+    {
+      key: "m1ScalpTracking",
+      title: "M1 Scalp Mode",
+      mode: controls.m1ScalpTracking ? "Tracking ON" : "Tracking OFF",
+      desc: "Mode M1 Scalp tetap dipisahkan dari Strategy A. Toggle ini untuk kontrol tracking/eksperimen."
+    },
+    {
+      key: "m1ScalpResultTracking",
+      title: "M1 Scalp Auto Result",
+      mode: controls.m1ScalpResultTracking ? "Auto result ON" : "Auto result OFF",
+      desc: "Mengatur pemantauan WIN / LOSS / EXPIRED khusus M1 Scalp."
+    },
+    {
+      key: "strategyBLiveBacktest",
+      title: "SMC AI Live Backtest",
+      mode: controls.strategyBLiveBacktest ? "Live-backtest ON" : "Live-backtest OFF",
+      desc: "Jika OFF, SMC AI tidak menyimpan CALL baru ke Strategy B History."
+    },
+    {
+      key: "strategyBAdminAlert",
+      title: "SMC AI Admin Alert",
+      mode: controls.strategyBAdminAlert ? "Admin alert ON" : "Admin alert OFF",
+      desc: "Mengatur alert Telegram admin saat SMC AI menghasilkan CALL asli."
+    },
+    {
+      key: "strategyBResultAdminAlert",
+      title: "SMC AI Result Admin Alert",
+      mode: controls.strategyBResultAdminAlert ? "Result admin ON" : "Result admin OFF",
+      desc: "Mengatur alert Telegram admin saat SMC AI kena WIN / LOSS / EXPIRED."
+    },
+    {
+      key: "strategyBPremiumUserAlert",
+      title: "SMC AI Premium User Alert",
+      mode: controls.strategyBPremiumUserAlert ? "Premium user ON" : "Premium user OFF",
+      desc: "Default aman: OFF. Nanti hanya ON kalau SMC AI sudah layak dikirim ke user premium."
+    }
+  ];
+
+  return (
+    <section className="strategyControlCenter">
+      <div className="adminTelegramTestHeader">
+        <span className="pill mini"><Shield size={14} /> MASTER CONTROL</span>
+        <h3>Strategy Control Center</h3>
+        <p>Admin master switch untuk semua sinyal. Alert user premium hanya jalan kalau master switch admin ON dan toggle user juga ON.</p>
+      </div>
+
+      <div className="strategyControlRule card">
+        <b>Rumus kirim alert</b>
+        <span>Admin Master Switch ON + User Personal Alert ON = alert dikirim. Kalau salah satu OFF, alert tidak dikirim.</span>
+      </div>
+
+      <div className="strategyControlGrid">
+        {rows.map((row) => (
+          <div className={`strategyControlRow ${controls[row.key] ? "on" : "off"}`} key={row.key}>
+            <div>
+              <small>{row.mode}</small>
+              <b>{row.title}</b>
+              <span>{row.desc}</span>
+            </div>
+            <button type="button" onClick={() => toggleControl(row.key)} disabled={busy || !adminToken}>
+              {controls[row.key] ? "ON" : "OFF"}
+            </button>
+          </div>
+        ))}
+      </div>
+
+      {message && <div className="adminMessage">{message}</div>}
+
+      <div className="adminTelegramTestActions strategyControlActions">
+        <button type="button" onClick={loadControls} disabled={busy || !adminToken}>
+          <RefreshCcw size={15} /> Refresh Control
+        </button>
+        <button type="button" onClick={() => saveControls()} disabled={busy || !adminToken}>
+          <Shield size={15} /> {busy ? "Menyimpan..." : "Save All"}
+        </button>
+      </div>
+
+      <p className="miniNote">Terakhir simpan: {lastSavedAt ? lastSavedAt.toLocaleString("id-ID") : "Belum ada perubahan di sesi ini"}. Default aman: SMC AI Premium User Alert OFF.</p>
+    </section>
+  );
+}
 
 function AdminTelegramTestPanel({ adminToken }) {
   const [message, setMessage] = useState("");

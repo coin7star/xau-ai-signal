@@ -1282,6 +1282,8 @@ async function maybeSaveScalpHistory(env, dbUrl, signal, market) {
 
 async function maybeSaveStrategyBHistory(env, dbUrl, signal, market) {
   if (!dbUrl) return { ok: false, skipped: "firebase-env-missing" };
+  const controls = await getStrategyControls(dbUrl);
+  if (controls.strategyBLiveBacktest === false) return { ok: false, skipped: "strategy-b-live-backtest-master-off" };
 
   const strategyB = signal.strategyB || signal.strategy?.strategyB || null;
   const isValid = strategyB?.action === "CALL_BUY" || strategyB?.action === "CALL_SELL";
@@ -1392,7 +1394,9 @@ async function maybeSaveStrategyBHistory(env, dbUrl, signal, market) {
 
 async function maybeSendStrategyBAutoAdminAlert(env, dbUrl, item) {
   const enabled = String(env.STRATEGY_B_AUTO_ADMIN_ALERT_ENABLED ?? "true").toLowerCase() !== "false";
+  const controls = await getStrategyControls(dbUrl);
   if (!enabled) return { ok: false, skipped: "strategy-b-auto-admin-alert-disabled" };
+  if (controls.strategyBAdminAlert === false) return { ok: false, skipped: "strategy-b-admin-alert-master-off" };
   if (!env.TELEGRAM_BOT_TOKEN) return { ok: false, skipped: "telegram-bot-token-missing" };
   if (!env.TELEGRAM_CHAT_ID) return { ok: false, skipped: "telegram-admin-chat-id-missing" };
   if (!dbUrl) return { ok: false, skipped: "firebase-env-missing" };
@@ -1585,11 +1589,30 @@ function buildProbability(signalLabel, callStage, buyScore, sellScore, flags = {
 }
 
 
+
+async function getStrategyControls(dbUrl) {
+  const defaults = {
+    mainSignalAlert: true,
+    mainSignalResultAlert: true,
+    m1ScalpTracking: true,
+    m1ScalpResultTracking: true,
+    strategyBLiveBacktest: true,
+    strategyBAdminAlert: true,
+    strategyBResultAdminAlert: true,
+    strategyBPremiumUserAlert: false
+  };
+  if (!dbUrl) return defaults;
+  const raw = await fbGet(dbUrl, "/xauusd/settings/strategyControls");
+  return { ...defaults, ...(raw || {}) };
+}
+
 async function maybeSendTelegramAlert(env, dbUrl, signal, market) {
   const enabled = String(env.TELEGRAM_ALERT_ENABLED || "true").toLowerCase() !== "false";
   const readyEnabled = String(env.TELEGRAM_READY_ALERT_ENABLED || "false").toLowerCase() === "true";
+  const controls = await getStrategyControls(dbUrl);
 
   if (!enabled) return { ok: false, skipped: "telegram-disabled" };
+  if (controls.mainSignalAlert === false) return { ok: false, skipped: "main-signal-alert-master-off" };
   if (!env.TELEGRAM_BOT_TOKEN) return { ok: false, skipped: "telegram-bot-token-missing" };
   if (!dbUrl) return { ok: false, skipped: "firebase-env-missing" };
 

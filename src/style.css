@@ -5489,3 +5489,117 @@ canvas {
   color: #fecdd3;
   border-color: rgba(255, 77, 109, 0.28);
 }
+
+/* Step 10AK - Strategy Control Center */
+.strategyControlCenter {
+  display: grid;
+  gap: 16px;
+}
+
+.strategyControlRule {
+  padding: 16px 18px;
+  display: grid;
+  gap: 6px;
+  background: linear-gradient(135deg, rgba(250, 204, 21, 0.12), rgba(34, 197, 94, 0.08));
+  border: 1px solid rgba(250, 204, 21, 0.22);
+}
+
+.strategyControlRule b {
+  color: #fef3c7;
+  font-size: 17px;
+}
+
+.strategyControlRule span {
+  color: #cbd5e1;
+  line-height: 1.55;
+}
+
+.strategyControlGrid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.strategyControlRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  padding: 16px;
+  border-radius: 22px;
+  background: rgba(0, 0, 0, 0.22);
+  border: 1px solid rgba(255, 255, 255, 0.09);
+}
+
+.strategyControlRow.on {
+  border-color: rgba(34, 255, 170, 0.22);
+  background: linear-gradient(135deg, rgba(34, 255, 170, 0.10), rgba(0, 0, 0, 0.22));
+}
+
+.strategyControlRow.off {
+  border-color: rgba(255, 77, 109, 0.24);
+  background: linear-gradient(135deg, rgba(255, 77, 109, 0.10), rgba(0, 0, 0, 0.22));
+}
+
+.strategyControlRow div {
+  display: grid;
+  gap: 4px;
+}
+
+.strategyControlRow small {
+  margin: 0;
+  text-transform: uppercase;
+  letter-spacing: .08em;
+  font-weight: 1000;
+  color: #9fb0d6;
+}
+
+.strategyControlRow b {
+  color: #f8fbff;
+  font-size: 17px;
+}
+
+.strategyControlRow span {
+  color: #aeb9d8;
+  font-size: 13px;
+  line-height: 1.45;
+}
+
+.strategyControlRow button {
+  flex-shrink: 0;
+  min-width: 78px;
+  justify-content: center;
+  padding: 12px 14px;
+  border-radius: 999px;
+}
+
+.strategyControlRow.on button {
+  background: rgba(34, 255, 170, 0.18);
+  color: #a6ffd8;
+  border: 1px solid rgba(34, 255, 170, 0.25);
+}
+
+.strategyControlRow.off button {
+  background: rgba(255, 77, 109, 0.16);
+  color: #ffc2cc;
+  border: 1px solid rgba(255, 77, 109, 0.25);
+}
+
+.strategyControlActions {
+  justify-content: flex-start;
+}
+
+@media (max-width: 820px) {
+  .strategyControlGrid {
+    grid-template-columns: 1fr;
+  }
+
+  .strategyControlRow {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .strategyControlRow button {
+    width: 100%;
+  }
+}

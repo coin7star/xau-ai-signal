@@ -43,6 +43,7 @@ export async function onRequest({ request, env }) {
 }
 
 export async function buildTrackerSummary(dbUrl, env, shouldUpdate) {
+  const controls = await getStrategyControls(dbUrl);
   const market = await fbGet(dbUrl, "/xauusd/latest");
   const livePrice = getMarketPrice(market);
   const maxItems = Number(env.RESULT_TRACKER_MAX_ITEMS || 20);
@@ -61,9 +62,9 @@ export async function buildTrackerSummary(dbUrl, env, shouldUpdate) {
   const strategyBItems = Object.values(strategyBRaw || {}).filter(Boolean);
 
   const allOpen = [
-    ...callItems.map((item) => ({ ...item, trackerType: "MAIN_CALL", path: "/xauusd/callHistory", expireHours: mainExpireHours, telegramResultAlert: true })),
-    ...scalpItems.map((item) => ({ ...item, trackerType: "SCALP_M1", path: "/xauusd/scalpHistory", expireHours: scalpExpireHours, telegramResultAlert: true })),
-    ...strategyBItems.map((item) => ({ ...item, trackerType: "SMC_AI", path: "/xauusd/strategyB/history", expireHours: strategyBExpireHours, telegramResultAlert: true, strategyBResultAlert: true }))
+    ...callItems.map((item) => ({ ...item, trackerType: "MAIN_CALL", path: "/xauusd/callHistory", expireHours: mainExpireHours, telegramResultAlert: controls.mainSignalResultAlert !== false })),
+    ...(controls.m1ScalpResultTracking === false ? [] : scalpItems.map((item) => ({ ...item, trackerType: "SCALP_M1", path: "/xauusd/scalpHistory", expireHours: scalpExpireHours, telegramResultAlert: true }))),
+    ...(controls.strategyBLiveBacktest === false ? [] : strategyBItems.map((item) => ({ ...item, trackerType: "SMC_AI", path: "/xauusd/strategyB/history", expireHours: strategyBExpireHours, telegramResultAlert: controls.strategyBResultAdminAlert !== false, strategyBResultAlert: true })))
   ]
     .filter(isOpen)
     .sort((a, b) => String(a.createdAt || "").localeCompare(String(b.createdAt || "")))
@@ -147,6 +148,23 @@ export async function buildTrackerSummary(dbUrl, env, shouldUpdate) {
     mode: shouldUpdate ? "AUTO_UPDATE" : "PREVIEW",
     checkedAt: new Date().toISOString()
   };
+}
+
+
+async function getStrategyControls(dbUrl) {
+  const defaults = {
+    mainSignalAlert: true,
+    mainSignalResultAlert: true,
+    m1ScalpTracking: true,
+    m1ScalpResultTracking: true,
+    strategyBLiveBacktest: true,
+    strategyBAdminAlert: true,
+    strategyBResultAdminAlert: true,
+    strategyBPremiumUserAlert: false
+  };
+  if (!dbUrl) return defaults;
+  const raw = await fbGet(dbUrl, "/xauusd/settings/strategyControls");
+  return { ...defaults, ...(raw || {}) };
 }
 
 async function maybeSendResultAlert(env, originalItem, closedPayload, result, livePrice, note) {
