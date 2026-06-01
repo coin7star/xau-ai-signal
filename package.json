@@ -1,6 +1,6 @@
 {
-  "name": "xau-ai-signal-step10aq-m5-only-dynamic-ema-limit",
-  "version": "7.35.0-step10aq-m5-only-dynamic-ema-limit",
+  "name": "xau-ai-signal-step10aq1-bos-refresh-pending-expire",
+  "version": "7.35.1-step10aq1-bos-refresh-pending-expire",
   "type": "module",
   "scripts": {
     "dev": "vite",
