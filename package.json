@@ -1,6 +1,6 @@
 {
-  "name": "xau-ai-signal-step10aq3-blank-screen-safe-mode",
-  "version": "7.35.3-step10aq3-blank-screen-safe-mode",
+  "name": "xau-ai-signal-step10aq4-react-object-render-hotfix",
+  "version": "7.35.4-step10aq4-react-object-render-hotfix",
   "type": "module",
   "scripts": {
     "dev": "vite",
