@@ -1005,8 +1005,6 @@ export default function App() {
   const dashboardTabs = [
     { id: "signal", label: "Sinyal", icon: <Zap size={15} /> },
     { id: "chart", label: "Candle", icon: <Activity size={15} /> },
-    { id: "scalp", label: "Scalp Mode", icon: <Target size={15} /> },
-    { id: "smc", label: "SMC AI", icon: <Sparkles size={15} /> },
     { id: "history", label: "History", icon: <Clock size={15} /> },
     { id: "telegram", label: "Telegram", icon: <Radio size={15} /> },
     ...(isAdmin ? [{ id: "admin", label: "Admin", icon: <Settings size={15} /> }] : [])
@@ -1019,7 +1017,7 @@ export default function App() {
           <div className="logo dashboardLogo"><Bot size={22} /></div>
           <div className="dashboardBrandText">
             <b>XAU AI Signal</b>
-            <span>Dashboard Premium · Sinyal · Grafik · Scalp · SMC AI</span>
+            <span>Dashboard Premium · Sinyal Utama M5 · Grafik · History</span>
           </div>
         </div>
         <div className="navActions dashboardHeaderActions">
@@ -1294,13 +1292,8 @@ export default function App() {
           )}
           <PerformanceAnalyticsPanel
             callHistory={callHistory}
-            scalpHistory={scalpHistory}
+            scalpHistory={{ stats: null, history: [] }}
             isAdmin={isAdmin}
-          />
-          <StrategyComparePanel
-            callHistory={callHistory}
-            scalpHistory={scalpHistory}
-            strategyBHistory={strategyBHistory}
           />
 
           <section className="historyPanel card">
@@ -1399,7 +1392,7 @@ export default function App() {
           <details className="adminWindow card" open>
             <summary>
               <span>Strategy Control Center</span>
-              <small>Master switch untuk Main Signal, M5 Scalp, dan SMC AI sebelum masuk multi-user premium.</small>
+              <small>Master switch untuk Sinyal Utama M5 dan alert result.</small>
             </summary>
             <div className="adminWindowBody">
               <AdminStrategyControlCenter adminToken={adminToken} />
@@ -1433,26 +1426,6 @@ export default function App() {
             </summary>
             <div className="adminWindowBody">
               <AdminResultAlertTestPanel adminToken={adminToken} />
-            </div>
-          </details>
-
-          <details className="adminWindow card">
-            <summary>
-              <span>SMC AI Alert Test</span>
-              <small>Test format Telegram Strategi B khusus admin. Belum dikirim ke user premium.</small>
-            </summary>
-            <div className="adminWindowBody">
-              <AdminStrategyBAlertTestPanel adminToken={adminToken} />
-            </div>
-          </details>
-
-          <details className="adminWindow card">
-            <summary>
-              <span>SMC AI Result Test</span>
-              <small>Test format result SMC AI. Auto admin result alert aktif saat WIN/LOSS/EXPIRED asli.</small>
-            </summary>
-            <div className="adminWindowBody">
-              <AdminStrategyBResultAlertTestPanel adminToken={adminToken} />
             </div>
           </details>
 
@@ -2087,42 +2060,6 @@ function AdminStrategyControlCenter({ adminToken }) {
       mode: controls.mainSignalResultAlert ? "Result alert ON" : "Result alert OFF",
       desc: "Mengatur WIN / LOSS / EXPIRED alert untuk Main Signal dari Auto Result Engine."
     },
-    {
-      key: "m1ScalpTracking",
-      title: "M5 Scalp Mode",
-      mode: controls.m1ScalpTracking ? "Tracking ON" : "Tracking OFF",
-      desc: "Mode M5 Scalp tetap dipisahkan dari Strategi A. Toggle ini untuk kontrol tracking/eksperimen."
-    },
-    {
-      key: "m1ScalpResultTracking",
-      title: "M5 Scalp Auto Result",
-      mode: controls.m1ScalpResultTracking ? "Auto result ON" : "Auto result OFF",
-      desc: "Mengatur pemantauan WIN / LOSS / EXPIRED khusus M5 Scalp."
-    },
-    {
-      key: "strategyBLiveBacktest",
-      title: "SMC AI Uji Live",
-      mode: controls.strategyBLiveBacktest ? "Live-backtest ON" : "Live-backtest OFF",
-      desc: "Jika OFF, SMC AI tidak menyimpan CALL baru ke Strategi B History."
-    },
-    {
-      key: "strategyBAdminAlert",
-      title: "SMC AI Admin Alert",
-      mode: controls.strategyBAdminAlert ? "Admin alert ON" : "Admin alert OFF",
-      desc: "Mengatur alert Telegram admin saat SMC AI menghasilkan CALL asli."
-    },
-    {
-      key: "strategyBResultAdminAlert",
-      title: "SMC AI Result Admin Alert",
-      mode: controls.strategyBResultAdminAlert ? "Result admin ON" : "Result admin OFF",
-      desc: "Mengatur alert Telegram admin saat SMC AI kena WIN / LOSS / EXPIRED."
-    },
-    {
-      key: "strategyBPremiumUserAlert",
-      title: "SMC AI Premium User Alert Live",
-      mode: controls.strategyBPremiumUserAlert ? "LIVE ke premium user" : "Premium user OFF",
-      desc: "Jika ON, SMC AI CALL asli akan dikirim ke user premium/admin yang Telegram connected dan personal alert ON. Jika OFF, hanya admin monitoring."
-    }
   ];
 
   return (
@@ -2130,7 +2067,7 @@ function AdminStrategyControlCenter({ adminToken }) {
       <div className="adminTelegramTestHeader">
         <span className="pill mini"><Shield size={14} /> MASTER CONTROL</span>
         <h3>Strategy Control Center</h3>
-        <p>Admin master switch untuk semua sinyal. Alert user premium hanya jalan kalau master switch admin ON dan toggle user juga ON.</p>
+        <p>Admin master switch untuk Sinyal Utama M5. Alert user premium hanya jalan kalau master switch admin ON dan toggle user juga ON.</p>
       </div>
 
       <div className="strategyControlRule card">
@@ -2164,7 +2101,7 @@ function AdminStrategyControlCenter({ adminToken }) {
         </button>
       </div>
 
-      <p className="miniNote">Terakhir simpan: {lastSavedAt ? lastSavedAt.toLocaleString("id-ID") : "Belum ada perubahan di sesi ini"}. Default aman: SMC AI Premium User Alert OFF. ON berarti live ke premium user yang eligible.</p>
+      <p className="miniNote">Terakhir simpan: {lastSavedAt ? lastSavedAt.toLocaleString("id-ID") : "Belum ada perubahan di sesi ini"}. Fokus saat ini: Sinyal Utama M5.</p>
     </section>
   );
 }
@@ -3398,18 +3335,13 @@ function formatSecondsToAge(value) {
 
 function PerformanceAnalyticsPanel({ callHistory, scalpHistory, isAdmin }) {
   const callItems = callHistory?.history || [];
-  const scalpItems = scalpHistory?.history || [];
 
   const call7 = buildPerformanceStats(callItems, 7);
   const call30 = buildPerformanceStats(callItems, 30);
-  const scalp7 = buildPerformanceStats(scalpItems, 7);
-  const scalp30 = buildPerformanceStats(scalpItems, 30);
 
   const best = pickBestPerformance([
     { label: "SINYAL UTAMA 7D", ...call7 },
-    { label: "SINYAL UTAMA 30D", ...call30 },
-    { label: "SCALP M5 7D", ...scalp7 },
-    { label: "SCALP M5 30D", ...scalp30 }
+    { label: "SINYAL UTAMA 30D", ...call30 }
   ]);
 
   return (
@@ -3430,14 +3362,12 @@ function PerformanceAnalyticsPanel({ callHistory, scalpHistory, isAdmin }) {
       <div className="performanceGrid">
         <PerformanceCard title="SINYAL UTAMA" period="7 Hari" stats={call7} />
         <PerformanceCard title="SINYAL UTAMA" period="30 Hari" stats={call30} />
-        <PerformanceCard title="SCALP M5" period="7 Hari" stats={scalp7} />
-        <PerformanceCard title="SCALP M5" period="30 Hari" stats={scalp30} />
       </div>
 
       <div className="performanceSummary">
         <div>
           <b>Recent Summary</b>
-          <span>{buildPerformanceSummary(call7, call30, scalp7, scalp30)}</span>
+          <span>{buildPerformanceSummary(call7, call30, null, null)}</span>
         </div>
         <div>
           <b>Catatan</b>
@@ -3624,6 +3554,9 @@ function pickBestPerformance(statsList) {
 
 function buildPerformanceSummary(call7, call30, scalp7, scalp30) {
   const parts = [];
+  const empty = { closed: 0, expired: 0, cleanWinRate: 0, wins: 0, losses: 0, be: 0 };
+  scalp7 = scalp7 || empty;
+  scalp30 = scalp30 || empty;
 
   if (call7.closed > 0 || call7.expired > 0) {
     parts.push(`SINYAL UTAMA 7D Clean WR ${call7.cleanWinRate}% · ${call7.wins}W/${call7.losses}L/${call7.be}BE · ${call7.expired} EXP`);
