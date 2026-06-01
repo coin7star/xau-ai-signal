@@ -1,6 +1,6 @@
 {
-  "name": "xau-ai-signal-step10aq1-bos-refresh-pending-expire",
-  "version": "7.35.1-step10aq1-bos-refresh-pending-expire",
+  "name": "xau-ai-signal-step10aq2-m5-plan-preview-line",
+  "version": "7.35.2-step10aq2-m5-plan-preview-line",
   "type": "module",
   "scripts": {
     "dev": "vite",
