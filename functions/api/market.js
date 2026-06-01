@@ -106,13 +106,51 @@ function toMarketLite(data) {
 function toMarketChart(data, m1Limit = 80, m15Limit = 60) {
   const candles = Array.isArray(data.candles) ? data.candles.slice(-m1Limit) : [];
   const candlesM15 = Array.isArray(data.candlesM15) ? data.candlesM15.slice(-m15Limit) : [];
+  const candlesM5 = aggregateCandlesToM5(Array.isArray(data.candles) ? data.candles : []).slice(-90);
 
   return {
     ...toMarketLite(data),
     mode: "chart",
     candles,
-    candlesM15
+    candlesM5,
+    candlesM15,
+    m5Count: candlesM5.length
   };
+}
+
+function aggregateCandlesToM5(candles) {
+  const input = Array.isArray(candles) ? candles : [];
+  if (input.length < 5) return [];
+  const groups = [];
+  let current = null;
+  for (let i = 0; i < input.length; i++) {
+    const c = input[i];
+    const t = Date.parse(c.time || c.datetime || c.timestamp || "");
+    let key;
+    if (Number.isFinite(t)) {
+      const d = new Date(t);
+      d.setUTCSeconds(0, 0);
+      d.setUTCMinutes(Math.floor(d.getUTCMinutes() / 5) * 5);
+      key = d.toISOString();
+    } else {
+      key = `idx_${Math.floor(i / 5)}`;
+    }
+    const open = Number(c.open), high = Number(c.high), low = Number(c.low), close = Number(c.close);
+    if (![open, high, low, close].every(Number.isFinite)) continue;
+    if (!current || current.key !== key) {
+      if (current) groups.push(current);
+      current = { key, time: key.startsWith("idx_") ? c.time : key, open, high, low, close, volume: Number(c.volume || c.tick_volume || 0), sourceCount: 1 };
+    } else {
+      current.high = Math.max(current.high, high);
+      current.low = Math.min(current.low, low);
+      current.close = close;
+      current.volume += Number(c.volume || c.tick_volume || 0);
+      current.sourceCount += 1;
+      current.time = key.startsWith("idx_") ? c.time : key;
+    }
+  }
+  if (current) groups.push(current);
+  return groups.slice(-160);
 }
 
 function clampNumber(value, fallback, min, max) {

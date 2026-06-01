@@ -615,14 +615,15 @@ export default function App() {
   }, [authUser, authProfile?.role, authProfile?.premiumUntil]);
 
   const candlesM1 = Array.isArray(market?.candles) ? market.candles : [];
+  const candlesM5 = Array.isArray(market?.candlesM5) ? market.candlesM5 : [];
   const candlesM15 = Array.isArray(market?.candlesM15) ? market.candlesM15 : [];
-  const tvM1 = useMemo(() => candlesToTradingView(candlesM1), [candlesM1]);
+  const tvM1 = useMemo(() => candlesToTradingView(candlesM5), [candlesM5]);
   const tvM15 = useMemo(() => candlesToTradingView(candlesM15), [candlesM15]);
   const lastCandle = candlesM1[candlesM1.length - 1];
   const marketSession = getMarketSessionStatus({
     market,
     mt5Status,
-    m1Count: tvM1.length || market?.m1Count || 0,
+    m1Count: tvM1.length || market?.m5Count || 0,
     m15Count: tvM15.length || market?.m15Count || 0
   });
 
@@ -856,7 +857,7 @@ export default function App() {
     entry: "-",
     sl: "-",
     tp: "-",
-    reason: "Menunggu data M1."
+    reason: "Menunggu data M5 hasil gabungan M1."
   };
   const strategyB = signal?.strategyB || signal?.strategy?.strategyB || {
     name: "SMC AI",
@@ -917,11 +918,11 @@ export default function App() {
     },
     {
       id: "scalp",
-      title: "M1 Scalp",
+      title: "M5 Scalp",
       value: scalping.label || "SCALP WAIT",
       status: scalping.action || "WAIT",
       note: `${scalping.confidence || 0}% · ${scalping.action || "WAIT"}`,
-      detail: scalping.reason || "M1 Scalp membaca peluang cepat berdasarkan struktur M1, EMA, dan konfirmasi candle."
+      detail: scalping.reason || "M5 Scalp membaca engulfing di swing low/high, close EMA 9/20, dan limit entry."
     }
   ];
   const historyStats = callHistory?.stats || {};
@@ -1113,7 +1114,7 @@ export default function App() {
         <>
           <section className="chartWrap card">
             <div className="sectionTitle">
-              <div><h3>Grafik Candlestick M1</h3><span>{market?.symbol || "XAUUSD"} · M1 · {marketSession.chartStatusText} · Bid {market?.bid || "-"} · Spread {spread}</span></div>
+              <div><h3>Grafik Candlestick M1</h3><span>{market?.symbol || "XAUUSD"} · M5 · {marketSession.chartStatusText} · Bid {market?.bid || "-"} · Spread {spread}</span></div>
               <div className="legend">
                 <b><i className="bullDot"></i> Bullish</b>
                 <b><i className="bearDot"></i> Bearish</b>
@@ -1121,8 +1122,8 @@ export default function App() {
                 <b><i className="ema20Dot"></i> EMA 20</b>
                 <b><i className="obBullDot"></i> Bull OB</b>
                 <b><i className="obBearDot"></i> Bear OB</b>
-                <b><i className="supportDot"></i> M1 Support</b>
-                <b><i className="resistDot"></i> M1 Resistance</b>
+                <b><i className="supportDot"></i> M5 Swing Low</b>
+                <b><i className="resistDot"></i> M5 Swing High</b>
                 <em><span></span> Scan cepat 12d · Grafik sinkron 45d</em>
               </div>
             </div>
@@ -1159,7 +1160,7 @@ export default function App() {
           <section className={`scalpPanel card ${String(scalping.action || "WAIT").toLowerCase()}`}>
             <div className="strategyHeader">
               <div>
-                <span className="pill mini"><Zap size={14} /> SCALP M1</span>
+                <span className="pill mini"><Zap size={14} /> SCALP M5</span>
                 <h3>{scalping.label || "SCALP WAIT"}</h3>
               </div>
               <div className={`biasBadge ${scalping.action === "SCALP_BUY" ? "buy" : scalping.action === "SCALP_SELL" ? "sell" : "wait"}`}>
@@ -1182,7 +1183,7 @@ export default function App() {
           <section className="historyPanel card scalpHistoryPanel">
             <div className="sectionTitle">
               <div>
-                <h3>{isAdmin ? "SCALP M1 Valid History & Manual Result" : "Performa Scalp M1"}</h3>
+                <h3>{isAdmin ? "SCALP M5 Limit History & Manual Result" : "Performa Scalp M1"}</h3>
                 <span>Hanya peluang scalp valid yang ditampilkan agar riwayat tetap bersih.</span>
               </div>
               <div className="historyStats">
@@ -1376,7 +1377,7 @@ export default function App() {
           <details className="adminWindow card" open>
             <summary>
               <span>Strategy Control Center</span>
-              <small>Master switch untuk Main Signal, M1 Scalp, dan SMC AI sebelum masuk multi-user premium.</small>
+              <small>Master switch untuk Main Signal, M5 Scalp, dan SMC AI sebelum masuk multi-user premium.</small>
             </summary>
             <div className="adminWindowBody">
               <AdminStrategyControlCenter adminToken={adminToken} />
@@ -2066,15 +2067,15 @@ function AdminStrategyControlCenter({ adminToken }) {
     },
     {
       key: "m1ScalpTracking",
-      title: "M1 Scalp Mode",
+      title: "M5 Scalp Mode",
       mode: controls.m1ScalpTracking ? "Tracking ON" : "Tracking OFF",
-      desc: "Mode M1 Scalp tetap dipisahkan dari Strategi A. Toggle ini untuk kontrol tracking/eksperimen."
+      desc: "Mode M5 Scalp tetap dipisahkan dari Strategi A. Toggle ini untuk kontrol tracking/eksperimen."
     },
     {
       key: "m1ScalpResultTracking",
-      title: "M1 Scalp Auto Result",
+      title: "M5 Scalp Auto Result",
       mode: controls.m1ScalpResultTracking ? "Auto result ON" : "Auto result OFF",
-      desc: "Mengatur pemantauan WIN / LOSS / EXPIRED khusus M1 Scalp."
+      desc: "Mengatur pemantauan WIN / LOSS / EXPIRED khusus M5 Scalp."
     },
     {
       key: "strategyBLiveBacktest",
@@ -3205,7 +3206,7 @@ function ResultTrackerPrepPanel({ callHistory, scalpHistory, market, signal, isA
   const scalpItems = scalpHistory?.history || [];
   const allItems = [
     ...callItems.map((item) => ({ ...item, trackerType: "SINYAL UTAMA" })),
-    ...scalpItems.map((item) => ({ ...item, trackerType: "SCALP M1" }))
+    ...scalpItems.map((item) => ({ ...item, trackerType: "SCALP M5" }))
   ];
   const runningItems = allItems.filter((item) => isOpenResult(item)).slice(0, 5);
   const closedItems = allItems.filter((item) => !isOpenResult(item));
@@ -3385,8 +3386,8 @@ function PerformanceAnalyticsPanel({ callHistory, scalpHistory, isAdmin }) {
   const best = pickBestPerformance([
     { label: "SINYAL UTAMA 7D", ...call7 },
     { label: "SINYAL UTAMA 30D", ...call30 },
-    { label: "SCALP M1 7D", ...scalp7 },
-    { label: "SCALP M1 30D", ...scalp30 }
+    { label: "SCALP M5 7D", ...scalp7 },
+    { label: "SCALP M5 30D", ...scalp30 }
   ]);
 
   return (
@@ -3407,8 +3408,8 @@ function PerformanceAnalyticsPanel({ callHistory, scalpHistory, isAdmin }) {
       <div className="performanceGrid">
         <PerformanceCard title="SINYAL UTAMA" period="7 Hari" stats={call7} />
         <PerformanceCard title="SINYAL UTAMA" period="30 Hari" stats={call30} />
-        <PerformanceCard title="SCALP M1" period="7 Hari" stats={scalp7} />
-        <PerformanceCard title="SCALP M1" period="30 Hari" stats={scalp30} />
+        <PerformanceCard title="SCALP M5" period="7 Hari" stats={scalp7} />
+        <PerformanceCard title="SCALP M5" period="30 Hari" stats={scalp30} />
       </div>
 
       <div className="performanceSummary">
@@ -3607,12 +3608,12 @@ function buildPerformanceSummary(call7, call30, scalp7, scalp30) {
   }
 
   if (scalp7.closed > 0 || scalp7.expired > 0) {
-    parts.push(`SCALP M1 7D Clean WR ${scalp7.cleanWinRate}% · ${scalp7.wins}W/${scalp7.losses}L/${scalp7.be}BE · ${scalp7.expired} EXP`);
+    parts.push(`SCALP M5 7D Clean WR ${scalp7.cleanWinRate}% · ${scalp7.wins}W/${scalp7.losses}L/${scalp7.be}BE · ${scalp7.expired} EXP`);
   }
 
   if (!parts.length) {
     if (call30.closed || call30.expired || scalp30.closed || scalp30.expired) {
-      return `Data 7 hari masih tipis. 30D: SINYAL UTAMA ${call30.cleanWinRate}% Clean WR (${call30.expired} EXP), SCALP M1 ${scalp30.cleanWinRate}% Clean WR (${scalp30.expired} EXP).`;
+      return `Data 7 hari masih tipis. 30D: SINYAL UTAMA ${call30.cleanWinRate}% Clean WR (${call30.expired} EXP), SCALP M5 ${scalp30.cleanWinRate}% Clean WR (${scalp30.expired} EXP).`;
     }
 
     return "Analisis akan makin akurat setelah sistem mengumpulkan hasil Menang / Kalah / BE / Kedaluwarsa.";
@@ -4259,7 +4260,7 @@ function LandingPage({ onLogin }) {
           <h1>Dashboard sinyal XAUUSD dengan notifikasi Telegram premium.</h1>
           <p>
             XAU AI Signal membantu memantau market gold dengan kombinasi market structure,
-            EMA 9/20, M1 scalping radar, Area M15 Fresh, dan history performa signal.
+            EMA 9/20, M5 scalping radar, Area M15 Fresh, dan history performa signal.
           </p>
 
           <div className="landingCta">
@@ -4270,7 +4271,7 @@ function LandingPage({ onLogin }) {
 
           <div className="landingTrust">
             <span>Notifikasi Telegram</span>
-            <span>M1 Scalp Radar</span>
+            <span>M5 Scalp Radar</span>
             <span>CALL History</span>
           </div>
         </div>
@@ -4298,7 +4299,7 @@ function LandingPage({ onLogin }) {
 
       <section className="landingStats">
         <div><b>SINYAL UTAMA</b><span>Signal utama berbasis konfirmasi</span></div>
-        <div><b>SCALP M1</b><span>Radar scalping struktur M1</span></div>
+        <div><b>SCALP M5</b><span>Radar engulfing limit M5</span></div>
         <div><b>AREA M15</b><span>Pantauan area penting M15</span></div>
         <div><b>History</b><span>Winrate & hasil transparan</span></div>
       </section>
@@ -4312,10 +4313,10 @@ function LandingPage({ onLogin }) {
 
         <div className="landingFeatureGrid">
           <LandingFeature title="SINYAL UTAMA Alert" text="Notifikasi BUY/SELL saat kondisi utama sudah valid." />
-          <LandingFeature title="M1 Scalp Radar" text="Pantau setup scalping M1 dengan support/resistance, engulfing, dan arah EMA." />
+          <LandingFeature title="M5 Scalp Radar" text="Pantau setup scalping M5 dengan engulfing di swing low/high dan filter EMA 9/20." />
           <LandingFeature title="Area M15 Fresh" text="Monitoring demand/supply fresh order block untuk area penting market." />
           <LandingFeature title="Notifikasi Telegram" text="User premium bisa connect Telegram untuk menerima alert langsung." />
-          <LandingFeature title="Grafik Live" text="Chart M1/M15, EMA 9/20, area struktur, dan market status." />
+          <LandingFeature title="Grafik Live" text="Chart M5/M15, EMA 9/20, area struktur, dan market status." />
           <LandingFeature title="Riwayat Performa" text="Riwayat signal valid, result, dan winrate untuk evaluasi transparan." />
         </div>
       </section>
@@ -4527,7 +4528,7 @@ function AuthScreen({ onBack }) {
           {resetMode
             ? "Masukkan email akun kamu. Link reset password akan dikirim lewat email."
             : mode === "login"
-              ? "Login dulu buat akses dashboard premium, SINYAL UTAMA, M1 Scalp Radar, Area M15 Fresh, dan history signal."
+              ? "Login dulu buat akses dashboard premium, SINYAL UTAMA, M5 Scalp Radar, Area M15 Fresh, dan history signal."
               : "Buat akun dulu, lalu verifikasi email untuk lanjut ke premium access."}
         </p>
 
@@ -4775,7 +4776,7 @@ function PaywallScreen({ user, profile, onLogout }) {
           <b>Premium unlock:</b>
           <span>✅ Live dashboard XAU AI</span>
           <span>✅ SINYAL UTAMA Alert</span>
-          <span>✅ M1 Scalp Radar</span>
+          <span>✅ M5 Scalp Radar</span>
           <span>✅ Area M15 Fresh</span>
           <span>✅ CALL & SCALP History</span>
           <span>✅ Analisis Performa 7/30 Hari</span>
@@ -4981,7 +4982,7 @@ function addStructureLines(series, linesRef, scalping) {
       lineWidth: 1,
       lineStyle: 1,
       axisLabelVisible: true,
-      title: `M1 Support x${supportTouches || 1}`
+      title: `M5 Swing Low x${supportTouches || 1}`
     });
     newLines.push({ series, line });
   }
@@ -4993,7 +4994,7 @@ function addStructureLines(series, linesRef, scalping) {
       lineWidth: 1,
       lineStyle: 1,
       axisLabelVisible: true,
-      title: `M1 Resistance x${resistanceTouches || 1}`
+      title: `M5 Swing High x${resistanceTouches || 1}`
     });
     newLines.push({ series, line });
   }
@@ -5100,7 +5101,7 @@ function BybitTestFeedPanel({ feed, market, mt5LastCandle, onRefresh }) {
       <div className="bybitTestGrid">
         <Metric label="Last Price" value={formatBybitNumber(lastPrice)} note={latest?.market || latest?.symbol || "XAUUSDT"} />
         <Metric label="Bid / Ask" value={`${formatBybitNumber(bid)} / ${formatBybitNumber(ask)}`} note={`Spread ${spread === null ? "-" : formatBybitNumber(spread, 3)}`} />
-        <Metric label="Last Candle M1" value={formatBybitNumber(lastCandle?.close)} note={lastCandle?.time || "Menunggu candle"} />
+        <Metric label="Last Candle M5" value={formatBybitNumber(lastCandle?.close)} note={lastCandle?.time || "Menunggu candle"} />
         <Metric label="Candle Count" value={status?.candleCount ?? "-"} note={`HTTP ${status?.tickerHttpStatus || "-"} / ${status?.klineHttpStatus || "-"}`} />
         <Metric label="Last Update" value={status?.updatedAtText || latest?.updatedAtText || "-"} note={ageMs === null ? "Belum ada update" : `${Math.max(0, Math.round(ageMs / 1000))} detik lalu`} />
         <Metric label="Feed Engine" value="Premium Market Bridge" note="Live backup stream" />
@@ -5195,7 +5196,7 @@ function StrategyComparePanel({ callHistory, scalpHistory, strategyBHistory }) {
   }));
   const scalpItems = (scalpHistory?.history || []).map((item) => ({
     ...item,
-    compareSource: "SCALP M1"
+    compareSource: "SCALP M5"
   }));
   const strategyBItems = strategyBHistory?.history || [];
 
@@ -5208,7 +5209,7 @@ function StrategyComparePanel({ callHistory, scalpHistory, strategyBHistory }) {
   const insight = buildStrategyCompareInsight3Way(a7, a30, scalp7, scalp30, b7, b30);
   const cards = [
     { key: "main", title: "Strategi A", subtitle: "Sinyal Utama Saja", stats7: a7, stats30: a30, tone: "a" },
-    { key: "scalp", title: "M1 Scalp", subtitle: "Mode terpisah · SR + EMA", stats7: scalp7, stats30: scalp30, tone: "scalp" },
+    { key: "scalp", title: "M5 Scalp", subtitle: "Mode terpisah · Engulfing Limit M5", stats7: scalp7, stats30: scalp30, tone: "scalp" },
     { key: "smc", title: "Strategi B", subtitle: "SMC AI · OB → Sweep → CHOCH → EMA", stats7: b7, stats30: b30, tone: "b" }
   ];
 
@@ -5236,7 +5237,7 @@ function StrategyComparePanel({ callHistory, scalpHistory, strategyBHistory }) {
         <div className="strategyCompareHead threeWay">
           <span>Metric</span>
           <span>Main Signal</span>
-          <span>M1 Scalp</span>
+          <span>M5 Scalp</span>
           <span>SMC AI</span>
           <span>Insight</span>
         </div>
@@ -5370,7 +5371,7 @@ function buildStrategyCompareRows3Way(a, scalp, b) {
 function compareBest3Way(a, scalp, b, label) {
   const values = [
     { name: "Main Signal", value: Number(a) || 0 },
-    { name: "M1 Scalp", value: Number(scalp) || 0 },
+    { name: "M5 Scalp", value: Number(scalp) || 0 },
     { name: "SMC AI", value: Number(b) || 0 }
   ];
   const best = values.reduce((top, item) => (item.value > top.value ? item : top), values[0]);
@@ -5384,7 +5385,7 @@ function buildStrategyCompareInsight3Way(a7, a30, scalp7, scalp30, b7, b30) {
     return {
       badge: "Data awal",
       short: "Belum cukup data",
-      detail: "Main Signal, M1 Scalp, dan SMC AI masih perlu lebih banyak closed signal sebelum keputusan performa bisa dipercaya."
+      detail: "Main Signal, M5 Scalp, dan SMC AI masih perlu lebih banyak closed signal sebelum keputusan performa bisa dipercaya."
     };
   }
 
@@ -5392,7 +5393,7 @@ function buildStrategyCompareInsight3Way(a7, a30, scalp7, scalp30, b7, b30) {
     return {
       badge: "SMC AI Testing",
       short: "Data Strategi B masih tipis",
-      detail: `SMC AI baru punya ${b30.total} signal 30D. Main Signal dan M1 Scalp tetap jadi pembanding sambil SMC AI live-backtest mengumpulkan data.`
+      detail: `SMC AI baru punya ${b30.total} signal 30D. Main Signal dan M5 Scalp tetap jadi pembanding sambil SMC AI live-backtest mengumpulkan data.`
     };
   }
 
@@ -5407,8 +5408,8 @@ function buildStrategyCompareInsight3Way(a7, a30, scalp7, scalp30, b7, b30) {
   if (scalp30.total >= a30.total && scalp30.cleanWinRate >= a30.cleanWinRate && scalp30.cleanWinRate >= b30.cleanWinRate) {
     return {
       badge: "Scalp aktif",
-      short: "M1 paling aktif",
-      detail: `M1 Scalp paling aktif dengan ${scalp30.total} signal 30D dan Clean WR ${scalp30.cleanWinRate}%. Tetap pisahkan dari Strategi A agar statistik utama tidak tercampur.`
+      short: "M5 paling aktif",
+      detail: `M5 Scalp paling aktif dengan ${scalp30.total} signal 30D dan Clean WR ${scalp30.cleanWinRate}%. Tetap pisahkan dari Strategi A agar statistik utama tidak tercampur.`
     };
   }
 
@@ -5416,7 +5417,7 @@ function buildStrategyCompareInsight3Way(a7, a30, scalp7, scalp30, b7, b30) {
     return {
       badge: "Main stabil",
       short: "A jadi baseline",
-      detail: `Main Signal masih cocok jadi baseline utama karena sample 30D paling stabil. SMC AI dan M1 Scalp tetap lanjut sebagai pembanding terpisah.`
+      detail: `Main Signal masih cocok jadi baseline utama karena sample 30D paling stabil. SMC AI dan M5 Scalp tetap lanjut sebagai pembanding terpisah.`
     };
   }
 

@@ -63,7 +63,7 @@ export async function buildTrackerSummary(dbUrl, env, shouldUpdate) {
 
   const allOpen = [
     ...callItems.map((item) => ({ ...item, trackerType: "MAIN_CALL", path: "/xauusd/callHistory", expireHours: mainExpireHours, telegramResultAlert: controls.mainSignalResultAlert !== false })),
-    ...(controls.m1ScalpResultTracking === false ? [] : scalpItems.map((item) => ({ ...item, trackerType: "SCALP_M1", path: "/xauusd/scalpHistory", expireHours: scalpExpireHours, telegramResultAlert: true }))),
+    ...(controls.m1ScalpResultTracking === false ? [] : scalpItems.map((item) => ({ ...item, trackerType: "SCALP_M5", path: "/xauusd/scalpHistory", expireHours: scalpExpireHours, telegramResultAlert: true }))),
     ...(controls.strategyBLiveBacktest === false ? [] : strategyBItems.map((item) => ({ ...item, trackerType: "SMC_AI", path: "/xauusd/strategyB/history", expireHours: strategyBExpireHours, telegramResultAlert: controls.strategyBResultAdminAlert !== false, strategyBResultAlert: true })))
   ]
     .filter(isOpen)
@@ -86,16 +86,17 @@ export async function buildTrackerSummary(dbUrl, env, shouldUpdate) {
       reason: result.note
     });
 
-    if (shouldUpdate && result.result && item.id) {
+    if (shouldUpdate && (result.result || result.status) && item.id) {
       const closedAt = new Date().toISOString();
       const payload = {
         ...item,
-        status: "CLOSED",
+        status: result.status || "CLOSED",
         result: result.result,
-        closedAt,
+        closedAt: result.result ? closedAt : null,
         resultPrice: livePrice,
         resultSource: "AUTO_RESULT_ENGINE",
         resultCheckedAt: closedAt,
+        triggeredAt: result.triggeredAt || item.triggeredAt || null,
         note: result.note
       };
 
@@ -103,9 +104,9 @@ export async function buildTrackerSummary(dbUrl, env, shouldUpdate) {
       delete payload.expireHours;
       delete payload.trackerType;
 
-      const alertResult = item.telegramResultAlert
+      const alertResult = result.result && item.telegramResultAlert
         ? await maybeSendResultAlert(env, item, payload, result.result, livePrice, result.note)
-        : { sent: false, skippedReason: "RESULT_ALERT_DISABLED_FOR_TRACKER" };
+        : { sent: false, skippedReason: result.result ? "RESULT_ALERT_DISABLED_FOR_TRACKER" : "PENDING_TRIGGER_ONLY" };
 
       if (alertResult.sent) {
         payload.resultAlertSent = true;
@@ -363,6 +364,8 @@ function evaluateItem(item, livePrice) {
   const signal = String(item.signal || "").toUpperCase();
   const sl = toNumber(item.sl);
   const tp = toNumber(item.tp);
+  const entry = toNumber(item.entry);
+  const status = String(item.status || "OPEN").toUpperCase();
 
   if (!Number.isFinite(livePrice) || livePrice <= 0) {
     return { result: null, note: "Harga live belum tersedia." };
@@ -370,6 +373,28 @@ function evaluateItem(item, livePrice) {
 
   if (!Number.isFinite(sl) || !Number.isFinite(tp)) {
     return { result: null, note: "SL/TP belum lengkap." };
+  }
+
+  if (status === "PENDING") {
+    if (!Number.isFinite(entry)) return { result: null, note: "Entry limit belum lengkap." };
+    const buyTriggered = signal === "BUY" && livePrice <= entry;
+    const sellTriggered = signal === "SELL" && livePrice >= entry;
+
+    if (!buyTriggered && !sellTriggered) {
+      const ageHoursPending = getAgeHours(item.createdAt || item.candleTime || item.serverTime);
+      const expireHoursPending = Number(item.expireHours || 4);
+      if (ageHoursPending >= expireHoursPending) {
+        return { result: "EXPIRED", note: `Pending limit melewati batas waktu ${expireHoursPending} jam tanpa tersentuh.` };
+      }
+      return { result: null, note: "Pending limit belum tersentuh." };
+    }
+
+    return {
+      result: null,
+      status: "OPEN",
+      triggeredAt: new Date().toISOString(),
+      note: `Pending limit tersentuh di sekitar harga ${formatPrice(livePrice)}. Mulai dipantau TP/SL.`
+    };
   }
 
   if (signal === "BUY") {

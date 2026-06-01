@@ -227,12 +227,9 @@ export function buildSignal(candles, candlesM15, market) {
   }
 
   const trendBias = ema9 > ema20 ? "Bullish" : ema9 < ema20 ? "Bearish" : "Netral";
-  const scalping = buildM1ScalpingStrategy(m1, closes, {
-    ema9,
-    ema20,
+  const scalping = buildM5EngulfingLimitScalp(m1, {
     rsi14,
     mfi14,
-    atr14,
     close
   });
 
@@ -854,204 +851,164 @@ function buildSignalBlockers(ctx = {}, direction = "WAIT") {
 }
 
 function buildM1ScalpingStrategy(candles, closes, context = {}) {
-  const structure = buildM1StructureEngulfingEmaScalp(candles, closes, context);
-
-  return {
-    ...structure,
-    activeRule: "M1_SR_ENGULFING_EMA_9_20_FILTER",
-    mode: "M1_SCALPING_SR_ENGULFING_EMA_FILTER"
-  };
+  return buildM5EngulfingLimitScalp(candles, context);
 }
 
-function buildM1StructureEngulfingEmaScalp(candles, closes, context = {}) {
-  const last = candles[candles.length - 1];
-  const prev = candles[candles.length - 2];
+function buildM5EngulfingLimitScalp(m1Candles, context = {}) {
+  const m5 = aggregateCandlesToM5(m1Candles);
+  const last = m5[m5.length - 1];
+  const prev = m5[m5.length - 2];
 
-  if (!last || !prev || candles.length < 40) {
+  if (!last || !prev || m5.length < 35) {
     return {
-      mode: "M1_SR_ENGULFING_EMA_FILTER",
-      activeRule: "M1_SR_ENGULFING_EMA_9_20_FILTER",
+      mode: "M5_ENGULFING_LIMIT_SCALP",
+      activeRule: "M5_SWING_ENGULFING_EMA_9_20_LIMIT",
       action: "WAIT",
-      label: "SCALP WAIT",
-      score: 0,
-      confidence: 0,
-      entry: 0,
-      sl: 0,
-      tp: 0,
-      support: 0,
-      resistance: 0,
-      ema9: 0,
-      ema20: 0,
-      emaTrend: "WAIT",
-      zone: "WAIT",
-      pattern: "NONE",
-      reason: "Menunggu minimal 40 candle M1 untuk baca struktur, engulfing, dan EMA 9/20.",
+      label: "M5 SCALP WAIT",
+      orderType: "WAIT",
+      score: 0, confidence: 0, entry: 0, sl: 0, tp: 0,
+      support: 0, resistance: 0, ema9: 0, ema20: 0, emaTrend: "WAIT",
+      zone: "WAIT", pattern: "NONE", atr: 0, timeframe: "M5",
+      sourceTimeframe: "M1_AGGREGATED_TO_M5", maxPending: 4, maxBuyPending: 2, maxSellPending: 2,
+      reason: "Menunggu minimal 35 candle M5 hasil gabungan M1 untuk membaca engulfing, swing, EMA 9/20, dan limit setup.",
       checklist: []
     };
   }
 
-  const atrValue = Number(context.atr14 || atr(candles, 14) || 1);
-  const close = Number(context.close || last.close);
-  const recent = candles.slice(-35, -1);
-  const structure = detectM1StructureZones(recent, atrValue);
-  const support = structure.support;
-  const resistance = structure.resistance;
-  const zoneBuffer = Math.max(atrValue * 0.35, close * 0.00008);
-
-  const supportTouchCandle = findLastTouchCandle(candles, support, "support", zoneBuffer);
-  const resistanceTouchCandle = findLastTouchCandle(candles, resistance, "resistance", zoneBuffer);
-
-  const nearSupport =
-    Number.isFinite(support) &&
-    last.low <= support + zoneBuffer &&
-    last.close >= support - zoneBuffer;
-
-  const nearResistance =
-    Number.isFinite(resistance) &&
-    last.high >= resistance - zoneBuffer &&
-    last.close <= resistance + zoneBuffer;
-
+  const closes = m5.map((c) => Number(c.close));
+  const ema9Value = Number(ema(closes, 9));
+  const ema20Value = Number(ema(closes, 20));
+  const atrValue = Number(atr(m5, 14) || Math.max(Math.abs(last.high - last.low), 1));
+  const structure = detectM5StructureForEngulfing(m5, atrValue);
   const bullishEngulfing = isBullishEngulfing(prev, last);
   const bearishEngulfing = isBearishEngulfing(prev, last);
-
-  const ema9Value = Number(context.ema9 || ema(closes, 9));
-  const ema20Value = Number(context.ema20 || ema(closes, 20));
-  const emaBullish = ema9Value > ema20Value;
-  const emaBearish = ema9Value < ema20Value;
-  const emaTrend = emaBullish ? "EMA_BULLISH" : emaBearish ? "EMA_BEARISH" : "EMA_FLAT";
-
-  const rsi = Number(context.rsi14 || rsiWilder(closes, 14));
-  const mfiValue = Number(context.mfi14 || mfi(candles, 14));
-
-  const rsiBuyOk = rsi >= 42 && rsi <= 72;
-  const rsiSellOk = rsi <= 58 && rsi >= 28;
-  const mfiBuyOk = mfiValue >= 38 && mfiValue <= 82;
-  const mfiSellOk = mfiValue <= 62 && mfiValue >= 18;
+  const closeAboveEma = Number(last.close) > ema9Value && Number(last.close) > ema20Value;
+  const closeBelowEma = Number(last.close) < ema9Value && Number(last.close) < ema20Value;
+  const swingBuffer = Math.max(atrValue * 0.45, Number(last.close) * 0.0001);
+  const atSwingLow = Number(last.low) <= Number(structure.previousSwingLow) + swingBuffer;
+  const atSwingHigh = Number(last.high) >= Number(structure.previousSwingHigh) - swingBuffer;
 
   let buyScore = 0;
   let sellScore = 0;
   const checklist = [];
+  if (bullishEngulfing) { buyScore += 30; checklist.push("Bullish engulfing M5 valid"); }
+  if (bearishEngulfing) { sellScore += 30; checklist.push("Bearish engulfing M5 valid"); }
+  if (atSwingLow) { buyScore += 25; checklist.push("Engulfing berada di area swing low M5"); }
+  if (atSwingHigh) { sellScore += 25; checklist.push("Engulfing berada di area swing high M5"); }
+  if (closeAboveEma) { buyScore += 25; checklist.push("Close candle di atas EMA 9/20"); }
+  if (closeBelowEma) { sellScore += 25; checklist.push("Close candle di bawah EMA 9/20"); }
 
-  if (emaBullish) {
-    buyScore += 30;
-    checklist.push("EMA 9 di atas EMA 20, hanya cari BUY");
-  }
+  const rsi = Number(context.rsi14 || rsiWilder(closes, 14));
+  const mfiValue = Number(context.mfi14 || mfi(m5, 14));
+  if (rsi > 50) { buyScore += 5; checklist.push("RSI booster BUY"); }
+  if (rsi < 50) { sellScore += 5; checklist.push("RSI booster SELL"); }
+  if (mfiValue > 50) { buyScore += 5; checklist.push("MFI booster BUY"); }
+  if (mfiValue < 50) { sellScore += 5; checklist.push("MFI booster SELL"); }
 
-  if (emaBearish) {
-    sellScore += 30;
-    checklist.push("EMA 9 di bawah EMA 20, hanya cari SELL");
-  }
-
-  if (nearSupport) { buyScore += 24; checklist.push("Harga di area support M1"); }
-  if (nearResistance) { sellScore += 24; checklist.push("Harga di area resistance M1"); }
-
-  if (bullishEngulfing) { buyScore += 28; checklist.push("Bullish engulfing valid"); }
-  if (bearishEngulfing) { sellScore += 28; checklist.push("Bearish engulfing valid"); }
-
-  if (rsiBuyOk) { buyScore += 8; checklist.push("RSI aman untuk BUY"); }
-  if (rsiSellOk) { sellScore += 8; checklist.push("RSI aman untuk SELL"); }
-
-  if (mfiBuyOk) { buyScore += 8; checklist.push("MFI aman untuk BUY"); }
-  if (mfiSellOk) { sellScore += 8; checklist.push("MFI aman untuk SELL"); }
-
-  const buyValid = emaBullish && nearSupport && bullishEngulfing && buyScore >= 70;
-  const sellValid = emaBearish && nearResistance && bearishEngulfing && sellScore >= 70;
-
-  let action = "WAIT";
-  let label = "SCALP WAIT";
+  const buyValid = bullishEngulfing && atSwingLow && closeAboveEma;
+  const sellValid = bearishEngulfing && atSwingHigh && closeBelowEma;
+  let action = "WAIT", label = "M5 SCALP WAIT", orderType = "WAIT", entry = 0, sl = 0, tp = 0, zone = "WAIT";
+  let pattern = bullishEngulfing ? "BULLISH_ENGULFING" : bearishEngulfing ? "BEARISH_ENGULFING" : "NONE";
   let score = Math.max(buyScore, sellScore);
-  let sl = 0;
-  let tp = 0;
-  let zone = "WAIT";
-  let pattern = "NONE";
 
   if (buyValid) {
-    action = "SCALP_BUY";
-    label = "SCALP BUY";
-    zone = "SUPPORT";
-    pattern = "BULLISH_ENGULFING";
-
-    // SL M1 scalping:
-    // di bawah low candle yang menyentuh support + buffer 1.5 ATR
-    const touchLow = Number(supportTouchCandle?.low || support);
-    sl = touchLow - atrValue * 1.5;
-    const risk = Math.abs(close - sl);
-    tp = close + risk * 1.25;
+    action = "SCALP_BUY"; label = "M5 BUY LIMIT"; orderType = "BUY_LIMIT"; zone = "SWING_LOW"; pattern = "BULLISH_ENGULFING";
+    entry = Number(last.open);
+    sl = Number(structure.previousSwingLow) - atrValue * 1.5;
+    const risk = Math.abs(entry - sl);
+    tp = entry + risk;
   } else if (sellValid) {
-    action = "SCALP_SELL";
-    label = "SCALP SELL";
-    zone = "RESISTANCE";
-    pattern = "BEARISH_ENGULFING";
-
-    // SL M1 scalping:
-    // di atas high candle yang menyentuh resistance + buffer 1.5 ATR
-    const touchHigh = Number(resistanceTouchCandle?.high || resistance);
-    sl = touchHigh + atrValue * 1.5;
-    const risk = Math.abs(sl - close);
-    tp = close - risk * 1.25;
+    action = "SCALP_SELL"; label = "M5 SELL LIMIT"; orderType = "SELL_LIMIT"; zone = "SWING_HIGH"; pattern = "BEARISH_ENGULFING";
+    entry = Number(last.open);
+    sl = Number(structure.previousSwingHigh) + atrValue * 1.5;
+    const risk = Math.abs(sl - entry);
+    tp = entry - risk;
   } else {
-    if (nearSupport) zone = "NEAR_SUPPORT";
-    else if (nearResistance) zone = "NEAR_RESISTANCE";
-
-    if (bullishEngulfing) pattern = "BULLISH_ENGULFING";
-    else if (bearishEngulfing) pattern = "BEARISH_ENGULFING";
+    if (atSwingLow) zone = "NEAR_SWING_LOW";
+    else if (atSwingHigh) zone = "NEAR_SWING_HIGH";
   }
 
   return {
-    mode: "M1_SR_ENGULFING_EMA_FILTER",
-    activeRule: "M1_SR_ENGULFING_EMA_9_20_FILTER",
-    action,
-    label,
+    mode: "M5_ENGULFING_LIMIT_SCALP",
+    activeRule: "M5_SWING_ENGULFING_EMA_9_20_LIMIT",
+    action, label, orderType,
     score: Math.min(100, Math.round(score)),
-    confidence: Math.min(92, Math.max(45, Math.round(score))),
-    entry: round(close),
-    sl: round(sl),
-    tp: round(tp),
-    support: round(support),
-    resistance: round(resistance),
-    ema9: round(ema9Value),
-    ema20: round(ema20Value),
-    emaTrend,
-    zone,
-    pattern,
-    atr: round(atrValue),
-    zoneBuffer: round(zoneBuffer),
-    nearSupport,
-    nearResistance,
-    bullishEngulfing,
-    bearishEngulfing,
-    emaBullish,
-    emaBearish,
-    supportTouchCandle: supportTouchCandle ? {
-      time: supportTouchCandle.time,
-      low: round(supportTouchCandle.low),
-      high: round(supportTouchCandle.high)
-    } : null,
-    resistanceTouchCandle: resistanceTouchCandle ? {
-      time: resistanceTouchCandle.time,
-      low: round(resistanceTouchCandle.low),
-      high: round(resistanceTouchCandle.high)
-    } : null,
-    slMethod: "touch_candle_plus_1_5_atr",
-    tpMethod: "RR_1_1_25",
-    reason: buildSrEngulfingEmaReason({
-      action,
-      buyScore,
-      sellScore,
-      support,
-      resistance,
-      nearSupport,
-      nearResistance,
-      bullishEngulfing,
-      bearishEngulfing,
-      emaBullish,
-      emaBearish,
-      emaTrend,
-      checklist
-    }),
-    checklist: checklist.slice(0, 8)
+    confidence: Math.min(94, Math.max(40, Math.round(score))),
+    entry: round(entry), sl: round(sl), tp: round(tp),
+    support: round(structure.previousSwingLow), resistance: round(structure.previousSwingHigh),
+    previousSwingLow: round(structure.previousSwingLow), previousSwingHigh: round(structure.previousSwingHigh),
+    ema9: round(ema9Value), ema20: round(ema20Value),
+    emaTrend: closeAboveEma ? "PRICE_ABOVE_EMA_9_20" : closeBelowEma ? "PRICE_BELOW_EMA_9_20" : "PRICE_BETWEEN_EMA",
+    zone, pattern, atr: round(atrValue), timeframe: "M5", sourceTimeframe: "M1_AGGREGATED_TO_M5",
+    maxPending: 4, maxBuyPending: 2, maxSellPending: 2, rr: "1:1", tpMethod: "RR_1_1",
+    slMethod: "previous_m5_structure_plus_1_5_atr",
+    engulfingCandle: { time: last.time, open: round(last.open), high: round(last.high), low: round(last.low), close: round(last.close) },
+    nearSupport: atSwingLow, nearResistance: atSwingHigh, bullishEngulfing, bearishEngulfing, emaBullish: closeAboveEma, emaBearish: closeBelowEma,
+    reason: buildM5EngulfingLimitReason({ action, buyScore, sellScore, bullishEngulfing, bearishEngulfing, atSwingLow, atSwingHigh, closeAboveEma, closeBelowEma, checklist }),
+    checklist: checklist.slice(0, 9)
   };
 }
+
+function aggregateCandlesToM5(candles) {
+  const cleanCandles = clean(candles);
+  if (cleanCandles.length < 5) return [];
+  const groups = [];
+  let current = null;
+  for (let i = 0; i < cleanCandles.length; i++) {
+    const c = cleanCandles[i];
+    const t = Date.parse(c.time || c.datetime || c.timestamp || "");
+    let key;
+    if (Number.isFinite(t)) {
+      const d = new Date(t);
+      d.setUTCSeconds(0, 0);
+      d.setUTCMinutes(Math.floor(d.getUTCMinutes() / 5) * 5);
+      key = d.toISOString();
+    } else {
+      key = `idx_${Math.floor(i / 5)}`;
+    }
+    if (!current || current.key !== key) {
+      if (current) groups.push(current);
+      current = { key, time: key.startsWith("idx_") ? c.time : key, open: Number(c.open), high: Number(c.high), low: Number(c.low), close: Number(c.close), volume: Number(c.volume || c.tick_volume || 0), sourceCount: 1 };
+    } else {
+      current.high = Math.max(current.high, Number(c.high));
+      current.low = Math.min(current.low, Number(c.low));
+      current.close = Number(c.close);
+      current.volume += Number(c.volume || c.tick_volume || 0);
+      current.sourceCount += 1;
+      current.time = key.startsWith("idx_") ? c.time : key;
+    }
+  }
+  if (current) groups.push(current);
+  return groups.filter((g) => Number.isFinite(g.open) && Number.isFinite(g.high) && Number.isFinite(g.low) && Number.isFinite(g.close)).slice(-160);
+}
+
+function detectM5StructureForEngulfing(candles, atrValue) {
+  const before = candles.slice(-14, -1);
+  const lows = before.map((c) => Number(c.low)).filter(Number.isFinite);
+  const highs = before.map((c) => Number(c.high)).filter(Number.isFinite);
+  return {
+    previousSwingLow: lows.length ? Math.min(...lows) : Number(candles[candles.length - 2]?.low || candles[candles.length - 1]?.low || 0),
+    previousSwingHigh: highs.length ? Math.max(...highs) : Number(candles[candles.length - 2]?.high || candles[candles.length - 1]?.high || 0),
+    method: "LOWEST_HIGH_LOW_LAST_13_M5",
+    atr: atrValue
+  };
+}
+
+function buildM5EngulfingLimitReason(data) {
+  const buy = Math.round(data.buyScore);
+  const sell = Math.round(data.sellScore);
+  const confirmations = data.checklist.length ? data.checklist.slice(0, 7).join(" • ") : "setup belum lengkap";
+  if (data.action === "SCALP_BUY") return `🚀 M5 BUY LIMIT siap. Bullish engulfing muncul di swing low, close di atas EMA 9/20. Entry limit di open engulfing, SL struktur M5 sebelumnya + 1.5 ATR, TP RR 1:1. Strength ${buy}/100. ${confirmations}.`;
+  if (data.action === "SCALP_SELL") return `🔻 M5 SELL LIMIT siap. Bearish engulfing muncul di swing high, close di bawah EMA 9/20. Entry limit di open engulfing, SL struktur M5 sebelumnya + 1.5 ATR, TP RR 1:1. Strength ${sell}/100. ${confirmations}.`;
+  if (data.bullishEngulfing && !data.atSwingLow) return "Bullish engulfing M5 terdeteksi, tapi belum berada di area swing low.";
+  if (data.bearishEngulfing && !data.atSwingHigh) return "Bearish engulfing M5 terdeteksi, tapi belum berada di area swing high.";
+  if (data.atSwingLow && !data.bullishEngulfing) return "Harga berada di area swing low M5, tapi belum ada bullish engulfing valid.";
+  if (data.atSwingHigh && !data.bearishEngulfing) return "Harga berada di area swing high M5, tapi belum ada bearish engulfing valid.";
+  if (data.bullishEngulfing && !data.closeAboveEma) return "Bullish engulfing M5 ada, tapi close belum di atas EMA 9/20.";
+  if (data.bearishEngulfing && !data.closeBelowEma) return "Bearish engulfing M5 ada, tapi close belum di bawah EMA 9/20.";
+  return `M5 Scalp menunggu setup lengkap: engulfing di swing low/high, close di sisi EMA 9/20 yang benar, lalu entry limit di open candle engulfing. BUY ${buy}/100 vs SELL ${sell}/100.`;
+}
+
 
 function findLastTouchCandle(candles, level, side, zoneBuffer) {
   const price = Number(level);
@@ -1227,9 +1184,9 @@ async function maybeSaveScalpHistory(env, dbUrl, signal, market) {
 
   const scalpId = [
     market?.symbol || signal.pair || "XAUUSD",
-    "SCALP",
+    "SCALP_M5_LIMIT",
     scalpSignal,
-    candleKey
+    scalp?.engulfingCandle?.time || candleKey
   ]
     .join("_")
     .replaceAll(" ", "_")
@@ -1245,7 +1202,7 @@ async function maybeSaveScalpHistory(env, dbUrl, signal, market) {
 
   const payload = {
     id: scalpId,
-    type: "SCALP_M1",
+    type: "SCALP_M5_LIMIT",
     pair: market?.symbol || signal.pair || "XAUUSD",
     signal: scalpSignal,
     action: scalp.action,
@@ -1257,26 +1214,57 @@ async function maybeSaveScalpHistory(env, dbUrl, signal, market) {
     confidence: scalp.confidence,
     support: scalp.support ?? null,
     resistance: scalp.resistance ?? null,
+    previousSwingLow: scalp.previousSwingLow ?? null,
+    previousSwingHigh: scalp.previousSwingHigh ?? null,
+    orderType: scalp.orderType || null,
+    timeframe: "M5",
+    sourceTimeframe: scalp.sourceTimeframe || "M1_AGGREGATED_TO_M5",
+    rr: scalp.rr || "1:1",
     pattern: scalp.pattern ?? null,
     zone: scalp.zone ?? null,
     atr: scalp.atr ?? null,
-    slMethod: scalp.slMethod || "touch_candle_plus_1_5_atr",
+    slMethod: scalp.slMethod || "previous_m5_structure_plus_1_5_atr",
     supportTouchCandle: scalp.supportTouchCandle || null,
     resistanceTouchCandle: scalp.resistanceTouchCandle || null,
+    engulfingCandle: scalp.engulfingCandle || null,
     reason: scalp.reason || "",
     candleTime: signal.candleTime || null,
     serverTime: market?.serverTime || null,
     createdAt: new Date().toISOString(),
-    status: "OPEN",
+    status: "PENDING",
     result: null,
     closedAt: null,
     note: ""
   };
 
+  await expireOldM5PendingSlots(dbUrl, scalpSignal, scalpId);
   await fbPut(dbUrl, `/xauusd/scalpHistory/${scalpId}`, payload);
-  await trimFirebaseList(dbUrl, "/xauusd/scalpHistory", 50);
+  await trimFirebaseList(dbUrl, "/xauusd/scalpHistory", 80);
 
   return { ok: true, scalpId };
+}
+
+async function expireOldM5PendingSlots(dbUrl, signal, newId) {
+  const raw = await fbGet(dbUrl, "/xauusd/scalpHistory");
+  const items = Object.values(raw || {})
+    .filter(Boolean)
+    .filter((item) => String(item.type || "").includes("SCALP_M5") || String(item.mode || "").includes("M5"))
+    .filter((item) => String(item.signal || "").toUpperCase() === String(signal || "").toUpperCase())
+    .filter((item) => ["PENDING", "OPEN", "RUNNING"].includes(String(item.status || "PENDING").toUpperCase()))
+    .filter((item) => !["WIN", "LOSS", "BE", "EXPIRED"].includes(String(item.result || "").toUpperCase()))
+    .sort((a, b) => String(a.createdAt || "").localeCompare(String(b.createdAt || "")));
+
+  while (items.length >= 2) {
+    const oldest = items.shift();
+    if (!oldest?.id || oldest.id === newId) continue;
+    await fbPut(dbUrl, `/xauusd/scalpHistory/${oldest.id}`, {
+      ...oldest,
+      status: "CLOSED",
+      result: "EXPIRED",
+      closedAt: new Date().toISOString(),
+      note: "Expired otomatis karena muncul setup M5 engulfing limit baru dan slot pending sudah penuh."
+    });
+  }
 }
 
 
@@ -1347,7 +1335,7 @@ async function maybeSaveStrategyBHistory(env, dbUrl, signal, market) {
     candleTime: signal.candleTime || null,
     serverTime: market?.serverTime || null,
     createdAt: new Date().toISOString(),
-    status: "OPEN",
+    status: "PENDING",
     result: null,
     closedAt: null,
     note: "Strategy B live-backtest only. Tidak mempengaruhi Strategy A.",
@@ -1689,7 +1677,7 @@ async function maybeSaveCallHistory(env, dbUrl, signal, market) {
     candleTime: signal.candleTime || null,
     serverTime: market?.serverTime || null,
     createdAt: new Date().toISOString(),
-    status: "OPEN",
+    status: "PENDING",
     result: null,
     closedAt: null,
     note: "",
