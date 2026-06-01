@@ -427,3 +427,9 @@ Dashboard sekarang membedakan kondisi market tutup/weekend dengan koneksi live y
 - Strategy Lab sekarang membandingkan Main Signal, M1 Scalp, dan SMC AI secara terpisah.
 - M1 Scalp tetap tidak dihitung sebagai Strategy A.
 - Patch ini hanya UI/analytics compare dan aman untuk rollback.
+
+
+## Step 10AK - Strategy Control Center
+- Tambah Admin master switch untuk Main Signal, M1 Scalp, dan SMC AI.
+- User premium tetap mengikuti personal toggle masing-masing.
+- SMC AI Premium User Alert default OFF agar tetap aman sebelum live multi-user.

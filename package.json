@@ -1,6 +1,6 @@
 {
-  "name": "xau-ai-signal-step10aj-strategy-lab-3-way-compare",
-  "version": "7.28.0-step10aj-strategy-lab-3-way-compare",
+  "name": "xau-ai-signal-step10ak-strategy-control-center",
+  "version": "7.29.0-step10ak-strategy-control-center",
   "type": "module",
   "scripts": {
     "dev": "vite",
