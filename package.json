@@ -1,6 +1,6 @@
 {
-  "name": "xau-ai-signal-step10ag-smc-ai-auto-admin-alert",
-  "version": "7.25.0-step10ag-smc-ai-auto-admin-alert",
+  "name": "xau-ai-signal-step10ah-smc-ai-result-alert-test-mode",
+  "version": "7.26.0-step10ah-smc-ai-result-alert-test-mode",
   "type": "module",
   "scripts": {
     "dev": "vite",
