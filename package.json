@@ -1,6 +1,6 @@
 {
-  "name": "xau-ai-signal-step10al-smc-ai-multi-user-premium-alert-live",
-  "version": "7.30.0-step10al-smc-ai-multi-user-premium-alert-live",
+  "name": "xau-ai-signal-step10am-premium-user-friendly-copy",
+  "version": "7.31.0-step10am-premium-user-friendly-copy",
   "type": "module",
   "scripts": {
     "dev": "vite",

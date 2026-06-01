@@ -439,3 +439,10 @@ Dashboard sekarang membedakan kondisi market tutup/weekend dengan koneksi live y
 - SMC AI CALL asli bisa dikirim ke user premium jika master switch admin ON.
 - Tetap memakai user personal alert preference dan anti duplicate delivery.
 - Strategy A dan M1 Scalp tidak diubah.
+
+
+## Step 10AM - Premium User Friendly Copy
+- Bahasa di area user premium dibuat lebih ramah dan tidak terlalu teknis.
+- Landing page/paywall memakai istilah support/tim XAU AI untuk user.
+- Istilah internal tetap dipertahankan di Admin panel bila diperlukan.
+- Tidak mengubah logic sinyal, cron, Telegram, atau strategi.
