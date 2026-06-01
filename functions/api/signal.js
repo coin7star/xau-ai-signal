@@ -303,7 +303,7 @@ export function buildSignal(candles, candlesM15, market) {
 function buildMainM5EmaPullbackLimitSignal(market = {}, m1Candles = []) {
   const m5 = getMainM5Candles(market, m1Candles);
   const last = m5[m5.length - 1];
-  if (!last || m5.length < 35) {
+  if (!last || m5.length < 20) {
     return {
       mode: "M5_EMA_STRUCTURE_DYNAMIC_LIMIT_MAIN",
       action: "WAIT",
@@ -354,6 +354,14 @@ function buildMainM5EmaPullbackLimitSignal(market = {}, m1Candles = []) {
   let tp = 0;
   let score = 0;
   let blocker = "Menunggu struktur M5 break swing lalu EMA 9/20 searah.";
+
+  const previewDirection = emaUp ? "BUY" : emaDown ? "SELL" : "WAIT";
+  const previewEntry = ema9Now;
+  const previewLabel = previewDirection === "BUY"
+    ? "Preview BUY area · EMA9"
+    : previewDirection === "SELL"
+      ? "Preview SELL area · EMA9"
+      : "Preview EMA9";
 
   if (buyReady) {
     action = "READY_BUY";
@@ -436,6 +444,13 @@ function buildMainM5EmaPullbackLimitSignal(market = {}, m1Candles = []) {
     bosKey: structure.bosKey || null,
     bosDirection: structure.breakHigh ? "BULLISH_BOS" : structure.breakLow ? "BEARISH_BOS" : "NONE",
     correction: { touchedEma9: touchedEmaZone, touchedEmaZone, buffer: round(buffer), candleTime: last.time || null },
+    preview: {
+      active: previewEntry > 0,
+      direction: previewDirection,
+      entry: round(previewEntry),
+      label: previewLabel,
+      note: "Garis preview EMA9 hanya area pantauan. Sinyal valid tetap menunggu struktur M5 + sentuh EMA."
+    },
     structure,
     entryMethod: "DYNAMIC_LIMIT_AT_EMA9_AFTER_M5_STRUCTURE_BREAK",
     tpMethod: direction === "BUY" ? "BODY_TOP_OF_BROKEN_SWING_HIGH" : direction === "SELL" ? "BODY_BOTTOM_OF_BROKEN_SWING_LOW" : "WAIT",
@@ -493,13 +508,13 @@ function getM5EmaStructureBreak(candles = []) {
 
 function getMainM5Candles(market = {}, m1Candles = []) {
   const native = Array.isArray(market?.candlesM5) ? clean(market.candlesM5) : [];
-  if (native.length >= 35) return native.slice(-180);
+  if (native.length >= 20) return native.slice(-180);
   return aggregateCandlesToM5(m1Candles);
 }
 
 function getPreferredM5Candles(market = {}, m1Candles = []) {
   const native = Array.isArray(market?.candlesM5) ? clean(market.candlesM5) : [];
-  if (native.length >= 35) return native.slice(-180);
+  if (native.length >= 20) return native.slice(-180);
   return aggregateCandlesToM5(m1Candles);
 }
 
@@ -1085,7 +1100,7 @@ function buildM5EngulfingLimitScalp(m5Candles = [], context = {}) {
   const last = m5[m5.length - 1];
   const prev = m5[m5.length - 2];
 
-  if (!last || !prev || m5.length < 35) {
+  if (!last || !prev || m5.length < 20) {
     return {
       mode: "M5_ENGULFING_LIMIT_SCALP",
       activeRule: "M5_SWING_ENGULFING_EMA_9_20_LIMIT",
@@ -1096,7 +1111,7 @@ function buildM5EngulfingLimitScalp(m5Candles = [], context = {}) {
       support: 0, resistance: 0, ema9: 0, ema20: 0, emaTrend: "WAIT",
       zone: "WAIT", pattern: "NONE", atr: 0, timeframe: "M5",
       sourceTimeframe: context.sourceTimeframe || "M1_AGGREGATED_TO_M5", maxPending: 4, maxBuyPending: 2, maxSellPending: 2,
-      reason: "Menunggu minimal 35 candle M5 hasil gabungan M1 untuk membaca engulfing, swing, EMA 9/20, dan limit setup.",
+      reason: "Menunggu minimal 20 candle M5 untuk membaca struktur, swing, EMA 9/20, dan limit setup.",
       checklist: []
     };
   }
