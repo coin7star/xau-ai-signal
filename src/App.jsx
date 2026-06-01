@@ -1417,7 +1417,7 @@ export default function App() {
           <details className="adminWindow card">
             <summary>
               <span>SMC AI Result Test</span>
-              <small>Test format result WIN, LOSS, dan EXPIRED Strategy B tanpa mengubah history.</small>
+              <small>Test format result SMC AI. Auto admin result alert aktif saat WIN/LOSS/EXPIRED asli.</small>
             </summary>
             <div className="adminWindowBody">
               <AdminStrategyBResultAlertTestPanel adminToken={adminToken} />
@@ -2258,7 +2258,7 @@ function AdminStrategyBResultAlertTestPanel({ adminToken }) {
       <div className="adminTelegramTestHeader">
         <span className="pill mini"><Target size={14} /> SMC RESULT TEST</span>
         <h3>SMC AI Result Alert Test</h3>
-        <p>Test format result WIN, LOSS, dan EXPIRED untuk Strategy B. Pesan hanya dikirim ke Telegram admin/global, history asli tidak berubah, dan user premium belum menerima alert ini.</p>
+        <p>Test format result WIN, LOSS, dan EXPIRED untuk Strategy B. Auto result asli SMC AI juga dikirim ke Telegram admin/global, sementara user premium belum menerima alert ini.</p>
       </div>
 
       <div className="adminTelegramTestGrid resultAlertTestGrid">
@@ -2293,7 +2293,7 @@ function AdminStrategyBResultAlertTestPanel({ adminToken }) {
         </button>
       </div>
 
-      <p className="miniNote">Step 10AH hanya test result alert Strategy B. Auto result asli SMC AI tetap lewat tracker MT5/VPS dan belum dikirim ke user premium.</p>
+      <p className="miniNote">Step 10AI: auto result asli SMC AI akan mengirim alert ke Telegram admin/global saat WIN / LOSS / EXPIRED. User premium belum menerima alert SMC AI.</p>
     </section>
   );
 }

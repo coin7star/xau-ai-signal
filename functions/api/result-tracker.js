@@ -63,7 +63,7 @@ export async function buildTrackerSummary(dbUrl, env, shouldUpdate) {
   const allOpen = [
     ...callItems.map((item) => ({ ...item, trackerType: "MAIN_CALL", path: "/xauusd/callHistory", expireHours: mainExpireHours, telegramResultAlert: true })),
     ...scalpItems.map((item) => ({ ...item, trackerType: "SCALP_M1", path: "/xauusd/scalpHistory", expireHours: scalpExpireHours, telegramResultAlert: true })),
-    ...strategyBItems.map((item) => ({ ...item, trackerType: "SMC_AI", path: "/xauusd/strategyB/history", expireHours: strategyBExpireHours, telegramResultAlert: false }))
+    ...strategyBItems.map((item) => ({ ...item, trackerType: "SMC_AI", path: "/xauusd/strategyB/history", expireHours: strategyBExpireHours, telegramResultAlert: true, strategyBResultAlert: true }))
   ]
     .filter(isOpen)
     .sort((a, b) => String(a.createdAt || "").localeCompare(String(b.createdAt || "")))
@@ -104,7 +104,7 @@ export async function buildTrackerSummary(dbUrl, env, shouldUpdate) {
 
       const alertResult = item.telegramResultAlert
         ? await maybeSendResultAlert(env, item, payload, result.result, livePrice, result.note)
-        : { sent: false, skippedReason: "STRATEGY_B_LIVE_BACKTEST_ONLY" };
+        : { sent: false, skippedReason: "RESULT_ALERT_DISABLED_FOR_TRACKER" };
 
       if (alertResult.sent) {
         payload.resultAlertSent = true;
@@ -117,7 +117,7 @@ export async function buildTrackerSummary(dbUrl, env, shouldUpdate) {
       }
 
       if (item.trackerType === "SMC_AI") {
-        payload.resultSourceNote = "Strategy B SMC AI live-backtest result. Telegram alert belum diaktifkan.";
+        payload.resultSourceNote = "Strategy B SMC AI live-backtest result. Auto admin result alert aktif hanya untuk Telegram admin/global.";
       }
 
       await fbPut(dbUrl, `${item.path}/${item.id}`, payload);
@@ -164,8 +164,17 @@ async function maybeSendResultAlert(env, originalItem, closedPayload, result, li
     return { sent: false, skippedReason: "TELEGRAM_GATEWAY_NOT_READY" };
   }
 
+  if (String(originalItem.trackerType || "").toUpperCase() === "SMC_AI") {
+    const enabled = String(env.STRATEGY_B_AUTO_RESULT_ADMIN_ALERT_ENABLED ?? "true").toLowerCase() !== "false";
+    if (!enabled) {
+      return { sent: false, skippedReason: "STRATEGY_B_AUTO_RESULT_ADMIN_ALERT_DISABLED" };
+    }
+  }
+
   const dashboardUrl = env.PUBLIC_DASHBOARD_URL || "https://www.xauaisignal.online";
-  const text = buildResultTelegramMessage(originalItem, closedPayload, result, livePrice, note, dashboardUrl);
+  const text = String(originalItem.trackerType || "").toUpperCase() === "SMC_AI"
+    ? buildSmcAutoResultTelegramMessage(originalItem, closedPayload, result, livePrice, note, dashboardUrl)
+    : buildResultTelegramMessage(originalItem, closedPayload, result, livePrice, note, dashboardUrl);
   const res = await fetch(`https://api.telegram.org/bot${botToken}/sendMessage`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -190,6 +199,77 @@ async function maybeSendResultAlert(env, originalItem, closedPayload, result, li
   }
 
   return { sent: true, status: res.status, response };
+}
+
+function buildSmcAutoResultTelegramMessage(item, payload, result, livePrice, note, dashboardUrl) {
+  const signal = String(item.signal || item.direction || "-").toUpperCase();
+  const pair = escapeHtml(item.pair || item.symbol || "XAUUSD+");
+  const confidence = Number(item.confidence);
+  const confidenceText = Number.isFinite(confidence) ? `${confidence}%` : "-";
+  const rrText = escapeHtml(item.rr || item.riskReward || "1:2");
+  const durationText = buildDurationText(item.createdAt || item.candleTime || item.serverTime, payload.closedAt);
+  const title = result === "WIN"
+    ? "✅ SMC AI RESULT · WIN"
+    : result === "LOSS"
+      ? "❌ SMC AI RESULT · LOSS"
+      : "⚪ SMC AI RESULT · EXPIRED";
+
+  const resultLine = result === "WIN"
+    ? "Target profit SMC AI berhasil tercapai."
+    : result === "LOSS"
+      ? "Setup SMC AI selesai di area stop loss."
+      : "Setup SMC AI tidak menyentuh TP/SL dalam batas waktu.";
+
+  const actionLine = result === "WIN"
+    ? "Catat performa Strategy B dan tunggu setup SMC berikutnya."
+    : result === "LOSS"
+      ? "Tetap evaluasi checklist SMC. Fokus pada data live-backtest, bukan satu trade."
+      : "Abaikan setup SMC lama dan tunggu rangkaian OB → Sweep → CHOCH → EMA berikutnya.";
+
+  return [
+    `<b>${title}</b>`,
+    `<i>Strategy B · Live Backtest Only</i>`,
+    "",
+    `<b>Signal:</b> ${escapeHtml(signal)} ${pair}`,
+    `<b>Entry:</b> ${formatPrice(item.entry)}`,
+    `<b>Stop Loss:</b> ${formatPrice(item.sl)}`,
+    `<b>Take Profit:</b> ${formatPrice(item.tp)}`,
+    `<b>Result Price:</b> ${formatPrice(livePrice)}`,
+    `<b>RR:</b> ${rrText}`,
+    `<b>Confidence Awal:</b> ${escapeHtml(confidenceText)}`,
+    `<b>Duration:</b> ${escapeHtml(durationText)}`,
+    "",
+    "🧠 <b>SMC Checklist</b>",
+    `<b>OB M15:</b> ${escapeHtml(readSmcFlag(item, "ob", "VALID"))}`,
+    `<b>Sweep M1:</b> ${escapeHtml(readSmcFlag(item, "sweep", "YES"))}`,
+    `<b>CHOCH M1:</b> ${escapeHtml(readSmcFlag(item, "choch", "YES"))}`,
+    `<b>EMA M1:</b> ${escapeHtml(readSmcFlag(item, "ema", "YES"))}`,
+    "",
+    "🎯 <b>Result</b>",
+    escapeHtml(resultLine),
+    note ? escapeHtml(note) : "",
+    "",
+    "🧭 <b>Action</b>",
+    escapeHtml(actionLine),
+    "",
+    "⚠️ <b>Mode</b>",
+    "Auto result alert ini hanya untuk Telegram admin/global. SMC AI belum dikirim ke user premium.",
+    "",
+    `🚀 <b>Dashboard:</b> ${escapeHtml(dashboardUrl)}`,
+    "",
+    "<i>Bukan financial advice.</i>"
+  ].filter(Boolean).join("\n");
+}
+
+function readSmcFlag(item, key, fallback) {
+  const checklist = item.checklist || item.smcChecklist || item.details || {};
+  const value = item[key] ?? item[`${key}Status`] ?? checklist[key] ?? checklist[`${key}Status`] ?? fallback;
+  if (typeof value === "boolean") return value ? "YES" : "WAIT";
+  if (typeof value === "object" && value) {
+    if (value.valid === true || value.passed === true) return "YES";
+    if (value.status) return value.status;
+  }
+  return value || fallback;
 }
 
 function buildResultTelegramMessage(item, payload, result, livePrice, note, dashboardUrl) {
