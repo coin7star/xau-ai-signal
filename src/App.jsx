@@ -5019,22 +5019,28 @@ function StrategyComparePanel({ callHistory, scalpHistory, strategyBHistory }) {
     ...item,
     compareSource: "SCALP M1"
   }));
-  const scalp30 = buildCompareStats(scalpItems, 30, 1.25);
   const strategyBItems = strategyBHistory?.history || [];
 
   const a7 = buildCompareStats(strategyAItems, 7, 1.25);
   const a30 = buildCompareStats(strategyAItems, 30, 1.25);
+  const scalp7 = buildCompareStats(scalpItems, 7, 1.25);
+  const scalp30 = buildCompareStats(scalpItems, 30, 1.25);
   const b7 = buildCompareStats(strategyBItems, 7, 2);
   const b30 = buildCompareStats(strategyBItems, 30, 2);
-  const insight = buildStrategyCompareInsight(a7, a30, b7, b30);
+  const insight = buildStrategyCompareInsight3Way(a7, a30, scalp7, scalp30, b7, b30);
+  const cards = [
+    { key: "main", title: "Strategy A", subtitle: "Main Signal Only", stats7: a7, stats30: a30, tone: "a" },
+    { key: "scalp", title: "M1 Scalp", subtitle: "Mode terpisah · SR + EMA", stats7: scalp7, stats30: scalp30, tone: "scalp" },
+    { key: "smc", title: "Strategy B", subtitle: "SMC AI · OB → Sweep → CHOCH → EMA", stats7: b7, stats30: b30, tone: "b" }
+  ];
 
   return (
     <section className="strategyComparePanel card">
       <div className="sectionTitle">
         <div>
           <span className="pill mini"><BarChart3 size={14} /> STRATEGY LAB</span>
-          <h3>Compare Strategy A vs Strategy B</h3>
-          <span>Panel ini membandingkan Main Signal vs SMC AI. M1 Scalp dipisah sebagai mode sendiri agar statistik tidak tercampur.</span>
+          <h3>3-Way Strategy Compare</h3>
+          <span>Panel ini membandingkan Main Signal, M1 Scalp, dan SMC AI secara terpisah agar statistik tidak tercampur.</span>
         </div>
         <div className="strategyCompareBadge">
           <b>{insight.badge}</b>
@@ -5042,22 +5048,25 @@ function StrategyComparePanel({ callHistory, scalpHistory, strategyBHistory }) {
         </div>
       </div>
 
-      <div className="strategyCompareGrid">
-        <StrategyCompareCard title="Strategy A" subtitle="Main Signal Only" stats7={a7} stats30={a30} tone="a" />
-        <StrategyCompareCard title="Strategy B" subtitle="SMC AI · OB → Sweep → CHOCH → EMA" stats7={b7} stats30={b30} tone="b" />
+      <div className="strategyCompareGrid threeWay">
+        {cards.map((card) => (
+          <StrategyCompareCard key={card.key} {...card} />
+        ))}
       </div>
 
-      <div className="strategyCompareTable">
-        <div className="strategyCompareHead">
+      <div className="strategyCompareTable threeWay">
+        <div className="strategyCompareHead threeWay">
           <span>Metric</span>
-          <span>Strategy A</span>
-          <span>Strategy B</span>
+          <span>Main Signal</span>
+          <span>M1 Scalp</span>
+          <span>SMC AI</span>
           <span>Insight</span>
         </div>
-        {buildStrategyCompareRows(a30, b30).map((row) => (
-          <div className="strategyCompareRow" key={row.metric}>
+        {buildStrategyCompareRows3Way(a30, scalp30, b30).map((row) => (
+          <div className="strategyCompareRow threeWay" key={row.metric}>
             <span>{row.metric}</span>
             <b>{row.a}</b>
+            <b>{row.scalp}</b>
             <b>{row.b}</b>
             <em>{row.note}</em>
           </div>
@@ -5070,9 +5079,9 @@ function StrategyComparePanel({ callHistory, scalpHistory, strategyBHistory }) {
       </div>
 
       <div className="strategyCompareNote">
-        <b>M1 Scalp dipisahkan</b>
-        <span>Scalp Mode tidak lagi dihitung sebagai Strategy A. Statistik Scalp tetap tampil di tab Scalp Mode dan bisa dibandingkan manual nanti setelah data cukup.</span>
-        <em>Scalp 30D: {scalp30.total} signal · {scalp30.cleanWinRate}% Clean WR · {scalp30.expired} expired</em>
+        <b>Mode tetap terpisah</b>
+        <span>Main Signal tetap Strategy A. M1 Scalp tetap mode terpisah. SMC AI tetap Strategy B live-backtest. Panel ini hanya untuk membandingkan performa, bukan menggabungkan strategi.</span>
+        <em>Data 30D: Main {a30.total} signal · Scalp {scalp30.total} signal · SMC {b30.total} signal</em>
       </div>
     </section>
   );
@@ -5140,52 +5149,64 @@ function average(values) {
   return values.reduce((sum, item) => sum + item, 0) / values.length;
 }
 
-function buildStrategyCompareRows(a, b) {
+function buildStrategyCompareRows3Way(a, scalp, b) {
   return [
     {
       metric: "Clean WR 30D",
       a: `${a.cleanWinRate}%`,
+      scalp: `${scalp.cleanWinRate}%`,
       b: `${b.cleanWinRate}%`,
-      note: compareHigher(a.cleanWinRate, b.cleanWinRate, "WR")
+      note: compareBest3Way(a.cleanWinRate, scalp.cleanWinRate, b.cleanWinRate, "Clean WR")
     },
     {
       metric: "Total Signal",
       a: String(a.total),
+      scalp: String(scalp.total),
       b: String(b.total),
-      note: b.total < 5 ? "SMC AI masih butuh data lebih banyak." : "Volume data mulai bisa dibandingkan."
+      note: b.total < 5 ? "SMC AI masih butuh data lebih banyak." : "Sample Strategy B mulai bisa dibandingkan."
     },
     {
       metric: "Average RR",
       a: String(a.averageRR),
+      scalp: String(scalp.averageRR),
       b: String(b.averageRR),
-      note: b.averageRR > a.averageRR ? "SMC AI unggul di reward/risk." : "Main Signal masih lebih stabil di RR aktual."
+      note: compareBest3Way(Number(a.averageRR) || 0, Number(scalp.averageRR) || 0, Number(b.averageRR) || 0, "RR")
     },
     {
       metric: "Expired Rate",
       a: `${a.expiredRate}%`,
+      scalp: `${scalp.expiredRate}%`,
       b: `${b.expiredRate}%`,
-      note: b.expiredRate > a.expiredRate ? "SMC AI lebih sering habis waktu, pantau validitas setup." : "Expired SMC AI masih terkontrol."
+      note: "Expired lebih kecil biasanya lebih sehat, tapi tetap cek kualitas setup."
     },
     {
       metric: "Profit Factor",
       a: String(a.profitFactor),
+      scalp: String(scalp.profitFactor),
       b: String(b.profitFactor),
       note: "PF adalah estimasi sederhana dari result closed."
     }
   ];
 }
 
-function compareHigher(a, b, label) {
-  if (a === b) return `${label} keduanya seimbang.`;
-  return b > a ? `Strategy B unggul di ${label}.` : `Main Signal unggul di ${label}.`;
+function compareBest3Way(a, scalp, b, label) {
+  const values = [
+    { name: "Main Signal", value: Number(a) || 0 },
+    { name: "M1 Scalp", value: Number(scalp) || 0 },
+    { name: "SMC AI", value: Number(b) || 0 }
+  ];
+  const best = values.reduce((top, item) => (item.value > top.value ? item : top), values[0]);
+  if (values.every((item) => item.value === best.value)) return `${label} ketiganya seimbang.`;
+  return `${best.name} unggul di ${label}.`;
 }
 
-function buildStrategyCompareInsight(a7, a30, b7, b30) {
-  if (b30.total < 5 && a30.total < 5) {
+function buildStrategyCompareInsight3Way(a7, a30, scalp7, scalp30, b7, b30) {
+  const totalSamples = a30.total + scalp30.total + b30.total;
+  if (totalSamples < 5) {
     return {
       badge: "Data awal",
       short: "Belum cukup data",
-      detail: "Main Signal dan SMC AI masih perlu lebih banyak signal closed sebelum keputusan performa bisa dipercaya. M1 Scalp sudah dipisahkan dari perbandingan ini."
+      detail: "Main Signal, M1 Scalp, dan SMC AI masih perlu lebih banyak closed signal sebelum keputusan performa bisa dipercaya."
     };
   }
 
@@ -5193,30 +5214,38 @@ function buildStrategyCompareInsight(a7, a30, b7, b30) {
     return {
       badge: "SMC AI Testing",
       short: "Data Strategy B masih tipis",
-      detail: `Main Signal sudah punya ${a30.total} signal 30D, sedangkan SMC AI baru ${b30.total}. Biarkan SMC AI live-backtest dulu sebelum dijadikan alert resmi.`
+      detail: `SMC AI baru punya ${b30.total} signal 30D. Main Signal dan M1 Scalp tetap jadi pembanding sambil SMC AI live-backtest mengumpulkan data.`
     };
   }
 
-  if (b30.cleanWinRate > a30.cleanWinRate && b30.averageRR >= a30.averageRR) {
+  if (b30.cleanWinRate >= a30.cleanWinRate && b30.cleanWinRate >= scalp30.cleanWinRate && b30.averageRR >= Math.max(a30.averageRR, scalp30.averageRR)) {
     return {
       badge: "SMC AI unggul",
-      short: "B lebih kuat di WR/RR",
-      detail: `SMC AI unggul dengan ${b30.cleanWinRate}% Clean WR dan Avg RR ${b30.averageRR}. Tetap pantau sample size dan expired rate sebelum live alert.`
+      short: "B kuat di WR/RR",
+      detail: `SMC AI unggul dengan ${b30.cleanWinRate}% Clean WR dan Avg RR ${b30.averageRR}. Tetap pantau sample size dan expired rate sebelum live alert ke user premium.`
     };
   }
 
-  if (a30.cleanWinRate >= b30.cleanWinRate && a30.total >= b30.total) {
+  if (scalp30.total >= a30.total && scalp30.cleanWinRate >= a30.cleanWinRate && scalp30.cleanWinRate >= b30.cleanWinRate) {
     return {
-      badge: "Main Signal stabil",
-      short: "A masih baseline utama",
-      detail: `Main Signal masih lebih stabil untuk baseline karena data 30D lebih banyak dan Clean WR ${a30.cleanWinRate}%. SMC AI tetap lanjut sebagai eksperimen.`
+      badge: "Scalp aktif",
+      short: "M1 paling aktif",
+      detail: `M1 Scalp paling aktif dengan ${scalp30.total} signal 30D dan Clean WR ${scalp30.cleanWinRate}%. Tetap pisahkan dari Strategy A agar statistik utama tidak tercampur.`
+    };
+  }
+
+  if (a30.total >= b30.total && a30.total >= scalp30.total) {
+    return {
+      badge: "Main stabil",
+      short: "A jadi baseline",
+      detail: `Main Signal masih cocok jadi baseline utama karena sample 30D paling stabil. SMC AI dan M1 Scalp tetap lanjut sebagai pembanding terpisah.`
     };
   }
 
   return {
     badge: "Mixed result",
     short: "Perlu observasi lanjut",
-    detail: "Kedua strategi punya kelebihan berbeda. Pakai panel ini untuk memutuskan apakah SMC AI layak naik ke alert Telegram live."
+    detail: "Ketiga mode punya karakter berbeda. Pakai panel ini untuk memilih strategi mana yang paling layak masuk alert premium live."
   };
 }
 
