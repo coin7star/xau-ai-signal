@@ -231,6 +231,7 @@ export default function App() {
   const obLinesM1Ref = useRef([]);
   const obLinesM15Ref = useRef([]);
   const srLinesM1Ref = useRef([]);
+  const planLinesM1Ref = useRef([]);
 
   const [market, setMarket] = useState(null);
   const [signal, setSignal] = useState(null);
@@ -712,6 +713,7 @@ export default function App() {
       if (type === "M1") {
         clearStructureLines(srLinesM1Ref);
         clearObLines(obLinesM1Ref);
+        clearTradePlanLines(planLinesM1Ref);
       } else {
         clearObLines(obLinesM15Ref);
       }
@@ -753,6 +755,7 @@ export default function App() {
     if (seriesM1Ref.current) {
       addObLines(seriesM1Ref.current, obLinesM1Ref, bullish, bearish);
       addStructureLines(seriesM1Ref.current, srLinesM1Ref, signal?.strategy?.scalping);
+      addTradePlanLines(seriesM1Ref.current, planLinesM1Ref, signal?.strategy?.mainM5);
     }
 
     if (seriesM15Ref.current) {
@@ -850,6 +853,24 @@ export default function App() {
     label: signal?.confidence >= 80 ? "HIGH" : signal?.confidence >= 65 ? "MEDIUM" : "LOW",
     checklist: []
   };
+  const mainM5 = signal?.strategy?.mainM5 || {
+    action: "WAIT",
+    label: "Main Signal WAIT",
+    direction: "WAIT",
+    entry: 0,
+    sl: 0,
+    tp: 0,
+    ema9: 0,
+    ema20: 0,
+    cross: { type: "NONE", time: null },
+    correction: { touchedEma9: false, buffer: 0 },
+    confidence: signal?.confidence || 0,
+    blocker: "Menunggu setup M5.",
+    checklist: [],
+    sourceTimeframe: "MT5_VPS_M5",
+    maxBuyPending: 2,
+    maxSellPending: 2
+  };
   const scalping = signal?.strategy?.scalping || {
     label: "SCALP WAIT",
     confidence: 0,
@@ -877,52 +898,52 @@ export default function App() {
   };
   const snapshotRows = [
     {
-      id: "rsi",
-      title: "RSI 14",
-      value: signal?.strategy?.rsi ?? "-",
-      status: confirmation.rsiBuyOk ? "BUY OK" : confirmation.rsiSellOk ? "SELL OK" : "WAIT",
-      note: `BUY ${confirmation.rsiBuyOk ? "OK" : "-"} · SELL ${confirmation.rsiSellOk ? "OK" : "-"}`,
-      detail: "RSI membaca momentum harga. Untuk CALL, RSI idealnya mendukung arah sinyal dan tidak bertabrakan dengan filter lain."
-    },
-    {
-      id: "mfi",
-      title: "MFI 14",
-      value: signal?.strategy?.mfi ?? "-",
-      status: confirmation.mfiBuyOk ? "BUY OK" : confirmation.mfiSellOk ? "SELL OK" : "WAIT",
-      note: `BUY ${confirmation.mfiBuyOk ? "OK" : "-"} · SELL ${confirmation.mfiSellOk ? "OK" : "-"}`,
-      detail: "MFI membaca tekanan buyer/seller berdasarkan harga dan volume. Ini membantu konfirmasi apakah dorongan market cukup kuat."
-    },
-    {
       id: "ema",
-      title: "EMA Cross",
-      value: humanize(signal?.strategy?.emaCross),
-      status: trendBias,
-      note: signal?.strategy?.crossAlert?.message || "Menunggu EMA cross.",
-      detail: "EMA 9 dan EMA 20 dipakai sebagai filter trend pendek. CALL utama lebih aman saat arah EMA cocok dengan strategi."
+      title: "EMA 9/20",
+      value: humanize(mainM5.cross?.type || signal?.strategy?.emaCross || "WAIT"),
+      status: mainM5.direction === "BUY" ? "BULLISH" : mainM5.direction === "SELL" ? "BEARISH" : trendBias,
+      note: `EMA9 ${mainM5.ema9 || "-"} · EMA20 ${mainM5.ema20 || "-"}`,
+      detail: "Strategi utama sekarang fokus ke EMA 9/20 M5. Setelah cross, sistem menunggu pullback ke EMA 9 sebelum limit dipasang."
     },
     {
-      id: "obm15",
-      title: "Area M15 Fresh",
-      value: obCardValue,
-      status: freshBullOb ? "BUY AREA" : freshBearOb ? "SELL AREA" : "WAIT",
-      note: obCardNote,
-      detail: "Order Block M15 tetap dipakai selama belum dibreak jauh. Sekali sentuh tidak langsung menghapus area OB."
+      id: "pullback",
+      title: "Koreksi EMA 9",
+      value: mainM5.correction?.touchedEma9 ? "SUDAH SENTUH" : "BELUM SENTUH",
+      status: mainM5.correction?.touchedEma9 ? "PASS" : "WAIT",
+      note: mainM5.correction?.touchedEma9 ? "Harga sudah menyentuh area EMA 9." : "Menunggu harga retrace ke EMA 9.",
+      detail: "Buy/Sell limit baru valid setelah harga koreksi ke EMA 9 sesuai arah trend hasil cross."
+    },
+    {
+      id: "entry",
+      title: "Entry Limit",
+      value: mainM5.entry ? `${mainM5.direction || "WAIT"} ${mainM5.entry}` : "Belum ada limit",
+      status: mainM5.action || "WAIT",
+      note: mainM5.reason || "Menunggu setup entry limit valid.",
+      detail: "Saat setup valid, limit dipasang di area EMA 9. Kalau muncul struktur baru sebelum tersentuh, plan lama otomatis expired."
+    },
+    {
+      id: "risk",
+      title: "TP / SL",
+      value: mainM5.tp && mainM5.sl ? `${mainM5.tp} / ${mainM5.sl}` : "- / -",
+      status: mainM5.rr || "1:1",
+      note: `TP pakai body swing · RR ${mainM5.rr || "1:1"}`,
+      detail: "TP memakai open/close body swing koreksi, bukan ujung wick. SL dihitung otomatis dengan risk-reward 1:1."
     },
     {
       id: "probability",
       title: "Probability",
       value: `${probability.score || 0}% · ${probability.label || "LOW"}`,
       status: probability.label || "LOW",
-      note: (probability.checklist || []).join(" · ") || "Menunggu score.",
-      detail: "Probability adalah rangkuman kecocokan beberapa filter. Semakin banyak filter cocok, semakin tinggi score sinyal."
+      note: (mainM5.checklist || []).map((item) => `${item.name}: ${item.status}`).join(" · ") || "Menunggu score.",
+      detail: "Probability sekarang mengikuti strategi M5 EMA Pullback Limit. Semakin lengkap checklist EMA, pullback, dan target, semakin tinggi peluangnya."
     },
     {
-      id: "scalp",
-      title: "M5 Scalp",
-      value: scalping.label || "SCALP WAIT",
-      status: scalping.action || "WAIT",
-      note: `${scalping.confidence || 0}% · ${scalping.action || "WAIT"}`,
-      detail: scalping.reason || "M5 Scalp membaca engulfing di swing low/high, close EMA 9/20, dan limit entry."
+      id: "slot",
+      title: "Slot Pending",
+      value: `${mainM5.maxBuyPending || 2} BUY · ${mainM5.maxSellPending || 2} SELL`,
+      status: "ACTIVE",
+      note: "Maksimal 2 BUY dan 2 SELL boleh aktif bersamaan.",
+      detail: "Jika limit lama belum kena lalu struktur baru terbentuk, plan lama akan di-expire agar panel tetap bersih dan relevan."
     }
   ];
   const historyStats = callHistory?.stats || {};
@@ -1057,7 +1078,7 @@ export default function App() {
       <div className="dataTickerBar slimTicker">
         <div className="tickerTrack">
           <span><Database size={14} /> Koneksi Market: <b>Live Premium</b></span>
-          <span><Activity size={14} /> Grafik M1: <b>{candlesM1.length || market?.m1Count || 0} candle</b></span>
+          <span><Activity size={14} /> Grafik M5: <b>{candlesM5.length || market?.m5Count || 0} candle</b></span>
           <span><Shield size={14} /> Grafik M15: <b>{candlesM15.length || market?.m15Count || 0} candle</b></span>
           <span>{isSell ? <TrendingDown size={14} /> : <TrendingUp size={14} />} Last Price: <b>{lastCandle?.close || "-"}</b></span>
           <span><Radio size={14} /> Status Koneksi: <b>{marketSession.feedLabel}</b></span>
@@ -1114,7 +1135,7 @@ export default function App() {
         <>
           <section className="chartWrap card">
             <div className="sectionTitle">
-              <div><h3>Grafik Candlestick M1</h3><span>{market?.symbol || "XAUUSD"} · M5 · {marketSession.chartStatusText} · Bid {market?.bid || "-"} · Spread {spread}</span></div>
+              <div><h3>Grafik Candlestick M5</h3><span>{market?.symbol || "XAUUSD"} · M5 · {marketSession.chartStatusText} · Bid {market?.bid || "-"} · Spread {spread}</span></div>
               <div className="legend">
                 <b><i className="bullDot"></i> Bullish</b>
                 <b><i className="bearDot"></i> Bearish</b>
@@ -1124,6 +1145,7 @@ export default function App() {
                 <b><i className="obBearDot"></i> Bear OB</b>
                 <b><i className="supportDot"></i> M5 Swing Low</b>
                 <b><i className="resistDot"></i> M5 Swing High</b>
+                <b><i className="entryDot"></i> Entry / TP / SL</b>
                 <em><span></span> Scan cepat 12d · Grafik sinkron 45d</em>
               </div>
             </div>
@@ -4997,6 +5019,68 @@ function addStructureLines(series, linesRef, scalping) {
       title: `M5 Swing High x${resistanceTouches || 1}`
     });
     newLines.push({ series, line });
+  }
+
+  linesRef.current = newLines;
+}
+
+function clearTradePlanLines(linesRef) {
+  if (!linesRef.current) return;
+
+  linesRef.current.forEach(({ series, line }) => {
+    try {
+      series.removePriceLine(line);
+    } catch {}
+  });
+
+  linesRef.current = [];
+}
+
+function addTradePlanLines(series, linesRef, mainM5) {
+  clearTradePlanLines(linesRef);
+
+  const entry = Number(mainM5?.entry || 0);
+  const sl = Number(mainM5?.sl || 0);
+  const tp = Number(mainM5?.tp || 0);
+  const action = String(mainM5?.action || "WAIT");
+  const direction = String(mainM5?.direction || "WAIT");
+
+  if (!["BUY_LIMIT", "SELL_LIMIT", "READY_BUY", "READY_SELL"].includes(action)) return;
+  if (!Number.isFinite(entry) || entry <= 0) return;
+
+  const newLines = [];
+  const entryLine = series.createPriceLine({
+    price: entry,
+    color: direction === "BUY" ? "#22c55e" : "#ef4444",
+    lineWidth: 2,
+    lineStyle: 0,
+    axisLabelVisible: true,
+    title: `${direction || "PLAN"} LIMIT`
+  });
+  newLines.push({ series, line: entryLine });
+
+  if (Number.isFinite(sl) && sl > 0) {
+    const slLine = series.createPriceLine({
+      price: sl,
+      color: "#fb7185",
+      lineWidth: 1,
+      lineStyle: 2,
+      axisLabelVisible: true,
+      title: "SL"
+    });
+    newLines.push({ series, line: slLine });
+  }
+
+  if (Number.isFinite(tp) && tp > 0) {
+    const tpLine = series.createPriceLine({
+      price: tp,
+      color: "#38bdf8",
+      lineWidth: 1,
+      lineStyle: 2,
+      axisLabelVisible: true,
+      title: "TP"
+    });
+    newLines.push({ series, line: tpLine });
   }
 
   linesRef.current = newLines;

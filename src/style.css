@@ -276,6 +276,7 @@
 
 .supportDot { background: #38bdf8; }
 .resistDot { background: #fb923c; }
+.entryDot { background: #f8fafc; }
 
 
 .authPage { min-height: 100vh; display: grid; place-items: center; padding: 24px; }

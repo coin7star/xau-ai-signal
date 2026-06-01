@@ -181,10 +181,11 @@ export function buildSignal(candles, candlesM15, market) {
   }
 
   const trendBias = ema9 > ema20 ? "Bullish" : ema9 < ema20 ? "Bearish" : "Netral";
-  const scalping = buildM5EngulfingLimitScalp(m1, {
+  const scalping = buildM5EngulfingLimitScalp(getPreferredM5Candles(market, m1), {
     rsi14,
     mfi14,
-    close
+    close,
+    sourceTimeframe: Array.isArray(market?.candlesM5) ? "MT5_VPS_M5" : "M1_AGGREGATED_TO_M5"
   });
 
   const strategyB = buildStrategyBSmcAI(m1, m15, {
@@ -357,7 +358,7 @@ function buildMainM5EmaPullbackLimitSignal(market = {}, m1Candles = []) {
     direction = "BUY";
     label = "Main Signal siap BUY LIMIT";
     entry = ema9Now;
-    tp = structure.swingHigh + buffer;
+    tp = structure.swingHighBody;
     if (tp > entry) sl = entry - Math.abs(tp - entry);
     score = 62;
     blocker = "EMA 9 sudah break ke atas EMA 20. Menunggu harga koreksi ke EMA 9.";
@@ -366,7 +367,7 @@ function buildMainM5EmaPullbackLimitSignal(market = {}, m1Candles = []) {
     direction = "SELL";
     label = "Main Signal siap SELL LIMIT";
     entry = ema9Now;
-    tp = structure.swingLow - buffer;
+    tp = structure.swingLowBody;
     if (tp < entry) sl = entry + Math.abs(entry - tp);
     score = 62;
     blocker = "EMA 9 sudah break ke bawah EMA 20. Menunggu harga koreksi ke EMA 9.";
@@ -377,7 +378,7 @@ function buildMainM5EmaPullbackLimitSignal(market = {}, m1Candles = []) {
     direction = "BUY";
     label = "Main Signal BUY LIMIT";
     entry = ema9Now;
-    tp = structure.swingHigh + buffer;
+    tp = structure.swingHighBody;
     if (tp > entry) {
       sl = entry - Math.abs(tp - entry);
       score = 86;
@@ -386,7 +387,7 @@ function buildMainM5EmaPullbackLimitSignal(market = {}, m1Candles = []) {
       action = "WAIT";
       direction = "WAIT";
       label = "Main Signal WAIT";
-      blocker = "TP swing high belum valid di atas area entry.";
+      blocker = "TP body swing high belum valid di atas area entry.";
       score = 55;
     }
   } else if (sellValid) {
@@ -394,7 +395,7 @@ function buildMainM5EmaPullbackLimitSignal(market = {}, m1Candles = []) {
     direction = "SELL";
     label = "Main Signal SELL LIMIT";
     entry = ema9Now;
-    tp = structure.swingLow - buffer;
+    tp = structure.swingLowBody;
     if (tp < entry) {
       sl = entry + Math.abs(entry - tp);
       score = 86;
@@ -403,7 +404,7 @@ function buildMainM5EmaPullbackLimitSignal(market = {}, m1Candles = []) {
       action = "WAIT";
       direction = "WAIT";
       label = "Main Signal WAIT";
-      blocker = "TP swing low belum valid di bawah area entry.";
+      blocker = "TP body swing low belum valid di bawah area entry.";
       score = 55;
     }
   }
@@ -432,21 +433,31 @@ function buildMainM5EmaPullbackLimitSignal(market = {}, m1Candles = []) {
     correction: { touchedEma9, buffer: round(buffer), candleTime: last.time || null },
     structure,
     entryMethod: "LIMIT_AT_EMA9_PULLBACK",
-    tpMethod: direction === "BUY" ? "ABOVE_PULLBACK_SWING_HIGH" : direction === "SELL" ? "BELOW_PULLBACK_SWING_LOW" : "WAIT",
+    tpMethod: direction === "BUY" ? "BODY_TOP_OF_PULLBACK_SWING_HIGH" : direction === "SELL" ? "BODY_BOTTOM_OF_PULLBACK_SWING_LOW" : "WAIT",
     slMethod: "RR_1_1_FROM_TP_DISTANCE",
+    maxPending: 4,
+    maxBuyPending: 2,
+    maxSellPending: 2,
+    replaceOldOnNewStructure: true,
     reason,
     blocker,
     checklist: [
       { name: "EMA 9 break EMA 20", status: cross.type !== "NONE" ? "PASS" : "WAIT" },
       { name: "Arah trend M5", status: (direction === "BUY" && bullishTrend) || (direction === "SELL" && bearishTrend) ? "PASS" : "WAIT" },
       { name: "Koreksi ke EMA 9", status: touchedEma9 ? "PASS" : "WAIT" },
-      { name: "TP swing koreksi", status: tp > 0 ? "PASS" : "WAIT" },
+      { name: "TP body swing koreksi", status: tp > 0 ? "PASS" : "WAIT" },
       { name: "RR 1:1", status: sl > 0 && tp > 0 ? "PASS" : "WAIT" }
     ]
   };
 }
 
 function getMainM5Candles(market = {}, m1Candles = []) {
+  const native = Array.isArray(market?.candlesM5) ? clean(market.candlesM5) : [];
+  if (native.length >= 35) return native.slice(-180);
+  return aggregateCandlesToM5(m1Candles);
+}
+
+function getPreferredM5Candles(market = {}, m1Candles = []) {
   const native = Array.isArray(market?.candlesM5) ? clean(market.candlesM5) : [];
   if (native.length >= 35) return native.slice(-180);
   return aggregateCandlesToM5(m1Candles);
@@ -484,12 +495,22 @@ function getM5PullbackStructure(candles = [], crossIndex = -1) {
   const segment = candles.slice(start, end);
   const fallback = candles.slice(-14);
   const use = segment.length >= 4 ? segment : fallback;
-  const highs = use.map((c) => Number(c.high)).filter(Number.isFinite);
-  const lows = use.map((c) => Number(c.low)).filter(Number.isFinite);
+  const valid = use
+    .map((c, idx) => ({ ...c, _idx: idx, high: Number(c.high), low: Number(c.low), open: Number(c.open), close: Number(c.close) }))
+    .filter((c) => [c.high, c.low, c.open, c.close].every(Number.isFinite));
+  const highCandle = valid.length ? valid.reduce((best, c) => c.high > best.high ? c : best, valid[0]) : null;
+  const lowCandle = valid.length ? valid.reduce((best, c) => c.low < best.low ? c : best, valid[0]) : null;
+  const swingHighWick = highCandle ? highCandle.high : 0;
+  const swingLowWick = lowCandle ? lowCandle.low : 0;
+  const swingHighBody = highCandle ? Math.max(highCandle.open, highCandle.close) : 0;
+  const swingLowBody = lowCandle ? Math.min(lowCandle.open, lowCandle.close) : 0;
   return {
-    swingHigh: highs.length ? round(Math.max(...highs)) : 0,
-    swingLow: lows.length ? round(Math.min(...lows)) : 0,
-    method: "M5_AFTER_EMA_BREAK_STRUCTURE",
+    swingHigh: round(swingHighWick),
+    swingLow: round(swingLowWick),
+    swingHighBody: round(swingHighBody),
+    swingLowBody: round(swingLowBody),
+    tpSource: "BODY_OPEN_CLOSE_SWING",
+    method: "M5_AFTER_EMA_BREAK_STRUCTURE_BODY_TP",
     fromIndex: start,
     candleCount: use.length
   };
@@ -498,10 +519,10 @@ function getM5PullbackStructure(candles = [], crossIndex = -1) {
 function buildMainM5LimitReason(data = {}) {
   const { action, direction, entry, sl, tp, cross, touchedEma9, blocker } = data;
   if (action === "BUY_LIMIT") {
-    return `Main Signal BUY LIMIT valid. EMA 9 sudah break ke atas EMA 20, harga koreksi ke EMA 9. Entry limit ${round(entry)}, TP di atas swing high koreksi, SL RR 1:1.`;
+    return `Main Signal BUY LIMIT valid. EMA 9 sudah break ke atas EMA 20, harga koreksi ke EMA 9. Entry limit ${round(entry)}, TP di body swing high koreksi, SL RR 1:1.`;
   }
   if (action === "SELL_LIMIT") {
-    return `Main Signal SELL LIMIT valid. EMA 9 sudah break ke bawah EMA 20, harga koreksi ke EMA 9. Entry limit ${round(entry)}, TP di bawah swing low koreksi, SL RR 1:1.`;
+    return `Main Signal SELL LIMIT valid. EMA 9 sudah break ke bawah EMA 20, harga koreksi ke EMA 9. Entry limit ${round(entry)}, TP di body swing low koreksi, SL RR 1:1.`;
   }
   if (action === "READY_BUY") return blocker || "EMA bullish sudah aktif. Menunggu koreksi ke EMA 9 untuk BUY LIMIT.";
   if (action === "READY_SELL") return blocker || "EMA bearish sudah aktif. Menunggu koreksi ke EMA 9 untuk SELL LIMIT.";
@@ -1019,8 +1040,8 @@ function buildM1ScalpingStrategy(candles, closes, context = {}) {
   return buildM5EngulfingLimitScalp(candles, context);
 }
 
-function buildM5EngulfingLimitScalp(m1Candles, context = {}) {
-  const m5 = aggregateCandlesToM5(m1Candles);
+function buildM5EngulfingLimitScalp(m5Candles = [], context = {}) {
+  const m5 = clean(m5Candles);
   const last = m5[m5.length - 1];
   const prev = m5[m5.length - 2];
 
@@ -1034,7 +1055,7 @@ function buildM5EngulfingLimitScalp(m1Candles, context = {}) {
       score: 0, confidence: 0, entry: 0, sl: 0, tp: 0,
       support: 0, resistance: 0, ema9: 0, ema20: 0, emaTrend: "WAIT",
       zone: "WAIT", pattern: "NONE", atr: 0, timeframe: "M5",
-      sourceTimeframe: "M1_AGGREGATED_TO_M5", maxPending: 4, maxBuyPending: 2, maxSellPending: 2,
+      sourceTimeframe: context.sourceTimeframe || "M1_AGGREGATED_TO_M5", maxPending: 4, maxBuyPending: 2, maxSellPending: 2,
       reason: "Menunggu minimal 35 candle M5 hasil gabungan M1 untuk membaca engulfing, swing, EMA 9/20, dan limit setup.",
       checklist: []
     };
@@ -1104,7 +1125,7 @@ function buildM5EngulfingLimitScalp(m1Candles, context = {}) {
     previousSwingLow: round(structure.previousSwingLow), previousSwingHigh: round(structure.previousSwingHigh),
     ema9: round(ema9Value), ema20: round(ema20Value),
     emaTrend: closeAboveEma ? "PRICE_ABOVE_EMA_9_20" : closeBelowEma ? "PRICE_BELOW_EMA_9_20" : "PRICE_BETWEEN_EMA",
-    zone, pattern, atr: round(atrValue), timeframe: "M5", sourceTimeframe: "M1_AGGREGATED_TO_M5",
+    zone, pattern, atr: round(atrValue), timeframe: "M5", sourceTimeframe: context.sourceTimeframe || "M1_AGGREGATED_TO_M5",
     maxPending: 4, maxBuyPending: 2, maxSellPending: 2, rr: "1:1", tpMethod: "RR_1_1",
     slMethod: "previous_m5_structure_plus_1_5_atr",
     engulfingCandle: { time: last.time, open: round(last.open), high: round(last.high), low: round(last.low), close: round(last.close) },
@@ -1829,6 +1850,8 @@ async function maybeSaveCallHistory(env, dbUrl, signal, market) {
 
   const payload = {
     id: callId,
+    type: "MAIN_M5_LIMIT",
+    timeframe: "M5",
     pair: market?.symbol || signal.pair || "XAUUSD",
     signal: signal.signal,
     signalLabel: signal.signalLabel || signal.signal,
@@ -1852,16 +1875,70 @@ async function maybeSaveCallHistory(env, dbUrl, signal, market) {
       ema9: signal.strategy?.ema9 ?? null,
       ema20: signal.strategy?.ema20 ?? null,
       emaCross: signal.strategy?.emaCross ?? null,
+      mainM5: signal.strategy?.mainM5 ?? null,
       orderBlock: signal.strategy?.orderBlock ?? null,
       confirmation: signal.strategy?.confirmation ?? null,
       buyScore: signal.strategy?.buyScore ?? null,
       sellScore: signal.strategy?.sellScore ?? null
-    }
+    },
+    maxPending: 4,
+    maxBuyPending: 2,
+    maxSellPending: 2,
+    pendingPolicy: "MAX_2_BUY_2_SELL_EXPIRE_OLD_ON_NEW_STRUCTURE",
+    planKey: [signal.signal, signal.entry, signal.sl, signal.tp].join("_")
   };
 
+  await expireOldMainPendingSlots(dbUrl, signal.signal, callId, payload);
   await fbPut(dbUrl, `/xauusd/callHistory/${callId}`, payload);
 
   return { ok: true, callId };
+}
+
+async function expireOldMainPendingSlots(dbUrl, signalSide, newId, newPayload = {}) {
+  const raw = await fbGet(dbUrl, "/xauusd/callHistory");
+  const items = Object.values(raw || {})
+    .filter(Boolean)
+    .filter((item) => String(item.signal || "").toUpperCase() === String(signalSide || "").toUpperCase())
+    .filter((item) => ["PENDING", "OPEN", "RUNNING"].includes(String(item.status || "PENDING").toUpperCase()))
+    .filter((item) => !["WIN", "LOSS", "BE", "EXPIRED"].includes(String(item.result || "").toUpperCase()))
+    .sort((a, b) => String(a.createdAt || "").localeCompare(String(b.createdAt || "")));
+
+  for (const item of items) {
+    if (!item?.id || item.id === newId) continue;
+    const oldPlan = [Number(item.entry || 0), Number(item.sl || 0), Number(item.tp || 0)];
+    const newPlan = [Number(newPayload.entry || 0), Number(newPayload.sl || 0), Number(newPayload.tp || 0)];
+    const changedStructure = oldPlan.some((value, index) => Math.abs(value - newPlan[index]) > 0.02);
+
+    if (!changedStructure) continue;
+
+    await fbPut(dbUrl, `/xauusd/callHistory/${item.id}`, {
+      ...item,
+      status: "CLOSED",
+      result: "EXPIRED",
+      closedAt: new Date().toISOString(),
+      note: "Expired otomatis karena muncul struktur limit M5 baru sebelum pending sebelumnya tersentuh."
+    });
+  }
+
+  const refreshed = await fbGet(dbUrl, "/xauusd/callHistory");
+  const active = Object.values(refreshed || {})
+    .filter(Boolean)
+    .filter((item) => String(item.signal || "").toUpperCase() === String(signalSide || "").toUpperCase())
+    .filter((item) => ["PENDING", "OPEN", "RUNNING"].includes(String(item.status || "PENDING").toUpperCase()))
+    .filter((item) => !["WIN", "LOSS", "BE", "EXPIRED"].includes(String(item.result || "").toUpperCase()))
+    .sort((a, b) => String(a.createdAt || "").localeCompare(String(b.createdAt || "")));
+
+  while (active.length >= 2) {
+    const oldest = active.shift();
+    if (!oldest?.id || oldest.id === newId) continue;
+    await fbPut(dbUrl, `/xauusd/callHistory/${oldest.id}`, {
+      ...oldest,
+      status: "CLOSED",
+      result: "EXPIRED",
+      closedAt: new Date().toISOString(),
+      note: "Expired otomatis karena slot pending sisi yang sama sudah penuh (maksimal 2 BUY dan 2 SELL aktif)."
+    });
+  }
 }
 
 function buildProbability(signalLabel, callStage, buyScore, sellScore, flags = {}) {
