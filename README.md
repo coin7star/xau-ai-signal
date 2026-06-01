@@ -387,3 +387,8 @@ Dashboard sekarang membedakan kondisi market tutup/weekend dengan koneksi live y
 - Tambah panel Strategy Lab untuk membandingkan Strategy A dan Strategy B SMC AI.
 - Membandingkan 7D/30D Clean WR, total signal, average RR, expired rate, dan profit factor.
 - Memberi insight ringan tanpa mengubah logic Strategy A maupun Strategy B.
+
+
+## Step 10AE1 - Separate M1 Scalp from Strategy A
+- Panel Strategy Lab sekarang membandingkan Main Signal Only vs SMC AI.
+- M1 Scalp dipisahkan dari Strategy A dan tetap punya tab/statistik sendiri.

@@ -1,6 +1,6 @@
 {
-  "name": "xau-ai-signal-step10ae-strategy-compare-a-vs-b",
-  "version": "7.23.0-step10ae-strategy-compare-a-vs-b",
+  "name": "xau-ai-signal-step10ae1-separate-scalp-from-strategy-a",
+  "version": "7.23.1-step10ae1-separate-scalp-from-strategy-a",
   "type": "module",
   "scripts": {
     "dev": "vite",

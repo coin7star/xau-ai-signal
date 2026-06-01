@@ -4821,10 +4821,15 @@ function formatSignedPercent(value) {
 
 
 function StrategyComparePanel({ callHistory, scalpHistory, strategyBHistory }) {
-  const strategyAItems = [
-    ...(callHistory?.history || []).map((item) => ({ ...item, compareSource: "MAIN CALL" })),
-    ...(scalpHistory?.history || []).map((item) => ({ ...item, compareSource: "SCALP M1" }))
-  ];
+  const strategyAItems = (callHistory?.history || []).map((item) => ({
+    ...item,
+    compareSource: "MAIN CALL"
+  }));
+  const scalpItems = (scalpHistory?.history || []).map((item) => ({
+    ...item,
+    compareSource: "SCALP M1"
+  }));
+  const scalp30 = buildCompareStats(scalpItems, 30, 1.25);
   const strategyBItems = strategyBHistory?.history || [];
 
   const a7 = buildCompareStats(strategyAItems, 7, 1.25);
@@ -4839,7 +4844,7 @@ function StrategyComparePanel({ callHistory, scalpHistory, strategyBHistory }) {
         <div>
           <span className="pill mini"><BarChart3 size={14} /> STRATEGY LAB</span>
           <h3>Compare Strategy A vs Strategy B</h3>
-          <span>Panel ini hanya membandingkan performa. Strategy A tetap utama, Strategy B SMC AI masih live-backtest.</span>
+          <span>Panel ini membandingkan Main Signal vs SMC AI. M1 Scalp dipisah sebagai mode sendiri agar statistik tidak tercampur.</span>
         </div>
         <div className="strategyCompareBadge">
           <b>{insight.badge}</b>
@@ -4848,7 +4853,7 @@ function StrategyComparePanel({ callHistory, scalpHistory, strategyBHistory }) {
       </div>
 
       <div className="strategyCompareGrid">
-        <StrategyCompareCard title="Strategy A" subtitle="Main Signal + Scalp" stats7={a7} stats30={a30} tone="a" />
+        <StrategyCompareCard title="Strategy A" subtitle="Main Signal Only" stats7={a7} stats30={a30} tone="a" />
         <StrategyCompareCard title="Strategy B" subtitle="SMC AI · OB → Sweep → CHOCH → EMA" stats7={b7} stats30={b30} tone="b" />
       </div>
 
@@ -4872,6 +4877,12 @@ function StrategyComparePanel({ callHistory, scalpHistory, strategyBHistory }) {
       <div className="strategyCompareInsight">
         <b>AI Lab Insight</b>
         <span>{insight.detail}</span>
+      </div>
+
+      <div className="strategyCompareNote">
+        <b>M1 Scalp dipisahkan</b>
+        <span>Scalp Mode tidak lagi dihitung sebagai Strategy A. Statistik Scalp tetap tampil di tab Scalp Mode dan bisa dibandingkan manual nanti setelah data cukup.</span>
+        <em>Scalp 30D: {scalp30.total} signal · {scalp30.cleanWinRate}% Clean WR · {scalp30.expired} expired</em>
       </div>
     </section>
   );
@@ -4957,7 +4968,7 @@ function buildStrategyCompareRows(a, b) {
       metric: "Average RR",
       a: String(a.averageRR),
       b: String(b.averageRR),
-      note: b.averageRR > a.averageRR ? "SMC AI unggul di reward/risk." : "Strategy A masih lebih stabil di RR aktual."
+      note: b.averageRR > a.averageRR ? "SMC AI unggul di reward/risk." : "Main Signal masih lebih stabil di RR aktual."
     },
     {
       metric: "Expired Rate",
@@ -4976,7 +4987,7 @@ function buildStrategyCompareRows(a, b) {
 
 function compareHigher(a, b, label) {
   if (a === b) return `${label} keduanya seimbang.`;
-  return b > a ? `Strategy B unggul di ${label}.` : `Strategy A unggul di ${label}.`;
+  return b > a ? `Strategy B unggul di ${label}.` : `Main Signal unggul di ${label}.`;
 }
 
 function buildStrategyCompareInsight(a7, a30, b7, b30) {
@@ -4984,7 +4995,7 @@ function buildStrategyCompareInsight(a7, a30, b7, b30) {
     return {
       badge: "Data awal",
       short: "Belum cukup data",
-      detail: "Strategy A dan SMC AI masih perlu lebih banyak signal closed sebelum keputusan performa bisa dipercaya."
+      detail: "Main Signal dan SMC AI masih perlu lebih banyak signal closed sebelum keputusan performa bisa dipercaya. M1 Scalp sudah dipisahkan dari perbandingan ini."
     };
   }
 
@@ -4992,7 +5003,7 @@ function buildStrategyCompareInsight(a7, a30, b7, b30) {
     return {
       badge: "SMC AI Testing",
       short: "Data Strategy B masih tipis",
-      detail: `Strategy A sudah punya ${a30.total} signal 30D, sedangkan SMC AI baru ${b30.total}. Biarkan SMC AI live-backtest dulu sebelum dijadikan alert resmi.`
+      detail: `Main Signal sudah punya ${a30.total} signal 30D, sedangkan SMC AI baru ${b30.total}. Biarkan SMC AI live-backtest dulu sebelum dijadikan alert resmi.`
     };
   }
 
@@ -5006,9 +5017,9 @@ function buildStrategyCompareInsight(a7, a30, b7, b30) {
 
   if (a30.cleanWinRate >= b30.cleanWinRate && a30.total >= b30.total) {
     return {
-      badge: "Strategy A stabil",
+      badge: "Main Signal stabil",
       short: "A masih baseline utama",
-      detail: `Strategy A masih lebih stabil untuk baseline karena data 30D lebih banyak dan Clean WR ${a30.cleanWinRate}%. SMC AI tetap lanjut sebagai eksperimen.`
+      detail: `Main Signal masih lebih stabil untuk baseline karena data 30D lebih banyak dan Clean WR ${a30.cleanWinRate}%. SMC AI tetap lanjut sebagai eksperimen.`
     };
   }
 
