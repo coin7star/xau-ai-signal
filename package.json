@@ -1,6 +1,6 @@
 {
-  "name": "xau-ai-signal-step10ao2-main-snapshot-plan-lines",
-  "version": "7.33.2-step10ao2-main-snapshot-plan-lines",
+  "name": "xau-ai-signal-step10ap-focus-main-strategy-only",
+  "version": "7.34.0-step10ap-focus-main-strategy-only",
   "type": "module",
   "scripts": {
     "dev": "vite",
