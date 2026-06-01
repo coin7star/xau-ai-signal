@@ -1144,12 +1144,12 @@ function AppInner() {
                   <div className="reasonBuilderTitle"><Sparkles size={14} /> Alasan Sinyal</div>
                   <ul>
                     {signal.reasonDetails.checklist.slice(0, 5).map((item, idx) => (
-                      <li key={`reason-${idx}`}>{item}</li>
+                      <li key={`reason-${idx}`}>{formatChecklistText(item)}</li>
                     ))}
                   </ul>
                   {signal.reasonDetails.blockers?.length > 0 && (
                     <div className="reasonBlockers">
-                      <b>Yang ditunggu:</b> {signal.reasonDetails.blockers.slice(0, 3).join(", ")}
+                      <b>Yang ditunggu:</b> {signal.reasonDetails.blockers.slice(0, 3).map(formatChecklistText).join(", ")}
                     </div>
                   )}
                 </div>
@@ -5722,17 +5722,30 @@ function formatAgeCompact(seconds) {
   return `${Math.round(sec / 3600)} jam`;
 }
 
+function formatChecklistText(item) {
+  if (item === null || item === undefined) return "-";
+  if (["string", "number", "boolean"].includes(typeof item)) return String(item);
+  if (typeof item === "object") {
+    const name = item.name || item.title || item.label || item.id || "Checklist";
+    const status = item.status || item.value || item.note || "";
+    return status ? `${name}: ${status}` : String(name);
+  }
+  return String(item);
+}
+
 function SnapshotRow({ row, defaultOpen = false }) {
+  const valueText = formatChecklistText(row.value || "-");
+  const statusText = formatChecklistText(row.status || "WAIT");
   return (
     <details className="snapshotRow" open={defaultOpen}>
       <summary>
         <span className="snapshotRowTitle">{row.title}</span>
-        <span className="snapshotRowValue" title={String(row.value || "-")}>{row.value || "-"}</span>
-        <span className="snapshotRowStatus">{row.status || "WAIT"}</span>
+        <span className="snapshotRowValue" title={valueText}>{valueText}</span>
+        <span className="snapshotRowStatus">{statusText}</span>
       </summary>
       <div className="snapshotRowBody">
-        <p>{row.note || "Menunggu data."}</p>
-        <small>{row.detail}</small>
+        <p>{formatChecklistText(row.note || "Menunggu data.")}</p>
+        <small>{formatChecklistText(row.detail)}</small>
       </div>
     </details>
   );
