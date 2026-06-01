@@ -2164,7 +2164,7 @@ function AdminStrategyBAlertTestPanel({ adminToken }) {
       <div className="adminTelegramTestHeader">
         <span className="pill mini"><Target size={14} /> SMC AI TEST</span>
         <h3>SMC AI Telegram Alert Test</h3>
-        <p>Test format alert Strategy B ke Telegram admin. Ini hanya test mode, tidak mengubah history SMC AI dan tidak dikirim ke user premium.</p>
+        <p>Test format alert Strategy B ke Telegram admin. Auto admin alert SMC AI juga aktif saat CALL asli, tapi tetap tidak dikirim ke user premium.</p>
       </div>
 
       <div className="adminTelegramTestGrid resultAlertTestGrid">
@@ -2196,7 +2196,7 @@ function AdminStrategyBAlertTestPanel({ adminToken }) {
         </button>
       </div>
 
-      <p className="miniNote">Test ini hanya untuk cek format Telegram Strategy B. SMC AI live alert ke user premium belum diaktifkan.</p>
+      <p className="miniNote">Test ini hanya untuk cek format Telegram Strategy B. SMC AI auto admin alert hanya untuk monitoring internal. Live alert ke user premium belum diaktifkan.</p>
     </section>
   );
 }

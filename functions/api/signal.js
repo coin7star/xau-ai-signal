@@ -1369,9 +1369,111 @@ async function maybeSaveStrategyBHistory(env, dbUrl, signal, market) {
   };
 
   await fbPut(dbUrl, `/xauusd/strategyB/history/${baseId}`, payload);
+
+  const autoAdminAlert = await maybeSendStrategyBAutoAdminAlert(env, dbUrl, payload);
+
+  if (autoAdminAlert?.ok || autoAdminAlert?.skipped || autoAdminAlert?.error) {
+    await fbPut(dbUrl, `/xauusd/strategyB/history/${baseId}`, {
+      ...payload,
+      strategyBAlertSent: Boolean(autoAdminAlert.ok),
+      strategyBAlertSentAt: autoAdminAlert.sentAt || null,
+      strategyBAlertMode: autoAdminAlert.mode || "ADMIN_MONITORING_ONLY",
+      strategyBAlertStatus: autoAdminAlert.ok ? "SENT" : "SKIPPED",
+      strategyBAlertSkipped: autoAdminAlert.skipped || null,
+      strategyBAlertError: autoAdminAlert.error || null
+    });
+  }
+
   await trimFirebaseList(dbUrl, "/xauusd/strategyB/history", 80);
 
-  return { ok: true, strategyBId: baseId };
+  return { ok: true, strategyBId: baseId, autoAdminAlert };
+}
+
+
+async function maybeSendStrategyBAutoAdminAlert(env, dbUrl, item) {
+  const enabled = String(env.STRATEGY_B_AUTO_ADMIN_ALERT_ENABLED ?? "true").toLowerCase() !== "false";
+  if (!enabled) return { ok: false, skipped: "strategy-b-auto-admin-alert-disabled" };
+  if (!env.TELEGRAM_BOT_TOKEN) return { ok: false, skipped: "telegram-bot-token-missing" };
+  if (!env.TELEGRAM_CHAT_ID) return { ok: false, skipped: "telegram-admin-chat-id-missing" };
+  if (!dbUrl) return { ok: false, skipped: "firebase-env-missing" };
+
+  const alertKey = item?.id || [item?.pair || "XAUUSD", "STRATEGY_B", item?.direction || item?.signal || "CALL", item?.candleTime || item?.createdAt || Date.now()].join("|");
+  const safeAlertKey = safeKey(alertKey);
+  const existingAlert = await fbGet(dbUrl, `/xauusd/strategyB/telegramAlerts/${safeAlertKey}`);
+  if (existingAlert?.ok) {
+    return { ok: true, skipped: "duplicate-strategy-b-admin-alert", alertKey };
+  }
+
+  const dashboardUrl = env.PUBLIC_DASHBOARD_URL || env.DASHBOARD_URL || "https://www.xauaisignal.online";
+  const message = buildStrategyBAutoAdminTelegramMessage(item, dashboardUrl);
+  const sent = await sendTelegram(env.TELEGRAM_BOT_TOKEN, env.TELEGRAM_CHAT_ID, message, dashboardUrl);
+  const sentAt = new Date().toISOString();
+
+  await fbPut(dbUrl, `/xauusd/strategyB/telegramAlerts/${safeAlertKey}`, {
+    alertKey,
+    strategyId: item?.id || null,
+    type: "STRATEGY_B_AUTO_ADMIN_ALERT",
+    mode: "ADMIN_MONITORING_ONLY",
+    direction: item?.direction || item?.signal || null,
+    pair: item?.pair || "XAUUSD",
+    ok: Boolean(sent.ok),
+    status: sent.status || null,
+    response: sent.response || null,
+    sentAt
+  });
+
+  return {
+    ok: Boolean(sent.ok),
+    alertKey,
+    mode: "ADMIN_MONITORING_ONLY",
+    status: sent.status || null,
+    sentAt,
+    error: sent.ok ? null : "telegram-send-failed"
+  };
+}
+
+function buildStrategyBAutoAdminTelegramMessage(item, dashboardUrl) {
+  const direction = String(item?.direction || item?.signal || "BUY").toUpperCase();
+  const isBuy = direction === "BUY";
+  const title = isBuy ? "🟢 SMC AI BUY · LIVE BACKTEST" : "🔴 SMC AI SELL · LIVE BACKTEST";
+  const stats = item?.statsSnapshot || {};
+  const snapshot = item?.smcSnapshot || {};
+  const active = snapshot.active || {};
+  const obValid = stats.freshOb || Boolean(active.ob) ? "VALID" : "WAIT";
+  const sweepValid = stats.sweep || Boolean(active.sweep?.valid) ? "YES" : "WAIT";
+  const chochValid = stats.choch || Boolean(active.choch?.valid) ? "YES" : "WAIT";
+  const emaValid = stats.ema || Boolean(active.ema) ? "YES" : "WAIT";
+
+  return [
+    `<b>${title}</b>`,
+    `<i>Strategy B · Admin Monitoring Only</i>`,
+    "",
+    "SMC AI mendeteksi setup valid dari live-backtest engine.",
+    "",
+    `<b>Pair:</b> ${escapeHtml(item?.pair || "XAUUSD")}`,
+    `<b>Entry:</b> ${formatPrice(item?.entry)}`,
+    `<b>Stop Loss:</b> ${formatPrice(item?.sl)}`,
+    `<b>Take Profit:</b> ${formatPrice(item?.tp)}`,
+    `<b>RR:</b> ${escapeHtml(item?.rr || "1:2")}`,
+    "",
+    "🧠 <b>SMC Checklist</b>",
+    `<b>OB M15:</b> ${escapeHtml(obValid)}`,
+    `<b>Sweep M1:</b> ${escapeHtml(sweepValid)}`,
+    `<b>CHOCH M1:</b> ${escapeHtml(chochValid)}`,
+    `<b>EMA M1:</b> ${escapeHtml(emaValid)}`,
+    "",
+    `<b>Confidence:</b> ${Number(item?.confidence || item?.score || 0)}%`,
+    `<b>RSI:</b> ${formatIndicator(stats.rsi)} · <b>MFI:</b> ${formatIndicator(stats.mfi)}`,
+    `<b>ATR M1:</b> ${formatIndicator(stats.atr)}`,
+    "",
+    "📌 <b>Reason</b>",
+    escapeHtml(item?.reason || "OB → Sweep → CHOCH → EMA sudah lengkap untuk Strategy B."),
+    "",
+    "⚠️ <b>Mode</b>",
+    "Alert ini hanya untuk admin/global monitoring. Belum dikirim ke user premium dan belum menggantikan Strategy A.",
+    "",
+    `🚀 <b>Dashboard:</b> ${escapeHtml(dashboardUrl)}`
+  ].join("\n");
 }
 
 async function trimFirebaseList(dbUrl, path, maxItems = 50) {

@@ -404,3 +404,9 @@ Dashboard sekarang membedakan kondisi market tutup/weekend dengan koneksi live y
 - Menambahkan panel Admin untuk test format Telegram Strategy B / SMC AI.
 - Test BUY dan SELL dikirim hanya ke global/admin Telegram chat.
 - Tidak mengubah history SMC AI dan belum dikirim ke user premium.
+
+
+## Step 10AG - SMC AI Auto Admin Alert
+- Strategy B / SMC AI sekarang bisa mengirim alert otomatis ke Telegram admin/global saat CALL asli muncul.
+- Alert masih mode admin monitoring only dan belum dikirim ke user premium.
+- Strategy A tetap tidak diubah.

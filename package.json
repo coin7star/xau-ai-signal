@@ -1,6 +1,6 @@
 {
-  "name": "xau-ai-signal-step10af-smc-ai-telegram-alert-test-mode",
-  "version": "7.24.0-step10af-smc-ai-telegram-alert-test-mode",
+  "name": "xau-ai-signal-step10ag-smc-ai-auto-admin-alert",
+  "version": "7.25.0-step10ag-smc-ai-auto-admin-alert",
   "type": "module",
   "scripts": {
     "dev": "vite",
