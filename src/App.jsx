@@ -1416,6 +1416,16 @@ export default function App() {
 
           <details className="adminWindow card">
             <summary>
+              <span>SMC AI Result Test</span>
+              <small>Test format result WIN, LOSS, dan EXPIRED Strategy B tanpa mengubah history.</small>
+            </summary>
+            <div className="adminWindowBody">
+              <AdminStrategyBResultAlertTestPanel adminToken={adminToken} />
+            </div>
+          </details>
+
+          <details className="adminWindow card">
+            <summary>
               <span>Backup Market Engine</span>
               <small>Monitor koneksi market cadangan dan guard status.</small>
             </summary>
@@ -2197,6 +2207,93 @@ function AdminStrategyBAlertTestPanel({ adminToken }) {
       </div>
 
       <p className="miniNote">Test ini hanya untuk cek format Telegram Strategy B. SMC AI auto admin alert hanya untuk monitoring internal. Live alert ke user premium belum diaktifkan.</p>
+    </section>
+  );
+}
+
+
+
+function AdminStrategyBResultAlertTestPanel({ adminToken }) {
+  const [message, setMessage] = useState("");
+  const [sendingType, setSendingType] = useState("");
+  const [lastResult, setLastResult] = useState(null);
+
+  async function sendSmcResultTest(result) {
+    if (!adminToken) {
+      setMessage("Isi kode admin dulu sebelum kirim SMC AI result test alert.");
+      return;
+    }
+
+    try {
+      setSendingType(result);
+      setMessage(`Mengirim SMC AI result ${result} test alert...`);
+
+      const res = await fetch("/api/strategy-b-result-alert-test", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${adminToken}`
+        },
+        body: JSON.stringify({ result, source: "admin-dashboard" })
+      });
+
+      const data = await res.json().catch(() => ({}));
+
+      if (!res.ok || !data.ok) {
+        const retryText = data.retryAfterSec ? ` Coba lagi sekitar ${data.retryAfterSec} detik.` : "";
+        throw new Error(`${data.error || "Gagal mengirim SMC AI result test alert."}${retryText}`);
+      }
+
+      setLastResult({ result: data.result || result, sentAt: data.sentAt || new Date().toISOString() });
+      setMessage(data.message || `SMC AI result ${result} test alert berhasil dikirim ke Telegram admin.`);
+    } catch (err) {
+      setMessage(err?.message || "Gagal mengirim SMC AI result test alert.");
+    } finally {
+      setSendingType("");
+    }
+  }
+
+  return (
+    <section className="adminTelegramTestPanel smcAlertTestPanel smcResultTestPanel">
+      <div className="adminTelegramTestHeader">
+        <span className="pill mini"><Target size={14} /> SMC RESULT TEST</span>
+        <h3>SMC AI Result Alert Test</h3>
+        <p>Test format result WIN, LOSS, dan EXPIRED untuk Strategy B. Pesan hanya dikirim ke Telegram admin/global, history asli tidak berubah, dan user premium belum menerima alert ini.</p>
+      </div>
+
+      <div className="adminTelegramTestGrid resultAlertTestGrid">
+        <div>
+          <small>Mode</small>
+          <b>Admin Test Only</b>
+          <span>SMC AI tetap live-backtest, bukan sinyal utama.</span>
+        </div>
+        <div>
+          <small>History</small>
+          <b>Tidak Diubah</b>
+          <span>Tombol ini hanya test format Telegram, bukan update result asli.</span>
+        </div>
+        <div>
+          <small>Terakhir test</small>
+          <b>{lastResult ? `SMC ${lastResult.result}` : "Belum ada"}</b>
+          <span>{lastResult?.sentAt ? formatShortDateTime(lastResult.sentAt) : "Pilih tombol WIN / LOSS / EXPIRED."}</span>
+        </div>
+      </div>
+
+      {message && <div className="adminMessage">{message}</div>}
+
+      <div className="resultAlertTestActions smcAlertTestActions">
+        <button type="button" className="win" onClick={() => sendSmcResultTest("WIN")} disabled={Boolean(sendingType) || !adminToken}>
+          ✅ {sendingType === "WIN" ? "Mengirim..." : "Test SMC WIN"}
+        </button>
+        <button type="button" className="loss" onClick={() => sendSmcResultTest("LOSS")} disabled={Boolean(sendingType) || !adminToken}>
+          ❌ {sendingType === "LOSS" ? "Mengirim..." : "Test SMC LOSS"}
+        </button>
+        <button type="button" className="expired" onClick={() => sendSmcResultTest("EXPIRED")} disabled={Boolean(sendingType) || !adminToken}>
+          ⚪ {sendingType === "EXPIRED" ? "Mengirim..." : "Test SMC EXPIRED"}
+        </button>
+      </div>
+
+      <p className="miniNote">Step 10AH hanya test result alert Strategy B. Auto result asli SMC AI tetap lewat tracker MT5/VPS dan belum dikirim ke user premium.</p>
     </section>
   );
 }
