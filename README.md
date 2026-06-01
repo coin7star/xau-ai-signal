@@ -446,3 +446,8 @@ Dashboard sekarang membedakan kondisi market tutup/weekend dengan koneksi live y
 - Landing page/paywall memakai istilah support/tim XAU AI untuk user.
 - Istilah internal tetap dipertahankan di Admin panel bila diperlukan.
 - Tidak mengubah logic sinyal, cron, Telegram, atau strategi.
+
+
+## Step 10AM1 - Remove EMA 5/13 Scalp Card
+- Menghapus card EMA 5/13 dari tampilan Scalp Mode agar tidak membingungkan.
+- Scalp tetap mengikuti filter/rule EMA 9/20 yang sudah dipakai.
