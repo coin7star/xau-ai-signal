@@ -46,21 +46,22 @@ export async function onRequest({ request, env }) {
 
     const symbol = body.symbol || "XAUUSD";
     const candles = Array.isArray(body.candles) ? body.candles.slice(-500) : [];
-    const candlesM15 = Array.isArray(body.candlesM15) ? body.candlesM15.slice(-500) : [];
+    // Step 10AQ: M15 chart/OB disembunyikan agar payload RTDB lebih ringan.
+    const candlesM15 = [];
 
     const payload = {
       ok: true,
       source: "mt5",
       symbol,
       timeframe: body.timeframe || "M1",
-      obTimeframe: body.obTimeframe || "M15",
+      obTimeframe: "M5_ONLY",
       bid: Number(body.bid || 0),
       ask: Number(body.ask || 0),
       digits: Number(body.digits || 2),
       serverTime: body.serverTime || null,
       receivedAt: new Date().toISOString(),
       candles,
-      candlesM15
+      candlesM15: []
     };
 
     await fbPut(dbUrl, "/xauusd/latest", payload);
@@ -70,7 +71,7 @@ export async function onRequest({ request, env }) {
       message: "Market data saved to Firebase",
       symbol,
       candleCount: candles.length,
-      candleM15Count: candlesM15.length,
+      candleM15Count: 0,
       receivedAt: payload.receivedAt
     });
   }
@@ -81,7 +82,7 @@ export async function onRequest({ request, env }) {
 
 function toMarketLite(data) {
   const candles = Array.isArray(data.candles) ? data.candles : [];
-  const candlesM15 = Array.isArray(data.candlesM15) ? data.candlesM15 : [];
+  const candlesM15 = [];
   const last = candles[candles.length - 1] || null;
 
   return {
@@ -90,7 +91,7 @@ function toMarketLite(data) {
     mode: "lite",
     symbol: data.symbol || "XAUUSD",
     timeframe: data.timeframe || "M1",
-    obTimeframe: data.obTimeframe || "M15",
+    obTimeframe: "M5_ONLY",
     bid: Number(data.bid || 0),
     ask: Number(data.ask || 0),
     digits: Number(data.digits || 2),
@@ -105,7 +106,7 @@ function toMarketLite(data) {
 
 function toMarketChart(data, m1Limit = 80, m15Limit = 60) {
   const candles = Array.isArray(data.candles) ? data.candles.slice(-m1Limit) : [];
-  const candlesM15 = Array.isArray(data.candlesM15) ? data.candlesM15.slice(-m15Limit) : [];
+  const candlesM15 = [];
   const candlesM5 = aggregateCandlesToM5(Array.isArray(data.candles) ? data.candles : []).slice(-90);
 
   return {
@@ -113,7 +114,7 @@ function toMarketChart(data, m1Limit = 80, m15Limit = 60) {
     mode: "chart",
     candles,
     candlesM5,
-    candlesM15,
+    candlesM15: [],
     m5Count: candlesM5.length
   };
 }
