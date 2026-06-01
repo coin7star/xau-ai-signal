@@ -621,7 +621,7 @@ function buildSignalQualityGuardV2(ctx = {}) {
 
   checks.push(makeGuardCheck("Live Feed", feedPassed ? "PASS" : "WAIT", feedPassed ? "Data market masih layak dipakai." : "Live feed MT5/VPS belum fresh."));
   checks.push(makeGuardCheck("Spread", spreadPassed ? "PASS" : "WAIT", spread === null ? "Spread belum terbaca, guard tetap hati-hati." : `Spread ${round(spread)} / batas ${round(maxSpread)}.`));
-  checks.push(makeGuardCheck("Data", dataPassed ? "PASS" : "WAIT", `M1 ${candleCount} candle · M15 ${m15Count} candle.`));
+  checks.push(makeGuardCheck("Data", dataPassed ? "PASS" : "WAIT", dataPassed ? "Data market cukup untuk analisa sinyal." : "Data market belum cukup untuk analisa sinyal."));
   checks.push(makeGuardCheck("Volatility", volatilityPassed ? "PASS" : "WAIT", atr14 ? `ATR ${round(atr14)} masih dalam batas aman.` : "ATR belum terbaca."));
   checks.push(makeGuardCheck("Confidence", confidencePassed ? "PASS" : "WAIT", `Confidence ${confidence || 0}% · minimal 68% untuk CALL.`));
   checks.push(makeGuardCheck("Setup", setupPassed ? "PASS" : "WAIT", setupPassed ? "Kombinasi EMA/RSI/MFI/OB mulai cocok." : "Setup utama belum lengkap."));
