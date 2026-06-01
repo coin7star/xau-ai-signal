@@ -415,3 +415,9 @@ Dashboard sekarang membedakan kondisi market tutup/weekend dengan koneksi live y
 ## Step 10AH - SMC AI Result Alert Test Mode
 - Menambahkan endpoint dan tombol admin untuk test result WIN/LOSS/EXPIRED khusus Strategy B / SMC AI.
 - Test ini hanya ke Telegram admin/global dan tidak mengubah history asli.
+
+
+## Step 10AI - SMC AI Auto Result Admin Alert
+- Auto Result Engine sekarang mengirim WIN/LOSS/EXPIRED SMC AI ke Telegram admin/global.
+- Strategy B tetap live-backtest only dan belum dikirim ke user premium.
+- Result tetap memakai MT5/VPS live feed, bukan Bybit.
