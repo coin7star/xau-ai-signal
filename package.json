@@ -1,6 +1,6 @@
 {
-  "name": "xau-ai-signal-step10ac-strategy-b-auto-result-tracker",
-  "version": "7.21.0-step10ac-strategy-b-auto-result-tracker",
+  "name": "xau-ai-signal-step10ad-strategy-b-stats-7-30-days",
+  "version": "7.22.0-step10ad-strategy-b-stats-7-30-days",
   "type": "module",
   "scripts": {
     "dev": "vite",

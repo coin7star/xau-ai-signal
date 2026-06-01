@@ -12,7 +12,7 @@ const PACKAGE_30D_PRICE = "Rp30K";
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { createChart, ColorType, CrosshairMode } from "lightweight-charts";
-import { Activity, Bot, Clock, Copy, Database, Lock, LogOut, Radio, RefreshCcw, Settings, Shield, Sparkles, Target, TrendingDown, TrendingUp, User, Zap } from "lucide-react";
+import { Activity, BarChart3, Bot, Clock, Copy, Database, Lock, LogOut, Radio, RefreshCcw, Settings, Shield, Sparkles, Target, TrendingDown, TrendingUp, User, Zap } from "lucide-react";
 import { auth, createPaymentOrder, ensureUserProfile, getUserPaymentOrders,
   getUserProfile, hasFirebaseClientConfig, isPremiumProfile, listenAuth, loginWithEmail, loginWithGoogle, logout, refreshCurrentUser, registerWithEmail, resetPasswordEmail, sendVerificationEmail } from "./firebaseClient";
 
@@ -4821,6 +4821,13 @@ function StrategyBSmcPanel({ strategyB, strategyBHistory, isAdmin, onUpdateResul
   const activeSteps = active?.steps || {};
   const smcHistory = strategyBHistory?.history || [];
   const smcStats = strategyBHistory?.stats || {};
+  const smcWindows = smcStats?.windows || {};
+  const smc7d = smcWindows.d7 || smcStats;
+  const smc30d = smcWindows.d30 || smcStats;
+  const smcBest = smcStats?.bestSnapshot || {
+    title: "Waiting data",
+    detail: "SMC AI belum punya closed signal yang cukup untuk snapshot."
+  };
 
   return (
     <section className={`strategyBPanel card ${tone}`}>
@@ -4891,11 +4898,28 @@ function StrategyBSmcPanel({ strategyB, strategyBHistory, isAdmin, onUpdateResul
           </div>
         </div>
 
+        <div className="strategyBAnalyticsHero">
+          <div>
+            <span className="pill mini"><BarChart3 size={14} /> SMC AI ANALYTICS</span>
+            <h4>{smcBest.title}</h4>
+            <p>{smcBest.detail}</p>
+          </div>
+          <div className="strategyBAnalyticsSource">
+            <b>MT5/VPS Live Feed</b>
+            <span>Auto Result SMC AI tetap memakai live feed utama, bukan Bybit test feed.</span>
+          </div>
+        </div>
+
+        <div className="strategyBWindowGrid">
+          <StrategyBWindowStats title="7 Hari" stats={smc7d} />
+          <StrategyBWindowStats title="30 Hari" stats={smc30d} />
+        </div>
+
         <div className="strategyBStatsGrid">
-          <Metric label="Average RR" value={smcStats.averageRR || "-"} note="Rata-rata reward/risk dari closed signal" />
-          <Metric label="Average TP" value={smcStats.averageTP || "-"} note="Rata-rata jarak TP SMC AI" />
-          <Metric label="Average SL" value={smcStats.averageSL || "-"} note="Rata-rata jarak SL SMC AI" />
-          <Metric label="Profit Factor" value={smcStats.profitFactor || "-"} note="Estimasi sederhana dari WIN vs LOSS" />
+          <Metric label="Average RR" value={smcStats.averageRR || "-"} note="All-time reward/risk dari closed signal" />
+          <Metric label="Average TP" value={smcStats.averageTP || "-"} note="All-time rata-rata jarak TP SMC AI" />
+          <Metric label="Average SL" value={smcStats.averageSL || "-"} note="All-time rata-rata jarak SL SMC AI" />
+          <Metric label="Profit Factor" value={smcStats.profitFactor || "-"} note="All-time estimasi gross reward vs risk" />
           <Metric label="Auto Result" value="MT5/VPS" note="Result SMC AI dipantau dari live feed utama, bukan Bybit" />
         </div>
 
@@ -4936,6 +4960,29 @@ function StrategyBSmcPanel({ strategyB, strategyBHistory, isAdmin, onUpdateResul
         </div>
       </section>
     </section>
+  );
+}
+
+function StrategyBWindowStats({ title, stats }) {
+  const safe = stats || {};
+  return (
+    <div className="strategyBWindowCard">
+      <div className="strategyBWindowTop">
+        <b>{title}</b>
+        <span>Clean WR {safe.winRate || 0}%</span>
+      </div>
+      <div className="strategyBWindowMetrics">
+        <span>Total <b>{safe.total || 0}</b></span>
+        <span>Run <b>{safe.open ?? safe.running ?? 0}</b></span>
+        <span>WIN <b>{safe.wins || 0}</b></span>
+        <span>LOSS <b>{safe.losses || 0}</b></span>
+        <span>EXP <b>{safe.expired || 0}</b></span>
+        <span>Total WR <b>{safe.totalWinRate || 0}%</b></span>
+        <span>Avg RR <b>{safe.averageRR || 0}</b></span>
+        <span>PF <b>{safe.profitFactor || 0}</b></span>
+      </div>
+      <p>Signal RUNNING tidak masuk hitungan Clean WR. EXPIRED dihitung di Total WR supaya live-backtest SMC AI tetap jujur.</p>
+    </div>
   );
 }
 

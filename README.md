@@ -375,3 +375,9 @@ Dashboard sekarang membedakan kondisi market tutup/weekend dengan koneksi live y
 - Bybit test feed tetap tidak dipakai untuk result.
 - Strategy B tetap live-backtest only dan belum mengirim Telegram result alert live.
 - Strategy A, CALL History utama, dan SCALP History tetap terpisah.
+
+
+## Step 10AD - Strategy B Stats 7/30 Days
+- Menambahkan analytics 7D/30D khusus SMC AI / Strategy B.
+- Menambahkan Clean WR, Total WR, Average RR, Average TP/SL, Profit Factor, dan Best Snapshot.
+- Strategy A tetap terpisah dan tidak diubah.
