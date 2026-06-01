@@ -433,6 +433,8 @@ function buildMainM5EmaPullbackLimitSignal(market = {}, m1Candles = []) {
     ema20: round(ema20Now),
     atr: round(atrValue),
     cross,
+    bosKey: structure.bosKey || null,
+    bosDirection: structure.breakHigh ? "BULLISH_BOS" : structure.breakLow ? "BEARISH_BOS" : "NONE",
     correction: { touchedEma9: touchedEmaZone, touchedEmaZone, buffer: round(buffer), candleTime: last.time || null },
     structure,
     entryMethod: "DYNAMIC_LIMIT_AT_EMA9_AFTER_M5_STRUCTURE_BREAK",
@@ -467,9 +469,18 @@ function getM5EmaStructureBreak(candles = []) {
   const last = valid[lastIndex] || null;
   const breakHigh = Boolean(last && prevHighCandle && (last.close > prevHighCandle.high || last.high > prevHighCandle.high));
   const breakLow = Boolean(last && prevLowCandle && (last.close < prevLowCandle.low || last.low < prevLowCandle.low));
+  const bosType = breakHigh ? "BULLISH_BOS" : breakLow ? "BEARISH_BOS" : "NO_BOS";
+  const bosKey = [
+    bosType,
+    last?.time || last?._idx || "na",
+    round(prevHighCandle?.high || 0),
+    round(prevLowCandle?.low || 0)
+  ].join("_").replaceAll(" ", "_").replaceAll(":", "-").replaceAll(".", "-").replaceAll("/", "-");
   return {
     breakHigh,
     breakLow,
+    bosType,
+    bosKey,
     breakIndex: last?._idx ?? -1,
     breakTime: last?.time || null,
     previousSwingHigh: round(prevHighCandle?.high || 0),
@@ -1914,7 +1925,9 @@ async function maybeSaveCallHistory(env, dbUrl, signal, market) {
     maxBuyPending: 2,
     maxSellPending: 2,
     pendingPolicy: "MAX_2_BUY_2_SELL_EXPIRE_OLD_ON_NEW_STRUCTURE",
-    planKey: [signal.signal, signal.entry, signal.sl, signal.tp].join("_")
+    bosKey: signal.strategy?.mainM5?.bosKey || null,
+    bosDirection: signal.strategy?.mainM5?.bosDirection || null,
+    planKey: [signal.signal, signal.strategy?.mainM5?.bosKey || "NO_BOS", signal.entry, signal.sl, signal.tp].join("_")
   };
 
   await expireOldMainPendingSlots(dbUrl, signal.signal, callId, payload);
@@ -1934,9 +1947,13 @@ async function expireOldMainPendingSlots(dbUrl, signalSide, newId, newPayload = 
 
   for (const item of items) {
     if (!item?.id || item.id === newId) continue;
+    const oldBosKey = String(item.bosKey || item.strategySnapshot?.mainM5?.bosKey || "");
+    const newBosKey = String(newPayload.bosKey || newPayload.strategySnapshot?.mainM5?.bosKey || "");
     const oldPlan = [Number(item.entry || 0), Number(item.sl || 0), Number(item.tp || 0)];
     const newPlan = [Number(newPayload.entry || 0), Number(newPayload.sl || 0), Number(newPayload.tp || 0)];
-    const changedStructure = oldPlan.some((value, index) => Math.abs(value - newPlan[index]) > 0.02);
+    const changedBos = Boolean(oldBosKey && newBosKey && oldBosKey !== newBosKey);
+    const changedPlanClearly = oldPlan.some((value, index) => Math.abs(value - newPlan[index]) > 0.8);
+    const changedStructure = changedBos || changedPlanClearly;
 
     if (!changedStructure) continue;
 
@@ -1945,7 +1962,9 @@ async function expireOldMainPendingSlots(dbUrl, signalSide, newId, newPayload = 
       status: "CLOSED",
       result: "EXPIRED",
       closedAt: new Date().toISOString(),
-      note: "Expired otomatis karena muncul struktur limit M5 baru sebelum pending sebelumnya tersentuh."
+      note: changedBos
+        ? "Expired otomatis karena muncul BOS / struktur M5 baru sebelum pending sebelumnya tersentuh."
+        : "Expired otomatis karena rencana limit M5 baru sudah lebih relevan dari pending sebelumnya."
     });
   }
 
