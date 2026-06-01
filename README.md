@@ -351,3 +351,11 @@ Dashboard sekarang membedakan kondisi market tutup/weekend dengan koneksi live y
 ## Step 10Z2 - Telegram Premium User Copy
 - Copywriting panel Telegram untuk user premium dibuat lebih bersih.
 - Istilah `admin` di area user-facing diganti menjadi pengumuman resmi XAU AI.
+
+
+## Step 10AA - Strategy B SMC AI Engine Prep
+- Menambahkan Strategy B bernama SMC AI sebagai live-backtest paralel.
+- Strategy A tetap tidak diubah.
+- Flow SMC AI: Fresh OB M15 → Sweep M1 → CHOCH M1 → EMA 9/20 M1.
+- RSI dan MFI menjadi confidence booster, bukan syarat wajib.
+- Dashboard mendapat tab baru SMC AI.

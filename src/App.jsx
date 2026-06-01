@@ -816,6 +816,22 @@ export default function App() {
     tp: "-",
     reason: "Menunggu data M1."
   };
+  const strategyB = signal?.strategyB || signal?.strategy?.strategyB || {
+    name: "SMC AI",
+    mode: "LIVE_BACKTEST_ONLY",
+    action: "WAIT",
+    label: "SMC AI WAIT",
+    direction: "WAIT",
+    confidence: 0,
+    entry: "-",
+    sl: "-",
+    tp: "-",
+    rr: "1:2",
+    reason: "Menunggu data Strategy B.",
+    checklist: [],
+    blockers: [],
+    indicators: {}
+  };
   const snapshotRows = [
     {
       id: "rsi",
@@ -926,6 +942,7 @@ export default function App() {
     { id: "signal", label: "Sinyal", icon: <Zap size={15} /> },
     { id: "chart", label: "Candle", icon: <Activity size={15} /> },
     { id: "scalp", label: "Scalp Mode", icon: <Target size={15} /> },
+    { id: "smc", label: "SMC AI", icon: <Sparkles size={15} /> },
     { id: "history", label: "History", icon: <Clock size={15} /> },
     { id: "telegram", label: "Telegram", icon: <Radio size={15} /> },
     ...(isAdmin ? [{ id: "admin", label: "Admin", icon: <Settings size={15} /> }] : [])
@@ -938,7 +955,7 @@ export default function App() {
           <div className="logo dashboardLogo"><Bot size={22} /></div>
           <div className="dashboardBrandText">
             <b>XAU AI Signal</b>
-            <span>Premium dashboard · Signal · Candle · Scalp Mode</span>
+            <span>Premium dashboard · Signal · Candle · Scalp Mode · SMC AI</span>
           </div>
         </div>
         <div className="navActions dashboardHeaderActions">
@@ -1181,6 +1198,10 @@ export default function App() {
             </div>
           </section>
         </>
+      )}
+
+      {activeDashboardTab === "smc" && (
+        <StrategyBSmcPanel strategyB={strategyB} />
       )}
 
       {activeDashboardTab === "history" && (
@@ -4741,6 +4762,70 @@ function formatSignedPercent(value) {
   const num = Number(value);
   if (!Number.isFinite(num)) return "-";
   return `${num > 0 ? "+" : ""}${num.toFixed(3)}%`;
+}
+
+
+function StrategyBSmcPanel({ strategyB }) {
+  const action = String(strategyB?.action || "WAIT");
+  const tone = action.includes("BUY") ? "buy" : action.includes("SELL") ? "sell" : action.includes("READY") ? "ready" : "wait";
+  const checks = Array.isArray(strategyB?.checklist) ? strategyB.checklist : [];
+  const direction = strategyB?.direction || "WAIT";
+  const active = direction === "SELL" ? strategyB?.sell : strategyB?.buy;
+  const activeSteps = active?.steps || {};
+
+  return (
+    <section className={`strategyBPanel card ${tone}`}>
+      <div className="strategyHeader">
+        <div>
+          <span className="pill mini"><Sparkles size={14} /> STRATEGY B · LIVE BACKTEST</span>
+          <h3>{strategyB?.label || "SMC AI WAIT"}</h3>
+          <p>{strategyB?.reason || "Menunggu rangkaian SMC."}</p>
+        </div>
+        <div className={`biasBadge ${tone}`}>{strategyB?.confidence || 0}% confidence</div>
+      </div>
+
+      <div className="strategyBNotice">
+        Strategy B berjalan paralel sebagai eksperimen/live-backtest. Strategy A tidak diubah, tidak diganti, dan statistiknya tetap terpisah.
+      </div>
+
+      <div className="scalpGrid strategyBGrid">
+        <Metric label="Entry" value={strategyB?.entry || "-"} note="Harga acuan saat setup SMC valid" />
+        <Metric label="Stop Loss" value={strategyB?.sl || "-"} note="BUY: Sweep Low - 1.5 ATR · SELL: Sweep High + 1.5 ATR" />
+        <Metric label="Take Profit" value={strategyB?.tp || "-"} note={`RR tetap ${strategyB?.rr || "1:2"}`} />
+        <Metric label="Direction" value={direction} note="Arah kandidat terbaik dari SMC AI" />
+        <Metric label="Mode" value="Live Backtest" note="Belum menggantikan Strategy A" />
+      </div>
+
+      <div className="strategyBFlow card">
+        <h4>SMC Flow</h4>
+        <div className="strategyBSteps">
+          {checks.map((item, idx) => {
+            const passed = direction === "SELL" ? item.sell : item.buy;
+            return (
+              <div key={`${item.name}-${idx}`} className={`strategyBStep ${passed ? "pass" : "wait"}`}>
+                <b>{item.name}</b>
+                <span>{passed ? "YES" : "WAIT"}</span>
+              </div>
+            );
+          })}
+        </div>
+        {strategyB?.blockers?.length > 0 && <p className="strategyBBlocker">Yang ditunggu: {strategyB.blockers.slice(0, 2).join(" · ")}</p>}
+      </div>
+
+      <div className="strategyBDetails">
+        <div className="strategyBDetailCard">
+          <b>BUY Checklist</b>
+          <span>OB {strategyB?.buy?.steps?.freshOb ? "YES" : "WAIT"} · Sweep {strategyB?.buy?.steps?.sweep ? "YES" : "WAIT"} · CHOCH {strategyB?.buy?.steps?.choch ? "YES" : "WAIT"} · EMA {strategyB?.buy?.steps?.ema ? "YES" : "WAIT"}</span>
+          <em>Score {strategyB?.buy?.score || 0}%</em>
+        </div>
+        <div className="strategyBDetailCard">
+          <b>SELL Checklist</b>
+          <span>OB {strategyB?.sell?.steps?.freshOb ? "YES" : "WAIT"} · Sweep {strategyB?.sell?.steps?.sweep ? "YES" : "WAIT"} · CHOCH {strategyB?.sell?.steps?.choch ? "YES" : "WAIT"} · EMA {strategyB?.sell?.steps?.ema ? "YES" : "WAIT"}</span>
+          <em>Score {strategyB?.sell?.score || 0}%</em>
+        </div>
+      </div>
+    </section>
+  );
 }
 
 function Metric({ label, value, note }) {

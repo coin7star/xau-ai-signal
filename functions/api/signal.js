@@ -234,6 +234,20 @@ export function buildSignal(candles, candlesM15, market) {
     close
   });
 
+  const strategyB = buildStrategyBSmcAI(m1, m15, {
+    close,
+    ema9,
+    ema20,
+    prevEma9,
+    prevEma20,
+    rsi14,
+    mfi14,
+    atr14,
+    smc,
+    bullOb,
+    bearOb
+  });
+
   if (m15.length < 50) {
     reasons.push("OB M15 belum aktif karena data M15 belum cukup. Pastikan EA terbaru sudah dipasang.");
   }
@@ -292,6 +306,7 @@ export function buildSignal(candles, candlesM15, market) {
     reason: humanReason.summary,
     reasonDetails: humanReason,
     qualityGuard: finalQualityGuard,
+    strategyB,
     mode: "firebase-mt5-data",
     strategy: {
       trendBias,
@@ -332,6 +347,7 @@ export function buildSignal(candles, candlesM15, market) {
       sellScore: round(sellScore),
       score: round(score),
       scalping,
+      strategyB,
       qualityGuard: finalQualityGuard,
       probability: buildProbability(signalLabel, callStage, buyScore, sellScore, {
         rsiBuyOk,
@@ -352,6 +368,226 @@ export function buildSignal(candles, candlesM15, market) {
 
 
 
+
+
+function buildStrategyBSmcAI(m1 = [], m15 = [], ctx = {}) {
+  const close = Number(ctx.close || 0);
+  const atr14 = Number(ctx.atr14 || 0);
+  const ema9 = Number(ctx.ema9 || 0);
+  const ema20 = Number(ctx.ema20 || 0);
+  const prevEma9 = Number(ctx.prevEma9 || 0);
+  const prevEma20 = Number(ctx.prevEma20 || 0);
+  const rsi14 = Number(ctx.rsi14 || 0);
+  const mfi14 = Number(ctx.mfi14 || 0);
+  const bullOb = normalizeStrategyBOb(ctx.bullOb, "BUY");
+  const bearOb = normalizeStrategyBOb(ctx.bearOb, "SELL");
+
+  const bullishObValid = isStrategyBObValid(bullOb, close, atr14, "BUY");
+  const bearishObValid = isStrategyBObValid(bearOb, close, atr14, "SELL");
+  const inBullOb = bullishObValid && close >= bullOb.low && close <= bullOb.high;
+  const inBearOb = bearishObValid && close >= bearOb.low && close <= bearOb.high;
+
+  const sweepLow = detectStrategyBLiquiditySweep(m1, "LOW");
+  const sweepHigh = detectStrategyBLiquiditySweep(m1, "HIGH");
+  const chochBull = detectStrategyBChoch(m1, "BULLISH");
+  const chochBear = detectStrategyBChoch(m1, "BEARISH");
+  const emaBullish = (prevEma9 <= prevEma20 && ema9 > ema20) || (ema9 > ema20 && ema9 > prevEma9 && ema20 >= prevEma20 * 0.9995);
+  const emaBearish = (prevEma9 >= prevEma20 && ema9 < ema20) || (ema9 < ema20 && ema9 < prevEma9 && ema20 <= prevEma20 * 1.0005);
+
+  const buySteps = {
+    freshOb: bullishObValid,
+    priceInOb: inBullOb,
+    sweep: Boolean(inBullOb && sweepLow.valid),
+    choch: Boolean(inBullOb && sweepLow.valid && chochBull.valid),
+    ema: Boolean(inBullOb && sweepLow.valid && chochBull.valid && emaBullish)
+  };
+  const sellSteps = {
+    freshOb: bearishObValid,
+    priceInOb: inBearOb,
+    sweep: Boolean(inBearOb && sweepHigh.valid),
+    choch: Boolean(inBearOb && sweepHigh.valid && chochBear.valid),
+    ema: Boolean(inBearOb && sweepHigh.valid && chochBear.valid && emaBearish)
+  };
+
+  const buyScore = strategyBScore(buySteps, rsi14 > 50, mfi14 > 50);
+  const sellScore = strategyBScore(sellSteps, rsi14 < 50, mfi14 < 50);
+  const direction = buyScore >= sellScore ? "BUY" : "SELL";
+  const activeSteps = direction === "BUY" ? buySteps : sellSteps;
+  const activeOb = direction === "BUY" ? bullOb : bearOb;
+  const activeSweep = direction === "BUY" ? sweepLow : sweepHigh;
+  const activeChoch = direction === "BUY" ? chochBull : chochBear;
+  const activeEma = direction === "BUY" ? emaBullish : emaBearish;
+
+  let action = "WAIT";
+  let label = "SMC AI WAIT";
+  if (buySteps.freshOb && buySteps.priceInOb && buySteps.sweep && buySteps.choch && buySteps.ema) {
+    action = "CALL_BUY";
+    label = "SMC AI BUY";
+  } else if (sellSteps.freshOb && sellSteps.priceInOb && sellSteps.sweep && sellSteps.choch && sellSteps.ema) {
+    action = "CALL_SELL";
+    label = "SMC AI SELL";
+  } else if ((buySteps.freshOb && buySteps.priceInOb && buySteps.sweep) || (sellSteps.freshOb && sellSteps.priceInOb && sellSteps.sweep)) {
+    action = direction === "BUY" ? "READY_BUY" : "READY_SELL";
+    label = direction === "BUY" ? "SMC AI READY BUY" : "SMC AI READY SELL";
+  }
+
+  const entry = close;
+  let sl = 0;
+  let tp = 0;
+  const rr = 2;
+  if ((action === "CALL_BUY" || action === "READY_BUY") && sweepLow.price && atr14) {
+    sl = sweepLow.price - (1.5 * atr14);
+    tp = entry + Math.abs(entry - sl) * rr;
+  } else if ((action === "CALL_SELL" || action === "READY_SELL") && sweepHigh.price && atr14) {
+    sl = sweepHigh.price + (1.5 * atr14);
+    tp = entry - Math.abs(sl - entry) * rr;
+  }
+
+  const checklist = [
+    { name: "Fresh OB M15", buy: buySteps.freshOb, sell: sellSteps.freshOb },
+    { name: "Harga di area OB", buy: buySteps.priceInOb, sell: sellSteps.priceInOb },
+    { name: "Liquidity Sweep M1", buy: buySteps.sweep, sell: sellSteps.sweep },
+    { name: "CHOCH M1", buy: buySteps.choch, sell: sellSteps.choch },
+    { name: "EMA 9/20 M1", buy: buySteps.ema, sell: sellSteps.ema }
+  ];
+
+  const blockers = buildStrategyBBlockers(activeSteps, direction);
+  const confidence = Math.min(100, Math.max(0, direction === "BUY" ? buyScore : sellScore));
+
+  return {
+    id: "strategyB",
+    name: "SMC AI",
+    mode: "LIVE_BACKTEST_ONLY",
+    action,
+    label,
+    direction,
+    confidence,
+    entry: round(entry),
+    sl: round(sl),
+    tp: round(tp),
+    rr: "1:2",
+    reason: buildStrategyBReason(action, direction, blockers),
+    checklist,
+    blockers,
+    buy: {
+      steps: buySteps,
+      score: Math.min(100, buyScore),
+      ob: bullOb,
+      sweep: sweepLow,
+      choch: chochBull,
+      ema: emaBullish,
+      rsiBooster: rsi14 > 50,
+      mfiBooster: mfi14 > 50
+    },
+    sell: {
+      steps: sellSteps,
+      score: Math.min(100, sellScore),
+      ob: bearOb,
+      sweep: sweepHigh,
+      choch: chochBear,
+      ema: emaBearish,
+      rsiBooster: rsi14 < 50,
+      mfiBooster: mfi14 < 50
+    },
+    active: {
+      ob: activeOb,
+      sweep: activeSweep,
+      choch: activeChoch,
+      ema: activeEma
+    },
+    indicators: {
+      rsi: round(rsi14),
+      mfi: round(mfi14),
+      atr: round(atr14),
+      ema9: round(ema9),
+      ema20: round(ema20)
+    },
+    note: "Strategy B berjalan paralel sebagai eksperimen/live-backtest. Strategy A tidak diganti."
+  };
+}
+
+function normalizeStrategyBOb(ob, side) {
+  if (!ob) return null;
+  return {
+    ...ob,
+    side,
+    low: Number(ob.low || 0),
+    high: Number(ob.high || 0),
+    status: ob.status || "fresh"
+  };
+}
+
+function isStrategyBObValid(ob, close, atr14, side) {
+  if (!ob || !ob.low || !ob.high) return false;
+  if (ob.status === "invalid" || ob.expired) return false;
+  const buffer = Math.max(atr14 * 0.15, close * 0.00008);
+  if (side === "BUY") return close >= ob.low - buffer;
+  return close <= ob.high + buffer;
+}
+
+function strategyBScore(steps, rsiBoost, mfiBoost) {
+  let score = 0;
+  if (steps.freshOb) score += 30;
+  if (steps.sweep) score += 25;
+  if (steps.choch) score += 25;
+  if (steps.ema) score += 20;
+  if (rsiBoost) score += 5;
+  if (mfiBoost) score += 5;
+  return Math.min(100, score);
+}
+
+function detectStrategyBLiquiditySweep(candles = [], type = "LOW") {
+  const data = candles.slice(-22);
+  const last = data[data.length - 1];
+  if (!last || data.length < 8) return { valid: false, price: 0, level: 0, candleTime: null };
+  const prev = data.slice(0, -1);
+  const lookback = prev.slice(-12);
+  if (type === "LOW") {
+    const level = Math.min(...lookback.map((c) => Number(c.low || 0)).filter(Boolean));
+    const valid = level && Number(last.low) < level && Number(last.close) > level;
+    return { valid: Boolean(valid), price: valid ? Number(last.low) : 0, level: round(level), candleTime: last.time || null };
+  }
+  const level = Math.max(...lookback.map((c) => Number(c.high || 0)).filter(Boolean));
+  const valid = level && Number(last.high) > level && Number(last.close) < level;
+  return { valid: Boolean(valid), price: valid ? Number(last.high) : 0, level: round(level), candleTime: last.time || null };
+}
+
+function detectStrategyBChoch(candles = [], direction = "BULLISH") {
+  const data = candles.slice(-28);
+  if (data.length < 14) return { valid: false, level: 0, candleTime: null };
+  const last = data[data.length - 1];
+  const left = data.slice(0, -1);
+  const recent = left.slice(-10);
+  const prior = left.slice(-22, -10);
+  const recentHigh = Math.max(...recent.map((c) => Number(c.high || 0)));
+  const recentLow = Math.min(...recent.map((c) => Number(c.low || 0)));
+  const priorHigh = Math.max(...prior.map((c) => Number(c.high || 0)));
+  const priorLow = Math.min(...prior.map((c) => Number(c.low || 0)));
+  if (direction === "BULLISH") {
+    const level = Math.max(recentHigh, priorHigh);
+    const valid = Number(last.close) > level || (recentLow > priorLow && Number(last.close) > recentHigh);
+    return { valid: Boolean(valid), level: round(level), candleTime: last.time || null };
+  }
+  const level = Math.min(recentLow, priorLow);
+  const valid = Number(last.close) < level || (recentHigh < priorHigh && Number(last.close) < recentLow);
+  return { valid: Boolean(valid), level: round(level), candleTime: last.time || null };
+}
+
+function buildStrategyBBlockers(steps, direction) {
+  if (!steps.freshOb) return [`Menunggu Fresh ${direction === "BUY" ? "Bullish" : "Bearish"} OB M15 valid.`];
+  if (!steps.priceInOb) return ["Harga belum kembali masuk ke area OB M15."];
+  if (!steps.sweep) return [`Menunggu Liquidity Sweep ${direction === "BUY" ? "Low" : "High"} M1.`];
+  if (!steps.choch) return [`Menunggu CHOCH ${direction === "BUY" ? "Bullish" : "Bearish"} M1.`];
+  if (!steps.ema) return [`Menunggu konfirmasi EMA 9/20 M1 ${direction === "BUY" ? "bullish" : "bearish"}.`];
+  return [];
+}
+
+function buildStrategyBReason(action, direction, blockers) {
+  if (action === "CALL_BUY") return "SMC AI BUY valid: OB M15, Sweep Low M1, CHOCH Bullish, dan EMA M1 sudah konfirmasi.";
+  if (action === "CALL_SELL") return "SMC AI SELL valid: OB M15, Sweep High M1, CHOCH Bearish, dan EMA M1 sudah konfirmasi.";
+  if (action.includes("READY")) return `SMC AI ${direction} mulai terbentuk. ${blockers[0] || "Menunggu konfirmasi final."}`;
+  return `SMC AI WAIT. ${blockers[0] || "Rangkaian OB → Sweep → CHOCH → EMA belum lengkap."}`;
+}
 
 function buildSignalQualityGuardV2(ctx = {}) {
   const market = ctx.market || {};
