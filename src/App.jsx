@@ -1171,7 +1171,6 @@ export default function App() {
               <Metric label="Scalp Entry" value={scalping.entry || "-"} note="Area acuan saat setup scalp valid" />
               <Metric label="Scalp SL" value={scalping.sl || "-"} note="Batas risiko dari area sentuh + 1.5 ATR" />
               <Metric label="Scalp TP" value={scalping.tp || "-"} note="Target cepat rasio 1 : 1.25" />
-              <Metric label="EMA 5/13" value={`${scalping.ema5 || "-"} / ${scalping.ema13 || "-"}`} note="Pembaca momentum cepat M1" />
               <Metric label="Scalp Strength" value={`${scalping.score || 0}/100`} note="Minimal 58/100 untuk peluang scalp valid" />
             </div>
 
