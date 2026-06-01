@@ -461,3 +461,12 @@ Dashboard sekarang membedakan kondisi market tutup/weekend dengan koneksi live y
 ## Step 10AM4 - Persistent OB M15 Rules
 - OB M15 tidak hilang hanya karena sekali disentuh.
 - OB tetap tampil sampai invalid/deep break atau tergantikan OB baru yang lebih relevan.
+
+
+## Step 10AN - M5 Engulfing Limit Scalp
+- M1 Scalp diganti menjadi M5 Engulfing Limit Scalp.
+- Candle M5 dibuat dari agregasi candle M1, jadi MQ5 belum perlu diubah.
+- Entry menggunakan BUY/SELL LIMIT di open candle engulfing.
+- SL memakai struktur swing M5 sebelumnya ± 1.5 ATR.
+- TP:SL = 1:1.
+- Max pending: 2 BUY + 2 SELL.

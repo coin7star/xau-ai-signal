@@ -1,6 +1,6 @@
 {
-  "name": "xau-ai-signal-step10am4-persistent-ob-m15-rules",
-  "version": "7.31.4-step10am4-persistent-ob-m15-rules",
+  "name": "xau-ai-signal-step10an-m5-engulfing-limit-scalp",
+  "version": "7.32.0-step10an-m5-engulfing-limit-scalp",
   "type": "module",
   "scripts": {
     "dev": "vite",
