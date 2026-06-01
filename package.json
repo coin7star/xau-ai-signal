@@ -1,6 +1,6 @@
 {
-  "name": "xau-ai-signal-step10ae1-separate-scalp-from-strategy-a",
-  "version": "7.23.1-step10ae1-separate-scalp-from-strategy-a",
+  "name": "xau-ai-signal-step10ae2-move-strategy-lab-to-history",
+  "version": "7.23.2-step10ae2-move-strategy-lab-to-history",
   "type": "module",
   "scripts": {
     "dev": "vite",

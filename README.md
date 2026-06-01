@@ -392,3 +392,9 @@ Dashboard sekarang membedakan kondisi market tutup/weekend dengan koneksi live y
 ## Step 10AE1 - Separate M1 Scalp from Strategy A
 - Panel Strategy Lab sekarang membandingkan Main Signal Only vs SMC AI.
 - M1 Scalp dipisahkan dari Strategy A dan tetap punya tab/statistik sendiri.
+
+
+## Step 10AE2 - Move Strategy Lab to History Panel
+- Panel Compare Strategy A vs Strategy B dipindah ke tab History.
+- Tab SMC AI dibuat lebih fokus ke live setup Strategy B.
+- Logic signal tidak diubah.

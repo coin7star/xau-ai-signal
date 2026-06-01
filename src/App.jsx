@@ -1244,11 +1244,6 @@ export default function App() {
 
       {activeDashboardTab === "smc" && (
         <>
-          <StrategyComparePanel
-            callHistory={callHistory}
-            scalpHistory={scalpHistory}
-            strategyBHistory={strategyBHistory}
-          />
           <StrategyBSmcPanel
             strategyB={strategyB}
             strategyBHistory={strategyBHistory}
@@ -1279,6 +1274,11 @@ export default function App() {
             callHistory={callHistory}
             scalpHistory={scalpHistory}
             isAdmin={isAdmin}
+          />
+          <StrategyComparePanel
+            callHistory={callHistory}
+            scalpHistory={scalpHistory}
+            strategyBHistory={strategyBHistory}
           />
 
           <section className="historyPanel card">
