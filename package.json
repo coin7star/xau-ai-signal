@@ -1,6 +1,6 @@
 {
-  "name": "xau-ai-signal-step10am2-candle-count-copy-polish",
-  "version": "7.31.2-step10am2-candle-count-copy-polish",
+  "name": "xau-ai-signal-step10am3-main-alert-anti-duplicate-lock",
+  "version": "7.31.3-step10am3-main-alert-anti-duplicate-lock",
   "type": "module",
   "scripts": {
     "dev": "vite",
