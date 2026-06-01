@@ -4951,7 +4951,7 @@ function addTradePlanLines(series, linesRef, mainM5) {
     lineWidth: 2,
     lineStyle: 0,
     axisLabelVisible: true,
-    title: `${direction || "PLAN"} LIMIT`
+    title: `${direction || "PLAN"} LIMIT · EMA9`
   });
   newLines.push({ series, line: entryLine });
 
