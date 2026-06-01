@@ -451,3 +451,8 @@ Dashboard sekarang membedakan kondisi market tutup/weekend dengan koneksi live y
 ## Step 10AM1 - Remove EMA 5/13 Scalp Card
 - Menghapus card EMA 5/13 dari tampilan Scalp Mode agar tidak membingungkan.
 - Scalp tetap mengikuti filter/rule EMA 9/20 yang sudah dipakai.
+
+
+## Step 10AM2 - Candle Count Copy Polish
+- Signal Quality Guard tidak lagi menampilkan jumlah candle internal.
+- Teks data dibuat lebih singkat dan user-friendly.

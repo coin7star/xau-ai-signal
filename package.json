@@ -1,6 +1,6 @@
 {
-  "name": "xau-ai-signal-step10am1-remove-ema-5-13-scalp-card",
-  "version": "7.31.1-step10am1-remove-ema-5-13-scalp-card",
+  "name": "xau-ai-signal-step10am2-candle-count-copy-polish",
+  "version": "7.31.2-step10am2-candle-count-copy-polish",
   "type": "module",
   "scripts": {
     "dev": "vite",
