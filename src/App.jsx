@@ -1186,18 +1186,20 @@ export default function App() {
       {activeDashboardTab === "history" && (
         <>
           <UserPaymentHistoryCard user={authUser} />
-          <ResultTrackerPrepPanel
-            callHistory={callHistory}
-            scalpHistory={scalpHistory}
-            market={market}
-            signal={signal}
-            isAdmin={isAdmin}
-            adminToken={adminToken}
-            trackerState={resultTracker}
-            onRunTracker={runAutoResultTracker}
-            cronHealth={cronHealth}
-            onRefreshCronHealth={loadCronHealth}
-          />
+          {isAdmin && (
+            <ResultTrackerPrepPanel
+              callHistory={callHistory}
+              scalpHistory={scalpHistory}
+              market={market}
+              signal={signal}
+              isAdmin={isAdmin}
+              adminToken={adminToken}
+              trackerState={resultTracker}
+              onRunTracker={runAutoResultTracker}
+              cronHealth={cronHealth}
+              onRefreshCronHealth={loadCronHealth}
+            />
+          )}
           <PerformanceAnalyticsPanel
             callHistory={callHistory}
             scalpHistory={scalpHistory}

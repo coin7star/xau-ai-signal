@@ -1,6 +1,6 @@
 {
-  "name": "xau-ai-signal-step10z2-telegram-premium-user-copy",
-  "version": "7.18.2-step10z2-telegram-premium-user-copy",
+  "name": "xau-ai-signal-step10z3-hide-cron-monitor-from-premium",
+  "version": "7.18.3-step10z3-hide-cron-monitor-from-premium",
   "type": "module",
   "scripts": {
     "dev": "vite",
