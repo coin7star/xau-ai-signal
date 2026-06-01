@@ -15,8 +15,8 @@ export async function onRequest({ env }) {
 
   const telegram = await maybeSendTelegramAlert(env, dbUrl, signal, market);
   const callHistory = await maybeSaveCallHistory(env, dbUrl, signal, market);
-  const scalpHistory = await maybeSaveScalpHistory(env, dbUrl, signal, market);
-  const strategyBHistory = await maybeSaveStrategyBHistory(env, dbUrl, signal, market);
+  const scalpHistory = { ok: false, skipped: "disabled-focus-main-strategy-only" };
+  const strategyBHistory = { ok: false, skipped: "disabled-focus-main-strategy-only" };
 
   return json({
     ...signal,
@@ -181,26 +181,29 @@ export function buildSignal(candles, candlesM15, market) {
   }
 
   const trendBias = ema9 > ema20 ? "Bullish" : ema9 < ema20 ? "Bearish" : "Netral";
-  const scalping = buildM5EngulfingLimitScalp(getPreferredM5Candles(market, m1), {
-    rsi14,
-    mfi14,
-    close,
-    sourceTimeframe: Array.isArray(market?.candlesM5) ? "MT5_VPS_M5" : "M1_AGGREGATED_TO_M5"
-  });
+  const scalping = {
+    mode: "DISABLED_FOCUS_MAIN_STRATEGY",
+    action: "DISABLED",
+    label: "Nonaktif",
+    confidence: 0,
+    entry: 0,
+    sl: 0,
+    tp: 0,
+    reason: "Mode scalp disembunyikan agar dashboard fokus ke Sinyal Utama M5."
+  };
 
-  const strategyB = buildStrategyBSmcAI(m1, m15, {
-    close,
-    ema9,
-    ema20,
-    prevEma9,
-    prevEma20,
-    rsi14,
-    mfi14,
-    atr14,
-    smc,
-    bullOb,
-    bearOb
-  });
+  const strategyB = {
+    name: "SMC AI",
+    mode: "DISABLED_FOCUS_MAIN_STRATEGY",
+    action: "DISABLED",
+    label: "Nonaktif",
+    direction: "WAIT",
+    confidence: 0,
+    entry: 0,
+    sl: 0,
+    tp: 0,
+    reason: "SMC AI disembunyikan agar dashboard fokus ke Sinyal Utama M5."
+  };
 
   if (m15.length < 50) {
     reasons.push("OB M15 belum aktif karena data M15 belum cukup. Pastikan EA terbaru sudah dipasang.");

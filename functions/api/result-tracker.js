@@ -48,23 +48,14 @@ export async function buildTrackerSummary(dbUrl, env, shouldUpdate) {
   const livePrice = getMarketPrice(market);
   const maxItems = Number(env.RESULT_TRACKER_MAX_ITEMS || 20);
   const mainExpireHours = Number(env.RESULT_TRACKER_MAIN_EXPIRE_HOURS || 24);
-  const scalpExpireHours = Number(env.RESULT_TRACKER_SCALP_EXPIRE_HOURS || 4);
-  const strategyBExpireHours = Number(env.RESULT_TRACKER_STRATEGY_B_EXPIRE_HOURS || 24);
-
-  const [callRaw, scalpRaw, strategyBRaw] = await Promise.all([
-    fbGet(dbUrl, "/xauusd/callHistory"),
-    fbGet(dbUrl, "/xauusd/scalpHistory"),
-    fbGet(dbUrl, "/xauusd/strategyB/history")
+  const [callRaw] = await Promise.all([
+    fbGet(dbUrl, "/xauusd/callHistory")
   ]);
 
   const callItems = Object.values(callRaw || {}).filter(Boolean);
-  const scalpItems = Object.values(scalpRaw || {}).filter(Boolean);
-  const strategyBItems = Object.values(strategyBRaw || {}).filter(Boolean);
 
   const allOpen = [
-    ...callItems.map((item) => ({ ...item, trackerType: "MAIN_CALL", path: "/xauusd/callHistory", expireHours: mainExpireHours, telegramResultAlert: controls.mainSignalResultAlert !== false })),
-    ...(controls.m1ScalpResultTracking === false ? [] : scalpItems.map((item) => ({ ...item, trackerType: "SCALP_M5", path: "/xauusd/scalpHistory", expireHours: scalpExpireHours, telegramResultAlert: true }))),
-    ...(controls.strategyBLiveBacktest === false ? [] : strategyBItems.map((item) => ({ ...item, trackerType: "SMC_AI", path: "/xauusd/strategyB/history", expireHours: strategyBExpireHours, telegramResultAlert: controls.strategyBResultAdminAlert !== false, strategyBResultAlert: true })))
+    ...callItems.map((item) => ({ ...item, trackerType: "MAIN_CALL", path: "/xauusd/callHistory", expireHours: mainExpireHours, telegramResultAlert: controls.mainSignalResultAlert !== false }))
   ]
     .filter(isOpen)
     .sort((a, b) => String(a.createdAt || "").localeCompare(String(b.createdAt || "")))
