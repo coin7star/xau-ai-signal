@@ -1373,8 +1373,9 @@ async function maybeSaveStrategyBHistory(env, dbUrl, signal, market) {
   await fbPut(dbUrl, `/xauusd/strategyB/history/${baseId}`, payload);
 
   const autoAdminAlert = await maybeSendStrategyBAutoAdminAlert(env, dbUrl, payload);
+  const premiumUserAlert = await maybeSendStrategyBPremiumUserAlert(env, dbUrl, payload);
 
-  if (autoAdminAlert?.ok || autoAdminAlert?.skipped || autoAdminAlert?.error) {
+  if (autoAdminAlert?.ok || autoAdminAlert?.skipped || autoAdminAlert?.error || premiumUserAlert?.ok || premiumUserAlert?.skipped || premiumUserAlert?.error) {
     await fbPut(dbUrl, `/xauusd/strategyB/history/${baseId}`, {
       ...payload,
       strategyBAlertSent: Boolean(autoAdminAlert.ok),
@@ -1382,7 +1383,15 @@ async function maybeSaveStrategyBHistory(env, dbUrl, signal, market) {
       strategyBAlertMode: autoAdminAlert.mode || "ADMIN_MONITORING_ONLY",
       strategyBAlertStatus: autoAdminAlert.ok ? "SENT" : "SKIPPED",
       strategyBAlertSkipped: autoAdminAlert.skipped || null,
-      strategyBAlertError: autoAdminAlert.error || null
+      strategyBAlertError: autoAdminAlert.error || null,
+      strategyBPremiumAlertSent: Boolean(premiumUserAlert.ok),
+      strategyBPremiumAlertSentAt: premiumUserAlert.sentAt || null,
+      strategyBPremiumAlertMode: premiumUserAlert.mode || "PREMIUM_USER_ALERT",
+      strategyBPremiumAlertStatus: premiumUserAlert.ok ? "SENT" : "SKIPPED",
+      strategyBPremiumAlertSkipped: premiumUserAlert.skipped || null,
+      strategyBPremiumAlertRecipients: premiumUserAlert.successCount || 0,
+      strategyBPremiumAlertTotalRecipients: premiumUserAlert.totalRecipients || 0,
+      strategyBPremiumAlertError: premiumUserAlert.error || null
     });
   }
 
@@ -1434,6 +1443,144 @@ async function maybeSendStrategyBAutoAdminAlert(env, dbUrl, item) {
     sentAt,
     error: sent.ok ? null : "telegram-send-failed"
   };
+}
+
+
+async function maybeSendStrategyBPremiumUserAlert(env, dbUrl, item) {
+  const enabled = String(env.STRATEGY_B_PREMIUM_USER_ALERT_ENABLED ?? "true").toLowerCase() !== "false";
+  const controls = await getStrategyControls(dbUrl);
+
+  if (!enabled) return { ok: false, skipped: "strategy-b-premium-user-alert-env-disabled" };
+  if (controls.strategyBPremiumUserAlert !== true) return { ok: false, skipped: "strategy-b-premium-user-alert-master-off" };
+  if (!env.TELEGRAM_BOT_TOKEN) return { ok: false, skipped: "telegram-bot-token-missing" };
+  if (!dbUrl) return { ok: false, skipped: "firebase-env-missing" };
+
+  const alertKey = item?.id || [item?.pair || "XAUUSD", "STRATEGY_B_PREMIUM", item?.direction || item?.signal || "CALL", item?.candleTime || item?.createdAt || Date.now()].join("|");
+  const safeAlertKey = safeKey(alertKey);
+  const existingSummary = await fbGet(dbUrl, `/xauusd/strategyB/premiumAlerts/${safeAlertKey}/summary`);
+  if (existingSummary?.sent === true || existingSummary?.successCount > 0) {
+    return { ok: true, skipped: "duplicate-strategy-b-premium-user-alert", alertKey, totalRecipients: existingSummary.totalRecipients || 0, successCount: existingSummary.successCount || 0 };
+  }
+
+  const usersRaw = await fbGet(dbUrl, "/users");
+  const users = Object.values(usersRaw || {}).filter(Boolean);
+  const seen = new Set();
+  if (env.TELEGRAM_CHAT_ID) seen.add(String(env.TELEGRAM_CHAT_ID)); // admin/global sudah dapat admin alert, jangan dobel lewat jalur premium.
+
+  const recipients = [];
+  const skipped = [];
+
+  for (const user of users) {
+    const decision = evaluateStrategyBPremiumReceiver(user, seen);
+    const base = {
+      uid: user?.uid || null,
+      email: user?.email || null,
+      role: user?.role || "free",
+      chatId: maskChatId(user?.telegramChatId || ""),
+      reason: decision.reason
+    };
+
+    if (decision.ok) {
+      recipients.push({
+        ...base,
+        chatIdRaw: String(user.telegramChatId),
+        status: "READY"
+      });
+      seen.add(String(user.telegramChatId));
+    } else {
+      skipped.push({ ...base, status: "SKIPPED" });
+    }
+  }
+
+  if (!recipients.length) {
+    await fbPut(dbUrl, `/xauusd/strategyB/premiumAlerts/${safeAlertKey}/summary`, {
+      alertKey,
+      strategyId: item?.id || null,
+      type: "STRATEGY_B_PREMIUM_USER_ALERT",
+      sent: false,
+      ok: false,
+      skipped: "no-eligible-premium-recipients",
+      skippedPreview: skipped.slice(0, 20),
+      totalRecipients: 0,
+      successCount: 0,
+      failedCount: 0,
+      createdAt: new Date().toISOString()
+    });
+    return { ok: false, skipped: "no-eligible-premium-recipients", alertKey, totalRecipients: 0, successCount: 0 };
+  }
+
+  const dashboardUrl = env.PUBLIC_DASHBOARD_URL || env.DASHBOARD_URL || "https://www.xauaisignal.online";
+  const message = buildStrategyBPremiumTelegramMessage(item, dashboardUrl);
+  const results = [];
+
+  for (const recipient of recipients) {
+    const sent = await sendTelegram(env.TELEGRAM_BOT_TOKEN, recipient.chatIdRaw, message, dashboardUrl);
+    const log = {
+      alertKey,
+      strategyId: item?.id || null,
+      uid: recipient.uid || null,
+      email: recipient.email || null,
+      role: recipient.role || null,
+      chatId: maskChatId(recipient.chatIdRaw),
+      ok: Boolean(sent.ok),
+      status: sent.status || null,
+      response: sent.response || null,
+      sentAt: new Date().toISOString()
+    };
+    results.push(log);
+    await fbPut(dbUrl, `/xauusd/strategyB/premiumAlerts/${safeAlertKey}/deliveries/${safeKey(recipient.chatIdRaw)}`, log);
+  }
+
+  const successCount = results.filter((item) => item.ok).length;
+  const failedCount = results.length - successCount;
+  const sentAt = new Date().toISOString();
+
+  await fbPut(dbUrl, `/xauusd/strategyB/premiumAlerts/${safeAlertKey}/summary`, {
+    alertKey,
+    strategyId: item?.id || null,
+    type: "STRATEGY_B_PREMIUM_USER_ALERT",
+    mode: "PREMIUM_USER_ALERT_LIVE",
+    sent: successCount > 0,
+    ok: successCount > 0,
+    totalRecipients: results.length,
+    successCount,
+    failedCount,
+    skippedCount: skipped.length,
+    skippedPreview: skipped.slice(0, 20),
+    sentAt
+  });
+
+  return {
+    ok: successCount > 0,
+    alertKey,
+    mode: "PREMIUM_USER_ALERT_LIVE",
+    totalRecipients: results.length,
+    successCount,
+    failedCount,
+    sentAt,
+    error: successCount > 0 ? null : "all-premium-telegram-send-failed"
+  };
+}
+
+function evaluateStrategyBPremiumReceiver(user, seenChatIds) {
+  if (!user) return { ok: false, reason: "User data kosong" };
+  if (user.status && user.status !== "active") return { ok: false, reason: "Akun tidak aktif" };
+  if (!isActivePremiumForTelegram(user)) return { ok: false, reason: "Bukan premium/admin aktif" };
+  if (!user.telegramConnected || !user.telegramChatId) return { ok: false, reason: "Telegram belum terhubung" };
+
+  const chatId = String(user.telegramChatId || "");
+  if (seenChatIds.has(chatId)) return { ok: false, reason: "Chat ID duplikat / sudah menerima jalur admin" };
+
+  if (user.telegramAlertEnabled === false) return { ok: false, reason: "Alert dimatikan user" };
+  if (user.telegramAlertMainSignal === false) return { ok: false, reason: "Main Signal Alert OFF" };
+
+  return { ok: true, reason: "Premium/admin aktif, Telegram connected, alert ON" };
+}
+
+function buildStrategyBPremiumTelegramMessage(item, dashboardUrl) {
+  return buildStrategyBAutoAdminTelegramMessage(item, dashboardUrl)
+    .replace("Strategy B · Admin Monitoring Only", "Strategy B · Premium User Alert")
+    .replace("Alert ini hanya untuk admin/global monitoring. Belum dikirim ke user premium dan belum menggantikan Strategy A.", "SMC AI premium alert aktif untuk akun yang Telegram connected dan alert ON. Strategy B masih live-backtest, gunakan risk management.");
 }
 
 function buildStrategyBAutoAdminTelegramMessage(item, dashboardUrl) {

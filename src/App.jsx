@@ -2097,9 +2097,9 @@ function AdminStrategyControlCenter({ adminToken }) {
     },
     {
       key: "strategyBPremiumUserAlert",
-      title: "SMC AI Premium User Alert",
-      mode: controls.strategyBPremiumUserAlert ? "Premium user ON" : "Premium user OFF",
-      desc: "Default aman: OFF. Nanti hanya ON kalau SMC AI sudah layak dikirim ke user premium."
+      title: "SMC AI Premium User Alert Live",
+      mode: controls.strategyBPremiumUserAlert ? "LIVE ke premium user" : "Premium user OFF",
+      desc: "Jika ON, SMC AI CALL asli akan dikirim ke user premium/admin yang Telegram connected dan personal alert ON. Jika OFF, hanya admin monitoring."
     }
   ];
 
@@ -2142,7 +2142,7 @@ function AdminStrategyControlCenter({ adminToken }) {
         </button>
       </div>
 
-      <p className="miniNote">Terakhir simpan: {lastSavedAt ? lastSavedAt.toLocaleString("id-ID") : "Belum ada perubahan di sesi ini"}. Default aman: SMC AI Premium User Alert OFF.</p>
+      <p className="miniNote">Terakhir simpan: {lastSavedAt ? lastSavedAt.toLocaleString("id-ID") : "Belum ada perubahan di sesi ini"}. Default aman: SMC AI Premium User Alert OFF. ON berarti live ke premium user yang eligible.</p>
     </section>
   );
 }
