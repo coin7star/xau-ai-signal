@@ -1,6 +1,6 @@
 {
-  "name": "xau-ai-signal-step10ai-smc-ai-auto-result-admin-alert",
-  "version": "7.27.0-step10ai-smc-ai-auto-result-admin-alert",
+  "name": "xau-ai-signal-step10aj-strategy-lab-3-way-compare",
+  "version": "7.28.0-step10aj-strategy-lab-3-way-compare",
   "type": "module",
   "scripts": {
     "dev": "vite",

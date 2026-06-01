@@ -421,3 +421,9 @@ Dashboard sekarang membedakan kondisi market tutup/weekend dengan koneksi live y
 - Auto Result Engine sekarang mengirim WIN/LOSS/EXPIRED SMC AI ke Telegram admin/global.
 - Strategy B tetap live-backtest only dan belum dikirim ke user premium.
 - Result tetap memakai MT5/VPS live feed, bukan Bybit.
+
+
+## Step 10AJ - Strategy Lab 3-Way Compare
+- Strategy Lab sekarang membandingkan Main Signal, M1 Scalp, dan SMC AI secara terpisah.
+- M1 Scalp tetap tidak dihitung sebagai Strategy A.
+- Patch ini hanya UI/analytics compare dan aman untuk rollback.
