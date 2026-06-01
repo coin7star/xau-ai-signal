@@ -433,3 +433,9 @@ Dashboard sekarang membedakan kondisi market tutup/weekend dengan koneksi live y
 - Tambah Admin master switch untuk Main Signal, M1 Scalp, dan SMC AI.
 - User premium tetap mengikuti personal toggle masing-masing.
 - SMC AI Premium User Alert default OFF agar tetap aman sebelum live multi-user.
+
+
+## Step 10AL - SMC AI Multi-user Premium Alert Live
+- SMC AI CALL asli bisa dikirim ke user premium jika master switch admin ON.
+- Tetap memakai user personal alert preference dan anti duplicate delivery.
+- Strategy A dan M1 Scalp tidak diubah.
