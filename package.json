@@ -1,6 +1,6 @@
 {
-  "name": "xau-ai-signal-step10aq2-m5-plan-preview-line",
-  "version": "7.35.2-step10aq2-m5-plan-preview-line",
+  "name": "xau-ai-signal-step10aq3-blank-screen-safe-mode",
+  "version": "7.35.3-step10aq3-blank-screen-safe-mode",
   "type": "module",
   "scripts": {
     "dev": "vite",
