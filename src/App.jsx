@@ -1,12 +1,12 @@
 import { verifyPasswordResetCode, confirmPasswordReset, applyActionCode } from "firebase/auth";
 const ADMIN_CONTACT_URL = "https://t.me/xauai_signal_bot";
-const ADMIN_CONTACT_LABEL = "Hubungi Admin";
+const ADMIN_CONTACT_LABEL = "Hubungi Support";
 const PRODUCT_NAME = "XAU AI Signal";
 
 const PAYMENT_QRIS_URL = "";
 const PAYMENT_DANA = "08xxxxxxxxxx";
 const PAYMENT_OVO = "08xxxxxxxxxx";
-const PAYMENT_BANK = "BCA / BRI / Mandiri - Hubungi admin";
+const PAYMENT_BANK = "BCA / BRI / Mandiri - hubungi support";
 const PACKAGE_7D_PRICE = "Rp10K";
 const PACKAGE_30D_PRICE = "Rp30K";
 
@@ -869,7 +869,7 @@ export default function App() {
     sl: "-",
     tp: "-",
     rr: "1:2",
-    reason: "Menunggu data Strategy B.",
+    reason: "Menunggu data Strategi B.",
     checklist: [],
     blockers: [],
     indicators: {}
@@ -901,7 +901,7 @@ export default function App() {
     },
     {
       id: "obm15",
-      title: "Fresh OB M15",
+      title: "Area M15 Fresh",
       value: obCardValue,
       status: freshBullOb ? "BUY AREA" : freshBearOb ? "SELL AREA" : "WAIT",
       note: obCardNote,
@@ -997,7 +997,7 @@ export default function App() {
           <div className="logo dashboardLogo"><Bot size={22} /></div>
           <div className="dashboardBrandText">
             <b>XAU AI Signal</b>
-            <span>Premium dashboard · Signal · Candle · Scalp Mode · SMC AI</span>
+            <span>Dashboard Premium · Sinyal · Grafik · Scalp · SMC AI</span>
           </div>
         </div>
         <div className="navActions dashboardHeaderActions">
@@ -1055,11 +1055,11 @@ export default function App() {
 
       <div className="dataTickerBar slimTicker">
         <div className="tickerTrack">
-          <span><Database size={14} /> Market Feed: <b>Premium Live Engine</b></span>
-          <span><Activity size={14} /> M1 Stream: <b>{candlesM1.length || market?.m1Count || 0} candles</b></span>
-          <span><Shield size={14} /> M15 Stream: <b>{candlesM15.length || market?.m15Count || 0} candles</b></span>
+          <span><Database size={14} /> Koneksi Market: <b>Live Premium</b></span>
+          <span><Activity size={14} /> Grafik M1: <b>{candlesM1.length || market?.m1Count || 0} candle</b></span>
+          <span><Shield size={14} /> Grafik M15: <b>{candlesM15.length || market?.m15Count || 0} candle</b></span>
           <span>{isSell ? <TrendingDown size={14} /> : <TrendingUp size={14} />} Last Price: <b>{lastCandle?.close || "-"}</b></span>
-          <span><Radio size={14} /> Feed Status: <b>{marketSession.feedLabel}</b></span>
+          <span><Radio size={14} /> Status Koneksi: <b>{marketSession.feedLabel}</b></span>
         </div>
       </div>
 
@@ -1074,7 +1074,7 @@ export default function App() {
               <div className="confidence">{signal?.confidence || 0}% confidence</div>
               {signal?.reasonDetails?.checklist?.length > 0 && (
                 <div className="reasonBuilderBox">
-                  <div className="reasonBuilderTitle"><Sparkles size={14} /> AI Reason Builder</div>
+                  <div className="reasonBuilderTitle"><Sparkles size={14} /> Alasan Sinyal</div>
                   <ul>
                     {signal.reasonDetails.checklist.slice(0, 5).map((item, idx) => (
                       <li key={`reason-${idx}`}>{item}</li>
@@ -1096,7 +1096,7 @@ export default function App() {
 
             <section className="strategyPanel card compactImportantCard">
               <div className="strategyHeader">
-                <div><span className="pill mini"><Target size={14} /> SNAPSHOT</span><h3>RSI + MFI + EMA + OB M15</h3></div>
+                <div><span className="pill mini"><Target size={14} /> SNAPSHOT</span><h3>Snapshot Market</h3></div>
                 <div className={`biasBadge ${signalTone}`}>{trendBias}</div>
               </div>
               <div className="snapshotAccordion">
@@ -1113,7 +1113,7 @@ export default function App() {
         <>
           <section className="chartWrap card">
             <div className="sectionTitle">
-              <div><h3>Live M1 Candlestick Chart</h3><span>{market?.symbol || "XAUUSD"} · M1 · {marketSession.chartStatusText} · Bid {market?.bid || "-"} · Spread {spread}</span></div>
+              <div><h3>Grafik Candlestick M1</h3><span>{market?.symbol || "XAUUSD"} · M1 · {marketSession.chartStatusText} · Bid {market?.bid || "-"} · Spread {spread}</span></div>
               <div className="legend">
                 <b><i className="bullDot"></i> Bullish</b>
                 <b><i className="bearDot"></i> Bearish</b>
@@ -1123,11 +1123,11 @@ export default function App() {
                 <b><i className="obBearDot"></i> Bear OB</b>
                 <b><i className="supportDot"></i> M1 Support</b>
                 <b><i className="resistDot"></i> M1 Resistance</b>
-                <em><span></span> Quick scan 12s · Chart sync 45s</em>
+                <em><span></span> Scan cepat 12d · Grafik sinkron 45d</em>
               </div>
             </div>
             {marketSession.chartNotice && <div className={`chartSessionNotice ${marketSession.type}`}>{marketSession.chartNotice}</div>}
-            {chartError && <div className="chartError">Chart error: {chartError}</div>}
+            {chartError && <div className="chartError">Grafik belum bisa dimuat: {chartError}</div>}
             <div className="tvChart" ref={chartM1BoxRef}>
               {tvM1.length === 0 && <div className="chartEmpty">{marketSession.emptyM1Text}</div>}
             </div>
@@ -1135,7 +1135,7 @@ export default function App() {
 
           <section className="chartWrap card">
             <div className="sectionTitle">
-              <div><h3>Live M15 Order Block Chart</h3><span>{market?.symbol || "XAUUSD"} · M15 · {marketSession.chartStatusText}</span></div>
+              <div><h3>Grafik Area M15</h3><span>{market?.symbol || "XAUUSD"} · M15 · {marketSession.chartStatusText}</span></div>
               <div className="legend">
                 <b><i className="bullDot"></i> Bullish</b>
                 <b><i className="bearDot"></i> Bearish</b>
@@ -1143,7 +1143,7 @@ export default function App() {
                 <b><i className="ema20Dot"></i> EMA 20</b>
                 <b><i className="obBullDot"></i> Bull OB</b>
                 <b><i className="obBearDot"></i> Bear OB</b>
-                <em><span></span> Fresh OB M15</em>
+                <em><span></span> Area M15 Fresh</em>
               </div>
             </div>
             {marketSession.chartNotice && <div className={`chartSessionNotice ${marketSession.type}`}>{marketSession.chartNotice}</div>}
@@ -1159,7 +1159,7 @@ export default function App() {
           <section className={`scalpPanel card ${String(scalping.action || "WAIT").toLowerCase()}`}>
             <div className="strategyHeader">
               <div>
-                <span className="pill mini"><Zap size={14} /> M1 SR + EMA SCALP</span>
+                <span className="pill mini"><Zap size={14} /> SCALP M1</span>
                 <h3>{scalping.label || "SCALP WAIT"}</h3>
               </div>
               <div className={`biasBadge ${scalping.action === "SCALP_BUY" ? "buy" : scalping.action === "SCALP_SELL" ? "sell" : "wait"}`}>
@@ -1168,23 +1168,23 @@ export default function App() {
             </div>
 
             <div className="scalpGrid">
-              <Metric label="Scalp Entry" value={scalping.entry || "-"} note="Area acuan kalau scalp sudah valid" />
-              <Metric label="Scalp SL" value={scalping.sl || "-"} note="SL dari candle touch S/R + 1.5 ATR" />
-              <Metric label="Scalp TP" value={scalping.tp || "-"} note="Target cepat RR 1 : 1.25" />
-              <Metric label="EMA 5/13" value={`${scalping.ema5 || "-"} / ${scalping.ema13 || "-"}`} note="EMA cepat buat baca gas/rem M1" />
-              <Metric label="Scalp Strength" value={`${scalping.score || 0}/100`} note="Minimal 58/100 untuk SCALP BUY/SELL" />
+              <Metric label="Scalp Entry" value={scalping.entry || "-"} note="Area acuan saat setup scalp valid" />
+              <Metric label="Scalp SL" value={scalping.sl || "-"} note="Batas risiko dari area sentuh + 1.5 ATR" />
+              <Metric label="Scalp TP" value={scalping.tp || "-"} note="Target cepat rasio 1 : 1.25" />
+              <Metric label="EMA 5/13" value={`${scalping.ema5 || "-"} / ${scalping.ema13 || "-"}`} note="Pembaca momentum cepat M1" />
+              <Metric label="Scalp Strength" value={`${scalping.score || 0}/100`} note="Minimal 58/100 untuk peluang scalp valid" />
             </div>
 
             <p className="scalpReason">{scalping.reason}</p>
-            <p className="scalpWarning">Mode scalp baru pakai struktur M1: buy di last swing low M1 + bullish engulfing, sell di last swing high M1 + bearish engulfing. CALL utama tetap lebih saklek.</p>
+            <p className="scalpWarning">Mode scalp membaca struktur M1. BUY mencari pantulan swing low, SELL mencari reject swing high. Sinyal utama tetap menjadi acuan utama.</p>
           </section>
 
 
           <section className="historyPanel card scalpHistoryPanel">
             <div className="sectionTitle">
               <div>
-                <h3>{isAdmin ? "SCALP M1 Valid History & Manual Result" : "SCALP M1 Performance"}</h3>
-                <span>Hanya SCALP BUY/SELL valid yang disimpan agar riwayat tetap bersih dan ringan.</span>
+                <h3>{isAdmin ? "SCALP M1 Valid History & Manual Result" : "Performa Scalp M1"}</h3>
+                <span>Hanya peluang scalp valid yang ditampilkan agar riwayat tetap bersih.</span>
               </div>
               <div className="historyStats">
                 <b>Total {scalpStats.total || 0}</b>
@@ -1198,7 +1198,7 @@ export default function App() {
 
             {!isAdmin && (
               <div className="premiumViewerNote scalpViewerNote">
-                Pantau performa SCALP M1 valid, result, dan winrate secara ringkas.
+                Pantau performa peluang Scalp M1 yang valid secara ringkas.
               </div>
             )}
 
@@ -1235,7 +1235,7 @@ export default function App() {
               ))}
 
               {(!scalpHistory?.history || scalpHistory.history.length === 0) && (
-                <div className="emptyHistory">Belum ada SCALP BUY/SELL valid. History akan muncul otomatis saat scalp mode valid.</div>
+                <div className="emptyHistory">Belum ada peluang Scalp M1 valid. Riwayat akan muncul otomatis saat setup valid.</div>
               )}
             </div>
           </section>
@@ -1284,8 +1284,8 @@ export default function App() {
           <section className="historyPanel card">
             <div className="sectionTitle">
               <div>
-                <h3>{isAdmin ? "CALL History & Manual Result" : "CALL History & Performance"}</h3>
-                <span>{isAdmin ? "Auto-save saat CALL valid. Admin bisa tandai hasil manual untuk track performa." : "Riwayat CALL valid, result, dan performa signal terbaru."}</span>
+                <h3>{isAdmin ? "CALL History & Manual Result" : "Riwayat Sinyal Utama"}</h3>
+                <span>{isAdmin ? "Auto-save saat CALL valid. Admin bisa tandai hasil manual untuk track performa." : "Riwayat sinyal utama yang valid dan performa terbarunya."}</span>
               </div>
               <div className="historyStats">
                 <b>Total {historyStats.total || 0}</b>
@@ -1299,7 +1299,7 @@ export default function App() {
 
             {!isAdmin && (
               <div className="premiumViewerNote">
-                Pantau riwayat signal valid, result, dan winrate secara transparan.
+                Pantau riwayat sinyal valid dan performa secara transparan.
               </div>
             )}
 
@@ -1348,7 +1348,7 @@ export default function App() {
               ))}
 
               {(!callHistory?.history || callHistory.history.length === 0) && (
-                <div className="emptyHistory">Belum ada CALL valid. History otomatis muncul saat signal BUY/SELL CALL.</div>
+                <div className="emptyHistory">Belum ada sinyal utama yang valid. Riwayat akan muncul otomatis saat BUY/SELL valid.</div>
               )}
             </div>
           </section>
@@ -1396,7 +1396,7 @@ export default function App() {
 
           <details className="adminWindow card">
             <summary>
-              <span>Telegram Alert Test</span>
+              <span>Notifikasi Telegram Test</span>
               <small>Kirim test alert premium dengan akses admin dan cooldown anti-spam.</small>
             </summary>
             <div className="adminWindowBody">
@@ -1417,7 +1417,7 @@ export default function App() {
           <details className="adminWindow card">
             <summary>
               <span>SMC AI Alert Test</span>
-              <small>Test format Telegram Strategy B khusus admin. Belum dikirim ke user premium.</small>
+              <small>Test format Telegram Strategi B khusus admin. Belum dikirim ke user premium.</small>
             </summary>
             <div className="adminWindowBody">
               <AdminStrategyBAlertTestPanel adminToken={adminToken} />
@@ -1575,14 +1575,14 @@ function getMarketSessionStatus({ market, mt5Status, m1Count = 0, m15Count = 0 }
       type: "online",
       navLabel: "Live market online",
       feedLabel: "Online",
-      pill: "LIVE MARKET ONLINE",
-      title: "Live market tersambung",
-      description: "Live candle sedang aktif dan dashboard membaca data terbaru.",
+      pill: "MARKET LIVE AKTIF",
+      title: "Market tersambung",
+      description: "Grafik live sedang aktif dan dashboard membaca data terbaru.",
       buttonLabel: "Refresh",
       chartStatusText: "Live session active",
       chartNotice: "",
-      emptyM1Text: "Menunggu live candle M1 dari market engine...",
-      emptyM15Text: "Menunggu live candle M15 dari market engine..."
+      emptyM1Text: "Menunggu data live M1...",
+      emptyM15Text: "Menunggu data live M15..."
     };
   }
 
@@ -1591,35 +1591,35 @@ function getMarketSessionStatus({ market, mt5Status, m1Count = 0, m15Count = 0 }
       type: "session-paused",
       navLabel: "Market session paused",
       feedLabel: hasStoredCandles ? "Session Paused" : "Waiting Session",
-      pill: "MARKET SESSION PAUSED",
-      title: "Market sedang dalam sesi jeda",
+      pill: "SESI MARKET JEDA",
+      title: "Market sedang jeda",
       description: hasStoredCandles
-        ? `Sesi XAU/forex sedang tutup. Dashboard tetap menampilkan candle terakhir dari ${lastText} agar chart masih bisa dibaca. Sistem akan aktif otomatis saat market buka kembali.`
-        : "Sesi XAU/forex sedang tutup dan belum ada candle tersimpan untuk ditampilkan. Sistem akan mengambil data baru otomatis saat market buka kembali.",
+        ? `Sesi XAU/forex sedang tutup. Dashboard tetap menampilkan data terakhir dari ${lastText} agar grafik masih bisa dibaca. Sistem akan aktif otomatis saat market buka kembali.`
+        : "Sesi XAU/forex sedang tutup dan belum ada data grafik untuk ditampilkan. Sistem akan mengambil data baru otomatis saat market buka kembali.",
       buttonLabel: "Cek Data Terakhir",
-      chartStatusText: `Market paused · Last price ${lastPrice}`,
+      chartStatusText: `Market jeda · Harga terakhir ${lastPrice}`,
       chartNotice: hasStoredCandles
-        ? `Market sedang jeda. Chart menampilkan candle terakhir yang tersimpan, bukan candle live baru.`
-        : "Market sedang jeda dan candle terakhir belum tersedia di dashboard ini.",
-      emptyM1Text: "Market sedang jeda. Candle M1 terakhir belum tersedia di dashboard ini.",
-      emptyM15Text: "Market sedang jeda. Candle M15 terakhir belum tersedia di dashboard ini."
+        ? `Market sedang jeda. Grafik menampilkan data terakhir, bukan pergerakan live baru.`
+        : "Market sedang jeda dan data grafik terakhir belum tersedia.",
+      emptyM1Text: "Market sedang jeda. Data M1 terakhir belum tersedia.",
+      emptyM15Text: "Market sedang jeda. Data M15 terakhir belum tersedia."
     };
   }
 
   return {
     type: "reconnecting",
-    navLabel: "Live feed reconnecting",
+    navLabel: "Koneksi market tersambung ulang",
     feedLabel: "Reconnecting",
-    pill: "LIVE MARKET SYNC PAUSED",
-    title: "Sinkronisasi market sedang menunggu koneksi stabil",
-    description: `Data market terakhir masuk ${lastText}. Chart dan riwayat dijeda sementara agar dashboard tidak menampilkan data lama sebagai data terbaru. Sistem akan mencoba tersambung kembali otomatis setiap 60 detik.`,
+    pill: "SINKRON MARKET TERJEDA",
+    title: "Sinkronisasi market menunggu koneksi stabil",
+    description: `Data market terakhir masuk ${lastText}. Grafik dan riwayat dijeda sementara agar dashboard tidak menampilkan data lama sebagai data terbaru. Sistem akan mencoba tersambung kembali otomatis setiap 60 detik.`,
     buttonLabel: "Cek Ulang Sekarang",
-    chartStatusText: "Live feed reconnecting",
+    chartStatusText: "Koneksi market tersambung ulang",
     chartNotice: hasStoredCandles
-      ? "Koneksi live sedang disambungkan ulang. Chart tetap menampilkan candle terakhir yang tersimpan."
-      : "Koneksi live sedang disambungkan ulang. Menunggu candle tersimpan dari market engine.",
-    emptyM1Text: "Menunggu candle M1 dari market engine...",
-    emptyM15Text: "Menunggu candle M15 dari market engine..."
+      ? "Koneksi live sedang disambungkan ulang. Grafik tetap menampilkan data terakhir yang tersimpan."
+      : "Koneksi live sedang disambungkan ulang. Menunggu data grafik terbaru.",
+    emptyM1Text: "Menunggu data M1 terbaru...",
+    emptyM15Text: "Menunggu data M15 terbaru..."
   };
 }
 
@@ -1644,7 +1644,7 @@ function getMt5Status(market) {
     return {
       isStale: true,
       ageMs: Infinity,
-      label: "Market feed preparing",
+      label: "Koneksi market disiapkan",
       lastText: "belum ada data"
     };
   }
@@ -1662,7 +1662,7 @@ function getMt5Status(market) {
     return {
       isStale: true,
       ageMs: Infinity,
-      label: "Market sync checking",
+      label: "Sinkron market dicek",
       lastText: "sedang dicek"
     };
   }
@@ -1674,25 +1674,25 @@ function getMt5Status(market) {
   return {
     isStale,
     ageMs,
-    label: isStale ? "Live feed reconnecting" : "Live market online",
+    label: isStale ? "Koneksi market tersambung ulang" : "Live market online",
     lastText: formatAge(ageMs)
   };
 }
 
 function formatSignalAlertStatus(telegram = {}) {
-  if (telegram?.ok) return "Signal Alert Terkirim";
+  if (telegram?.ok) return "Sinyal Terkirim";
 
   const skipped = String(telegram?.skipped || telegram?.reason || "").toLowerCase();
 
   if (skipped === "not-call-signal") return "Menunggu setup valid";
-  if (skipped === "duplicate-alert") return "Alert sudah dikirim";
-  if (skipped === "cooldown-active") return "Alert cooldown aktif";
-  if (skipped === "telegram-bot-token-missing") return "Alert gateway belum aktif";
+  if (skipped === "duplicate-alert") return "Notifikasi sudah dikirim";
+  if (skipped === "cooldown-active") return "Notifikasi jeda sementara";
+  if (skipped === "telegram-bot-token-missing") return "Notifikasi belum aktif";
   if (skipped === "telegram-chat-id-missing") return "Telegram belum terhubung";
-  if (skipped.includes("missing")) return "Alert belum lengkap";
-  if (skipped.includes("error")) return "Alert perlu dicek";
+  if (skipped.includes("missing")) return "Notifikasi belum lengkap";
+  if (skipped.includes("error")) return "Notifikasi perlu dicek";
 
-  return "Signal Alert Standby";
+  return "Sinyal Siaga";
 }
 
 function formatAge(ageMs) {
@@ -1745,11 +1745,11 @@ function TelegramConnectPanel({ user, profile, telegramConnect, onRefresh }) {
       const json = await res.json();
 
       if (!json.ok) {
-        setMessage(json.error || "Gagal menyimpan preferensi Telegram alert.");
+        setMessage(json.error || "Gagal menyimpan pengaturan Telegram.");
         return;
       }
 
-      setMessage("Preferensi Telegram alert berhasil disimpan.");
+      setMessage("Pengaturan Telegram berhasil disimpan.");
       await onRefresh();
     } catch (err) {
       setMessage(err.message || String(err));
@@ -1760,7 +1760,7 @@ function TelegramConnectPanel({ user, profile, telegramConnect, onRefresh }) {
 
   async function generateCode() {
     if (connected) {
-      setMessage("Telegram sudah terhubung. Klik Disconnect dulu kalau ingin membuat kode connect baru.");
+      setMessage("Telegram sudah terhubung. Klik Putuskan dulu kalau ingin membuat kode baru.");
       return;
     }
 
@@ -1777,12 +1777,12 @@ function TelegramConnectPanel({ user, profile, telegramConnect, onRefresh }) {
       const json = await res.json();
 
       if (!json.ok) {
-        setMessage(json.error || "Gagal generate kode Telegram.");
+        setMessage(json.error || "Gagal membuat kode Telegram.");
         return;
       }
 
       const command = json.instruction || `/connect ${json.code}`;
-      setMessage(`Kode baru dibuat. Kode lama otomatis invalid. Tap Copy Command lalu paste ke bot Telegram: ${command}`);
+      setMessage(`Kode baru dibuat. Kode lama otomatis tidak berlaku. Tap Salin Perintah lalu tempel ke bot Telegram: ${command}`);
       await onRefresh();
     } catch (err) {
       setMessage(err.message || String(err));
@@ -1793,15 +1793,15 @@ function TelegramConnectPanel({ user, profile, telegramConnect, onRefresh }) {
 
   async function copyCommand() {
     if (!commandText) {
-      setMessage("Generate kode dulu, baru command bisa dicopy.");
+      setMessage("Buat kode dulu, baru perintah bisa disalin.");
       return;
     }
 
     try {
       await navigator.clipboard.writeText(commandText);
-      setMessage(`Command berhasil dicopy: ${commandText}`);
+      setMessage(`Perintah berhasil disalin: ${commandText}`);
     } catch {
-      setMessage(`Copy manual command ini: ${commandText}`);
+      setMessage(`Salin manual perintah ini: ${commandText}`);
     }
   }
 
@@ -1819,11 +1819,11 @@ function TelegramConnectPanel({ user, profile, telegramConnect, onRefresh }) {
       const json = await res.json();
 
       if (!json.ok) {
-        setMessage(json.error || "Gagal disconnect Telegram.");
+        setMessage(json.error || "Gagal memutus Telegram.");
         return;
       }
 
-      setMessage("Telegram disconnected.");
+      setMessage("Telegram berhasil diputus.");
       await onRefresh();
     } catch (err) {
       setMessage(err.message || String(err));
@@ -1839,11 +1839,11 @@ function TelegramConnectPanel({ user, profile, telegramConnect, onRefresh }) {
       <div className="telegramConnectHeader">
         <div>
           <span className="pill mini"><Bot size={14} /> TELEGRAM ALERT</span>
-          <h3>{connected ? "Telegram Alert Aktif" : "Connect Telegram Alert"}</h3>
+          <h3>{connected ? "Notifikasi Telegram Aktif" : "Hubungkan Notifikasi Telegram"}</h3>
           <p>
             {connected
-              ? "Akun Telegram sudah terhubung. Main Signal dan Result Alert otomatis aktif. Kamu bisa matikan manual kalau tidak ingin menerima notifikasi."
-              : "Hubungkan akun dashboard ke bot Telegram agar alert premium masuk langsung ke chat kamu."}
+              ? "Akun Telegram sudah terhubung. Sinyal utama dan update hasil otomatis aktif. Kamu bisa matikan manual kapan saja."
+              : "Hubungkan akun ke bot Telegram agar notifikasi premium langsung masuk ke chat kamu."}
           </p>
         </div>
         <div className={`telegramStatusBadge ${connected ? "connected" : ""}`}>
@@ -1854,18 +1854,18 @@ function TelegramConnectPanel({ user, profile, telegramConnect, onRefresh }) {
       {!connected && (
         <>
           <div className="telegramSecurityWarning">
-            <b>⚠️ Security Note</b>
-            <span>Jangan bagikan connect code ke siapa pun. Kode ini hanya untuk akun Telegram milik kamu.</span>
-            <span>Kode aktif 15 menit, sekali pakai, dan kode lama otomatis invalid saat kamu generate kode baru.</span>
+            <b>⚠️ Catatan Keamanan</b>
+            <span>Jangan bagikan kode hubung ke siapa pun. Kode ini hanya untuk akun Telegram kamu.</span>
+            <span>Kode aktif 15 menit, sekali pakai, dan kode lama otomatis tidak berlaku saat kamu membuat kode baru.</span>
           </div>
 
           <div className="telegramConnectSteps">
-            <b>Cara connect:</b>
-            <span>1. Klik <b>Generate Connect Code</b>.</span>
-            <span>2. Klik <b>Copy Command</b>.</span>
+            <b>Cara menghubungkan:</b>
+            <span>1. Klik <b>Buat Kode Telegram</b>.</span>
+            <span>2. Klik <b>Salin Perintah</b>.</span>
             <span>3. Buka bot Telegram XAU AI.</span>
-            <span>4. Paste command, contoh <code>/connect XAU-123456</code>.</span>
-            <span>5. Balik ke dashboard lalu klik <b>Refresh Status</b>.</span>
+            <span>4. Tempel perintah, contoh <code>/connect XAU-123456</code>.</span>
+            <span>5. Kembali ke dashboard lalu klik <b>Cek Status</b>.</span>
           </div>
         </>
       )}
@@ -1874,12 +1874,12 @@ function TelegramConnectPanel({ user, profile, telegramConnect, onRefresh }) {
         <div className="telegramConnectedSummary">
           <div className="telegramConnectedIcon">✓</div>
           <div>
-            <b>Telegram siap menerima alert premium</b>
-            <span>Chat ID: {telegramConnect?.telegramChatId || "-"}</span>
-            <small>Default setelah connect: Main Signal ON dan Result Alert ON.</small>
+            <b>Telegram siap menerima notifikasi premium</b>
+            <span>Akun Telegram: {telegramConnect?.telegramChatId || "-"}</span>
+            <small>Default setelah terhubung: Sinyal Utama ON dan Update Hasil ON.</small>
           </div>
           <div className="telegramConnectedMeta">
-            <small>Premium Alert</small>
+            <small>Notifikasi Premium</small>
             <strong>{anyAlertEnabled ? "ON" : "OFF"}</strong>
           </div>
         </div>
@@ -1887,20 +1887,20 @@ function TelegramConnectPanel({ user, profile, telegramConnect, onRefresh }) {
         <div className="telegramConnectGrid">
           <div className="telegramConnectBox">
             <span>Status</span>
-            <b>Belum connect</b>
-            <small>Generate kode lalu kirim command ke bot Telegram.</small>
+            <b>Belum terhubung</b>
+            <small>Buat kode lalu kirim perintah ke bot Telegram.</small>
           </div>
 
           <div className="telegramConnectBox">
-            <span>Connect Code</span>
+            <span>Kode Telegram</span>
             <b>{telegramConnect?.telegramCode || "-"}</b>
             <small>{telegramConnect?.telegramCodeExpiresAt ? `Expired: ${formatShortDateTime(telegramConnect.telegramCodeExpiresAt)} · sekali pakai` : "Kode aktif 15 menit dan sekali pakai."}</small>
           </div>
 
           <div className="telegramConnectBox commandBox">
-            <span>Command ke Bot</span>
+            <span>Perintah ke Bot</span>
             <b>{displayCommand}</b>
-            <small>{commandText ? "Tap Copy Command, lalu paste ke bot Telegram." : "Generate kode dulu untuk membuat command asli."}</small>
+            <small>{commandText ? "Tap Salin Perintah, lalu tempel ke bot Telegram." : "Buat kode dulu untuk membuat perintah asli."}</small>
           </div>
         </div>
       )}
@@ -1908,8 +1908,8 @@ function TelegramConnectPanel({ user, profile, telegramConnect, onRefresh }) {
       {connected && (
         <div className="telegramAlertPrepPanel">
           <div>
-            <b>Premium Alert Preferences</b>
-            <span>Alert otomatis aktif setelah Telegram connected. Matikan toggle hanya kalau kamu tidak ingin menerima notifikasi.</span>
+            <b>Notifikasi Premium Preferences</b>
+            <span>Notifikasi otomatis aktif setelah Telegram terhubung. Matikan hanya kalau kamu tidak ingin menerima notifikasi.</span>
           </div>
           <div className="telegramAlertToggleGrid">
             <button
@@ -1918,7 +1918,7 @@ function TelegramConnectPanel({ user, profile, telegramConnect, onRefresh }) {
               onClick={() => updateAlertPreference({ mainSignal: !mainSignalAlert, result: resultAlert })}
               disabled={busy}
             >
-              Main Signal Alert: {mainSignalAlert ? "ON" : "OFF"}
+              Sinyal Utama: {mainSignalAlert ? "ON" : "OFF"}
             </button>
             <button
               type="button"
@@ -1926,10 +1926,10 @@ function TelegramConnectPanel({ user, profile, telegramConnect, onRefresh }) {
               onClick={() => updateAlertPreference({ mainSignal: mainSignalAlert, result: !resultAlert })}
               disabled={busy}
             >
-              Result Alert: {resultAlert ? "ON" : "OFF"}
+              Update Hasil: {resultAlert ? "ON" : "OFF"}
             </button>
           </div>
-          <small>Kalau Main Signal Alert OFF, kamu tidak akan menerima sinyal otomatis. Kalau Result Alert OFF, kamu tidak akan menerima update WIN / LOSS / EXPIRED. Pengumuman resmi dari XAU AI tetap dikelola terpisah.</small>
+          <small>Kalau Sinyal Utama OFF, kamu tidak akan menerima sinyal otomatis. Kalau Update Hasil OFF, kamu tidak akan menerima kabar Menang / Kalah / Kedaluwarsa. Pengumuman resmi XAU AI tetap bisa dikirim terpisah.</small>
         </div>
       )}
 
@@ -1939,27 +1939,27 @@ function TelegramConnectPanel({ user, profile, telegramConnect, onRefresh }) {
         {!connected && (
           <>
             <button type="button" onClick={generateCode} disabled={busy}>
-              {busy ? "Loading..." : "Generate Connect Code"}
+              {busy ? "Loading..." : "Generate Kode Telegram"}
             </button>
             <button type="button" className="copyBtn" onClick={copyCommand} disabled={busy || !commandText}>
-              <Copy size={16} /> Copy Command
+              <Copy size={16} /> Salin Perintah
             </button>
           </>
         )}
         <button type="button" onClick={onRefresh} disabled={busy}>
-          Refresh Status
+          Cek Status
         </button>
         {connected && (
           <button type="button" className="danger" onClick={disconnectTelegram} disabled={busy}>
-            Disconnect
+            Putuskan
           </button>
         )}
       </div>
 
       <p className="miniNote">
         {connected
-          ? "Alert ON berarti Telegram akan menerima notifikasi premium sesuai toggle. Kalau OFF, sinyal/result tidak dikirim ke Telegram akun ini."
-          : "Setelah status aktif, Main Signal Alert dan Result Alert otomatis ON. Kamu bisa matikan manual nanti."}
+          ? "Jika ON, Telegram akan menerima notifikasi premium sesuai pengaturan. Jika OFF, sinyal atau update hasil tidak dikirim ke akun Telegram ini."
+          : "Setelah aktif, Sinyal Utama dan Update Hasil otomatis ON. Kamu bisa mematikannya kapan saja."}
       </p>
     </section>
   );
@@ -2057,7 +2057,7 @@ function AdminStrategyControlCenter({ adminToken }) {
       key: "mainSignalAlert",
       title: "Main Signal Alert",
       mode: controls.mainSignalAlert ? "ON untuk premium user" : "OFF global",
-      desc: "Master switch untuk alert Strategy A / Main Signal. User tetap harus Telegram ON agar menerima alert."
+      desc: "Master switch untuk alert Strategi A / Main Signal. User tetap harus Telegram ON agar menerima alert."
     },
     {
       key: "mainSignalResultAlert",
@@ -2069,7 +2069,7 @@ function AdminStrategyControlCenter({ adminToken }) {
       key: "m1ScalpTracking",
       title: "M1 Scalp Mode",
       mode: controls.m1ScalpTracking ? "Tracking ON" : "Tracking OFF",
-      desc: "Mode M1 Scalp tetap dipisahkan dari Strategy A. Toggle ini untuk kontrol tracking/eksperimen."
+      desc: "Mode M1 Scalp tetap dipisahkan dari Strategi A. Toggle ini untuk kontrol tracking/eksperimen."
     },
     {
       key: "m1ScalpResultTracking",
@@ -2079,9 +2079,9 @@ function AdminStrategyControlCenter({ adminToken }) {
     },
     {
       key: "strategyBLiveBacktest",
-      title: "SMC AI Live Backtest",
+      title: "SMC AI Uji Live",
       mode: controls.strategyBLiveBacktest ? "Live-backtest ON" : "Live-backtest OFF",
-      desc: "Jika OFF, SMC AI tidak menyimpan CALL baru ke Strategy B History."
+      desc: "Jika OFF, SMC AI tidak menyimpan CALL baru ke Strategi B History."
     },
     {
       key: "strategyBAdminAlert",
@@ -2191,7 +2191,7 @@ function AdminTelegramTestPanel({ adminToken }) {
     <section className="adminTelegramTestPanel">
       <div className="adminTelegramTestHeader">
         <span className="pill mini"><Radio size={14} /> SECURE TEST</span>
-        <h3>Telegram Premium Alert Test</h3>
+        <h3>Telegram Notifikasi Premium Test</h3>
         <p>Endpoint test sekarang dilindungi kode admin, hanya menerima request POST, dan memiliki cooldown anti-spam.</p>
       </div>
 
@@ -2354,8 +2354,8 @@ function AdminStrategyBAlertTestPanel({ adminToken }) {
     <section className="adminTelegramTestPanel smcAlertTestPanel">
       <div className="adminTelegramTestHeader">
         <span className="pill mini"><Target size={14} /> SMC AI TEST</span>
-        <h3>SMC AI Telegram Alert Test</h3>
-        <p>Test format alert Strategy B ke Telegram admin. Auto admin alert SMC AI juga aktif saat CALL asli, tapi tetap tidak dikirim ke user premium.</p>
+        <h3>SMC AI Notifikasi Telegram Test</h3>
+        <p>Test format alert Strategi B ke Telegram admin. Auto admin alert SMC AI juga aktif saat CALL asli, tapi tetap tidak dikirim ke user premium.</p>
       </div>
 
       <div className="adminTelegramTestGrid resultAlertTestGrid">
@@ -2387,7 +2387,7 @@ function AdminStrategyBAlertTestPanel({ adminToken }) {
         </button>
       </div>
 
-      <p className="miniNote">Test ini hanya untuk cek format Telegram Strategy B. SMC AI auto admin alert hanya untuk monitoring internal. Live alert ke user premium belum diaktifkan.</p>
+      <p className="miniNote">Test ini hanya untuk cek format Telegram Strategi B. SMC AI auto admin alert hanya untuk monitoring internal. Live alert ke user premium belum diaktifkan.</p>
     </section>
   );
 }
@@ -2439,7 +2439,7 @@ function AdminStrategyBResultAlertTestPanel({ adminToken }) {
       <div className="adminTelegramTestHeader">
         <span className="pill mini"><Target size={14} /> SMC RESULT TEST</span>
         <h3>SMC AI Result Alert Test</h3>
-        <p>Test format result WIN, LOSS, dan EXPIRED untuk Strategy B. Auto result asli SMC AI juga dikirim ke Telegram admin/global, sementara user premium belum menerima alert ini.</p>
+        <p>Test format result WIN, LOSS, dan EXPIRED untuk Strategi B. Auto result asli SMC AI juga dikirim ke Telegram admin/global, sementara user premium belum menerima alert ini.</p>
       </div>
 
       <div className="adminTelegramTestGrid resultAlertTestGrid">
@@ -3076,7 +3076,7 @@ function getRoleStatusLabel(user) {
 }
 
 function formatTelegramAlertPrefs(user) {
-  if (!user?.telegramConnected || !user?.telegramChatId) return "Belum connect";
+  if (!user?.telegramConnected || !user?.telegramChatId) return "Belum terhubung";
   const main = user.telegramAlertMainSignal !== false ? "Main ON" : "Main OFF";
   const result = user.telegramAlertResult !== false ? "Result ON" : "Result OFF";
   return `${main} · ${result}`;
@@ -3205,7 +3205,7 @@ function ResultTrackerPrepPanel({ callHistory, scalpHistory, market, signal, isA
   const callItems = callHistory?.history || [];
   const scalpItems = scalpHistory?.history || [];
   const allItems = [
-    ...callItems.map((item) => ({ ...item, trackerType: "MAIN CALL" })),
+    ...callItems.map((item) => ({ ...item, trackerType: "SINYAL UTAMA" })),
     ...scalpItems.map((item) => ({ ...item, trackerType: "SCALP M1" }))
   ];
   const runningItems = allItems.filter((item) => isOpenResult(item)).slice(0, 5);
@@ -3345,7 +3345,7 @@ function CronHealthMonitor({ cronHealth, onRefresh }) {
         </div>
         <div>
           <small>Source</small>
-          <strong>MT5/VPS Live Feed</strong>
+          <strong>Koneksi Market Utama</strong>
           <span>Bybit used: {bybitLabel}</span>
         </div>
       </div>
@@ -3384,8 +3384,8 @@ function PerformanceAnalyticsPanel({ callHistory, scalpHistory, isAdmin }) {
   const scalp30 = buildPerformanceStats(scalpItems, 30);
 
   const best = pickBestPerformance([
-    { label: "MAIN CALL 7D", ...call7 },
-    { label: "MAIN CALL 30D", ...call30 },
+    { label: "SINYAL UTAMA 7D", ...call7 },
+    { label: "SINYAL UTAMA 30D", ...call30 },
     { label: "SCALP M1 7D", ...scalp7 },
     { label: "SCALP M1 30D", ...scalp30 }
   ]);
@@ -3396,18 +3396,18 @@ function PerformanceAnalyticsPanel({ callHistory, scalpHistory, isAdmin }) {
         <div>
           <span className="pill mini">PERFORMANCE ANALYTICS</span>
           <h3>Analytics 7/30 Hari</h3>
-          <span>Ringkasan performa dari Auto Result Engine: WIN / LOSS / BE / EXPIRED. Signal RUNNING tidak masuk hitungan winrate.</span>
+          <span>Ringkasan performa dari hasil terbaru. Sinyal yang masih berjalan tidak masuk hitungan winrate.</span>
         </div>
         <div className="performanceHighlight">
-          <small>Best Snapshot</small>
+          <small>Highlight Terbaik</small>
           <b>{best ? `${best.label} · ${best.cleanWinRate}% Clean WR` : "Waiting data"}</b>
           {best ? <span>{best.wins} WIN dari {best.closed} closed · {best.expired} expired</span> : <span>Menunggu result tertutup.</span>}
         </div>
       </div>
 
       <div className="performanceGrid">
-        <PerformanceCard title="MAIN CALL" period="7 Hari" stats={call7} />
-        <PerformanceCard title="MAIN CALL" period="30 Hari" stats={call30} />
+        <PerformanceCard title="SINYAL UTAMA" period="7 Hari" stats={call7} />
+        <PerformanceCard title="SINYAL UTAMA" period="30 Hari" stats={call30} />
         <PerformanceCard title="SCALP M1" period="7 Hari" stats={scalp7} />
         <PerformanceCard title="SCALP M1" period="30 Hari" stats={scalp30} />
       </div>
@@ -3425,7 +3425,7 @@ function PerformanceAnalyticsPanel({ callHistory, scalpHistory, isAdmin }) {
 
       {isAdmin && (
         <div className="performanceAdminNote">
-          Analytics otomatis mengikuti result terbaru dari Auto Result Engine dan Auto Result Cron. Pastikan cron tetap aktif agar WIN / LOSS / EXPIRED selalu sinkron.
+          Analisis otomatis mengikuti hasil terbaru. Pastikan sinkron hasil tetap aktif agar Menang / Kalah / Kedaluwarsa selalu terbaru.
         </div>
       )}
     </section>
@@ -3604,7 +3604,7 @@ function buildPerformanceSummary(call7, call30, scalp7, scalp30) {
   const parts = [];
 
   if (call7.closed > 0 || call7.expired > 0) {
-    parts.push(`MAIN CALL 7D Clean WR ${call7.cleanWinRate}% · ${call7.wins}W/${call7.losses}L/${call7.be}BE · ${call7.expired} EXP`);
+    parts.push(`SINYAL UTAMA 7D Clean WR ${call7.cleanWinRate}% · ${call7.wins}W/${call7.losses}L/${call7.be}BE · ${call7.expired} EXP`);
   }
 
   if (scalp7.closed > 0 || scalp7.expired > 0) {
@@ -3613,10 +3613,10 @@ function buildPerformanceSummary(call7, call30, scalp7, scalp30) {
 
   if (!parts.length) {
     if (call30.closed || call30.expired || scalp30.closed || scalp30.expired) {
-      return `Data 7 hari masih tipis. 30D: MAIN CALL ${call30.cleanWinRate}% Clean WR (${call30.expired} EXP), SCALP M1 ${scalp30.cleanWinRate}% Clean WR (${scalp30.expired} EXP).`;
+      return `Data 7 hari masih tipis. 30D: SINYAL UTAMA ${call30.cleanWinRate}% Clean WR (${call30.expired} EXP), SCALP M1 ${scalp30.cleanWinRate}% Clean WR (${scalp30.expired} EXP).`;
     }
 
-    return "Analytics akan makin akurat setelah Auto Result Engine mengumpulkan result WIN / LOSS / BE / EXPIRED.";
+    return "Analisis akan makin akurat setelah sistem mengumpulkan hasil Menang / Kalah / BE / Kedaluwarsa.";
   }
 
   return parts.join(" · ");
@@ -4239,7 +4239,7 @@ function LandingPage({ onLogin }) {
           <div className="landingLogo">X</div>
           <div>
             <b>XAU AI Signal</b>
-            <span>Gold Market Scanner</span>
+            <span>Asisten Market Gold</span>
           </div>
         </div>
 
@@ -4248,29 +4248,29 @@ function LandingPage({ onLogin }) {
           <a href="#pricing">Paket</a>
           <a href="#faq">FAQ</a>
           <div className="landingFooterActions">
-          <a href={ADMIN_CONTACT_URL} target="_blank" rel="noreferrer">Hubungi Admin</a>
-          <button type="button" onClick={onLogin}>Login / Register</button>
+          <a href={ADMIN_CONTACT_URL} target="_blank" rel="noreferrer">Hubungi Support</a>
+          <button type="button" onClick={onLogin}>Masuk / Daftar</button>
         </div>
         </div>
       </nav>
 
       <section className="landingHero">
         <div className="landingHeroText">
-          <span className="pill mini">PREMIUM XAUUSD ASSISTANT</span>
-          <h1>Dashboard signal XAUUSD dengan alert Telegram premium.</h1>
+          <span className="pill mini">ASISTEN PREMIUM XAUUSD</span>
+          <h1>Dashboard sinyal XAUUSD dengan notifikasi Telegram premium.</h1>
           <p>
             XAU AI Signal membantu memantau market gold dengan kombinasi market structure,
-            EMA 9/20, M1 scalping radar, Fresh OB M15, dan history performa signal.
+            EMA 9/20, M1 scalping radar, Area M15 Fresh, dan history performa signal.
           </p>
 
           <div className="landingCta">
-            <button type="button" onClick={onLogin}>Mulai Login / Register</button>
-            <a href={ADMIN_CONTACT_URL} target="_blank" rel="noreferrer">Hubungi Admin</a>
+            <button type="button" onClick={onLogin}>Mulai Masuk / Daftar</button>
+            <a href={ADMIN_CONTACT_URL} target="_blank" rel="noreferrer">Hubungi Support</a>
             <a href="#features">Lihat Fitur</a>
           </div>
 
           <div className="landingTrust">
-            <span>Telegram Alert</span>
+            <span>Notifikasi Telegram</span>
             <span>M1 Scalp Radar</span>
             <span>CALL History</span>
           </div>
@@ -4278,12 +4278,12 @@ function LandingPage({ onLogin }) {
 
         <div className="landingHeroCard">
           <div className="heroSignalTop">
-            <span>MAIN CALL PREVIEW</span>
-            <b>AI Market Scanner</b>
+            <span>PREVIEW SINYAL UTAMA</span>
+            <b>Pemantau Market AI</b>
           </div>
 
           <div className="heroSignalBox">
-            <small>Signal Mode</small>
+            <small>Mode Sinyal</small>
             <strong>BUY / SELL CALL</strong>
             <p>Valid saat konfirmasi utama terpenuhi.</p>
           </div>
@@ -4291,47 +4291,47 @@ function LandingPage({ onLogin }) {
           <div className="heroSignalGrid">
             <div><small>Trend</small><b>EMA 9/20</b></div>
             <div><small>Momentum</small><b>RSI + MFI</b></div>
-            <div><small>Area</small><b>Fresh OB M15</b></div>
+            <div><small>Area</small><b>Area M15 Fresh</b></div>
             <div><small>Alert</small><b>Telegram</b></div>
           </div>
         </div>
       </section>
 
       <section className="landingStats">
-        <div><b>MAIN CALL</b><span>Signal utama berbasis konfirmasi</span></div>
-        <div><b>M1 SCALP</b><span>Radar scalping struktur M1</span></div>
-        <div><b>M15 OB</b><span>Fresh order block monitoring</span></div>
-        <div><b>History</b><span>Winrate & result transparan</span></div>
+        <div><b>SINYAL UTAMA</b><span>Signal utama berbasis konfirmasi</span></div>
+        <div><b>SCALP M1</b><span>Radar scalping struktur M1</span></div>
+        <div><b>AREA M15</b><span>Pantauan area penting M15</span></div>
+        <div><b>History</b><span>Winrate & hasil transparan</span></div>
       </section>
 
       <section className="landingSection" id="features">
         <div className="landingSectionTitle">
           <span className="pill mini">FITUR PREMIUM</span>
-          <h2>Apa yang user dapat?</h2>
+          <h2>Apa yang kamu dapat?</h2>
           <p>Dashboard dibuat untuk membaca kondisi market secara cepat tanpa harus bolak-balik cek banyak indikator.</p>
         </div>
 
         <div className="landingFeatureGrid">
-          <LandingFeature title="MAIN CALL Alert" text="Signal BUY/SELL CALL saat kondisi utama sudah valid." />
+          <LandingFeature title="SINYAL UTAMA Alert" text="Notifikasi BUY/SELL saat kondisi utama sudah valid." />
           <LandingFeature title="M1 Scalp Radar" text="Pantau setup scalping M1 dengan support/resistance, engulfing, dan arah EMA." />
-          <LandingFeature title="Fresh OB M15" text="Monitoring demand/supply fresh order block untuk area penting market." />
-          <LandingFeature title="Telegram Alert" text="User premium bisa connect Telegram untuk menerima alert langsung." />
-          <LandingFeature title="Live Chart" text="Chart M1/M15, EMA 9/20, area struktur, dan market status." />
-          <LandingFeature title="Performance History" text="Riwayat signal valid, result, dan winrate untuk evaluasi transparan." />
+          <LandingFeature title="Area M15 Fresh" text="Monitoring demand/supply fresh order block untuk area penting market." />
+          <LandingFeature title="Notifikasi Telegram" text="User premium bisa connect Telegram untuk menerima alert langsung." />
+          <LandingFeature title="Grafik Live" text="Chart M1/M15, EMA 9/20, area struktur, dan market status." />
+          <LandingFeature title="Riwayat Performa" text="Riwayat signal valid, result, dan winrate untuk evaluasi transparan." />
         </div>
       </section>
 
       <section className="landingSection landingHow">
         <div className="landingSectionTitle">
           <span className="pill mini">CARA KERJA</span>
-          <h2>Simple untuk user premium</h2>
+          <h2>Mudah untuk user premium</h2>
         </div>
 
         <div className="landingSteps">
           <div><b>1</b><span>Daftar / login akun</span></div>
-          <div><b>2</b><span>Aktifkan premium via admin</span></div>
-          <div><b>3</b><span>Connect Telegram Alert</span></div>
-          <div><b>4</b><span>Pantau signal dan history</span></div>
+          <div><b>2</b><span>Aktifkan premium lewat support</span></div>
+          <div><b>3</b><span>Hubungkan Notifikasi Telegram</span></div>
+          <div><b>4</b><span>Pantau sinyal dan riwayat</span></div>
         </div>
       </section>
 
@@ -4339,7 +4339,7 @@ function LandingPage({ onLogin }) {
         <div className="landingSectionTitle">
           <span className="pill mini">PAKET BETA</span>
           <h2>Pilih paket premium</h2>
-          <p>Paket beta hemat untuk akses dashboard premium. Aktivasi premium diproses manual oleh admin.</p>
+          <p>Paket beta hemat untuk akses dashboard premium. Aktivasi premium diproses manual oleh tim XAU AI.</p>
         </div>
 
         <div className="pricingGrid">
@@ -4359,10 +4359,10 @@ function LandingPage({ onLogin }) {
           </div>
           <div className="priceCard">
             <span>Beta</span>
-            <h3>Manual Access</h3>
+            <h3>Akses Manual</h3>
             <b>Admin</b>
-            <p>Aktivasi manual setelah pembayaran atau konfirmasi admin.</p>
-            <a href={ADMIN_CONTACT_URL} target="_blank" rel="noreferrer">Chat Admin</a>
+            <p>Aktivasi manual setelah pembayaran atau konfirmasi support.</p>
+            <a href={ADMIN_CONTACT_URL} target="_blank" rel="noreferrer">Chat Support</a>
           </div>
         </div>
       </section>
@@ -4371,9 +4371,9 @@ function LandingPage({ onLogin }) {
 
       <section className="landingSection manualPaymentSection" id="payment">
         <div className="landingSectionTitle">
-          <span className="pill mini">MANUAL PAYMENT</span>
+          <span className="pill mini">PEMBAYARAN MANUAL</span>
           <h2>Cara aktivasi premium</h2>
-          <p>Pilih paket di atas, lakukan pembayaran, lalu kirim bukti bayar ke admin. Premium akan diaktifkan manual setelah pembayaran dikonfirmasi.</p>
+          <p>Pilih paket di atas, lakukan pembayaran, lalu kirim bukti bayar ke support. Premium akan diaktifkan manual setelah pembayaran dikonfirmasi.</p>
         </div>
 
         <div className="activationPaymentBox">
@@ -4381,9 +4381,9 @@ function LandingPage({ onLogin }) {
             <b>Alur Aktivasi:</b>
             <span>1. Register akun dan verifikasi email.</span>
             <span>2. Pilih paket 7 Day atau 30 Day.</span>
-            <span>3. Transfer / minta QRIS ke admin.</span>
+            <span>3. Transfer / minta QRIS ke support.</span>
             <span>4. Kirim email akun + bukti bayar.</span>
-            <span>5. Admin aktifkan premium, lalu kamu bisa login dashboard.</span>
+            <span>5. Support mengaktifkan premium, lalu kamu bisa masuk dashboard.</span>
           </div>
 
           <div className="paymentMethodCard compactPayment">
@@ -4396,9 +4396,9 @@ function LandingPage({ onLogin }) {
       </section>
 
       <section className="landingDisclaimer">
-        <b>Risk Disclaimer</b>
+        <b>Catatan Risiko</b>
         <p>
-          XAU AI Signal adalah market scanner dan trading assistant, bukan jaminan profit.
+          XAU AI Signal adalah alat bantu baca market dan asisten trading, bukan jaminan profit.
           Trading XAUUSD memiliki risiko tinggi. Gunakan risk management, batasi lot, dan pastikan keputusan trading tetap berdasarkan tanggung jawab masing-masing user.
         </p>
       </section>
@@ -4412,11 +4412,11 @@ function LandingPage({ onLogin }) {
         <div className="faqGrid">
           <details open>
             <summary>Apakah ini auto trade?</summary>
-            <p>Bukan. Ini dashboard scanner dan alert. Eksekusi tetap manual oleh user.</p>
+            <p>Bukan. Ini dashboard scanner dan alert. Eksekusi tetap manual oleh kamu.</p>
           </details>
           <details>
             <summary>Apakah pasti profit?</summary>
-            <p>Tidak. Market gold sangat volatil. Signal membantu membaca setup, bukan menjamin hasil.</p>
+            <p>Tidak. Market gold sangat volatil. Sinyal membantu membaca setup, bukan menjamin hasil.</p>
           </details>
           <details>
             <summary>Apakah ada Telegram alert?</summary>
@@ -4424,7 +4424,7 @@ function LandingPage({ onLogin }) {
           </details>
           <details>
             <summary>Bagaimana aktivasi premium?</summary>
-            <p>Daftar akun, hubungi admin, lalu premium akan diaktifkan sesuai paket.</p>
+            <p>Daftar akun, hubungi support, lalu premium akan diaktifkan sesuai paket.</p>
           </details>
         </div>
       </section>
@@ -4432,9 +4432,9 @@ function LandingPage({ onLogin }) {
       <footer className="landingFooter">
         <div>
           <b>XAU AI Signal</b>
-          <span>AI market scanner untuk XAUUSD.</span>
+          <span>Asisten market AI untuk XAUUSD.</span>
         </div>
-        <button type="button" onClick={onLogin}>Login / Register</button>
+        <button type="button" onClick={onLogin}>Masuk / Daftar</button>
       </footer>
     </main>
   );
@@ -4528,7 +4528,7 @@ function AuthScreen({ onBack }) {
           {resetMode
             ? "Masukkan email akun kamu. Link reset password akan dikirim lewat email."
             : mode === "login"
-              ? "Login dulu buat akses dashboard premium, MAIN CALL, M1 Scalp Radar, Fresh OB M15, dan history signal."
+              ? "Login dulu buat akses dashboard premium, SINYAL UTAMA, M1 Scalp Radar, Area M15 Fresh, dan history signal."
               : "Buat akun dulu, lalu verifikasi email untuk lanjut ke premium access."}
         </p>
 
@@ -4775,11 +4775,11 @@ function PaywallScreen({ user, profile, onLogout }) {
         <div className="premiumFeatures">
           <b>Premium unlock:</b>
           <span>✅ Live dashboard XAU AI</span>
-          <span>✅ MAIN CALL Alert</span>
+          <span>✅ SINYAL UTAMA Alert</span>
           <span>✅ M1 Scalp Radar</span>
-          <span>✅ Fresh OB M15</span>
+          <span>✅ Area M15 Fresh</span>
           <span>✅ CALL & SCALP History</span>
-          <span>✅ Performance Analytics 7/30 Hari</span>
+          <span>✅ Analisis Performa 7/30 Hari</span>
         </div>
 
         <div className="paywallPaymentBox">
@@ -4792,7 +4792,7 @@ function PaywallScreen({ user, profile, onLogout }) {
         </div>
 
         <div className="paywallActions">
-          <a href={ADMIN_CONTACT_URL} target="_blank" rel="noreferrer">Hubungi Admin</a>
+          <a href={ADMIN_CONTACT_URL} target="_blank" rel="noreferrer">Hubungi Support</a>
           <button type="button" onClick={copyActivationInfo}>Copy Info Aktivasi</button>
           <button type="button" onClick={submitPaymentOrder} disabled={isSubmittingOrder || localOrderPending}>
             {isSubmittingOrder ? "Membuat Order..." : localOrderPending ? "Order Pending" : "Konfirmasi Pembayaran"}
@@ -5194,7 +5194,7 @@ function formatSignedPercent(value) {
 function StrategyComparePanel({ callHistory, scalpHistory, strategyBHistory }) {
   const strategyAItems = (callHistory?.history || []).map((item) => ({
     ...item,
-    compareSource: "MAIN CALL"
+    compareSource: "SINYAL UTAMA"
   }));
   const scalpItems = (scalpHistory?.history || []).map((item) => ({
     ...item,
@@ -5210,9 +5210,9 @@ function StrategyComparePanel({ callHistory, scalpHistory, strategyBHistory }) {
   const b30 = buildCompareStats(strategyBItems, 30, 2);
   const insight = buildStrategyCompareInsight3Way(a7, a30, scalp7, scalp30, b7, b30);
   const cards = [
-    { key: "main", title: "Strategy A", subtitle: "Main Signal Only", stats7: a7, stats30: a30, tone: "a" },
+    { key: "main", title: "Strategi A", subtitle: "Sinyal Utama Saja", stats7: a7, stats30: a30, tone: "a" },
     { key: "scalp", title: "M1 Scalp", subtitle: "Mode terpisah · SR + EMA", stats7: scalp7, stats30: scalp30, tone: "scalp" },
-    { key: "smc", title: "Strategy B", subtitle: "SMC AI · OB → Sweep → CHOCH → EMA", stats7: b7, stats30: b30, tone: "b" }
+    { key: "smc", title: "Strategi B", subtitle: "SMC AI · OB → Sweep → CHOCH → EMA", stats7: b7, stats30: b30, tone: "b" }
   ];
 
   return (
@@ -5220,8 +5220,8 @@ function StrategyComparePanel({ callHistory, scalpHistory, strategyBHistory }) {
       <div className="sectionTitle">
         <div>
           <span className="pill mini"><BarChart3 size={14} /> STRATEGY LAB</span>
-          <h3>3-Way Strategy Compare</h3>
-          <span>Panel ini membandingkan Main Signal, M1 Scalp, dan SMC AI secara terpisah agar statistik tidak tercampur.</span>
+          <h3>Perbandingan 3 Mode</h3>
+          <span>Panel ini membandingkan Sinyal Utama, Scalp M1, dan SMC AI secara terpisah agar statistik tidak tercampur.</span>
         </div>
         <div className="strategyCompareBadge">
           <b>{insight.badge}</b>
@@ -5261,8 +5261,8 @@ function StrategyComparePanel({ callHistory, scalpHistory, strategyBHistory }) {
 
       <div className="strategyCompareNote">
         <b>Mode tetap terpisah</b>
-        <span>Main Signal tetap Strategy A. M1 Scalp tetap mode terpisah. SMC AI tetap Strategy B live-backtest. Panel ini hanya untuk membandingkan performa, bukan menggabungkan strategi.</span>
-        <em>Data 30D: Main {a30.total} signal · Scalp {scalp30.total} signal · SMC {b30.total} signal</em>
+        <span>Sinyal Utama tetap Strategi A. Scalp M1 tetap mode terpisah. SMC AI tetap Strategi B dalam uji live. Panel ini hanya untuk membandingkan performa, bukan menggabungkan strategi.</span>
+        <em>Data 30H: Utama {a30.total} sinyal · Scalp {scalp30.total} sinyal · SMC {b30.total} sinyal</em>
       </div>
     </section>
   );
@@ -5287,7 +5287,7 @@ function StrategyCompareCard({ title, subtitle, stats7, stats30, tone }) {
         <span>Expired <b>{stats30.expired}</b></span>
         <span>Avg RR <b>{stats30.averageRR}</b></span>
       </div>
-      <p>{stats30.total ? `${stats30.wins} WIN · ${stats30.losses} LOSS · ${stats30.be} BE · ${stats30.expired} EXP dalam 30 hari.` : "Menunggu data result 30 hari."}</p>
+      <p>{stats30.total ? `${stats30.wins} WIN · ${stats30.losses} LOSS · ${stats30.be} BE · ${stats30.expired} EXP dalam 30 hari.` : "Menunggu data hasil 30 hari."}</p>
     </div>
   );
 }
@@ -5340,11 +5340,11 @@ function buildStrategyCompareRows3Way(a, scalp, b) {
       note: compareBest3Way(a.cleanWinRate, scalp.cleanWinRate, b.cleanWinRate, "Clean WR")
     },
     {
-      metric: "Total Signal",
+      metric: "Total Sinyal",
       a: String(a.total),
       scalp: String(scalp.total),
       b: String(b.total),
-      note: b.total < 5 ? "SMC AI masih butuh data lebih banyak." : "Sample Strategy B mulai bisa dibandingkan."
+      note: b.total < 5 ? "SMC AI masih butuh data lebih banyak." : "Sample Strategi B mulai bisa dibandingkan."
     },
     {
       metric: "Average RR",
@@ -5394,7 +5394,7 @@ function buildStrategyCompareInsight3Way(a7, a30, scalp7, scalp30, b7, b30) {
   if (b30.total < 5) {
     return {
       badge: "SMC AI Testing",
-      short: "Data Strategy B masih tipis",
+      short: "Data Strategi B masih tipis",
       detail: `SMC AI baru punya ${b30.total} signal 30D. Main Signal dan M1 Scalp tetap jadi pembanding sambil SMC AI live-backtest mengumpulkan data.`
     };
   }
@@ -5411,7 +5411,7 @@ function buildStrategyCompareInsight3Way(a7, a30, scalp7, scalp30, b7, b30) {
     return {
       badge: "Scalp aktif",
       short: "M1 paling aktif",
-      detail: `M1 Scalp paling aktif dengan ${scalp30.total} signal 30D dan Clean WR ${scalp30.cleanWinRate}%. Tetap pisahkan dari Strategy A agar statistik utama tidak tercampur.`
+      detail: `M1 Scalp paling aktif dengan ${scalp30.total} signal 30D dan Clean WR ${scalp30.cleanWinRate}%. Tetap pisahkan dari Strategi A agar statistik utama tidak tercampur.`
     };
   }
 
@@ -5444,7 +5444,7 @@ function StrategyBSmcPanel({ strategyB, strategyBHistory, isAdmin, onUpdateResul
   const smc30d = smcWindows.d30 || smcStats;
   const smcBest = smcStats?.bestSnapshot || {
     title: "Waiting data",
-    detail: "SMC AI belum punya closed signal yang cukup untuk snapshot."
+    detail: "SMC AI belum punya data selesai yang cukup untuk highlight."
   };
 
   return (
@@ -5459,7 +5459,7 @@ function StrategyBSmcPanel({ strategyB, strategyBHistory, isAdmin, onUpdateResul
       </div>
 
       <div className="strategyBNotice">
-        Strategy B berjalan paralel sebagai eksperimen/live-backtest. Strategy A tidak diubah, tidak diganti, dan statistiknya tetap terpisah.
+        Strategi B berjalan paralel sebagai eksperimen/live-backtest. Strategi A tidak diubah, tidak diganti, dan statistiknya tetap terpisah.
       </div>
 
       <div className="scalpGrid strategyBGrid">
@@ -5467,7 +5467,7 @@ function StrategyBSmcPanel({ strategyB, strategyBHistory, isAdmin, onUpdateResul
         <Metric label="Stop Loss" value={strategyB?.sl || "-"} note="BUY: Sweep Low - 1.5 ATR · SELL: Sweep High + 1.5 ATR" />
         <Metric label="Take Profit" value={strategyB?.tp || "-"} note={`RR tetap ${strategyB?.rr || "1:2"}`} />
         <Metric label="Direction" value={direction} note="Arah kandidat terbaik dari SMC AI" />
-        <Metric label="Mode" value="Live Backtest" note="Belum menggantikan Strategy A" />
+        <Metric label="Mode" value="Uji Live" note="Belum menggantikan Strategi A" />
       </div>
 
       <div className="strategyBFlow card">
@@ -5503,8 +5503,8 @@ function StrategyBSmcPanel({ strategyB, strategyBHistory, isAdmin, onUpdateResul
         <div className="sectionTitle">
           <div>
             <span className="pill mini"><Clock size={14} /> SMC AI LIVE BACKTEST</span>
-            <h3>Strategy B History</h3>
-            <span>History ini terpisah dari Strategy A. Auto Result Tracker ikut memantau WIN / LOSS / EXPIRED dari live feed MT5/VPS, tanpa Telegram live alert dulu.</span>
+            <h3>Strategi B History</h3>
+            <span>History ini terpisah dari Strategi A. Auto Result Tracker ikut memantau WIN / LOSS / EXPIRED dari live feed MT5/VPS, tanpa Telegram live alert dulu.</span>
           </div>
           <div className="historyStats smcStats">
             <b>Total {smcStats.total || 0}</b>
@@ -5523,8 +5523,8 @@ function StrategyBSmcPanel({ strategyB, strategyBHistory, isAdmin, onUpdateResul
             <p>{smcBest.detail}</p>
           </div>
           <div className="strategyBAnalyticsSource">
-            <b>MT5/VPS Live Feed</b>
-            <span>Auto Result SMC AI tetap memakai live feed utama, bukan Bybit test feed.</span>
+            <b>Koneksi Market Utama</b>
+            <span>Hasil SMC AI tetap memakai koneksi market utama, bukan data cadangan.</span>
           </div>
         </div>
 
@@ -5534,11 +5534,11 @@ function StrategyBSmcPanel({ strategyB, strategyBHistory, isAdmin, onUpdateResul
         </div>
 
         <div className="strategyBStatsGrid">
-          <Metric label="Average RR" value={smcStats.averageRR || "-"} note="All-time reward/risk dari closed signal" />
+          <Metric label="Average RR" value={smcStats.averageRR || "-"} note="Rata-rata reward/risk dari sinyal selesai" />
           <Metric label="Average TP" value={smcStats.averageTP || "-"} note="All-time rata-rata jarak TP SMC AI" />
           <Metric label="Average SL" value={smcStats.averageSL || "-"} note="All-time rata-rata jarak SL SMC AI" />
           <Metric label="Profit Factor" value={smcStats.profitFactor || "-"} note="All-time estimasi gross reward vs risk" />
-          <Metric label="Auto Result" value="MT5/VPS" note="Result SMC AI dipantau dari live feed utama, bukan Bybit" />
+          <Metric label="Auto Result" value="MT5/VPS" note="Hasil SMC AI dipantau dari koneksi market utama" />
         </div>
 
         <div className="historyTable strategyBHistoryTable">
@@ -5573,7 +5573,7 @@ function StrategyBSmcPanel({ strategyB, strategyBHistory, isAdmin, onUpdateResul
           ))}
 
           {smcHistory.length === 0 && (
-            <div className="emptyHistory">Belum ada CALL BUY/SELL dari SMC AI. History akan muncul otomatis saat OB → Sweep → CHOCH → EMA lengkap.</div>
+            <div className="emptyHistory">Belum ada BUY/SELL dari SMC AI. Riwayat akan muncul otomatis saat OB → Sweep → CHOCH → EMA lengkap.</div>
           )}
         </div>
       </section>
@@ -5599,7 +5599,7 @@ function StrategyBWindowStats({ title, stats }) {
         <span>Avg RR <b>{safe.averageRR || 0}</b></span>
         <span>PF <b>{safe.profitFactor || 0}</b></span>
       </div>
-      <p>Signal RUNNING tidak masuk hitungan Clean WR. EXPIRED dihitung di Total WR supaya live-backtest SMC AI tetap jujur.</p>
+      <p>Sinyal berjalan tidak masuk hitungan winrate bersih. Kedaluwarsa tetap dihitung agar uji live SMC AI jujur.</p>
     </div>
   );
 }
@@ -5629,11 +5629,11 @@ function SignalQualityGuardPanel({ guard }) {
         <div>
           <span className="pill mini"><Shield size={14} /> SIGNAL QUALITY GUARD V2</span>
           <h3>{guard.label || "Market Safety Check"}</h3>
-          <p>{guard.message || "Guard memantau kualitas signal sebelum CALL."}</p>
+          <p>{guard.message || "Quality Guard memantau kualitas setup sebelum sinyal valid."}</p>
         </div>
         <div className={`qualityGuardScore ${tone}`}>
           <b>{guard.score ?? 0}%</b>
-          <span>{guard.decision === "CALL_ALLOWED" ? "CALL allowed" : "CALL guarded"}</span>
+          <span>{guard.decision === "CALL_ALLOWED" ? "Sinyal diizinkan" : "Sinyal ditahan"}</span>
         </div>
       </div>
 
