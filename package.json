@@ -1,6 +1,6 @@
 {
-  "name": "xau-ai-signal-step10ae2-move-strategy-lab-to-history",
-  "version": "7.23.2-step10ae2-move-strategy-lab-to-history",
+  "name": "xau-ai-signal-step10af-smc-ai-telegram-alert-test-mode",
+  "version": "7.24.0-step10af-smc-ai-telegram-alert-test-mode",
   "type": "module",
   "scripts": {
     "dev": "vite",

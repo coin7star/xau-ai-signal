@@ -5413,3 +5413,18 @@ canvas {
   font-weight: 900;
   font-size: 12px;
 }
+
+/* Step 10AF - SMC AI Telegram Alert Test Mode */
+.smcAlertTestPanel {
+  border-color: rgba(103, 232, 249, 0.18);
+}
+.smcAlertTestActions button.win {
+  background: linear-gradient(135deg, rgba(34, 255, 170, 0.22), rgba(59, 130, 246, 0.14));
+  color: #a7f3d0;
+  border-color: rgba(34, 255, 170, 0.28);
+}
+.smcAlertTestActions button.loss {
+  background: linear-gradient(135deg, rgba(255, 77, 109, 0.22), rgba(168, 85, 247, 0.14));
+  color: #fecdd3;
+  border-color: rgba(255, 77, 109, 0.28);
+}

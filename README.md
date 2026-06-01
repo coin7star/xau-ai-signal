@@ -398,3 +398,9 @@ Dashboard sekarang membedakan kondisi market tutup/weekend dengan koneksi live y
 - Panel Compare Strategy A vs Strategy B dipindah ke tab History.
 - Tab SMC AI dibuat lebih fokus ke live setup Strategy B.
 - Logic signal tidak diubah.
+
+
+## Step 10AF - SMC AI Telegram Alert Test Mode
+- Menambahkan panel Admin untuk test format Telegram Strategy B / SMC AI.
+- Test BUY dan SELL dikirim hanya ke global/admin Telegram chat.
+- Tidak mengubah history SMC AI dan belum dikirim ke user premium.

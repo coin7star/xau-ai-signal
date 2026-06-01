@@ -1406,6 +1406,16 @@ export default function App() {
 
           <details className="adminWindow card">
             <summary>
+              <span>SMC AI Alert Test</span>
+              <small>Test format Telegram Strategy B khusus admin. Belum dikirim ke user premium.</small>
+            </summary>
+            <div className="adminWindowBody">
+              <AdminStrategyBAlertTestPanel adminToken={adminToken} />
+            </div>
+          </details>
+
+          <details className="adminWindow card">
+            <summary>
               <span>Backup Market Engine</span>
               <small>Monitor koneksi market cadangan dan guard status.</small>
             </summary>
@@ -2108,6 +2118,89 @@ function AdminResultAlertTestPanel({ adminToken }) {
     </section>
   );
 }
+
+function AdminStrategyBAlertTestPanel({ adminToken }) {
+  const [message, setMessage] = useState("");
+  const [sendingType, setSendingType] = useState("");
+  const [lastResult, setLastResult] = useState(null);
+
+  async function sendSmcAlertTest(direction) {
+    if (!adminToken) {
+      setMessage("Isi kode admin dulu sebelum kirim SMC AI test alert.");
+      return;
+    }
+
+    try {
+      setSendingType(direction);
+      setMessage(`Mengirim SMC AI ${direction} test alert...`);
+
+      const res = await fetch("/api/strategy-b-alert-test", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${adminToken}`
+        },
+        body: JSON.stringify({ direction, source: "admin-dashboard" })
+      });
+
+      const data = await res.json().catch(() => ({}));
+
+      if (!res.ok || !data.ok) {
+        const retryText = data.retryAfterSec ? ` Coba lagi sekitar ${data.retryAfterSec} detik.` : "";
+        throw new Error(`${data.error || "Gagal mengirim SMC AI test alert."}${retryText}`);
+      }
+
+      setLastResult({ direction: data.direction || direction, sentAt: data.sentAt || new Date().toISOString() });
+      setMessage(data.message || `SMC AI ${direction} test alert berhasil dikirim ke Telegram admin.`);
+    } catch (err) {
+      setMessage(err?.message || "Gagal mengirim SMC AI test alert.");
+    } finally {
+      setSendingType("");
+    }
+  }
+
+  return (
+    <section className="adminTelegramTestPanel smcAlertTestPanel">
+      <div className="adminTelegramTestHeader">
+        <span className="pill mini"><Target size={14} /> SMC AI TEST</span>
+        <h3>SMC AI Telegram Alert Test</h3>
+        <p>Test format alert Strategy B ke Telegram admin. Ini hanya test mode, tidak mengubah history SMC AI dan tidak dikirim ke user premium.</p>
+      </div>
+
+      <div className="adminTelegramTestGrid resultAlertTestGrid">
+        <div>
+          <small>Mode</small>
+          <b>Admin Test Only</b>
+          <span>SMC AI masih live-backtest, belum signal utama.</span>
+        </div>
+        <div>
+          <small>Receiver</small>
+          <b>Global Admin Chat</b>
+          <span>Menggunakan TELEGRAM_CHAT_ID, bukan multi-user premium.</span>
+        </div>
+        <div>
+          <small>Terakhir test</small>
+          <b>{lastResult ? `SMC ${lastResult.direction}` : "Belum ada"}</b>
+          <span>{lastResult?.sentAt ? formatShortDateTime(lastResult.sentAt) : "Pilih tombol BUY / SELL."}</span>
+        </div>
+      </div>
+
+      {message && <div className="adminMessage">{message}</div>}
+
+      <div className="resultAlertTestActions smcAlertTestActions">
+        <button type="button" className="win" onClick={() => sendSmcAlertTest("BUY")} disabled={Boolean(sendingType) || !adminToken}>
+          🟢 {sendingType === "BUY" ? "Mengirim..." : "Test SMC BUY"}
+        </button>
+        <button type="button" className="loss" onClick={() => sendSmcAlertTest("SELL")} disabled={Boolean(sendingType) || !adminToken}>
+          🔴 {sendingType === "SELL" ? "Mengirim..." : "Test SMC SELL"}
+        </button>
+      </div>
+
+      <p className="miniNote">Test ini hanya untuk cek format Telegram Strategy B. SMC AI live alert ke user premium belum diaktifkan.</p>
+    </section>
+  );
+}
+
 
 function AdminPanel({ adminToken, setAdminToken }) {
   const [users, setUsers] = useState([]);
