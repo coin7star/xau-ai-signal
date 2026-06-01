@@ -4935,23 +4935,25 @@ function clearTradePlanLines(linesRef) {
 function addTradePlanLines(series, linesRef, mainM5) {
   clearTradePlanLines(linesRef);
 
-  const entry = Number(mainM5?.entry || 0);
+  const action = String(mainM5?.action || "WAIT");
+  const preview = mainM5?.preview || {};
+  const isPlan = ["BUY_LIMIT", "SELL_LIMIT", "READY_BUY", "READY_SELL"].includes(action);
+  const entry = Number((isPlan ? mainM5?.entry : preview?.entry) || 0);
   const sl = Number(mainM5?.sl || 0);
   const tp = Number(mainM5?.tp || 0);
-  const action = String(mainM5?.action || "WAIT");
-  const direction = String(mainM5?.direction || "WAIT");
+  const direction = String((isPlan ? mainM5?.direction : preview?.direction) || "WAIT");
 
-  if (!["BUY_LIMIT", "SELL_LIMIT", "READY_BUY", "READY_SELL"].includes(action)) return;
+  if (!isPlan && !preview?.active) return;
   if (!Number.isFinite(entry) || entry <= 0) return;
 
   const newLines = [];
   const entryLine = series.createPriceLine({
     price: entry,
     color: direction === "BUY" ? "#22c55e" : "#ef4444",
-    lineWidth: 2,
-    lineStyle: 0,
+    lineWidth: isPlan ? 2 : 1,
+    lineStyle: isPlan ? 0 : 1,
     axisLabelVisible: true,
-    title: `${direction || "PLAN"} LIMIT · EMA9`
+    title: isPlan ? `${direction || "PLAN"} LIMIT · EMA9` : `${direction || "WAIT"} PREVIEW · EMA9`
   });
   newLines.push({ series, line: entryLine });
 
