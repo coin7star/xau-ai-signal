@@ -359,3 +359,11 @@ Dashboard sekarang membedakan kondisi market tutup/weekend dengan koneksi live y
 - Flow SMC AI: Fresh OB M15 → Sweep M1 → CHOCH M1 → EMA 9/20 M1.
 - RSI dan MFI menjadi confidence booster, bukan syarat wajib.
 - Dashboard mendapat tab baru SMC AI.
+
+
+## Step 10AB - Strategy B SMC AI History & Live Backtest
+- Strategy B `SMC AI` sekarang punya history live-backtest terpisah di `/xauusd/strategyB/history`.
+- Hanya CALL BUY/SELL valid dari alur OB → Sweep → CHOCH → EMA yang disimpan.
+- Strategy A tidak diubah dan statistiknya tetap terpisah.
+- Ditambahkan anti duplicate 15 menit untuk mencegah SMC AI menyimpan signal yang sama berulang.
+- Dashboard tab SMC AI menampilkan history, WR, average RR, average TP/SL, dan profit factor sederhana.

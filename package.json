@@ -1,6 +1,6 @@
 {
-  "name": "xau-ai-signal-step10aa-strategy-b-smc-ai-engine-prep",
-  "version": "7.19.0-step10aa-strategy-b-smc-ai-engine-prep",
+  "name": "xau-ai-signal-step10ab-strategy-b-history-live-backtest",
+  "version": "7.20.0-step10ab-strategy-b-history-live-backtest",
   "type": "module",
   "scripts": {
     "dev": "vite",

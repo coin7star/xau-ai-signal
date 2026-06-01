@@ -16,12 +16,14 @@ export async function onRequest({ env }) {
   const telegram = await maybeSendTelegramAlert(env, dbUrl, signal, market);
   const callHistory = await maybeSaveCallHistory(env, dbUrl, signal, market);
   const scalpHistory = await maybeSaveScalpHistory(env, dbUrl, signal, market);
+  const strategyBHistory = await maybeSaveStrategyBHistory(env, dbUrl, signal, market);
 
   return json({
     ...signal,
     telegram,
     callHistory,
-    scalpHistory
+    scalpHistory,
+    strategyBHistory
   });
 }
 
@@ -1275,6 +1277,101 @@ async function maybeSaveScalpHistory(env, dbUrl, signal, market) {
   await trimFirebaseList(dbUrl, "/xauusd/scalpHistory", 50);
 
   return { ok: true, scalpId };
+}
+
+
+async function maybeSaveStrategyBHistory(env, dbUrl, signal, market) {
+  if (!dbUrl) return { ok: false, skipped: "firebase-env-missing" };
+
+  const strategyB = signal.strategyB || signal.strategy?.strategyB || null;
+  const isValid = strategyB?.action === "CALL_BUY" || strategyB?.action === "CALL_SELL";
+  if (!isValid) return { ok: false, skipped: "strategy-b-not-call" };
+
+  const direction = strategyB.action === "CALL_BUY" ? "BUY" : "SELL";
+  const entry = Number(strategyB.entry || signal.entry || market?.bid || 0);
+  const candleKey = signal.candleTime || market?.serverTime || market?.receivedAt || new Date().toISOString();
+  const baseId = [
+    market?.symbol || signal.pair || "XAUUSD",
+    "STRATEGY_B_SMC_AI",
+    direction,
+    candleKey
+  ]
+    .join("_")
+    .replaceAll(" ", "_")
+    .replaceAll(":", "-")
+    .replaceAll(".", "-")
+    .replaceAll("/", "-");
+
+  const existing = await fbGet(dbUrl, `/xauusd/strategyB/history/${baseId}`);
+  if (existing?.id === baseId) return { ok: true, skipped: "duplicate-strategy-b", strategyBId: baseId };
+
+  const raw = await fbGet(dbUrl, "/xauusd/strategyB/history");
+  const recent = Object.values(raw || {})
+    .filter(Boolean)
+    .sort((a, b) => String(b.createdAt || "").localeCompare(String(a.createdAt || "")))
+    .slice(0, 20);
+
+  const duplicateWindowMs = 15 * 60 * 1000;
+  const now = Date.now();
+  const nearDuplicate = recent.find((item) => {
+    const itemTime = new Date(item.createdAt || item.candleTime || 0).getTime();
+    const sameDirection = item.signal === direction || item.direction === direction;
+    const entryDistance = Math.abs(Number(item.entry || 0) - entry);
+    return sameDirection && Number.isFinite(itemTime) && (now - itemTime) <= duplicateWindowMs && entryDistance <= 0.8;
+  });
+
+  if (nearDuplicate?.id) {
+    return { ok: true, skipped: "near-duplicate-strategy-b", strategyBId: nearDuplicate.id };
+  }
+
+  const payload = {
+    id: baseId,
+    type: "STRATEGY_B_SMC_AI",
+    strategyKey: "strategyB",
+    strategyName: "SMC AI",
+    mode: "LIVE_BACKTEST_ONLY",
+    pair: market?.symbol || signal.pair || "XAUUSD",
+    signal: direction,
+    direction,
+    action: strategyB.action,
+    label: strategyB.label || `SMC AI ${direction}`,
+    entry: round(entry),
+    sl: round(strategyB.sl || 0),
+    tp: round(strategyB.tp || 0),
+    rr: strategyB.rr || "1:2",
+    confidence: strategyB.confidence || 0,
+    score: strategyB.confidence || 0,
+    reason: strategyB.reason || "",
+    candleTime: signal.candleTime || null,
+    serverTime: market?.serverTime || null,
+    createdAt: new Date().toISOString(),
+    status: "OPEN",
+    result: null,
+    closedAt: null,
+    note: "Strategy B live-backtest only. Tidak mempengaruhi Strategy A.",
+    smcSnapshot: {
+      checklist: strategyB.checklist || [],
+      blockers: strategyB.blockers || [],
+      active: strategyB.active || null,
+      buy: strategyB.buy || null,
+      sell: strategyB.sell || null,
+      indicators: strategyB.indicators || null
+    },
+    statsSnapshot: {
+      freshOb: Boolean(strategyB.active?.ob),
+      sweep: Boolean(strategyB.active?.sweep?.valid),
+      choch: Boolean(strategyB.active?.choch?.valid),
+      ema: Boolean(strategyB.active?.ema),
+      rsi: strategyB.indicators?.rsi ?? null,
+      mfi: strategyB.indicators?.mfi ?? null,
+      atr: strategyB.indicators?.atr ?? null
+    }
+  };
+
+  await fbPut(dbUrl, `/xauusd/strategyB/history/${baseId}`, payload);
+  await trimFirebaseList(dbUrl, "/xauusd/strategyB/history", 80);
+
+  return { ok: true, strategyBId: baseId };
 }
 
 async function trimFirebaseList(dbUrl, path, maxItems = 50) {

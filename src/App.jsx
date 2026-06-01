@@ -237,6 +237,7 @@ export default function App() {
   const [aiAnalysis, setAiAnalysis] = useState(null);
   const [callHistory, setCallHistory] = useState({ stats: null, history: [] });
   const [scalpHistory, setScalpHistory] = useState({ stats: null, history: [] });
+  const [strategyBHistory, setStrategyBHistory] = useState({ stats: null, history: [] });
   const [adminToken, setAdminToken] = useState(() => localStorage.getItem("xau_admin_token") || "");
   const [loading, setLoading] = useState(false);
   const [lastUpdate, setLastUpdate] = useState("-");
@@ -256,21 +257,27 @@ export default function App() {
     try {
       setLoading(true);
 
-      const requests = [
-        fetch(`/api/market?mode=${includeChart ? "chart&m1=90&m15=60" : "lite"}&ts=${Date.now()}`, { cache: "no-store" }).then((r) => r.json()),
-        fetch(`/api/signal?ts=${Date.now()}`, { cache: "no-store" }).then((r) => r.json()),
-        fetch(`/api/ai-analysis?ts=${Date.now()}`, { cache: "no-store" }).then((r) => r.json())
-      ];
+      const marketPromise = fetch(`/api/market?mode=${includeChart ? "chart&m1=90&m15=60" : "lite"}&ts=${Date.now()}`, { cache: "no-store" }).then((r) => r.json());
+      const signalPromise = fetch(`/api/signal?ts=${Date.now()}`, { cache: "no-store" }).then((r) => r.json());
+      const aiPromise = fetch(`/api/ai-analysis?ts=${Date.now()}`, { cache: "no-store" }).then((r) => r.json());
+      const historyPromise = includeHistory
+        ? fetch(`/api/call-history?ts=${Date.now()}`, { cache: "no-store" }).then((r) => r.json()).catch(() => ({ stats: null, history: [] }))
+        : Promise.resolve(null);
+      const scalpHistoryPromise = includeScalpHistory
+        ? fetch(`/api/scalp-history?ts=${Date.now()}`, { cache: "no-store" }).then((r) => r.json()).catch(() => ({ stats: null, history: [] }))
+        : Promise.resolve(null);
+      const strategyBHistoryPromise = includeScalpHistory
+        ? fetch(`/api/strategy-b-history?ts=${Date.now()}`, { cache: "no-store" }).then((r) => r.json()).catch(() => ({ stats: null, history: [] }))
+        : Promise.resolve(null);
 
-      if (includeHistory) {
-        requests.push(fetch(`/api/call-history?ts=${Date.now()}`, { cache: "no-store" }).then((r) => r.json()).catch(() => ({ stats: null, history: [] })));
-      }
-
-      if (includeScalpHistory) {
-        requests.push(fetch(`/api/scalp-history?ts=${Date.now()}`, { cache: "no-store" }).then((r) => r.json()).catch(() => ({ stats: null, history: [] })));
-      }
-
-      const [marketJson, signalJson, aiJson, historyJson, scalpHistoryJson] = await Promise.all(requests);
+      const [marketJson, signalJson, aiJson, historyJson, scalpHistoryJson, strategyBHistoryJson] = await Promise.all([
+        marketPromise,
+        signalPromise,
+        aiPromise,
+        historyPromise,
+        scalpHistoryPromise,
+        strategyBHistoryPromise
+      ]);
 
       setMarket((previous) => {
         if (includeChart) return marketJson;
@@ -291,6 +298,10 @@ export default function App() {
 
       if (includeScalpHistory && scalpHistoryJson) {
         setScalpHistory(scalpHistoryJson);
+      }
+
+      if (includeScalpHistory && strategyBHistoryJson) {
+        setStrategyBHistory(strategyBHistoryJson);
       }
 
       setLastUpdate(new Date().toLocaleTimeString("id-ID"));
@@ -376,6 +387,10 @@ export default function App() {
     return loadData({ includeChart: false, includeScalpHistory: true });
   }
 
+  async function loadStrategyBHistoryData() {
+    return loadData({ includeChart: false, includeScalpHistory: true });
+  }
+
 
   async function loadCronHealth() {
     setCronHealth((prev) => ({ ...prev, loading: true, error: "" }));
@@ -443,6 +458,33 @@ export default function App() {
       }
 
       await loadScalpHistoryData();
+    } catch (err) {
+      alert(err.message || String(err));
+    }
+  }
+
+
+  async function updateStrategyBResult(id, result) {
+    if (!id) return;
+
+    try {
+      const res = await fetch("/api/strategy-b-history", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          ...(adminToken ? { Authorization: `Bearer ${adminToken}` } : {})
+        },
+        body: JSON.stringify({ id, result, token: adminToken })
+      });
+
+      const json = await res.json();
+
+      if (!json.ok) {
+        alert(json.error || "Gagal update SMC AI result");
+        return;
+      }
+
+      await loadStrategyBHistoryData();
     } catch (err) {
       alert(err.message || String(err));
     }
@@ -1201,7 +1243,12 @@ export default function App() {
       )}
 
       {activeDashboardTab === "smc" && (
-        <StrategyBSmcPanel strategyB={strategyB} />
+        <StrategyBSmcPanel
+          strategyB={strategyB}
+          strategyBHistory={strategyBHistory}
+          isAdmin={isAdmin}
+          onUpdateResult={updateStrategyBResult}
+        />
       )}
 
       {activeDashboardTab === "history" && (
@@ -4765,13 +4812,15 @@ function formatSignedPercent(value) {
 }
 
 
-function StrategyBSmcPanel({ strategyB }) {
+function StrategyBSmcPanel({ strategyB, strategyBHistory, isAdmin, onUpdateResult }) {
   const action = String(strategyB?.action || "WAIT");
   const tone = action.includes("BUY") ? "buy" : action.includes("SELL") ? "sell" : action.includes("READY") ? "ready" : "wait";
   const checks = Array.isArray(strategyB?.checklist) ? strategyB.checklist : [];
   const direction = strategyB?.direction || "WAIT";
   const active = direction === "SELL" ? strategyB?.sell : strategyB?.buy;
   const activeSteps = active?.steps || {};
+  const smcHistory = strategyBHistory?.history || [];
+  const smcStats = strategyBHistory?.stats || {};
 
   return (
     <section className={`strategyBPanel card ${tone}`}>
@@ -4824,6 +4873,67 @@ function StrategyBSmcPanel({ strategyB }) {
           <em>Score {strategyB?.sell?.score || 0}%</em>
         </div>
       </div>
+
+      <section className="strategyBHistory card">
+        <div className="sectionTitle">
+          <div>
+            <span className="pill mini"><Clock size={14} /> SMC AI LIVE BACKTEST</span>
+            <h3>Strategy B History</h3>
+            <span>History ini terpisah dari Strategy A. Hanya CALL BUY/SELL valid dari SMC AI yang disimpan.</span>
+          </div>
+          <div className="historyStats smcStats">
+            <b>Total {smcStats.total || 0}</b>
+            <b>Running {smcStats.open || 0}</b>
+            <b>Win {smcStats.wins || 0}</b>
+            <b>Loss {smcStats.losses || 0}</b>
+            <b>Exp {smcStats.expired || 0}</b>
+            <em>WR {smcStats.winRate || 0}%</em>
+          </div>
+        </div>
+
+        <div className="strategyBStatsGrid">
+          <Metric label="Average RR" value={smcStats.averageRR || "-"} note="Rata-rata reward/risk dari closed signal" />
+          <Metric label="Average TP" value={smcStats.averageTP || "-"} note="Rata-rata jarak TP SMC AI" />
+          <Metric label="Average SL" value={smcStats.averageSL || "-"} note="Rata-rata jarak SL SMC AI" />
+          <Metric label="Profit Factor" value={smcStats.profitFactor || "-"} note="Estimasi sederhana dari WIN vs LOSS" />
+        </div>
+
+        <div className="historyTable strategyBHistoryTable">
+          <div className={`historyHead ${isAdmin ? "adminMode" : "viewerMode"}`}>
+            <span>Time</span>
+            <span>Signal</span>
+            <span>Entry</span>
+            <span>SL / TP</span>
+            <span>Conf</span>
+            <span>Result</span>
+            {isAdmin && <span>Action</span>}
+          </div>
+
+          {smcHistory.slice(0, 12).map((item) => (
+            <div className={`historyRow ${isAdmin ? "adminMode" : "viewerMode"}`} key={item.id}>
+              <span>{formatHistoryTime(item.createdAt || item.candleTime)}</span>
+              <strong className={String(item.signal || "").toLowerCase()}>{item.signal}</strong>
+              <span>{item.entry}</span>
+              <span>{item.sl || "-"} / {item.tp || "-"}</span>
+              <span>{item.confidence ?? item.score ?? "-"}%</span>
+              <span className={`resultBadge ${getResultStatusTone(item)}`}>{formatResultStatus(item)}</span>
+              {isAdmin && (
+                <div className="historyActions">
+                  <button type="button" onClick={() => onUpdateResult?.(item.id, "WIN")}>WIN</button>
+                  <button type="button" onClick={() => onUpdateResult?.(item.id, "LOSS")}>LOSS</button>
+                  <button type="button" onClick={() => onUpdateResult?.(item.id, "BE")}>BE</button>
+                  <button type="button" onClick={() => onUpdateResult?.(item.id, "EXPIRED")}>EXP</button>
+                  <button type="button" onClick={() => onUpdateResult?.(item.id, "OPEN")}>OPEN</button>
+                </div>
+              )}
+            </div>
+          ))}
+
+          {smcHistory.length === 0 && (
+            <div className="emptyHistory">Belum ada CALL BUY/SELL dari SMC AI. History akan muncul otomatis saat OB → Sweep → CHOCH → EMA lengkap.</div>
+          )}
+        </div>
+      </section>
     </section>
   );
 }
