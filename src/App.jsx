@@ -652,13 +652,13 @@ function AppInner() {
   const candlesM1 = Array.isArray(market?.candles) ? market.candles : [];
   const candlesM5 = Array.isArray(market?.candlesM5) ? market.candlesM5 : [];
   const candlesM15 = Array.isArray(market?.candlesM15) ? market.candlesM15 : [];
-  const tvM1 = useMemo(() => candlesToTradingView(candlesM5), [candlesM5]);
+  const tvM1 = useMemo(() => candlesToTradingView(candlesM1), [candlesM1]);
   const tvM15 = useMemo(() => candlesToTradingView(candlesM15), [candlesM15]);
   const lastCandle = candlesM1[candlesM1.length - 1];
   const marketSession = getMarketSessionStatus({
     market,
     mt5Status,
-    m1Count: tvM1.length || market?.m5Count || 0,
+    m1Count: tvM1.length || market?.m1Count || market?.candles?.length || 0,
     m15Count: tvM15.length || market?.m15Count || 0
   });
 
@@ -1124,7 +1124,7 @@ function AppInner() {
       <div className="dataTickerBar slimTicker">
         <div className="tickerTrack">
           <span><Database size={14} /> Koneksi Market: <b>Live Premium</b></span>
-          <span><Activity size={14} /> Grafik M5: <b>{candlesM5.length || market?.m5Count || 0} candle</b></span>
+          <span><Activity size={14} /> Grafik M1: <b>{candlesM1.length || market?.m1Count || 0} candle</b></span>
           <span>{isSell ? <TrendingDown size={14} /> : <TrendingUp size={14} />} Last Price: <b>{lastCandle?.close || "-"}</b></span>
           <span><Radio size={14} /> Status Koneksi: <b>{marketSession.feedLabel}</b></span>
         </div>
@@ -1180,14 +1180,14 @@ function AppInner() {
         <>
           <section className="chartWrap card">
             <div className="sectionTitle">
-              <div><h3>Grafik Candlestick M5</h3><span>{market?.symbol || "XAUUSD"} · M5 · {marketSession.chartStatusText} · Bid {market?.bid || "-"} · Spread {spread}</span></div>
+              <div><h3>Grafik Candlestick M1</h3><span>{market?.symbol || "XAUUSD"} · Visual M1 · Strategi tetap M5 · {marketSession.chartStatusText} · Bid {market?.bid || "-"} · Spread {spread}</span></div>
               <div className="legend">
                 <b><i className="bullDot"></i> Bullish</b>
                 <b><i className="bearDot"></i> Bearish</b>
                 <b><i className="ema9Dot"></i> EMA 9</b>
                 <b><i className="ema20Dot"></i> EMA 20</b>
                 <b><i className="entryDot"></i> Entry / TP / SL</b>
-                <em><span></span> Scan cepat 12d · Grafik sinkron 45d</em>
+                <em><span></span> Visual M1 · Entry/TP/SL tetap dari setup M5</em>
               </div>
             </div>
             {marketSession.chartNotice && <div className={`chartSessionNotice ${marketSession.type}`}>{marketSession.chartNotice}</div>}
