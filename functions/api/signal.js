@@ -134,7 +134,7 @@ export function buildSignal(candles, candlesM15, market) {
   }
 
   if (finalSignal === "WAIT") {
-    reasons.push(mainM5.blocker || "Menunggu EMA 9/20 M5 break lalu koreksi ke EMA 9.");
+    reasons.push(mainM5.blocker || "Menunggu EMA 9/20 M5 valid lalu engulfing close di area EMA 9/20.");
   }
 
   const score = Math.max(buyScore, sellScore);
@@ -713,7 +713,7 @@ function buildMainM5LimitReason(data = {}) {
   if (action === "READY_BUY") return blocker || "EMA bullish sudah aktif. Menunggu bullish engulfing M5 di area EMA untuk BUY LIMIT.";
   if (action === "READY_SELL") return blocker || "EMA bearish sudah aktif. Menunggu bearish engulfing M5 di area EMA untuk SELL LIMIT.";
   if (cross?.type === "NONE") return "Menunggu EMA 9 break EMA 20 di M5.";
-  if (!touchedEma9) return blocker || "Menunggu harga koreksi ke EMA 9 M5.";
+  if (!touchedEma9) return blocker || "Menunggu candle engulfing M5 close valid di area EMA 9/20.";
   return blocker || "Menunggu setup M5 EMA pullback limit yang valid.";
 }
 
@@ -724,14 +724,14 @@ function buildMainM5LimitHumanReason(ctx = {}) {
   const title = isCall ? `${ctx.signalLabel} aktif.` : isReady ? `${ctx.signalLabel} mulai siap.` : "Belum ada limit utama valid.";
   const summary = [
     title,
-    m.reason || "Menunggu EMA 9/20 M5 dan koreksi ke EMA 9.",
+    m.reason || "Menunggu EMA 9/20 M5 dan engulfing valid di area EMA.",
     ctx.qualityGuard?.message ? `Safety: ${ctx.qualityGuard.message}` : ""
   ].filter(Boolean).join(" ");
   return {
     version: "10AO-main-m5-ema-pullback-limit",
     title,
     summary,
-    action: isCall ? "Pantau limit sesuai entry, SL, dan TP. Jangan entry market kalau harga belum sesuai rencana." : "Tunggu EMA break dan koreksi ke EMA 9.",
+    action: isCall ? "Pantau limit sesuai entry, SL, dan TP. Jangan entry market kalau harga belum sesuai rencana." : "Tunggu EMA valid dan engulfing close di area EMA 9/20.",
     direction: m.direction || "WAIT",
     checklist: m.checklist || [],
     blockers: m.blocker ? [m.blocker] : [],
@@ -1001,7 +1001,7 @@ function buildSignalQualityGuardV2(ctx = {}) {
   if (!dataPassed) blockers.push(isMainM5 ? "data candle M5 belum cukup" : "data candle M1/M15 belum cukup");
   if (!volatilityPassed) blockers.push("volatilitas candle/ATR terlalu tinggi");
   if (!confidencePassed) blockers.push("confidence belum cukup untuk CALL");
-  if (!setupPassed) blockers.push(isMainM5 ? "EMA 9/20 M5 dan koreksi ke EMA 9 belum lengkap" : "setup utama belum lengkap");
+  if (!setupPassed) blockers.push(isMainM5 ? "EMA 9/20 M5 dan engulfing area EMA belum lengkap" : "setup utama belum lengkap");
   if (!obPassed) blockers.push(isMainM5 ? "rencana limit belum lengkap" : "OB M15 belum mendukung");
 
   if (spread === null) warnings.push("Spread belum terbaca dari bid/ask.");
@@ -2539,10 +2539,10 @@ function buildTelegramReasonLines(signal, s, c, obText) {
   const lines = [];
   const m = s.mainM5 || null;
   if (m?.mode === "M5_EMA_PULLBACK_LIMIT_MAIN") {
-    lines.push(`• Strategi utama: EMA 9/20 M5 break lalu koreksi ke EMA 9.`);
+    lines.push(`• Strategi utama: EMA 9/20 M5 valid lalu tunggu engulfing di area EMA 9/20.`);
     lines.push(`• Rencana: ${escapeHtml(m.label || signal.signalLabel || "WAIT")}.`);
     if (m.cross?.type && m.cross.type !== "NONE") lines.push(`• EMA break: ${escapeHtml(m.cross.type)} pada M5.`);
-    if (m.correction?.touchedEma9) lines.push(`• Harga sudah koreksi ke area EMA 9.`);
+    if (m.correction?.touchedEma9) lines.push(`• Engulfing sudah muncul di area EMA 9/20.`);
     if (signal.reason) lines.push(`• Catatan AI: ${escapeHtml(String(signal.reason).replace(/\s+/g, " ").trim())}`);
     return lines.slice(0, 5);
   }
@@ -2660,10 +2660,10 @@ function emptyStrategy() {
 }
 
 function buildCrossMessage(signal, emaCross) {
-  if (signal === "BUY") return "BUY LIMIT aktif: EMA 9/20 M5 sudah break dan harga koreksi ke EMA 9.";
-  if (signal === "SELL") return "SELL LIMIT aktif: EMA 9/20 M5 sudah break dan harga koreksi ke EMA 9.";
-  if (signal === "READY_BUY") return "EMA 9 M5 sudah break ke atas EMA 20. Menunggu koreksi ke EMA 9 untuk BUY LIMIT.";
-  if (signal === "READY_SELL") return "EMA 9 M5 sudah break ke bawah EMA 20. Menunggu koreksi ke EMA 9 untuk SELL LIMIT.";
+  if (signal === "BUY") return "BUY LIMIT aktif: bullish engulfing M5 sudah close di area EMA 9/20, entry di open engulfing.";
+  if (signal === "SELL") return "SELL LIMIT aktif: bearish engulfing M5 sudah close di area EMA 9/20, entry di open engulfing.";
+  if (signal === "READY_BUY") return "EMA 9 M5 sudah di atas EMA 20. Menunggu bullish engulfing close di area EMA 9/20 untuk BUY LIMIT.";
+  if (signal === "READY_SELL") return "EMA 9 M5 sudah di bawah EMA 20. Menunggu bearish engulfing close di area EMA 9/20 untuk SELL LIMIT.";
   return `Belum ada limit utama valid. Status EMA: ${emaCross}`;
 }
 

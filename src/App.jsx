@@ -952,15 +952,15 @@ function AppInner() {
       value: humanize(mainM5.cross?.type || signal?.strategy?.emaCross || "WAIT"),
       status: mainM5.direction === "BUY" ? "BULLISH" : mainM5.direction === "SELL" ? "BEARISH" : trendBias,
       note: `EMA9 ${mainM5.ema9 || "-"} · EMA20 ${mainM5.ema20 || "-"}`,
-      detail: "Strategi utama sekarang fokus ke EMA 9/20 M5. Setelah cross, sistem menunggu pullback ke EMA 9 sebelum limit dipasang."
+      detail: "Strategi utama fokus ke EMA 9/20 M5. Setelah arah valid, sistem menunggu engulfing M5 close di area EMA 9/20."
     },
     {
       id: "pullback",
       title: "Koreksi EMA 9",
       value: mainM5.correction?.touchedEma9 ? "SUDAH SENTUH" : "BELUM SENTUH",
       status: mainM5.correction?.touchedEma9 ? "PASS" : "WAIT",
-      note: mainM5.correction?.touchedEma9 ? "Harga sudah menyentuh area EMA 9." : "Menunggu harga retrace ke EMA 9.",
-      detail: "Buy/Sell limit baru valid setelah harga koreksi ke EMA 9 sesuai arah trend hasil cross."
+      note: mainM5.correction?.touchedEma9 ? "Harga sudah menyentuh area EMA 9." : "Menunggu engulfing M5 di area EMA 9/20.",
+      detail: "Buy/Sell limit baru valid setelah candle engulfing M5 close di area EMA 9/20 sesuai arah trend."
     },
     {
       id: "entry",
@@ -968,7 +968,7 @@ function AppInner() {
       value: mainM5.entry ? `${mainM5.direction || "WAIT"} ${mainM5.entry}` : "Belum ada limit",
       status: mainM5.action || "WAIT",
       note: mainM5.reason || "Menunggu setup entry limit valid.",
-      detail: "Saat setup valid, limit dipasang di area EMA 9. Kalau muncul struktur baru sebelum tersentuh, plan lama otomatis expired."
+      detail: "Saat engulfing valid sudah close, limit dipasang di open candle engulfing. Kalau muncul struktur baru sebelum tersentuh, plan lama otomatis expired."
     },
     {
       id: "risk",
