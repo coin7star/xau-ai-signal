@@ -945,54 +945,68 @@ function AppInner() {
     blockers: [],
     indicators: {}
   };
+  const emaTrendSide = Number(mainM5.ema9 || 0) > Number(mainM5.ema20 || 0)
+    ? "Bullish"
+    : Number(mainM5.ema9 || 0) < Number(mainM5.ema20 || 0)
+      ? "Bearish"
+      : "Netral";
+  const actionDisplay = formatPremiumAction(mainM5.action);
+  const setupLabel = formatPremiumStrength(probability.label, probability.score);
+  const closeFilterValid = Boolean(mainM5.correction?.touchedEma9 && mainM5.cross?.type?.includes("CROSS"));
+  const hasEntryPlan = Boolean(mainM5.entry && mainM5.sl && (mainM5.tp2 || mainM5.tp));
+  const checklistText = (mainM5.checklist || [])
+    .slice(0, 4)
+    .map((item) => `${item.name}: ${formatPremiumChecklistStatus(item.status)}`)
+    .join(" · ");
+
   const snapshotRows = [
     {
       id: "ema",
-      title: "EMA 9/20",
-      value: humanize(mainM5.cross?.type || signal?.strategy?.emaCross || "Menunggu"),
-      status: mainM5.direction === "BUY" ? "BULLISH" : mainM5.direction === "SELL" ? "BEARISH" : trendBias,
-      note: `EMA9 ${mainM5.ema9 || "-"} · EMA20 ${mainM5.ema20 || "-"}`,
-      detail: "Sinyal memakai EMA9/EMA20 di M1. Sinyal valid saat EMA9 cross EMA20 dan candle close berada di sisi yang sesuai."
+      title: "Arah EMA M1",
+      value: emaTrendSide,
+      status: "Market saat ini",
+      note: `EMA9 ${mainM5.ema9 || "-"} · EMA20 ${mainM5.ema20 || "-"}. ${emaTrendSide === "Bullish" ? "EMA cepat berada di atas EMA utama." : emaTrendSide === "Bearish" ? "EMA cepat masih berada di bawah EMA utama." : "EMA9 dan EMA20 masih sangat rapat."}`,
+      detail: "Bagian ini hanya membaca posisi EMA saat ini. Sinyal baru tetap harus menunggu EMA9 benar-benar cross EMA20 setelah candle M1 selesai."
     },
     {
       id: "pullback",
-      title: "Validasi Close EMA",
-      value: mainM5.correction?.touchedEma9 ? "VALID" : "Menunggu",
-      status: mainM5.correction?.touchedEma9 ? "Lolos" : "Menunggu",
-      note: mainM5.correction?.touchedEma9 ? "Candle sudah close di sisi EMA9/EMA20 yang valid." : "Menunggu EMA cross dan close candle M1 yang valid.",
-      detail: "BUY valid jika candle close di atas EMA9/EMA20 setelah bullish cross. SELL valid jika candle close di bawah EMA9/EMA20 setelah bearish cross."
+      title: "Validasi Candle Close",
+      value: closeFilterValid ? "Sudah valid" : "Belum valid",
+      status: closeFilterValid ? "Lolos" : "Menunggu",
+      note: closeFilterValid ? "Candle M1 sudah close di sisi EMA yang sesuai dengan arah cross." : "Belum ada candle M1 close yang memenuhi syarat sinyal baru.",
+      detail: "BUY hanya valid jika setelah bullish cross candle close di atas EMA9/EMA20. SELL hanya valid jika setelah bearish cross candle close di bawah EMA9/EMA20."
     },
     {
       id: "entry",
-      title: "Area Entry M1",
-      value: mainM5.entry ? `${mainM5.direction || "Menunggu"} ${mainM5.entry}` : "Belum ada sinyal",
-      status: mainM5.action || "Menunggu",
-      note: mainM5.reason || "Menunggu EMA9 cross EMA20 dan candle close di sisi EMA yang valid.",
-      detail: "Sinyal masuk muncul langsung setelah candle M1 close valid. Batas risiko memakai swing terdekat ±0.1 ATR, target max RR 1:1."
+      title: "Status Entry",
+      value: hasEntryPlan ? `${mainM5.direction} aktif di ${mainM5.entry}` : "Belum ada entry",
+      status: actionDisplay,
+      note: hasEntryPlan ? mainM5.reason || "Sinyal premium aktif." : mainM5.blocker || "Sistem masih menunggu cross EMA M1 yang benar-benar valid.",
+      detail: "Kalau belum ada entry, sistem hanya memantau market dan belum mengirim sinyal open posisi."
     },
     {
       id: "risk",
       title: "Target & Risiko",
-      value: mainM5.tp2 && mainM5.sl ? `TP1 ${mainM5.tp1 || "-"} · Target Max ${mainM5.tp2} · Risiko ${mainM5.sl}` : "- / -",
-      status: mainM5.rr || "Partial",
-      note: "TP1 setengah target → amankan BE · Target Max RR 1:1",
-      detail: "Sinyal memakai close candle M1 saat EMA9 cross EMA20 dan harga close di sisi kedua EMA. Risiko memakai swing M1 terdekat ±0.1 ATR. TP1 berada di tengah target, lalu posisi diamankan ke BE."
+      value: hasEntryPlan ? `TP1 ${mainM5.tp1 || "-"} · Target Max ${mainM5.tp2 || mainM5.tp} · SL ${mainM5.sl}` : "Belum tersedia",
+      status: hasEntryPlan ? "Siap dipantau" : "Menunggu entry",
+      note: hasEntryPlan ? "TP1 berada di tengah target. Jika TP1 tersentuh, posisi diamankan ke BE." : "Target dan batas risiko baru muncul setelah sinyal entry aktif.",
+      detail: "Target Max memakai RR 1:1 dari jarak entry ke SL. SL memakai swing M1 terdekat dengan buffer 0.1 ATR."
     },
     {
       id: "probability",
       title: "Kekuatan Setup",
-      value: `${probability.score || 0}% · ${probability.label || "LOW"}`,
-      status: probability.label || "LOW",
-      note: (mainM5.checklist || []).map((item) => `${item.name}: ${item.status}`).join(" · ") || "Menunggu penilaian setup.",
-      detail: "Kekuatan setup mengikuti rule EMA Cross M1. Semakin lengkap checklist cross EMA, close filter, dan risk plan, semakin tinggi peluangnya."
+      value: `${probability.score || 0}% · ${setupLabel}`,
+      status: setupLabel,
+      note: checklistText || "Menunggu checklist setup lengkap.",
+      detail: "Skor ini membantu membaca kualitas setup. Skor rendah berarti sistem masih menunggu konfirmasi utama, bukan sinyal entry."
     },
     {
       id: "main-rule",
-      title: "Rule Utama",
-      value: mainM5.direction && mainM5.entry ? `${mainM5.direction} DIRECT` : "Menunggu DIRECT",
-      status: mainM5.action || "Menunggu",
-      note: mainM5.direction && mainM5.entry ? "Sinyal premium hanya memakai rule EMA Cross M1." : "Menunggu EMA9 cross EMA20 di M1 dan candle close yang valid.",
-      detail: "Fokus sistem sekarang hanya satu rule utama: EMA9/EMA20 cross di M1, candle close valid, lalu sinyal muncul setelah candle selesai."
+      title: "Rule Aktif",
+      value: hasEntryPlan ? `${mainM5.direction} Direct Entry` : "Menunggu sinyal baru",
+      status: "EMA Cross M1",
+      note: hasEntryPlan ? "Sinyal premium aktif memakai satu rule utama." : "Belum ada open signal. Sistem hanya akan aktif saat EMA9 cross EMA20 dan candle M1 close valid.",
+      detail: "Rule aktif saat ini hanya M1 EMA Cross Direct Entry. SMC AI, Scalp, dan rule M5 tidak dipakai untuk sinyal utama."
     }
   ];
   const historyStats = callHistory?.stats || {};
@@ -5731,13 +5745,48 @@ function formatAgeCompact(seconds) {
   return `${Math.round(sec / 3600)} jam`;
 }
 
+function formatPremiumAction(action) {
+  const raw = String(action || "WAIT").toUpperCase();
+  if (raw === "BUY_OPEN") return "BUY aktif";
+  if (raw === "SELL_OPEN") return "SELL aktif";
+  if (raw === "READY_BUY") return "Pantau BUY";
+  if (raw === "READY_SELL") return "Pantau SELL";
+  return "Menunggu";
+}
+
+function formatPremiumStrength(label, score) {
+  const raw = String(label || "LOW").toUpperCase();
+  const num = Number(score || 0);
+  if (raw === "HIGH" || num >= 80) return "Kuat";
+  if (raw === "MEDIUM" || num >= 65) return "Cukup kuat";
+  return "Belum kuat";
+}
+
+function formatPremiumChecklistStatus(status) {
+  const raw = String(status || "WAIT").toUpperCase();
+  if (raw === "PASS" || raw === "VALID" || raw === "OK") return "lolos";
+  if (raw === "FAIL" || raw === "BLOCK") return "belum lolos";
+  return "menunggu";
+}
+
 function formatChecklistText(item) {
   if (item === null || item === undefined) return "-";
-  if (["string", "number", "boolean"].includes(typeof item)) return String(item);
+  if (["string", "number", "boolean"].includes(typeof item)) {
+    return String(item)
+      .replaceAll("READY_BUY", "Pantau BUY")
+      .replaceAll("READY_SELL", "Pantau SELL")
+      .replaceAll("BUY_OPEN", "BUY aktif")
+      .replaceAll("SELL_OPEN", "SELL aktif")
+      .replaceAll("HIGH", "Kuat")
+      .replaceAll("MEDIUM", "Cukup kuat")
+      .replaceAll("LOW", "Belum kuat")
+      .replaceAll("WAIT", "Menunggu")
+      .replaceAll("PASS", "Lolos");
+  }
   if (typeof item === "object") {
     const name = item.name || item.title || item.label || item.id || "Checklist";
     const status = item.status || item.value || item.note || "";
-    return status ? `${name}: ${status}` : String(name);
+    return status ? `${name}: ${formatPremiumChecklistStatus(status)}` : String(name);
   }
   return String(item);
 }
