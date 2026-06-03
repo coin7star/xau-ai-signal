@@ -373,19 +373,19 @@ function buildMainM5EmaPullbackLimitSignal(market = {}, m1Candles = []) {
       ? "Mode fokus SELL: EMA9 di bawah EMA20. Menunggu struktur bearish dan bearish engulfing di area EMA."
       : "Menunggu EMA9/EMA20 menentukan arah trend.";
 
-  const previewDirection = buyEngulfAtEma ? "BUY" : sellEngulfAtEma ? "SELL" : focusDirection === "BUY_ONLY" ? "BUY" : focusDirection === "SELL_ONLY" ? "SELL" : "WAIT";
-  const previewEntry = (buyEngulfAtEma || sellEngulfAtEma) ? Number(last.open) : ema9Now;
+  const previewDirection = buyEngulfAtEma ? "BUY" : sellEngulfAtEma ? "SELL" : "WAIT";
+  const previewEntry = (buyEngulfAtEma || sellEngulfAtEma) ? Number(last.open) : 0;
   const previewLabel = previewDirection === "BUY"
-    ? (buyEngulfAtEma ? "Preview BUY limit · open engulfing" : "Preview BUY area · EMA9")
+    ? "Preview BUY limit · open engulfing"
     : previewDirection === "SELL"
-      ? (sellEngulfAtEma ? "Preview SELL limit · open engulfing" : "Preview SELL area · EMA9")
-      : "Preview EMA9";
+      ? "Preview SELL limit · open engulfing"
+      : "Menunggu engulfing di area EMA";
 
   if (buyReady) {
     action = "READY_BUY";
     direction = "BUY";
     label = "Main Signal siap BUY LIMIT";
-    entry = ema9Now;
+    entry = 0;
     tp = 0;
     tp1 = 0;
     tp2 = 0;
@@ -396,7 +396,7 @@ function buildMainM5EmaPullbackLimitSignal(market = {}, m1Candles = []) {
     action = "READY_SELL";
     direction = "SELL";
     label = "Main Signal siap SELL LIMIT";
-    entry = ema9Now;
+    entry = 0;
     tp = 0;
     tp1 = 0;
     tp2 = 0;
@@ -484,11 +484,11 @@ function buildMainM5EmaPullbackLimitSignal(market = {}, m1Candles = []) {
       note: "Entry limit hanya valid jika candle engulfing M5 muncul di area EMA 9/20."
     },
     preview: {
-      active: previewEntry > 0,
+      active: previewEntry > 0 && Boolean(buyEngulfAtEma || sellEngulfAtEma),
       direction: previewDirection,
       entry: round(previewEntry),
       label: previewLabel,
-      note: "Jika engulfing M5 valid di area EMA 9/20, garis preview memakai open candle engulfing sebagai calon limit."
+      note: "Garis preview hanya muncul setelah candle engulfing M5 close valid di area EMA 9/20, dan posisinya memakai open candle engulfing."
     },
     structure,
     entryMethod: "LIMIT_AT_OPEN_OF_M5_ENGULFING_THAT_TOUCHES_EMA_9_20",

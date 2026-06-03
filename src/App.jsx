@@ -5011,7 +5011,7 @@ function addTradePlanLines(series, linesRef, mainM5) {
 
   const action = String(mainM5?.action || "WAIT");
   const preview = mainM5?.preview || {};
-  const isPlan = ["BUY_LIMIT", "SELL_LIMIT", "READY_BUY", "READY_SELL"].includes(action);
+  const isPlan = ["BUY_LIMIT", "SELL_LIMIT"].includes(action);
   const entry = Number((isPlan ? mainM5?.entry : preview?.entry) || 0);
   const sl = Number(mainM5?.sl || 0);
   const tp1 = Number(mainM5?.tp1 || 0);
