@@ -973,10 +973,10 @@ function AppInner() {
     {
       id: "risk",
       title: "TP Parsial / SL",
-      value: mainM5.tp2 && mainM5.sl ? `TP1 ${mainM5.tp1 || "-"} · TP2 ${mainM5.tp2} · SL ${mainM5.sl}` : "- / -",
+      value: mainM5.tp2 && mainM5.sl ? `TP1 ${mainM5.tp1 || "-"} · TP Max ${mainM5.tp2} · SL ${mainM5.sl}` : "- / -",
       status: mainM5.rr || "Partial",
-      note: "TP1 setengah target · TP2 target utama",
-      detail: "SL memakai low/high candle M5 yang menyentuh EMA 9/20 ditambah buffer 0.5 ATR. TP1 setengah jalan ke TP2, TP2 di body swing utama."
+      note: "TP1 setengah jalan → BE · TP Max RR 1:1",
+      detail: "Entry limit memakai open candle engulfing M5 yang menyentuh EMA 9/20. SL memakai low/high candle engulfing + 0.5 ATR. TP1 adalah setengah jarak menuju TP Max, lalu SL bisa dipindah ke BE."
     },
     {
       id: "probability",
@@ -1157,7 +1157,7 @@ function AppInner() {
               <div className="tradePlan">
                 <div><small>Entry</small><strong>{signal?.entry || "-"}</strong></div>
                 <div><small>Stop Loss</small><strong>{signal?.sl || "-"}</strong></div>
-                <div><small>Take Profit</small><strong>{signal?.tp1 && signal?.tp2 ? `TP1 ${signal.tp1} / TP2 ${signal.tp2}` : signal?.tp || "-"}</strong></div>
+                <div><small>Take Profit</small><strong>{signal?.tp1 && signal?.tp2 ? `TP1 ${signal.tp1} / TP Max ${signal.tp2}` : signal?.tp || "-"}</strong></div>
               </div>
             </div>
 
@@ -5028,7 +5028,7 @@ function addTradePlanLines(series, linesRef, mainM5) {
     lineWidth: isPlan ? 2 : 1,
     lineStyle: isPlan ? 0 : 1,
     axisLabelVisible: true,
-    title: isPlan ? `${direction || "PLAN"} LIMIT · EMA9` : `${direction || "WAIT"} PREVIEW · EMA9`
+    title: isPlan ? `${direction || "PLAN"} LIMIT · OPEN ENGULF` : `${direction || "WAIT"} PREVIEW · OPEN ENGULF`
   });
   newLines.push({ series, line: entryLine });
 
@@ -5051,7 +5051,7 @@ function addTradePlanLines(series, linesRef, mainM5) {
       lineWidth: 1,
       lineStyle: 1,
       axisLabelVisible: true,
-      title: "TP1"
+      title: "TP1 · BE"
     });
     newLines.push({ series, line: tp1Line });
   }
@@ -5063,7 +5063,7 @@ function addTradePlanLines(series, linesRef, mainM5) {
       lineWidth: 1,
       lineStyle: 2,
       axisLabelVisible: true,
-      title: "TP2"
+      title: "TP MAX"
     });
     newLines.push({ series, line: tp2Line });
   }
