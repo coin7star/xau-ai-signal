@@ -1,6 +1,6 @@
 {
-  "name": "xau-ai-signal-step10ar1-clean-m5-chart-legend",
-  "version": "7.36.1-step10ar1-clean-m5-chart-legend",
+  "name": "xau-ai-signal-step10ar2-fix-entry-limit-copy",
+  "version": "7.36.2-step10ar2-fix-entry-limit-copy",
   "type": "module",
   "scripts": {
     "dev": "vite",
