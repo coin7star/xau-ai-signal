@@ -726,7 +726,7 @@ function AppInner() {
   useEffect(() => {
     try {
       if (seriesM1Ref.current) {
-        addStructureLines(seriesM1Ref.current, srLinesM1Ref, signal?.strategy?.scalping);
+        // Step 10AR1: Swing structure lines are hidden from user chart to keep M5 view clean.
       }
     } catch (error) {
       setChartError(error?.message || "Garis struktur M5 sedang disiapkan ulang.");
@@ -800,7 +800,7 @@ function AppInner() {
     if (seriesM1Ref.current) {
       try {
         clearObLines(obLinesM1Ref);
-        addStructureLines(seriesM1Ref.current, srLinesM1Ref, signal?.strategy?.scalping);
+      // Step 10AR1: hide M5 swing high/low lines; strategy logic still runs in backend.
         addTradePlanLines(seriesM1Ref.current, planLinesM1Ref, signal?.strategy?.mainM5);
       } catch (error) {
         setChartError(error?.message || "Garis chart sedang disiapkan ulang.");
@@ -1186,8 +1186,6 @@ function AppInner() {
                 <b><i className="bearDot"></i> Bearish</b>
                 <b><i className="ema9Dot"></i> EMA 9</b>
                 <b><i className="ema20Dot"></i> EMA 20</b>
-                <b><i className="supportDot"></i> M5 Swing Low</b>
-                <b><i className="resistDot"></i> M5 Swing High</b>
                 <b><i className="entryDot"></i> Entry / TP / SL</b>
                 <em><span></span> Scan cepat 12d · Grafik sinkron 45d</em>
               </div>
