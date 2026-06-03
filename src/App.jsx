@@ -988,11 +988,11 @@ function AppInner() {
     },
     {
       id: "slot",
-      title: "Slot Pending",
-      value: `${mainM5.maxBuyPending || 2} BUY · ${mainM5.maxSellPending || 2} SELL`,
-      status: "ACTIVE",
-      note: "Maksimal 2 BUY dan 2 SELL boleh aktif bersamaan.",
-      detail: "Jika limit lama belum kena lalu struktur baru terbentuk, plan lama akan di-expire agar panel tetap bersih dan relevan."
+      title: "Slot Trend",
+      value: mainM5.focusDirection === "BUY_ONLY" ? "Fokus BUY · Max 2" : mainM5.focusDirection === "SELL_ONLY" ? "Fokus SELL · Max 2" : "Menunggu arah",
+      status: mainM5.focusDirection || "WAIT",
+      note: "Setiap arah EMA maksimal 2 posisi/plan aktif.",
+      detail: "Saat EMA fokus BUY, sistem hanya cari BUY. Saat EMA fokus SELL, sistem hanya cari SELL. Jika struktur baru muncul, pending lama yang belum tersentuh akan expired."
     }
   ];
   const historyStats = callHistory?.stats || {};
