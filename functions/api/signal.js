@@ -126,11 +126,11 @@ export function buildSignal(candles, candlesM15, market) {
   if (buyAllMatch) {
     finalSignal = "BUY";
     callStage = "CALL";
-    signalLabel = "BUY OPEN";
+    signalLabel = "BUY Aktif";
   } else if (sellAllMatch) {
     finalSignal = "SELL";
     callStage = "CALL";
-    signalLabel = "SELL OPEN";
+    signalLabel = "SELL Aktif";
   }
 
   if (finalSignal === "WAIT") {
@@ -177,7 +177,7 @@ export function buildSignal(candles, candlesM15, market) {
     finalSignal = "WAIT";
     callStage = "WAIT";
     signalLabel = "WAIT";
-    reasons.push(`Signal Quality Guard menahan CALL: ${finalQualityGuard.blockers[0] || "market belum ideal"}.`);
+    reasons.push(`Quality Check menahan sinyal: ${finalQualityGuard.blockers[0] || "market belum ideal"}.`);
   }
 
   const trendBias = ema9 > ema20 ? "Bullish" : ema9 < ema20 ? "Bearish" : "Netral";
@@ -311,7 +311,7 @@ function buildMainM1EmaCrossDirectEntrySignal(market = {}, m1Candles = []) {
     return {
       mode: "M1_EMA_CROSS_DIRECT_ENTRY_MAIN",
       action: "WAIT",
-      label: "Main Signal WAIT",
+      label: "Menunggu Sinyal Premium",
       direction: "WAIT",
       score: 0,
       confidence: 45,
@@ -324,8 +324,8 @@ function buildMainM1EmaCrossDirectEntrySignal(market = {}, m1Candles = []) {
       dataReady: false,
       timeframe: "M1",
       sourceTimeframe: "MT5_VPS_M1",
-      reason: "Menunggu minimal 30 candle M1 untuk membaca EMA9 cross EMA20, ATR, dan swing terdekat.",
-      blocker: "Data candle M1 belum cukup."
+      reason: "Menunggu data M1 cukup agar sinyal premium bisa dibaca dengan akurat.",
+      blocker: "Data market M1 belum cukup."
     };
   }
 
@@ -360,33 +360,33 @@ function buildMainM1EmaCrossDirectEntrySignal(market = {}, m1Candles = []) {
 
   let action = "WAIT";
   let direction = "WAIT";
-  let label = "Main Signal WAIT";
+  let label = "Menunggu Sinyal Premium";
   let entry = 0;
   let sl = 0;
   let tp = 0;
   let tp1 = 0;
   let tp2 = 0;
   let score = 0;
-  let blocker = "Menunggu EMA9 cross EMA20 di candle M1 close.";
+  let blocker = "Menunggu EMA9 cross EMA20 setelah candle M1 close.";
 
   if (buyReady) {
     action = "READY_BUY";
     direction = "BUY";
-    label = "Main Signal siap BUY";
+    label = "BUY mulai siap";
     score = 62;
-    blocker = "EMA9 masih di bawah/dekat EMA20. Tunggu EMA9 cross ke atas EMA20 lalu candle close di atas EMA9 dan EMA20.";
+    blocker = "BUY belum dikirim. Tunggu EMA9 cross ke atas EMA20 dan candle close di atas kedua EMA.";
   } else if (sellReady) {
     action = "READY_SELL";
     direction = "SELL";
-    label = "Main Signal siap SELL";
+    label = "SELL mulai siap";
     score = 62;
-    blocker = "EMA9 masih di atas/dekat EMA20. Tunggu EMA9 cross ke bawah EMA20 lalu candle close di bawah EMA9 dan EMA20.";
+    blocker = "SELL belum dikirim. Tunggu EMA9 cross ke bawah EMA20 dan candle close di bawah kedua EMA.";
   }
 
   if (buyValid) {
     action = "BUY_OPEN";
     direction = "BUY";
-    label = "BUY OPEN";
+    label = "BUY Aktif";
     entry = close;
     sl = Number(structure.swingLow) - atrValue * 0.1;
     const risk = Math.abs(entry - sl);
@@ -398,7 +398,7 @@ function buildMainM1EmaCrossDirectEntrySignal(market = {}, m1Candles = []) {
   } else if (sellValid) {
     action = "SELL_OPEN";
     direction = "SELL";
-    label = "SELL OPEN";
+    label = "SELL Aktif";
     entry = close;
     sl = Number(structure.swingHigh) + atrValue * 0.1;
     const risk = Math.abs(sl - entry);
@@ -413,14 +413,14 @@ function buildMainM1EmaCrossDirectEntrySignal(market = {}, m1Candles = []) {
       (action === "SELL_OPEN" && !(sl > entry && tp1 < entry && tp2 < tp1))) {
     action = "WAIT";
     direction = "WAIT";
-    label = "Main Signal WAIT";
+    label = "Menunggu Sinyal Premium";
     entry = 0;
     sl = 0;
     tp = 0;
     tp1 = 0;
     tp2 = 0;
     score = 55;
-    blocker = "Risk M1 belum valid dari entry close candle ke swing SL.";
+    blocker = "Rencana risiko belum ideal dari harga masuk ke swing terdekat.";
   }
 
   const confidence = action.includes("OPEN") ? score : action.includes("READY") ? 64 : Math.max(45, score);
@@ -669,10 +669,10 @@ function getM5PullbackStructure(candles = [], crossIndex = -1) {
 function buildMainM1CrossDirectReason(data = {}) {
   const { action, direction, entry, sl, tp1, tp2, blocker } = data;
   if (action === "BUY_OPEN") {
-    return `BUY OPEN valid. EMA9 cross ke atas EMA20 dan candle M1 close di atas EMA9/EMA20. Entry ${round(entry)}, SL ${round(sl)}, TP1 ${round(tp1)} lalu BE, TP Max ${round(tp2)} RR 1:1.`;
+    return `BUY aktif. EMA9 sudah cross ke atas EMA20 dan candle M1 close di atas EMA9/EMA20. Harga masuk ${round(entry)}, SL ${round(sl)}, TP1 ${round(tp1)} lalu BE, TP Max ${round(tp2)} RR 1:1.`;
   }
   if (action === "SELL_OPEN") {
-    return `SELL OPEN valid. EMA9 cross ke bawah EMA20 dan candle M1 close di bawah EMA9/EMA20. Entry ${round(entry)}, SL ${round(sl)}, TP1 ${round(tp1)} lalu BE, TP Max ${round(tp2)} RR 1:1.`;
+    return `SELL aktif. EMA9 sudah cross ke bawah EMA20 dan candle M1 close di bawah EMA9/EMA20. Harga masuk ${round(entry)}, SL ${round(sl)}, TP1 ${round(tp1)} lalu BE, TP Max ${round(tp2)} RR 1:1.`;
   }
   if (action === "READY_BUY") return blocker || "EMA9 dekat EMA20. Menunggu cross bullish dan candle close di atas EMA9/EMA20.";
   if (action === "READY_SELL") return blocker || "EMA9 dekat EMA20. Menunggu cross bearish dan candle close di bawah EMA9/EMA20.";
@@ -683,7 +683,7 @@ function buildMainM1CrossDirectHumanReason(ctx = {}) {
   const m = ctx.mainM5 || {};
   const isCall = ctx.callStage === "CALL";
   const isReady = ctx.callStage === "READY";
-  const title = isCall ? `${ctx.signalLabel} aktif.` : isReady ? `${ctx.signalLabel} mulai siap.` : "Belum ada sinyal utama valid.";
+  const title = isCall ? `${ctx.signalLabel} aktif.` : isReady ? `${ctx.signalLabel} mulai siap.` : "Belum ada sinyal premium yang valid.";
   const summary = [
     title,
     m.reason || "Menunggu EMA9 cross EMA20 M1 dan candle close di sisi EMA yang valid.",
@@ -693,7 +693,7 @@ function buildMainM1CrossDirectHumanReason(ctx = {}) {
     version: "10AT-main-m1-ema-cross-direct-entry",
     title,
     summary,
-    action: isCall ? "Entry langsung setelah candle M1 close. Pantau TP1 untuk pindah SL ke BE, lalu TP Max RR 1:1." : "Tunggu EMA9 cross EMA20 M1 dan candle close di sisi EMA yang valid.",
+    action: isCall ? "Sinyal aktif setelah candle M1 close. Pantau TP1 untuk amankan BE, lalu target max RR 1:1." : "Tunggu EMA9 cross EMA20 di M1 dan candle close yang valid.",
     direction: m.direction || "WAIT",
     checklist: m.checklist || [],
     blockers: m.blocker ? [m.blocker] : [],
@@ -951,19 +951,19 @@ function buildSignalQualityGuardV2(ctx = {}) {
   const setupPassed = Boolean(ctx.buyAllMatch || ctx.sellAllMatch || ctx.readyBuyAllMatch || ctx.readySellAllMatch);
   const obPassed = isMainM5 ? setupPassed : Boolean(ctx.obBuyOk || ctx.obSellOk || ctx.readyBuyAllMatch || ctx.readySellAllMatch || ctx.buyAllMatch || ctx.sellAllMatch);
 
-  checks.push(makeGuardCheck("Live Feed", feedPassed ? "PASS" : "WAIT", feedPassed ? "Data market masih layak dipakai." : "Koneksi market belum fresh."));
+  checks.push(makeGuardCheck("Data Live", feedPassed ? "PASS" : "WAIT", feedPassed ? "Data market masih layak dipakai." : "Data market belum fresh."));
   checks.push(makeGuardCheck("Spread", spreadPassed ? "PASS" : "WAIT", spread === null ? "Spread belum terbaca, guard tetap hati-hati." : `Spread ${round(spread)} / batas ${round(maxSpread)}.`));
-  checks.push(makeGuardCheck("Data", dataPassed ? "PASS" : "WAIT", dataPassed ? "Data market cukup untuk analisa sinyal." : "Data market belum cukup untuk analisa sinyal."));
-  checks.push(makeGuardCheck("Volatility", volatilityPassed ? "PASS" : "WAIT", atr14 ? `ATR ${round(atr14)} masih dalam batas aman.` : "ATR belum terbaca."));
-  checks.push(makeGuardCheck("Confidence", confidencePassed ? "PASS" : "WAIT", `Confidence ${confidence || 0}% · minimal 68% untuk CALL.`));
-  checks.push(makeGuardCheck("Setup", setupPassed ? "PASS" : "WAIT", setupPassed ? (isMainM5 ? "Setup M1 EMA cross direct mulai valid." : "Setup utama mulai cocok.") : "Setup utama belum lengkap."));
-  checks.push(makeGuardCheck(isMainM5 ? "Direct Entry Plan" : "OB M15", obPassed ? "PASS" : "WAIT", obPassed ? (isMainM5 ? "Entry open direct, TP1/TP Max, dan SL sudah terbentuk." : "Filter OB M15 mendukung setup.") : (isMainM5 ? "Menunggu EMA9 cross EMA20 dan candle close valid." : "Harga belum dekat OB M15 valid.")));
+  checks.push(makeGuardCheck("Data", dataPassed ? "PASS" : "WAIT", dataPassed ? "Data market cukup untuk membaca sinyal." : "Data market belum cukup untuk membaca sinyal."));
+  checks.push(makeGuardCheck("Volatilitas", volatilityPassed ? "PASS" : "WAIT", atr14 ? `ATR ${round(atr14)} masih dalam batas aman.` : "ATR belum terbaca."));
+  checks.push(makeGuardCheck("Kekuatan Setup", confidencePassed ? "PASS" : "WAIT", `Kekuatan Setup ${confidence || 0}% · minimal 68% untuk CALL.`));
+  checks.push(makeGuardCheck("Setup", setupPassed ? "PASS" : "WAIT", setupPassed ? (isMainM5 ? "Setup EMA Cross M1 mulai valid." : "Setup utama mulai cocok.") : "Setup utama belum lengkap."));
+  checks.push(makeGuardCheck(isMainM5 ? "Direct Entry Plan" : "OB M15", obPassed ? "PASS" : "WAIT", obPassed ? (isMainM5 ? "Harga masuk, target, dan batas risiko sudah terbentuk." : "Filter OB M15 mendukung setup.") : (isMainM5 ? "Menunggu EMA9 cross EMA20 dan candle close valid." : "Harga belum dekat OB M15 valid.")));
 
   if (!feedPassed) blockers.push("koneksi market belum fresh");
   if (!spreadPassed) blockers.push("spread belum aman");
   if (!dataPassed) blockers.push(isMainM5 ? "data candle M1 belum cukup" : "data candle M1/M15 belum cukup");
   if (!volatilityPassed && !isMainM1Direct) blockers.push("volatilitas candle/ATR terlalu tinggi");
-  if (!confidencePassed && !isMainM1Direct) blockers.push("confidence belum cukup untuk CALL");
+  if (!confidencePassed && !isMainM1Direct) blockers.push("kekuatan setup belum cukup");
   if (!setupPassed) blockers.push(isMainM5 ? "EMA9/EMA20 M1 cross dan close filter belum lengkap" : "setup utama belum lengkap");
   if (!obPassed) blockers.push(isMainM5 ? "rencana direct entry belum lengkap" : "OB M15 belum mendukung");
 
@@ -977,11 +977,11 @@ function buildSignalQualityGuardV2(ctx = {}) {
   const score = Math.round((passedCount / Math.max(checks.length, 1)) * 100);
 
   const status = allowCall ? "SAFE" : score >= 70 ? "CAUTION" : "WAIT";
-  const label = allowCall ? "Market Safety: SAFE" : score >= 70 ? "Market Safety: CAUTION" : "Market Safety: WAIT";
+  const label = allowCall ? "Market Aman" : score >= 70 ? "Market Hati-hati" : "Menunggu Market";
   const decision = allowCall ? "CALL_ALLOWED" : "CALL_BLOCKED";
   const message = allowCall
-    ? "Signal Quality Guard lolos. Market cukup aman untuk CALL jika setup utama valid."
-    : `Signal Quality Guard menahan CALL: ${blockers.slice(0, 2).join(" dan ") || "market belum ideal"}.`;
+    ? "Quality Check lolos. Market cukup layak untuk sinyal premium jika setup utama valid."
+    : `Quality Check menahan sinyal: ${blockers.slice(0, 2).join(" dan ") || "market belum ideal"}.`;
 
   return {
     version: isMainM1Direct ? "10AT-main-m1-direct-guard" : "10X-signal-quality-guard-v2",
@@ -1043,8 +1043,8 @@ function buildHumanSignalReason(ctx = {}) {
   const obLine = buildObLine(ctx, direction);
   const riskLine = buildRiskLine(ctx);
   const guardLine = ctx.qualityGuard?.allowCall
-    ? "Quality Guard: market lolos safety check."
-    : ctx.qualityGuard?.message || "Quality Guard: menunggu market lebih aman.";
+    ? "Quality Check: market lolos safety check."
+    : ctx.qualityGuard?.message || "Quality Check: menunggu market lebih aman.";
 
   const checklist = [
     emaLine,
@@ -1938,7 +1938,7 @@ function buildStrategyBAutoAdminTelegramMessage(item, dashboardUrl) {
     `<b>CHOCH M1:</b> ${escapeHtml(chochValid)}`,
     `<b>EMA M1:</b> ${escapeHtml(emaValid)}`,
     "",
-    `<b>Confidence:</b> ${Number(item?.confidence || item?.score || 0)}%`,
+    `<b>Kekuatan Setup:</b> ${Number(item?.confidence || item?.score || 0)}%`,
     `<b>RSI:</b> ${formatIndicator(stats.rsi)} · <b>MFI:</b> ${formatIndicator(stats.mfi)}`,
     `<b>ATR M1:</b> ${formatIndicator(stats.atr)}`,
     "",
@@ -2424,7 +2424,7 @@ function buildTelegramMessage(signal, market) {
     "",
     `<b>Signal:</b> ${escapeHtml(direction)}`,
     `<b>Pair:</b> ${escapeHtml(pair)}`,
-    `<b>Confidence:</b> ${confidence}% · ${escapeHtml(quality)}`,
+    `<b>Kekuatan Setup:</b> ${confidence}% · ${escapeHtml(quality)}`,
     `<b>Last Price:</b> ${escapeHtml(lastPrice)}`,
     "",
     `📍 <b>Trade Plan</b>`,

@@ -532,7 +532,7 @@ function AppInner() {
     }
 
     try {
-      setResultTracker((prev) => ({ ...prev, loading: true, message: "Mengecek signal RUNNING..." }));
+      setResultTracker((prev) => ({ ...prev, loading: true, message: "Mengecek sinyal berjalan..." }));
 
       const res = await fetch("/api/result-tracker", {
         method: "POST",
@@ -670,7 +670,7 @@ function AppInner() {
   useEffect(() => {
     if (!authUser || !isPremiumProfile(authProfile) || activeDashboardTab !== "chart") return;
 
-    // Chart memakai canvas internal. Saat tab Candle ditutup, DOM chart ikut hilang,
+    // Chart memakai canvas teknis. Saat tab Candle ditutup, DOM chart ikut hilang,
     // jadi instance lama harus dibersihkan dan dibuat ulang saat tab dibuka lagi.
     resetChart("M1");
     resetChart("M15");
@@ -889,7 +889,7 @@ function AppInner() {
 
   const signalTone = isBuy ? "buy" : isSell ? "sell" : isReady ? "ready" : "wait";
   const qualityGuard = signal?.qualityGuard || signal?.strategy?.qualityGuard || null;
-  const readableSignal = signal?.signalLabel || signal?.signal || "WAIT";
+  const readableSignal = signal?.signalLabel || signal?.signal || "Menunggu";
   const trendBias = signal?.strategy?.trendBias || "-";
   const smc = signal?.strategy?.smc;
   const confirmation = signal?.strategy?.confirmation || {};
@@ -903,9 +903,9 @@ function AppInner() {
     checklist: []
   };
   const mainM5 = signal?.strategy?.mainM5 || {
-    action: "WAIT",
-    label: "Main Signal WAIT",
-    direction: "WAIT",
+    action: "Menunggu",
+    label: "Main Signal Menunggu",
+    direction: "Menunggu",
     entry: 0,
     sl: 0,
     tp: 0,
@@ -921,9 +921,9 @@ function AppInner() {
     maxSellPending: 2
   };
   const scalping = signal?.strategy?.scalping || {
-    label: "SCALP WAIT",
+    label: "SCALP Menunggu",
     confidence: 0,
-    action: "WAIT",
+    action: "Menunggu",
     entry: "-",
     sl: "-",
     tp: "-",
@@ -932,9 +932,9 @@ function AppInner() {
   const strategyB = signal?.strategyB || signal?.strategy?.strategyB || {
     name: "SMC AI",
     mode: "LIVE_BACKTEST_ONLY",
-    action: "WAIT",
-    label: "SMC AI WAIT",
-    direction: "WAIT",
+    action: "Menunggu",
+    label: "SMC AI Menunggu",
+    direction: "Menunggu",
     confidence: 0,
     entry: "-",
     sl: "-",
@@ -949,50 +949,50 @@ function AppInner() {
     {
       id: "ema",
       title: "EMA 9/20",
-      value: humanize(mainM5.cross?.type || signal?.strategy?.emaCross || "WAIT"),
+      value: humanize(mainM5.cross?.type || signal?.strategy?.emaCross || "Menunggu"),
       status: mainM5.direction === "BUY" ? "BULLISH" : mainM5.direction === "SELL" ? "BEARISH" : trendBias,
       note: `EMA9 ${mainM5.ema9 || "-"} · EMA20 ${mainM5.ema20 || "-"}`,
-      detail: "Strategi utama fokus EMA9/EMA20 M1. Entry valid saat EMA9 cross EMA20 dan candle close berada di sisi kedua EMA."
+      detail: "Sinyal memakai EMA9/EMA20 di M1. Sinyal valid saat EMA9 cross EMA20 dan candle close berada di sisi yang sesuai."
     },
     {
       id: "pullback",
-      title: "Close Filter EMA",
-      value: mainM5.correction?.touchedEma9 ? "VALID" : "WAIT",
-      status: mainM5.correction?.touchedEma9 ? "PASS" : "WAIT",
-      note: mainM5.correction?.touchedEma9 ? "Candle close sudah berada di sisi EMA9/EMA20 yang valid." : "Menunggu EMA cross dan close filter M1.",
-      detail: "BUY valid jika close di atas EMA9/EMA20 setelah bullish cross. SELL valid jika close di bawah EMA9/EMA20 setelah bearish cross."
+      title: "Validasi Close EMA",
+      value: mainM5.correction?.touchedEma9 ? "VALID" : "Menunggu",
+      status: mainM5.correction?.touchedEma9 ? "Lolos" : "Menunggu",
+      note: mainM5.correction?.touchedEma9 ? "Candle sudah close di sisi EMA9/EMA20 yang valid." : "Menunggu EMA cross dan close candle M1 yang valid.",
+      detail: "BUY valid jika candle close di atas EMA9/EMA20 setelah bullish cross. SELL valid jika candle close di bawah EMA9/EMA20 setelah bearish cross."
     },
     {
       id: "entry",
-      title: "Entry Open M1",
-      value: mainM5.entry ? `${mainM5.direction || "WAIT"} ${mainM5.entry}` : "Belum ada entry",
-      status: mainM5.action || "WAIT",
+      title: "Area Entry M1",
+      value: mainM5.entry ? `${mainM5.direction || "Menunggu"} ${mainM5.entry}` : "Belum ada sinyal",
+      status: mainM5.action || "Menunggu",
       note: mainM5.reason || "Menunggu EMA9 cross EMA20 dan candle close di sisi EMA yang valid.",
-      detail: "Entry dibuka langsung setelah candle M1 close yang memenuhi EMA cross + close filter. SL pakai swing terdekat ±0.1 ATR, TP Max RR 1:1."
+      detail: "Sinyal masuk muncul langsung setelah candle M1 close valid. Batas risiko memakai swing terdekat ±0.1 ATR, target max RR 1:1."
     },
     {
       id: "risk",
-      title: "TP Parsial / SL",
-      value: mainM5.tp2 && mainM5.sl ? `TP1 ${mainM5.tp1 || "-"} · TP Max ${mainM5.tp2} · SL ${mainM5.sl}` : "- / -",
+      title: "Target & Risiko",
+      value: mainM5.tp2 && mainM5.sl ? `TP1 ${mainM5.tp1 || "-"} · Target Max ${mainM5.tp2} · Risiko ${mainM5.sl}` : "- / -",
       status: mainM5.rr || "Partial",
-      note: "TP1 setengah jalan → BE · TP Max RR 1:1",
-      detail: "Entry memakai close candle M1 saat EMA9 cross EMA20 dan harga close di sisi kedua EMA. SL memakai swing M1 terdekat ±0.1 ATR. TP1 setengah jarak menuju TP Max, lalu SL pindah ke BE."
+      note: "TP1 setengah target → amankan BE · Target Max RR 1:1",
+      detail: "Sinyal memakai close candle M1 saat EMA9 cross EMA20 dan harga close di sisi kedua EMA. Risiko memakai swing M1 terdekat ±0.1 ATR. TP1 berada di tengah target, lalu posisi diamankan ke BE."
     },
     {
       id: "probability",
-      title: "Probability",
+      title: "Kekuatan Setup",
       value: `${probability.score || 0}% · ${probability.label || "LOW"}`,
       status: probability.label || "LOW",
-      note: (mainM5.checklist || []).map((item) => `${item.name}: ${item.status}`).join(" · ") || "Menunggu score.",
-      detail: "Probability mengikuti strategi M1 EMA Cross Direct Entry. Semakin lengkap checklist cross EMA, close filter, dan risk plan, semakin tinggi peluangnya."
+      note: (mainM5.checklist || []).map((item) => `${item.name}: ${item.status}`).join(" · ") || "Menunggu penilaian setup.",
+      detail: "Kekuatan setup mengikuti rule EMA Cross M1. Semakin lengkap checklist cross EMA, close filter, dan risk plan, semakin tinggi peluangnya."
     },
     {
       id: "main-rule",
-      title: "Main Rule",
-      value: mainM5.direction && mainM5.entry ? `${mainM5.direction} DIRECT` : "WAIT DIRECT",
-      status: mainM5.action || "WAIT",
-      note: mainM5.direction && mainM5.entry ? "Sinyal utama hanya dari M1 EMA Cross Direct Entry." : "Menunggu EMA9 cross EMA20 di M1 + candle close valid.",
-      detail: "Panel Slot Trend lama disembunyikan karena tidak dipakai lagi. Sistem sekarang fokus satu rule: EMA9/EMA20 cross M1, close di sisi kedua EMA, entry langsung setelah candle close."
+      title: "Rule Utama",
+      value: mainM5.direction && mainM5.entry ? `${mainM5.direction} DIRECT` : "Menunggu DIRECT",
+      status: mainM5.action || "Menunggu",
+      note: mainM5.direction && mainM5.entry ? "Sinyal premium hanya memakai rule EMA Cross M1." : "Menunggu EMA9 cross EMA20 di M1 dan candle close yang valid.",
+      detail: "Fokus sistem sekarang hanya satu rule utama: EMA9/EMA20 cross di M1, candle close valid, lalu sinyal muncul setelah candle selesai."
     }
   ];
   const historyStats = callHistory?.stats || {};
@@ -1010,7 +1010,7 @@ function AppInner() {
         <section className="authCard card">
           <div className="logo big"><Shield size={28} /></div>
           <h1>Loading XAU AI...</h1>
-          <p>Sedang cek login dan akses premium.</p>
+          <p>Sebentar ya, kami sedang menyiapkan akses premium kamu.</p>
         </section>
       </main>
     );
@@ -1021,8 +1021,8 @@ function AppInner() {
       <main className="page authPage">
         <section className="authCard card">
           <div className="logo big"><Shield size={28} /></div>
-          <h1>Konfigurasi akses belum aktif</h1>
-          <p>Lengkapi konfigurasi akses aplikasi di Cloudflare Pages agar login dan dashboard premium bisa digunakan.</p>
+          <h1>Akses premium belum siap</h1>
+          <p>Tim admin perlu mengaktifkan konfigurasi akses terlebih dahulu sebelum dashboard bisa digunakan.</p>
         </section>
       </main>
     );
@@ -1052,9 +1052,9 @@ function AppInner() {
   }
 
   const dashboardTabs = [
-    { id: "signal", label: "Sinyal M1", icon: <Zap size={15} /> },
-    { id: "chart", label: "Candle", icon: <Activity size={15} /> },
-    { id: "history", label: "History", icon: <Clock size={15} /> },
+    { id: "signal", label: "Sinyal", icon: <Zap size={15} /> },
+    { id: "chart", label: "Chart", icon: <Activity size={15} /> },
+    { id: "history", label: "Riwayat", icon: <Clock size={15} /> },
     { id: "telegram", label: "Telegram", icon: <Radio size={15} /> },
     ...(isAdmin ? [{ id: "admin", label: "Admin", icon: <Settings size={15} /> }] : [])
   ];
@@ -1066,7 +1066,7 @@ function AppInner() {
           <div className="logo dashboardLogo"><Bot size={22} /></div>
           <div className="dashboardBrandText">
             <b>XAU AI Signal</b>
-            <span>Dashboard Premium · Sinyal Utama M1 · Grafik · History</span>
+            <span>Member Area · Sinyal Gold M1 · Chart · Riwayat</span>
           </div>
         </div>
         <div className="navActions dashboardHeaderActions">
@@ -1117,16 +1117,16 @@ function AppInner() {
           ))}
         </div>
         <button onClick={() => loadData({ includeChart: true, includeHistory: true, includeScalpHistory: true })} disabled={loading} className="dashboardRefreshBtn">
-          <RefreshCcw size={15} /> {loading ? "Loading..." : "Refresh"}
+          <RefreshCcw size={15} /> {loading ? "Memuat..." : "Refresh"}
         </button>
       </section>
 
       <div className="dataTickerBar slimTicker">
         <div className="tickerTrack">
-          <span><Database size={14} /> Koneksi Market: <b>Live Premium</b></span>
+          <span><Database size={14} /> Data Market: <b>Live Premium</b></span>
           <span><Activity size={14} /> Grafik M1: <b>{candlesM1.length || market?.m1Count || 0} candle</b></span>
-          <span>{isSell ? <TrendingDown size={14} /> : <TrendingUp size={14} />} Last Price: <b>{lastCandle?.close || "-"}</b></span>
-          <span><Radio size={14} /> Status Koneksi: <b>{marketSession.feedLabel}</b></span>
+          <span>{isSell ? <TrendingDown size={14} /> : <TrendingUp size={14} />} Harga Sekarang: <b>{lastCandle?.close || "-"}</b></span>
+          <span><Radio size={14} /> Status Data: <b>{marketSession.feedLabel}</b></span>
         </div>
       </div>
 
@@ -1138,10 +1138,10 @@ function AppInner() {
             <div className={`signalBox card ${signalTone}`}>
               <div className="signalTop"><b>{market?.symbol || "XAUUSD"}</b><span>{lastUpdate}</span></div>
               <h2>{readableSignal}</h2>
-              <div className="confidence">{signal?.confidence || 0}% confidence</div>
+              <div className="confidence">{signal?.confidence || 0}% kekuatan setup</div>
               {signal?.reasonDetails?.checklist?.length > 0 && (
                 <div className="reasonBuilderBox">
-                  <div className="reasonBuilderTitle"><Sparkles size={14} /> Alasan Sinyal</div>
+                  <div className="reasonBuilderTitle"><Sparkles size={14} /> Kenapa Sinyal Ini Muncul</div>
                   <ul>
                     {signal.reasonDetails.checklist.slice(0, 5).map((item, idx) => (
                       <li key={`reason-${idx}`}>{formatChecklistText(item)}</li>
@@ -1149,21 +1149,21 @@ function AppInner() {
                   </ul>
                   {signal.reasonDetails.blockers?.length > 0 && (
                     <div className="reasonBlockers">
-                      <b>Yang ditunggu:</b> {signal.reasonDetails.blockers.slice(0, 3).map(formatChecklistText).join(", ")}
+                      <b>Menunggu:</b> {signal.reasonDetails.blockers.slice(0, 3).map(formatChecklistText).join(", ")}
                     </div>
                   )}
                 </div>
               )}
               <div className="tradePlan">
-                <div><small>Entry</small><strong>{signal?.entry || "-"}</strong></div>
-                <div><small>Stop Loss</small><strong>{signal?.sl || "-"}</strong></div>
-                <div><small>Take Profit</small><strong>{signal?.tp1 && signal?.tp2 ? `TP1 ${signal.tp1} / TP Max ${signal.tp2}` : signal?.tp || "-"}</strong></div>
+                <div><small>Harga Masuk</small><strong>{signal?.entry || "-"}</strong></div>
+                <div><small>Batas Risiko</small><strong>{signal?.sl || "-"}</strong></div>
+                <div><small>Target Profit</small><strong>{signal?.tp1 && signal?.tp2 ? `TP1 ${signal.tp1} / Target Max ${signal.tp2}` : signal?.tp || "-"}</strong></div>
               </div>
             </div>
 
             <section className="strategyPanel card compactImportantCard">
               <div className="strategyHeader">
-                <div><span className="pill mini"><Target size={14} /> SNAPSHOT</span><h3>Snapshot Market</h3></div>
+                <div><span className="pill mini"><Target size={14} /> RINGKASAN</span><h3>Kondisi Market</h3></div>
                 <div className={`biasBadge ${signalTone}`}>{trendBias}</div>
               </div>
               <div className="snapshotAccordion">
@@ -1180,14 +1180,14 @@ function AppInner() {
         <>
           <section className="chartWrap card">
             <div className="sectionTitle">
-              <div><h3>Grafik Candlestick M1</h3><span>{market?.symbol || "XAUUSD"} · Visual M1 · EMA Cross Direct · {marketSession.chartStatusText} · Bid {market?.bid || "-"} · Spread {spread}</span></div>
+              <div><h3>Chart Gold M1</h3><span>{market?.symbol || "XAUUSD"} · Sinyal EMA Cross M1 · {marketSession.chartStatusText} · Harga {market?.bid || "-"} · Spread {spread}</span></div>
               <div className="legend">
                 <b><i className="bullDot"></i> Bullish</b>
                 <b><i className="bearDot"></i> Bearish</b>
                 <b><i className="ema9Dot"></i> EMA 9</b>
                 <b><i className="ema20Dot"></i> EMA 20</b>
-                <b><i className="entryDot"></i> Entry / TP / SL</b>
-                <em><span></span> Visual M1 · Entry/TP/SL dari EMA Cross M1</em>
+                <b><i className="entryDot"></i> Entry / Target / Risiko</b>
+                <em><span></span> Visual M1 · Entry/Target/Risiko dari EMA Cross M1</em>
               </div>
             </div>
             {marketSession.chartNotice && <div className={`chartSessionNotice ${marketSession.type}`}>{marketSession.chartNotice}</div>}
@@ -1203,11 +1203,11 @@ function AppInner() {
 
       {activeDashboardTab === "scalp" && (
         <>
-          <section className={`scalpPanel card ${String(scalping.action || "WAIT").toLowerCase()}`}>
+          <section className={`scalpPanel card ${String(scalping.action || "Menunggu").toLowerCase()}`}>
             <div className="strategyHeader">
               <div>
                 <span className="pill mini"><Zap size={14} /> SCALP M5</span>
-                <h3>{scalping.label || "SCALP WAIT"}</h3>
+                <h3>{scalping.label || "SCALP Menunggu"}</h3>
               </div>
               <div className={`biasBadge ${scalping.action === "SCALP_BUY" ? "buy" : scalping.action === "SCALP_SELL" ? "sell" : "wait"}`}>
                 {scalping.confidence || 0}% scalp
@@ -1216,7 +1216,7 @@ function AppInner() {
 
             <div className="scalpGrid">
               <Metric label="Scalp Entry" value={scalping.entry || "-"} note="Area acuan saat setup scalp valid" />
-              <Metric label="Scalp SL" value={scalping.sl || "-"} note="Batas risiko dari area sentuh + 1.5 ATR" />
+              <Metric label="Scalp Risiko" value={scalping.sl || "-"} note="Batas risiko dari area sentuh + 1.5 ATR" />
               <Metric label="Scalp TP" value={scalping.tp || "-"} note="Target cepat rasio 1 : 1.25" />
               <Metric label="Scalp Strength" value={`${scalping.score || 0}/100`} note="Minimal 58/100 untuk peluang scalp valid" />
             </div>
@@ -1229,7 +1229,7 @@ function AppInner() {
           <section className="historyPanel card scalpHistoryPanel">
             <div className="sectionTitle">
               <div>
-                <h3>{isAdmin ? "SCALP M5 Limit History & Manual Result" : "Performa Scalp M1"}</h3>
+                <h3>{isAdmin ? "Riwayat Scalp & Update Manual" : "Performa Scalp M1"}</h3>
                 <span>Hanya peluang scalp valid yang ditampilkan agar riwayat tetap bersih.</span>
               </div>
               <div className="historyStats">
@@ -1250,13 +1250,13 @@ function AppInner() {
 
             <div className="historyTable">
               <div className={`historyHead ${isAdmin ? "adminMode" : "viewerMode"}`}>
-                <span>Time</span>
-                <span>Signal</span>
-                <span>Entry</span>
-                <span>SL / TP</span>
+                <span>Waktu</span>
+                <span>Sinyal</span>
+                <span>Harga Masuk</span>
+                <span>Risiko / Target</span>
                 <span>Score</span>
-                <span>Result</span>
-                {isAdmin && <span>Action</span>}
+                <span>Hasil</span>
+                {isAdmin && <span>Aksi</span>}
               </div>
 
               {(scalpHistory?.history || []).slice(0, 10).map((item) => (
@@ -1271,10 +1271,10 @@ function AppInner() {
                   </span>
                   {isAdmin && (
                     <div className="historyActions">
-                      <button type="button" onClick={() => updateScalpResult(item.id, "WIN")}>WIN</button>
-                      <button type="button" onClick={() => updateScalpResult(item.id, "LOSS")}>LOSS</button>
+                      <button type="button" onClick={() => updateScalpResult(item.id, "WIN")}>Menang</button>
+                      <button type="button" onClick={() => updateScalpResult(item.id, "LOSS")}>Kalah</button>
                       <button type="button" onClick={() => updateScalpResult(item.id, "BE")}>BE</button>
-                      <button type="button" onClick={() => updateScalpResult(item.id, "OPEN")}>OPEN</button>
+                      <button type="button" onClick={() => updateScalpResult(item.id, "OPEN")}>Berjalan</button>
                     </div>
                   )}
                 </div>
@@ -1325,8 +1325,8 @@ function AppInner() {
           <section className="historyPanel card">
             <div className="sectionTitle">
               <div>
-                <h3>{isAdmin ? "CALL History & Manual Result" : "Riwayat Sinyal Utama"}</h3>
-                <span>{isAdmin ? "Auto-save saat CALL valid. Admin bisa tandai hasil manual untuk track performa." : "Riwayat sinyal utama yang valid dan performa terbarunya."}</span>
+                <h3>{isAdmin ? "Riwayat Sinyal & Update Manual" : "Riwayat Sinyal Premium"}</h3>
+                <span>{isAdmin ? "Sinyal valid tersimpan otomatis. Admin bisa memperbarui hasil manual bila diperlukan." : "Riwayat sinyal premium dan hasil terbarunya."}</span>
               </div>
               <div className="historyStats">
                 <b>Total {historyStats.total || 0}</b>
@@ -1340,17 +1340,17 @@ function AppInner() {
 
             {!isAdmin && (
               <div className="premiumViewerNote">
-                Pantau riwayat sinyal valid dan performa secara transparan.
+                Pantau histori sinyal dan performa secara transparan.
               </div>
             )}
 
             {isAdmin && (
               <div className="adminTokenBox">
-                <span>Kode admin untuk update Win/Loss</span>
+                <span>Kode admin untuk update hasil</span>
                 <input
                   value={adminToken}
                   onChange={(event) => saveAdminToken(event.target.value)}
-                  placeholder="Isi ADMIN_ACTION_TOKEN Cloudflare"
+                  placeholder="Masukkan kode admin"
                   type="password"
                 />
               </div>
@@ -1358,13 +1358,13 @@ function AppInner() {
 
             <div className="historyTable">
               <div className={`historyHead ${isAdmin ? "adminMode" : "viewerMode"}`}>
-                <span>Time</span>
-                <span>Signal</span>
-                <span>Entry</span>
-                <span>SL / TP</span>
-                <span>Prob</span>
-                <span>Result</span>
-                {isAdmin && <span>Action</span>}
+                <span>Waktu</span>
+                <span>Sinyal</span>
+                <span>Harga Masuk</span>
+                <span>Risiko / Target</span>
+                <span>Kekuatan</span>
+                <span>Hasil</span>
+                {isAdmin && <span>Aksi</span>}
               </div>
 
               {(callHistory?.history || []).slice(0, 12).map((item) => (
@@ -1379,17 +1379,17 @@ function AppInner() {
                   </span>
                   {isAdmin && (
                     <div className="historyActions">
-                      <button type="button" onClick={() => updateCallResult(item.id, "WIN")}>WIN</button>
-                      <button type="button" onClick={() => updateCallResult(item.id, "LOSS")}>LOSS</button>
+                      <button type="button" onClick={() => updateCallResult(item.id, "WIN")}>Menang</button>
+                      <button type="button" onClick={() => updateCallResult(item.id, "LOSS")}>Kalah</button>
                       <button type="button" onClick={() => updateCallResult(item.id, "BE")}>BE</button>
-                      <button type="button" onClick={() => updateCallResult(item.id, "OPEN")}>OPEN</button>
+                      <button type="button" onClick={() => updateCallResult(item.id, "OPEN")}>Berjalan</button>
                     </div>
                   )}
                 </div>
               ))}
 
               {(!callHistory?.history || callHistory.history.length === 0) && (
-                <div className="emptyHistory">Belum ada sinyal utama yang valid. Riwayat akan muncul otomatis saat BUY/SELL valid.</div>
+                <div className="emptyHistory">Belum ada sinyal premium yang valid. Riwayat akan muncul otomatis saat ada BUY/SELL.</div>
               )}
             </div>
           </section>
@@ -1448,7 +1448,7 @@ function AppInner() {
           <details className="adminWindow card">
             <summary>
               <span>Result Alert Test</span>
-              <small>Test notifikasi WIN, LOSS, dan EXPIRED tanpa mengubah history asli.</small>
+              <small>Test notifikasi Menang, Kalah, dan Kedaluwarsa tanpa mengubah history asli.</small>
             </summary>
             <div className="adminWindowBody">
               <AdminResultAlertTestPanel adminToken={adminToken} />
@@ -1576,7 +1576,7 @@ function getPremiumInfo(profile) {
 
   if (diffMs <= 0) {
     return {
-      label: "PREMIUM EXPIRED",
+      label: "PREMIUM Kedaluwarsa",
       detail: `Paket expired pada ${dateText}`,
       dateText,
       expired: true
@@ -1916,7 +1916,7 @@ function TelegramConnectPanel({ user, profile, telegramConnect, onRefresh }) {
       ) : (
         <div className="telegramConnectGrid">
           <div className="telegramConnectBox">
-            <span>Status</span>
+            <span>Hasil</span>
             <b>Belum terhubung</b>
             <small>Buat kode lalu kirim perintah ke bot Telegram.</small>
           </div>
@@ -1969,7 +1969,7 @@ function TelegramConnectPanel({ user, profile, telegramConnect, onRefresh }) {
         {!connected && (
           <>
             <button type="button" onClick={generateCode} disabled={busy}>
-              {busy ? "Loading..." : "Generate Kode Telegram"}
+              {busy ? "Memuat..." : "Generate Kode Telegram"}
             </button>
             <button type="button" className="copyBtn" onClick={copyCommand} disabled={busy || !commandText}>
               <Copy size={16} /> Salin Perintah
@@ -2093,7 +2093,7 @@ function AdminStrategyControlCenter({ adminToken }) {
       key: "mainSignalResultAlert",
       title: "Main Signal Result Alert",
       mode: controls.mainSignalResultAlert ? "Result alert ON" : "Result alert OFF",
-      desc: "Mengatur WIN / LOSS / EXPIRED alert untuk Main Signal dari Auto Result Engine."
+      desc: "Mengatur Menang / Kalah / Kedaluwarsa alert untuk Main Signal dari Auto Result Engine."
     },
   ];
 
@@ -2264,7 +2264,7 @@ function AdminResultAlertTestPanel({ adminToken }) {
       <div className="adminTelegramTestHeader">
         <span className="pill mini"><Target size={14} /> RESULT TEST</span>
         <h3>Telegram Result Alert Test</h3>
-        <p>Test format WIN, LOSS, dan EXPIRED ke Telegram tanpa mengubah history asli. Cocok untuk cek tampilan alert sebelum auto result berjalan live.</p>
+        <p>Test format Menang, Kalah, dan Kedaluwarsa ke Telegram tanpa mengubah history asli. Cocok untuk cek tampilan alert sebelum auto result berjalan live.</p>
       </div>
 
       <div className="adminTelegramTestGrid resultAlertTestGrid">
@@ -2281,7 +2281,7 @@ function AdminResultAlertTestPanel({ adminToken }) {
         <div>
           <small>Terakhir test</small>
           <b>{lastResult ? lastResult.result : "Belum ada"}</b>
-          <span>{lastResult?.sentAt ? formatShortDateTime(lastResult.sentAt) : "Pilih tombol WIN / LOSS / EXPIRED."}</span>
+          <span>{lastResult?.sentAt ? formatShortDateTime(lastResult.sentAt) : "Pilih tombol Menang / Kalah / Kedaluwarsa."}</span>
         </div>
       </div>
 
@@ -2289,13 +2289,13 @@ function AdminResultAlertTestPanel({ adminToken }) {
 
       <div className="resultAlertTestActions">
         <button type="button" className="win" onClick={() => sendResultTest("WIN")} disabled={Boolean(sendingType) || !adminToken}>
-          ✅ {sendingType === "WIN" ? "Mengirim..." : "Test WIN"}
+          ✅ {sendingType === "WIN" ? "Mengirim..." : "Test Menang"}
         </button>
         <button type="button" className="loss" onClick={() => sendResultTest("LOSS")} disabled={Boolean(sendingType) || !adminToken}>
-          ❌ {sendingType === "LOSS" ? "Mengirim..." : "Test LOSS"}
+          ❌ {sendingType === "LOSS" ? "Mengirim..." : "Test Kalah"}
         </button>
         <button type="button" className="expired" onClick={() => sendResultTest("EXPIRED")} disabled={Boolean(sendingType) || !adminToken}>
-          ⚪ {sendingType === "EXPIRED" ? "Mengirim..." : "Test EXPIRED"}
+          ⚪ {sendingType === "EXPIRED" ? "Mengirim..." : "Test Kedaluwarsa"}
         </button>
       </div>
 
@@ -2381,7 +2381,7 @@ function AdminStrategyBAlertTestPanel({ adminToken }) {
         </button>
       </div>
 
-      <p className="miniNote">Test ini hanya untuk cek format Telegram Strategi B. SMC AI auto admin alert hanya untuk monitoring internal. Live alert ke user premium belum diaktifkan.</p>
+      <p className="miniNote">Test ini hanya untuk cek format Telegram Strategi B. SMC AI auto admin alert hanya untuk monitoring teknis. Live alert ke user premium belum diaktifkan.</p>
     </section>
   );
 }
@@ -2433,7 +2433,7 @@ function AdminStrategyBResultAlertTestPanel({ adminToken }) {
       <div className="adminTelegramTestHeader">
         <span className="pill mini"><Target size={14} /> SMC RESULT TEST</span>
         <h3>SMC AI Result Alert Test</h3>
-        <p>Test format result WIN, LOSS, dan EXPIRED untuk Strategi B. Auto result asli SMC AI juga dikirim ke Telegram admin/global, sementara user premium belum menerima alert ini.</p>
+        <p>Test format result Menang, Kalah, dan Kedaluwarsa untuk Strategi B. Auto result asli SMC AI juga dikirim ke Telegram admin/global, sementara user premium belum menerima alert ini.</p>
       </div>
 
       <div className="adminTelegramTestGrid resultAlertTestGrid">
@@ -2450,7 +2450,7 @@ function AdminStrategyBResultAlertTestPanel({ adminToken }) {
         <div>
           <small>Terakhir test</small>
           <b>{lastResult ? `SMC ${lastResult.result}` : "Belum ada"}</b>
-          <span>{lastResult?.sentAt ? formatShortDateTime(lastResult.sentAt) : "Pilih tombol WIN / LOSS / EXPIRED."}</span>
+          <span>{lastResult?.sentAt ? formatShortDateTime(lastResult.sentAt) : "Pilih tombol Menang / Kalah / Kedaluwarsa."}</span>
         </div>
       </div>
 
@@ -2458,17 +2458,17 @@ function AdminStrategyBResultAlertTestPanel({ adminToken }) {
 
       <div className="resultAlertTestActions smcAlertTestActions">
         <button type="button" className="win" onClick={() => sendSmcResultTest("WIN")} disabled={Boolean(sendingType) || !adminToken}>
-          ✅ {sendingType === "WIN" ? "Mengirim..." : "Test SMC WIN"}
+          ✅ {sendingType === "WIN" ? "Mengirim..." : "Test SMC Menang"}
         </button>
         <button type="button" className="loss" onClick={() => sendSmcResultTest("LOSS")} disabled={Boolean(sendingType) || !adminToken}>
-          ❌ {sendingType === "LOSS" ? "Mengirim..." : "Test SMC LOSS"}
+          ❌ {sendingType === "LOSS" ? "Mengirim..." : "Test SMC Kalah"}
         </button>
         <button type="button" className="expired" onClick={() => sendSmcResultTest("EXPIRED")} disabled={Boolean(sendingType) || !adminToken}>
-          ⚪ {sendingType === "EXPIRED" ? "Mengirim..." : "Test SMC EXPIRED"}
+          ⚪ {sendingType === "EXPIRED" ? "Mengirim..." : "Test SMC Kedaluwarsa"}
         </button>
       </div>
 
-      <p className="miniNote">Step 10AI: auto result asli SMC AI akan mengirim alert ke Telegram admin/global saat WIN / LOSS / EXPIRED. User premium belum menerima alert SMC AI.</p>
+      <p className="miniNote">Step 10AI: auto result asli SMC AI akan mengirim alert ke Telegram admin/global saat Menang / Kalah / Kedaluwarsa. User premium belum menerima alert SMC AI.</p>
     </section>
   );
 }
@@ -2735,7 +2735,7 @@ function AdminPanel({ adminToken, setAdminToken }) {
             value={adminToken}
             onChange={(event) => saveToken(event.target.value)}
             type="password"
-            placeholder="Isi ADMIN_ACTION_TOKEN Cloudflare"
+            placeholder="Masukkan kode admin"
           />
         </label>
         <label>
@@ -3065,7 +3065,7 @@ function isAdminPremiumActive(user) {
 }
 
 function getRoleStatusLabel(user) {
-  if (user.role === "premium" && !isAdminPremiumActive(user)) return "EXPIRED";
+  if (user.role === "premium" && !isAdminPremiumActive(user)) return "Kedaluwarsa";
   return (user.role || "free").toUpperCase();
 }
 
@@ -3151,7 +3151,7 @@ function UserPaymentHistoryCard({ user }) {
         </div>
 
         <button type="button" onClick={loadPaymentHistory} disabled={loadingHistory}>
-          {loadingHistory ? "Loading..." : "Refresh"}
+          {loadingHistory ? "Memuat..." : "Refresh"}
         </button>
       </div>
 
@@ -3215,50 +3215,50 @@ function ResultTrackerPrepPanel({ callHistory, scalpHistory, market, signal, isA
     <section className="resultTrackerPanel card">
       <div className="sectionTitle">
         <div>
-          <span className="pill mini"><Target size={14} /> RESULT TRACKER LITE</span>
-          <h3>Auto Result Prep</h3>
-          <span>Engine otomatis untuk cek signal RUNNING berdasarkan live price, TP, SL, dan batas waktu.</span>
+          <span className="pill mini"><Target size={14} /> AUTO RESULT</span>
+          <h3>Pantauan Hasil Sinyal</h3>
+          <span>Sistem otomatis memantau sinyal aktif berdasarkan harga live, target, batas risiko, dan batas waktu.</span>
         </div>
         <div className={`trackerStatusBadge ${trackerReady ? "ready" : "standby"}`}>
-          {trackerReady ? "Engine Ready" : "Standby"}
+          {trackerReady ? "Siap Memantau" : "Menunggu"}
         </div>
       </div>
 
       <div className="trackerSummaryGrid">
         <div>
-          <small>Running Signal</small>
+          <small>Sinyal Aktif</small>
           <strong>{runningItems.length}</strong>
-          <span>Signal yang masih menunggu hasil final.</span>
+          <span>Sinyal yang masih berjalan dan belum selesai.</span>
         </div>
         <div>
-          <small>Closed Signal</small>
+          <small>Sinyal Selesai</small>
           <strong>{closedItems.length}</strong>
-          <span>Signal yang sudah punya hasil WIN / LOSS / BE.</span>
+          <span>Sinyal yang sudah punya hasil akhir.</span>
         </div>
         <div>
-          <small>Live Price Check</small>
+          <small>Harga Live</small>
           <strong>{lastPrice ? formatPrice(lastPrice) : "-"}</strong>
-          <span>Harga acuan untuk engine auto result berikutnya.</span>
+          <span>Harga acuan untuk pembaruan hasil berikutnya.</span>
         </div>
       </div>
 
       <CronHealthMonitor cronHealth={cronHealth} onRefresh={onRefreshCronHealth} />
 
       <div className="trackerLiteNotice autoEngineNotice">
-        <b>Auto Result Engine aktif</b>
-        <span>Engine mengecek signal RUNNING. BUY akan WIN saat harga menyentuh TP dan LOSS saat menyentuh SL. SELL berlaku sebaliknya.</span>
+        <b>Auto Result aktif</b>
+        <span>Sistem memantau sinyal aktif. Hasil akan berubah otomatis saat harga menyentuh target profit, batas risiko, atau break-even.</span>
       </div>
 
       {isAdmin && (
         <div className="trackerControlBox">
           <div>
-            <b>Manual Engine Check</b>
-            <span>{trackerState?.message || "Klik tombol untuk mengecek RUNNING signal sekarang."}</span>
-            {trackerState?.lastRun ? <small>Terakhir cek: {formatHistoryTime(trackerState.lastRun)} · Scan {scannedCount} · Update {updatedCount} · Telegram {resultAlertSentCount}</small> : null}
-            {resultAlertSkippedCount > 0 ? <small>{resultAlertSkippedCount} result tidak dikirim ke Telegram karena gateway belum siap / disabled.</small> : null}
+            <b>Cek Manual Hasil</b>
+            <span>{trackerState?.message || "Klik tombol untuk memperbarui hasil sinyal aktif sekarang."}</span>
+            {trackerState?.lastRun ? <small>Terakhir diperbarui: {formatHistoryTime(trackerState.lastRun)} · Dicek {scannedCount} · Diperbarui {updatedCount} · Telegram {resultAlertSentCount}</small> : null}
+            {resultAlertSkippedCount > 0 ? <small>{resultAlertSkippedCount} hasil belum terkirim ke Telegram karena koneksi notifikasi belum aktif.</small> : null}
           </div>
           <button type="button" onClick={onRunTracker} disabled={trackerState?.loading || !adminToken}>
-            <RefreshCcw size={15} /> {trackerState?.loading ? "Checking..." : "Cek Auto Result"}
+            <RefreshCcw size={15} /> {trackerState?.loading ? "Mengecek..." : "Update Hasil"}
           </button>
         </div>
       )}
@@ -3267,7 +3267,7 @@ function ResultTrackerPrepPanel({ callHistory, scalpHistory, market, signal, isA
         <div className="trackerUpdateList">
           {trackerState.updated.slice(0, 5).map((item) => (
             <span key={`${item.type}-${item.id}`}>
-              {item.type} · {item.result} · {formatPrice(item.price)} · Telegram {item.resultAlertSent ? "Sent" : "Standby"}
+              {item.type} · {item.result} · {formatPrice(item.price)} · Telegram {item.resultAlertSent ? "Sent" : "Menunggu"}
             </span>
           ))}
         </div>
@@ -3275,10 +3275,10 @@ function ResultTrackerPrepPanel({ callHistory, scalpHistory, market, signal, isA
 
       <div className="trackerQueue">
         <div className="trackerQueueHead">
-          <span>Signal</span>
-          <span>Entry</span>
-          <span>SL / TP</span>
-          <span>Status</span>
+          <span>Sinyal</span>
+          <span>Harga Masuk</span>
+          <span>Risiko / Target</span>
+          <span>Hasil</span>
         </div>
         {runningItems.map((item) => (
           <div className="trackerQueueRow" key={`${item.trackerType}-${item.id || item.createdAt || item.candleTime}`}>
@@ -3289,7 +3289,7 @@ function ResultTrackerPrepPanel({ callHistory, scalpHistory, market, signal, isA
           </div>
         ))}
         {runningItems.length === 0 && (
-          <div className="trackerEmpty">Belum ada signal RUNNING. Tracker akan menampilkan antrian saat ada CALL/SCALP valid yang masih open.</div>
+          <div className="trackerEmpty">Belum ada sinyal aktif. Sinyal yang sedang berjalan akan tampil di sini.</div>
         )}
       </div>
     </section>
@@ -3310,9 +3310,9 @@ function CronHealthMonitor({ cronHealth, onRefresh }) {
     <div className={`cronHealthPanel ${tone}`}>
       <div className="cronHealthTop">
         <div>
-          <span className="pill mini">AUTO RESULT CRON</span>
-          <h4>Cron Health Monitor</h4>
-          <p>Memantau auto result dari cron PHP.ID. Source result tetap dari live feed MT5/VPS.</p>
+          <span className="pill mini">AUTO RESULT</span>
+          <h4>Status Auto Result</h4>
+          <p>Memantau pembaruan hasil otomatis agar riwayat sinyal tetap akurat.</p>
         </div>
         <div className={`cronHealthBadge ${tone}`}>{statusLabel}</div>
       </div>
@@ -3323,31 +3323,31 @@ function CronHealthMonitor({ cronHealth, onRefresh }) {
 
       <div className="cronHealthGrid">
         <div>
-          <small>Last Run</small>
+          <small>Update Terakhir</small>
           <strong>{lastRunText}</strong>
           <span>{lastRunAge}</span>
         </div>
         <div>
-          <small>MT5/VPS Feed Age</small>
+          <small>Umur Data Market</small>
           <strong>{feedAge}</strong>
-          <span>{data?.liveFeedTime ? `Feed time: ${formatHistoryTime(data.liveFeedTime)}` : "Menunggu feed terbaru"}</span>
+          <span>{data?.liveFeedTime ? `Waktu data: ${formatHistoryTime(data.liveFeedTime)}` : "Menunggu data terbaru"}</span>
         </div>
         <div>
-          <small>Last Action</small>
-          <strong>{data ? `Scan ${data.scanned || 0} · Update ${data.updatedCount || 0}` : "-"}</strong>
-          <span>Telegram {data?.resultAlertSentCount || 0} sent · {data?.resultAlertSkippedCount || 0} skipped</span>
+          <small>Aktivitas Terakhir</small>
+          <strong>{data ? `Dicek ${data.scanned || 0} · Diperbarui ${data.updatedCount || 0}` : "-"}</strong>
+          <span>Telegram terkirim {data?.resultAlertSentCount || 0} · dilewati {data?.resultAlertSkippedCount || 0}</span>
         </div>
         <div>
-          <small>Source</small>
-          <strong>Koneksi Market Utama</strong>
-          <span>Bybit used: {bybitLabel}</span>
+          <small>Sumber Data</small>
+          <strong>Live Gold Feed</strong>
+          <span>Cadangan market: {bybitLabel}</span>
         </div>
       </div>
 
       <div className="cronHealthFooter">
-        <span>{data?.action || "Cron status akan tampil setelah runner pertama berjalan."}</span>
+        <span>{data?.action || "Status akan tampil setelah sistem pembaruan hasil berjalan."}</span>
         <button type="button" onClick={onRefresh} disabled={cronHealth?.loading}>
-          <RefreshCcw size={14} /> {cronHealth?.loading ? "Refreshing..." : "Refresh Cron"}
+          <RefreshCcw size={14} /> {cronHealth?.loading ? "Memuat..." : "Refresh Status"}
         </button>
       </div>
     </div>
@@ -3383,14 +3383,14 @@ function PerformanceAnalyticsPanel({ callHistory, scalpHistory, isAdmin }) {
     <section className="performancePanel card">
       <div className="sectionTitle">
         <div>
-          <span className="pill mini">PERFORMANCE ANALYTICS</span>
-          <h3>Analytics 7/30 Hari</h3>
-          <span>Ringkasan performa dari hasil terbaru. Sinyal yang masih berjalan tidak masuk hitungan winrate.</span>
+          <span className="pill mini">PERFORMA</span>
+          <h3>Performa 7/30 Hari</h3>
+          <span>Ringkasan hasil terbaru. Sinyal yang masih berjalan belum dihitung ke winrate.</span>
         </div>
         <div className="performanceHighlight">
-          <small>Highlight Terbaik</small>
-          <b>{best ? `${best.label} · ${best.cleanWinRate}% Clean WR` : "Waiting data"}</b>
-          {best ? <span>{best.wins} WIN dari {best.closed} closed · {best.expired} expired</span> : <span>Menunggu result tertutup.</span>}
+          <small>Performa Terbaik</small>
+          <b>{best ? `${best.label} · ${best.cleanWinRate}% WR Bersih` : "Menunggu data"}</b>
+          {best ? <span>{best.wins} Menang dari {best.closed} sinyal selesai · {best.expired} kedaluwarsa</span> : <span>Menunggu sinyal selesai.</span>}
         </div>
       </div>
 
@@ -3401,18 +3401,18 @@ function PerformanceAnalyticsPanel({ callHistory, scalpHistory, isAdmin }) {
 
       <div className="performanceSummary">
         <div>
-          <b>Recent Summary</b>
+          <b>Ringkasan Terbaru</b>
           <span>{buildPerformanceSummary(call7, call30, null, null)}</span>
         </div>
         <div>
           <b>Catatan</b>
-          <span>Clean WR dihitung dari WIN / LOSS / BE. EXPIRED dipisah sebagai setup yang habis waktu, dan RUNNING tidak dihitung.</span>
+          <span>Winrate bersih dihitung dari sinyal selesai. Sinyal kedaluwarsa dipisah, dan sinyal berjalan belum dihitung.</span>
         </div>
       </div>
 
       {isAdmin && (
         <div className="performanceAdminNote">
-          Analisis otomatis mengikuti hasil terbaru. Pastikan sinkron hasil tetap aktif agar Menang / Kalah / Kedaluwarsa selalu terbaru.
+          Analisis otomatis mengikuti hasil terbaru. Pastikan pembaruan hasil tetap aktif agar performa selalu akurat.
         </div>
       )}
     </section>
@@ -3433,21 +3433,21 @@ function PerformanceCard({ title, period, stats }) {
       </div>
 
       <div className="performanceSubRate">
-        <span>Clean WR</span>
-        <em>Total WR {stats.totalWinRate}%</em>
+        <span>WR Bersih</span>
+        <em>WR Total {stats.totalWinRate}%</em>
       </div>
 
       <div className="performanceBars performanceBarsFive">
         <div>
-          <small>Closed</small>
+          <small>Selesai</small>
           <strong>{stats.closed}</strong>
         </div>
         <div>
-          <small>WIN</small>
+          <small>Menang</small>
           <strong>{stats.wins}</strong>
         </div>
         <div>
-          <small>LOSS</small>
+          <small>Kalah</small>
           <strong>{stats.losses}</strong>
         </div>
         <div>
@@ -3455,7 +3455,7 @@ function PerformanceCard({ title, period, stats }) {
           <strong>{stats.be}</strong>
         </div>
         <div>
-          <small>EXP</small>
+          <small>Exp</small>
           <strong>{stats.expired}</strong>
         </div>
       </div>
@@ -3464,7 +3464,7 @@ function PerformanceCard({ title, period, stats }) {
         <i style={{ width: `${Math.min(100, Math.max(0, stats.cleanWinRate))}%` }} />
       </div>
 
-      <p>{stats.total} total signal · {stats.open} RUNNING · {stats.expired} EXPIRED</p>
+      <p>{stats.total} total sinyal · {stats.open} berjalan · {stats.expired} kedaluwarsa</p>
     </div>
   );
 }
@@ -3476,22 +3476,21 @@ function isOpenResult(item) {
 
 function formatResultStatus(item) {
   const raw = String(item?.result || item?.status || "OPEN").toUpperCase();
-  if (raw === "OPEN") return "RUNNING";
+  if (raw === "OPEN" || raw === "RUNNING" || raw === "PENDING" || raw === "WAITING") return "Berjalan";
   if (raw === "BE" || raw === "BREAKEVEN") return "BE";
-  if (raw === "WIN") return "WIN";
-  if (raw === "LOSS") return "LOSS";
-  if (raw === "EXPIRED") return "EXPIRED";
-  if (raw === "RUNNING") return "RUNNING";
-  return raw || "RUNNING";
+  if (raw === "WIN") return "Menang";
+  if (raw === "LOSS") return "Kalah";
+  if (raw === "EXPIRED") return "Kedaluwarsa";
+  return raw || "Berjalan";
 }
 
 function getResultStatusTone(item) {
-  const status = formatResultStatus(item).toLowerCase();
-  if (status === "running") return "running";
-  if (status === "expired") return "expired";
-  if (status === "be") return "be";
-  if (status === "win") return "win";
-  if (status === "loss") return "loss";
+  const raw = String(item?.result || item?.status || "OPEN").toUpperCase();
+  if (["OPEN", "RUNNING", "PENDING", "WAITING"].includes(raw)) return "running";
+  if (raw === "EXPIRED") return "expired";
+  if (raw === "BE" || raw === "BREAKEVEN") return "be";
+  if (raw === "WIN") return "win";
+  if (raw === "LOSS") return "loss";
   return "open";
 }
 
@@ -3537,23 +3536,23 @@ function buildPerformanceStats(items, days) {
   filtered.forEach((item) => {
     const result = formatResultStatus(item);
 
-    if (result === "WIN") wins += 1;
-    else if (result === "LOSS") losses += 1;
+    if (result === "Menang") wins += 1;
+    else if (result === "Kalah") losses += 1;
     else if (result === "BE") be += 1;
-    else if (result === "EXPIRED") expired += 1;
+    else if (result === "Kedaluwarsa") expired += 1;
     else open += 1;
   });
 
   const closed = wins + losses + be;
-  const totalClosed = closed + expired;
+  const totalSelesai = closed + expired;
   const cleanWinRate = closed > 0 ? Math.round((wins / closed) * 100) : 0;
-  const totalWinRate = totalClosed > 0 ? Math.round((wins / totalClosed) * 100) : 0;
+  const totalWinRate = totalSelesai > 0 ? Math.round((wins / totalSelesai) * 100) : 0;
 
   return {
     days,
     total: filtered.length,
     closed,
-    totalClosed,
+    totalSelesai,
     wins,
     losses,
     be,
@@ -3583,7 +3582,7 @@ function pickBestPerformance(statsList) {
   return valid.sort((a, b) => {
     if (b.cleanWinRate !== a.cleanWinRate) return b.cleanWinRate - a.cleanWinRate;
     if (b.closed !== a.closed) return b.closed - a.closed;
-    return b.totalClosed - a.totalClosed;
+    return b.totalSelesai - a.totalSelesai;
   })[0];
 }
 
@@ -3594,16 +3593,16 @@ function buildPerformanceSummary(call7, call30, scalp7, scalp30) {
   scalp30 = scalp30 || empty;
 
   if (call7.closed > 0 || call7.expired > 0) {
-    parts.push(`SINYAL UTAMA 7D Clean WR ${call7.cleanWinRate}% · ${call7.wins}W/${call7.losses}L/${call7.be}BE · ${call7.expired} EXP`);
+    parts.push(`SINYAL UTAMA 7D WR Bersih ${call7.cleanWinRate}% · ${call7.wins}W/${call7.losses}L/${call7.be}BE · ${call7.expired} Exp`);
   }
 
   if (scalp7.closed > 0 || scalp7.expired > 0) {
-    parts.push(`SCALP M5 7D Clean WR ${scalp7.cleanWinRate}% · ${scalp7.wins}W/${scalp7.losses}L/${scalp7.be}BE · ${scalp7.expired} EXP`);
+    parts.push(`SCALP M5 7D WR Bersih ${scalp7.cleanWinRate}% · ${scalp7.wins}W/${scalp7.losses}L/${scalp7.be}BE · ${scalp7.expired} Exp`);
   }
 
   if (!parts.length) {
     if (call30.closed || call30.expired || scalp30.closed || scalp30.expired) {
-      return `Data 7 hari masih tipis. 30D: SINYAL UTAMA ${call30.cleanWinRate}% Clean WR (${call30.expired} EXP), SCALP M5 ${scalp30.cleanWinRate}% Clean WR (${scalp30.expired} EXP).`;
+      return `Data 7 hari masih tipis. 30D: SINYAL UTAMA ${call30.cleanWinRate}% WR Bersih (${call30.expired} Exp), SCALP M5 ${scalp30.cleanWinRate}% WR Bersih (${scalp30.expired} Exp).`;
     }
 
     return "Analisis akan makin akurat setelah sistem mengumpulkan hasil Menang / Kalah / BE / Kedaluwarsa.";
@@ -4082,7 +4081,7 @@ function AdminOrdersPanel({ adminToken }) {
 
         <div className="adminOrdersHeaderActions">
           <button type="button" onClick={loadOrders} disabled={loadingOrders}>
-            {loadingOrders ? "Loading..." : "Refresh Orders"}
+            {loadingOrders ? "Memuat..." : "Refresh Orders"}
           </button>
           <button
             type="button"
@@ -4249,8 +4248,7 @@ function LandingPage({ onLogin }) {
           <span className="pill mini">ASISTEN PREMIUM XAUUSD</span>
           <h1>Dashboard sinyal XAUUSD dengan notifikasi Telegram premium.</h1>
           <p>
-            XAU AI Signal membantu memantau market gold dengan kombinasi market structure,
-            EMA 9/20 M1, Telegram alert, auto result, dan history performa signal.
+            XAU AI Signal membantu memantau market gold dengan fokus utama EMA 9/20 M1, notifikasi Telegram, auto result, dan riwayat performa yang transparan.
           </p>
 
           <div className="landingCta">
@@ -4262,7 +4260,7 @@ function LandingPage({ onLogin }) {
           <div className="landingTrust">
             <span>Notifikasi Telegram</span>
             <span>Main Signal M1</span>
-            <span>CALL History</span>
+            <span>Riwayat Sinyal</span>
           </div>
         </div>
 
@@ -4274,24 +4272,24 @@ function LandingPage({ onLogin }) {
 
           <div className="heroSignalBox">
             <small>Mode Sinyal</small>
-            <strong>BUY / SELL CALL</strong>
-            <p>Valid saat konfirmasi utama terpenuhi.</p>
+            <strong>BUY / SELL Premium</strong>
+            <p>Muncul hanya saat rule utama sudah valid.</p>
           </div>
 
           <div className="heroSignalGrid">
-            <div><small>Trend</small><b>EMA 9/20</b></div>
-            <div><small>Momentum</small><b>RSI + MFI</b></div>
-            <div><small>Area</small><b>Area M15 Fresh</b></div>
+            <div><small>Rule</small><b>EMA 9/20 M1</b></div>
+            <div><small>Validasi</small><b>Close Candle</b></div>
+            <div><small>Risk Plan</small><b>TP1 · BE · RR 1:1</b></div>
             <div><small>Alert</small><b>Telegram</b></div>
           </div>
         </div>
       </section>
 
       <section className="landingStats">
-        <div><b>SINYAL UTAMA</b><span>Signal utama berbasis konfirmasi</span></div>
-        <div><b>SCALP M5</b><span>EMA Cross Direct Entry</span></div>
-        <div><b>AREA M15</b><span>Pantauan area penting M15</span></div>
-        <div><b>History</b><span>Winrate & hasil transparan</span></div>
+        <div><b>SINYAL UTAMA</b><span>Fokus EMA Cross M1</span></div>
+        <div><b>DIRECT ENTRY</b><span>Masuk setelah candle M1 valid</span></div>
+        <div><b>RISK PLAN</b><span>TP1, BE, dan RR 1:1</span></div>
+        <div><b>RIWAYAT</b><span>Winrate & hasil transparan</span></div>
       </section>
 
       <section className="landingSection" id="features">
@@ -4302,12 +4300,12 @@ function LandingPage({ onLogin }) {
         </div>
 
         <div className="landingFeatureGrid">
-          <LandingFeature title="SINYAL UTAMA Alert" text="Notifikasi BUY/SELL saat kondisi utama sudah valid." />
+          <LandingFeature title="Alert Sinyal Utama" text="Notifikasi BUY/SELL saat kondisi utama sudah valid." />
           <LandingFeature title="Main Signal M1" text="Fokus pada satu strategi utama: EMA9 cross EMA20 M1 dengan close filter dan risk RR 1:1." />
-          <LandingFeature title="Area M15 Fresh" text="Monitoring demand/supply fresh order block untuk area penting market." />
+          <LandingFeature title="Risk Plan Jelas" text="TP1, break-even, target max, dan batas risiko tampil jelas di dashboard." />
           <LandingFeature title="Notifikasi Telegram" text="User premium bisa connect Telegram untuk menerima alert langsung." />
-          <LandingFeature title="Grafik Live" text="Chart M1, EMA 9/20, garis Entry/TP/SL, dan market status." />
-          <LandingFeature title="Riwayat Performa" text="Riwayat signal valid, result, dan winrate untuk evaluasi transparan." />
+          <LandingFeature title="Grafik Live" text="Chart M1, EMA 9/20, garis entry, target, risiko, dan status market." />
+          <LandingFeature title="Riwayat Performa" text="Riwayat sinyal valid, hasil, dan winrate untuk evaluasi transparan." />
         </div>
       </section>
 
@@ -4518,7 +4516,7 @@ function AuthScreen({ onBack }) {
           {resetMode
             ? "Masukkan email akun kamu. Link reset password akan dikirim lewat email."
             : mode === "login"
-              ? "Login dulu buat akses dashboard premium, SINYAL UTAMA, Main Signal M1, Area M15 Fresh, dan history signal."
+              ? "Login dulu buat akses dashboard premium, SINYAL UTAMA, Main Signal M1, Risk Plan Jelas, dan history signal."
               : "Buat akun dulu, lalu verifikasi email untuk lanjut ke premium access."}
         </p>
 
@@ -4549,7 +4547,7 @@ function AuthScreen({ onBack }) {
           {info && <div className="authError info">{info}</div>}
 
           <button type="submit" disabled={busy}>
-            {busy ? "Loading..." : resetMode ? "Kirim Link Reset Password" : mode === "register" ? "Create Account" : "Login"}
+            {busy ? "Memuat..." : resetMode ? "Kirim Link Reset Password" : mode === "register" ? "Create Account" : "Login"}
           </button>
 
           {mode === "login" && !resetMode && (
@@ -4640,7 +4638,7 @@ function VerifyEmailScreen({ user, onLogout, onVerified }) {
 
         <div className="paywallActions">
           <button type="button" onClick={handleResend} disabled={busy}>
-            {busy ? "Loading..." : "Kirim Ulang Link"}
+            {busy ? "Memuat..." : "Kirim Ulang Link"}
           </button>
           <button type="button" onClick={handleCheck} disabled={busy}>
             Saya Sudah Verifikasi
@@ -4765,9 +4763,9 @@ function PaywallScreen({ user, profile, onLogout }) {
         <div className="premiumFeatures">
           <b>Premium unlock:</b>
           <span>✅ Live dashboard XAU AI</span>
-          <span>✅ SINYAL UTAMA Alert</span>
+          <span>✅ Alert Sinyal Utama</span>
           <span>✅ Main Signal M1</span>
-          <span>✅ Area M15 Fresh</span>
+          <span>✅ Risk Plan Jelas</span>
           <span>✅ CALL & SCALP History</span>
           <span>✅ Analisis Performa 7/30 Hari</span>
         </div>
@@ -5007,14 +5005,14 @@ function clearTradePlanLines(linesRef) {
 function addTradePlanLines(series, linesRef, mainM5) {
   clearTradePlanLines(linesRef);
 
-  const action = String(mainM5?.action || "WAIT");
+  const action = String(mainM5?.action || "Menunggu");
   const preview = mainM5?.preview || {};
   const isPlan = ["BUY_OPEN", "SELL_OPEN", "BUY_LIMIT", "SELL_LIMIT"].includes(action);
   const entry = Number((isPlan ? mainM5?.entry : preview?.entry) || 0);
   const sl = Number(mainM5?.sl || 0);
   const tp1 = Number(mainM5?.tp1 || 0);
   const tp2 = Number(mainM5?.tp2 || mainM5?.tp || 0);
-  const direction = String((isPlan ? mainM5?.direction : preview?.direction) || "WAIT");
+  const direction = String((isPlan ? mainM5?.direction : preview?.direction) || "Menunggu");
 
   if (!isPlan && !preview?.active) return;
   if (!Number.isFinite(entry) || entry <= 0) return;
@@ -5026,7 +5024,7 @@ function addTradePlanLines(series, linesRef, mainM5) {
     lineWidth: isPlan ? 2 : 1,
     lineStyle: isPlan ? 0 : 1,
     axisLabelVisible: true,
-    title: isPlan ? `${direction || "PLAN"} OPEN · EMA CROSS` : `${direction || "WAIT"} PREVIEW · EMA CROSS`
+    title: isPlan ? `${direction || "PLAN"} OPEN · EMA CROSS` : `${direction || "Menunggu"} PREVIEW · EMA CROSS`
   });
   newLines.push({ series, line: entryLine });
 
@@ -5223,7 +5221,7 @@ function BybitTestFeedPanel({ feed, market, mt5LastCandle, onRefresh }) {
 
       <div className="bybitTestActions">
         <button type="button" onClick={onRefresh} disabled={feed?.loading}>
-          <RefreshCcw size={15} /> {feed?.loading ? "Loading..." : "Refresh Backup Feed"}
+          <RefreshCcw size={15} /> {feed?.loading ? "Memuat..." : "Refresh Backup Feed"}
         </button>
         <a href="https://xauusd-signal-web-default-rtdb.firebaseio.com/bybit_test/xauusdt/status.json" target="_blank" rel="noreferrer">
           Cek status engine
@@ -5303,7 +5301,7 @@ function StrategyComparePanel({ callHistory, scalpHistory, strategyBHistory }) {
       <div className="strategyCompareTable threeWay">
         <div className="strategyCompareHead threeWay">
           <span>Metric</span>
-          <span>Main Signal</span>
+          <span>Main Sinyal</span>
           <span>M5 Scalp</span>
           <span>SMC AI</span>
           <span>Insight</span>
@@ -5348,11 +5346,11 @@ function StrategyCompareCard({ title, subtitle, stats7, stats30, tone }) {
         <span>7D WR <b>{stats7.cleanWinRate}%</b></span>
         <span>30D WR <b>{stats30.cleanWinRate}%</b></span>
         <span>Signal <b>{stats30.total}</b></span>
-        <span>Closed <b>{stats30.closed}</b></span>
+        <span>Selesai <b>{stats30.closed}</b></span>
         <span>Expired <b>{stats30.expired}</b></span>
         <span>Avg RR <b>{stats30.averageRR}</b></span>
       </div>
-      <p>{stats30.total ? `${stats30.wins} WIN · ${stats30.losses} LOSS · ${stats30.be} BE · ${stats30.expired} EXP dalam 30 hari.` : "Menunggu data hasil 30 hari."}</p>
+      <p>{stats30.total ? `${stats30.wins} Menang · ${stats30.losses} Kalah · ${stats30.be} BE · ${stats30.expired} Exp dalam 30 hari.` : "Menunggu data hasil 30 hari."}</p>
     </div>
   );
 }
@@ -5360,13 +5358,13 @@ function StrategyCompareCard({ title, subtitle, stats7, stats30, tone }) {
 function buildCompareStats(items, days, fallbackRR = 1) {
   const stats = buildPerformanceStats(items, days);
   const filtered = filterHistoryByDays(items, days);
-  const closedItems = filtered.filter((item) => ["WIN", "LOSS", "BE"].includes(formatResultStatus(item)));
+  const closedItems = filtered.filter((item) => ["Menang", "Kalah", "BE"].includes(formatResultStatus(item)));
   const rrValues = closedItems.map((item) => Number(String(item.rr || item.riskReward || fallbackRR).replace(/[^0-9.]/g, ""))).filter((n) => Number.isFinite(n) && n > 0);
   const tpValues = closedItems.map((item) => Math.abs(Number(item.tp || 0) - Number(item.entry || 0))).filter((n) => Number.isFinite(n) && n > 0);
   const slValues = closedItems.map((item) => Math.abs(Number(item.entry || 0) - Number(item.sl || 0))).filter((n) => Number.isFinite(n) && n > 0);
   const avgRR = rrValues.length ? average(rrValues) : fallbackRR;
   const avgTP = tpValues.length ? average(tpValues) : 0;
-  const avgSL = slValues.length ? average(slValues) : 0;
+  const avgRisiko = slValues.length ? average(slValues) : 0;
   const grossWin = stats.wins * avgRR;
   const grossLoss = stats.losses || 0;
 
@@ -5374,7 +5372,7 @@ function buildCompareStats(items, days, fallbackRR = 1) {
     ...stats,
     averageRR: avgRR ? Number(avgRR.toFixed(2)) : 0,
     averageTP: avgTP ? Number(avgTP.toFixed(2)) : 0,
-    averageSL: avgSL ? Number(avgSL.toFixed(2)) : 0,
+    averageSL: avgRisiko ? Number(avgSL.toFixed(2)) : 0,
     profitFactor: grossLoss > 0 ? Number((grossWin / grossLoss).toFixed(2)) : stats.wins > 0 ? "∞" : 0,
     expiredRate: stats.total > 0 ? Math.round((stats.expired / stats.total) * 100) : 0
   };
@@ -5398,11 +5396,11 @@ function average(values) {
 function buildStrategyCompareRows3Way(a, scalp, b) {
   return [
     {
-      metric: "Clean WR 30D",
+      metric: "WR Bersih 30D",
       a: `${a.cleanWinRate}%`,
       scalp: `${scalp.cleanWinRate}%`,
       b: `${b.cleanWinRate}%`,
-      note: compareBest3Way(a.cleanWinRate, scalp.cleanWinRate, b.cleanWinRate, "Clean WR")
+      note: compareBest3Way(a.cleanWinRate, scalp.cleanWinRate, b.cleanWinRate, "WR Bersih")
     },
     {
       metric: "Total Sinyal",
@@ -5468,7 +5466,7 @@ function buildStrategyCompareInsight3Way(a7, a30, scalp7, scalp30, b7, b30) {
     return {
       badge: "SMC AI unggul",
       short: "B kuat di WR/RR",
-      detail: `SMC AI unggul dengan ${b30.cleanWinRate}% Clean WR dan Avg RR ${b30.averageRR}. Tetap pantau sample size dan expired rate sebelum live alert ke user premium.`
+      detail: `SMC AI unggul dengan ${b30.cleanWinRate}% WR Bersih dan Avg RR ${b30.averageRR}. Tetap pantau sample size dan expired rate sebelum live alert ke user premium.`
     };
   }
 
@@ -5476,7 +5474,7 @@ function buildStrategyCompareInsight3Way(a7, a30, scalp7, scalp30, b7, b30) {
     return {
       badge: "Scalp aktif",
       short: "M5 paling aktif",
-      detail: `M5 Scalp paling aktif dengan ${scalp30.total} signal 30D dan Clean WR ${scalp30.cleanWinRate}%. Tetap pisahkan dari Strategi A agar statistik utama tidak tercampur.`
+      detail: `M5 Scalp paling aktif dengan ${scalp30.total} signal 30D dan WR Bersih ${scalp30.cleanWinRate}%. Tetap pisahkan dari Strategi A agar statistik utama tidak tercampur.`
     };
   }
 
@@ -5496,10 +5494,10 @@ function buildStrategyCompareInsight3Way(a7, a30, scalp7, scalp30, b7, b30) {
 }
 
 function StrategyBSmcPanel({ strategyB, strategyBHistory, isAdmin, onUpdateResult }) {
-  const action = String(strategyB?.action || "WAIT");
+  const action = String(strategyB?.action || "Menunggu");
   const tone = action.includes("BUY") ? "buy" : action.includes("SELL") ? "sell" : action.includes("READY") ? "ready" : "wait";
   const checks = Array.isArray(strategyB?.checklist) ? strategyB.checklist : [];
-  const direction = strategyB?.direction || "WAIT";
+  const direction = strategyB?.direction || "Menunggu";
   const active = direction === "SELL" ? strategyB?.sell : strategyB?.buy;
   const activeSteps = active?.steps || {};
   const smcHistory = strategyBHistory?.history || [];
@@ -5508,7 +5506,7 @@ function StrategyBSmcPanel({ strategyB, strategyBHistory, isAdmin, onUpdateResul
   const smc7d = smcWindows.d7 || smcStats;
   const smc30d = smcWindows.d30 || smcStats;
   const smcBest = smcStats?.bestSnapshot || {
-    title: "Waiting data",
+    title: "Menunggu data",
     detail: "SMC AI belum punya data selesai yang cukup untuk highlight."
   };
 
@@ -5517,10 +5515,10 @@ function StrategyBSmcPanel({ strategyB, strategyBHistory, isAdmin, onUpdateResul
       <div className="strategyHeader">
         <div>
           <span className="pill mini"><Sparkles size={14} /> STRATEGY B · LIVE BACKTEST</span>
-          <h3>{strategyB?.label || "SMC AI WAIT"}</h3>
+          <h3>{strategyB?.label || "SMC AI Menunggu"}</h3>
           <p>{strategyB?.reason || "Menunggu rangkaian SMC."}</p>
         </div>
-        <div className={`biasBadge ${tone}`}>{strategyB?.confidence || 0}% confidence</div>
+        <div className={`biasBadge ${tone}`}>{strategyB?.confidence || 0}% kekuatan setup</div>
       </div>
 
       <div className="strategyBNotice">
@@ -5543,23 +5541,23 @@ function StrategyBSmcPanel({ strategyB, strategyBHistory, isAdmin, onUpdateResul
             return (
               <div key={`${item.name}-${idx}`} className={`strategyBStep ${passed ? "pass" : "wait"}`}>
                 <b>{item.name}</b>
-                <span>{passed ? "YES" : "WAIT"}</span>
+                <span>{passed ? "YES" : "Menunggu"}</span>
               </div>
             );
           })}
         </div>
-        {strategyB?.blockers?.length > 0 && <p className="strategyBBlocker">Yang ditunggu: {strategyB.blockers.slice(0, 2).join(" · ")}</p>}
+        {strategyB?.blockers?.length > 0 && <p className="strategyBBlocker">Menunggu: {strategyB.blockers.slice(0, 2).join(" · ")}</p>}
       </div>
 
       <div className="strategyBDetails">
         <div className="strategyBDetailCard">
           <b>BUY Checklist</b>
-          <span>OB {strategyB?.buy?.steps?.freshOb ? "YES" : "WAIT"} · Sweep {strategyB?.buy?.steps?.sweep ? "YES" : "WAIT"} · CHOCH {strategyB?.buy?.steps?.choch ? "YES" : "WAIT"} · EMA {strategyB?.buy?.steps?.ema ? "YES" : "WAIT"}</span>
+          <span>OB {strategyB?.buy?.steps?.freshOb ? "YES" : "Menunggu"} · Sweep {strategyB?.buy?.steps?.sweep ? "YES" : "Menunggu"} · CHOCH {strategyB?.buy?.steps?.choch ? "YES" : "Menunggu"} · EMA {strategyB?.buy?.steps?.ema ? "YES" : "Menunggu"}</span>
           <em>Score {strategyB?.buy?.score || 0}%</em>
         </div>
         <div className="strategyBDetailCard">
           <b>SELL Checklist</b>
-          <span>OB {strategyB?.sell?.steps?.freshOb ? "YES" : "WAIT"} · Sweep {strategyB?.sell?.steps?.sweep ? "YES" : "WAIT"} · CHOCH {strategyB?.sell?.steps?.choch ? "YES" : "WAIT"} · EMA {strategyB?.sell?.steps?.ema ? "YES" : "WAIT"}</span>
+          <span>OB {strategyB?.sell?.steps?.freshOb ? "YES" : "Menunggu"} · Sweep {strategyB?.sell?.steps?.sweep ? "YES" : "Menunggu"} · CHOCH {strategyB?.sell?.steps?.choch ? "YES" : "Menunggu"} · EMA {strategyB?.sell?.steps?.ema ? "YES" : "Menunggu"}</span>
           <em>Score {strategyB?.sell?.score || 0}%</em>
         </div>
       </div>
@@ -5569,7 +5567,7 @@ function StrategyBSmcPanel({ strategyB, strategyBHistory, isAdmin, onUpdateResul
           <div>
             <span className="pill mini"><Clock size={14} /> SMC AI LIVE BACKTEST</span>
             <h3>Strategi B History</h3>
-            <span>History ini terpisah dari Strategi A. Auto Result Tracker ikut memantau WIN / LOSS / EXPIRED dari live feed MT5/VPS, tanpa Telegram live alert dulu.</span>
+            <span>Riwayat ini terpisah dari sinyal utama dan hanya untuk pemantauan performa.</span>
           </div>
           <div className="historyStats smcStats">
             <b>Total {smcStats.total || 0}</b>
@@ -5587,8 +5585,8 @@ function StrategyBSmcPanel({ strategyB, strategyBHistory, isAdmin, onUpdateResul
             <h4>{smcBest.title}</h4>
             <p>{smcBest.detail}</p>
           </div>
-          <div className="strategyBAnalyticsSource">
-            <b>Koneksi Market Utama</b>
+          <div className="strategyBAnalyticsSumber Data">
+            <b>Live Gold Feed</b>
             <span>Hasil SMC AI tetap memakai koneksi market utama, bukan data cadangan.</span>
           </div>
         </div>
@@ -5601,20 +5599,20 @@ function StrategyBSmcPanel({ strategyB, strategyBHistory, isAdmin, onUpdateResul
         <div className="strategyBStatsGrid">
           <Metric label="Average RR" value={smcStats.averageRR || "-"} note="Rata-rata reward/risk dari sinyal selesai" />
           <Metric label="Average TP" value={smcStats.averageTP || "-"} note="All-time rata-rata jarak TP SMC AI" />
-          <Metric label="Average SL" value={smcStats.averageSL || "-"} note="All-time rata-rata jarak SL SMC AI" />
+          <Metric label="Average Risiko" value={smcStats.averageRisiko || "-"} note="All-time rata-rata jarak Risiko SMC AI" />
           <Metric label="Profit Factor" value={smcStats.profitFactor || "-"} note="All-time estimasi gross reward vs risk" />
           <Metric label="Auto Result" value="MT5/VPS" note="Hasil SMC AI dipantau dari koneksi market utama" />
         </div>
 
         <div className="historyTable strategyBHistoryTable">
           <div className={`historyHead ${isAdmin ? "adminMode" : "viewerMode"}`}>
-            <span>Time</span>
-            <span>Signal</span>
-            <span>Entry</span>
-            <span>SL / TP</span>
+            <span>Waktu</span>
+            <span>Sinyal</span>
+            <span>Harga Masuk</span>
+            <span>Risiko / Target</span>
             <span>Conf</span>
-            <span>Result</span>
-            {isAdmin && <span>Action</span>}
+            <span>Hasil</span>
+            {isAdmin && <span>Aksi</span>}
           </div>
 
           {smcHistory.slice(0, 12).map((item) => (
@@ -5627,11 +5625,11 @@ function StrategyBSmcPanel({ strategyB, strategyBHistory, isAdmin, onUpdateResul
               <span className={`resultBadge ${getResultStatusTone(item)}`}>{formatResultStatus(item)}</span>
               {isAdmin && (
                 <div className="historyActions">
-                  <button type="button" onClick={() => onUpdateResult?.(item.id, "WIN")}>WIN</button>
-                  <button type="button" onClick={() => onUpdateResult?.(item.id, "LOSS")}>LOSS</button>
+                  <button type="button" onClick={() => onUpdateResult?.(item.id, "WIN")}>Menang</button>
+                  <button type="button" onClick={() => onUpdateResult?.(item.id, "LOSS")}>Kalah</button>
                   <button type="button" onClick={() => onUpdateResult?.(item.id, "BE")}>BE</button>
-                  <button type="button" onClick={() => onUpdateResult?.(item.id, "EXPIRED")}>EXP</button>
-                  <button type="button" onClick={() => onUpdateResult?.(item.id, "OPEN")}>OPEN</button>
+                  <button type="button" onClick={() => onUpdateResult?.(item.id, "EXPIRED")}>Exp</button>
+                  <button type="button" onClick={() => onUpdateResult?.(item.id, "OPEN")}>Berjalan</button>
                 </div>
               )}
             </div>
@@ -5652,15 +5650,15 @@ function StrategyBWindowStats({ title, stats }) {
     <div className="strategyBWindowCard">
       <div className="strategyBWindowTop">
         <b>{title}</b>
-        <span>Clean WR {safe.winRate || 0}%</span>
+        <span>WR Bersih {safe.winRate || 0}%</span>
       </div>
       <div className="strategyBWindowMetrics">
         <span>Total <b>{safe.total || 0}</b></span>
         <span>Run <b>{safe.open ?? safe.running ?? 0}</b></span>
-        <span>WIN <b>{safe.wins || 0}</b></span>
-        <span>LOSS <b>{safe.losses || 0}</b></span>
-        <span>EXP <b>{safe.expired || 0}</b></span>
-        <span>Total WR <b>{safe.totalWinRate || 0}%</b></span>
+        <span>Menang <b>{safe.wins || 0}</b></span>
+        <span>Kalah <b>{safe.losses || 0}</b></span>
+        <span>Exp <b>{safe.expired || 0}</b></span>
+        <span>WR Total <b>{safe.totalWinRate || 0}%</b></span>
         <span>Avg RR <b>{safe.averageRR || 0}</b></span>
         <span>PF <b>{safe.profitFactor || 0}</b></span>
       </div>
@@ -5692,21 +5690,21 @@ function SignalQualityGuardPanel({ guard }) {
     <section className={`qualityGuardPanel card ${tone}`}>
       <div className="qualityGuardTop">
         <div>
-          <span className="pill mini"><Shield size={14} /> SIGNAL QUALITY GUARD V2</span>
-          <h3>{guard.label || "Market Safety Check"}</h3>
-          <p>{guard.message || "Quality Guard memantau kualitas setup sebelum sinyal valid."}</p>
+          <span className="pill mini"><Shield size={14} /> QUALITY CHECK</span>
+          <h3>{guard.label || "Cek Kualitas Market"}</h3>
+          <p>{guard.message || "Sistem mengecek kualitas market sebelum sinyal premium ditampilkan."}</p>
         </div>
         <div className={`qualityGuardScore ${tone}`}>
           <b>{guard.score ?? 0}%</b>
-          <span>{guard.decision === "CALL_ALLOWED" ? "Sinyal diizinkan" : "Sinyal ditahan"}</span>
+          <span>{guard.decision === "CALL_ALLOWED" ? "Sinyal layak tampil" : "Sinyal ditahan dulu"}</span>
         </div>
       </div>
 
       <div className="qualityGuardChecks">
         {checks.map((item, idx) => (
-          <div key={`${item.name}-${idx}`} className={`qualityGuardCheck ${item.status === "PASS" ? "pass" : "wait"}`}>
+          <div key={`${item.name}-${idx}`} className={`qualityGuardCheck ${item.status === "Lolos" ? "pass" : "wait"}`}>
             <b>{item.name}</b>
-            <strong>{item.status === "PASS" ? "PASS" : "WAIT"}</strong>
+            <strong>{item.status === "Lolos" ? "Lolos" : "Menunggu"}</strong>
             <span>{item.note}</span>
           </div>
         ))}
@@ -5714,10 +5712,10 @@ function SignalQualityGuardPanel({ guard }) {
 
       <div className="qualityGuardFooter">
         <div>
-          <b>Yang ditahan:</b> {blockers.length ? blockers.slice(0, 4).join(" · ") : "Tidak ada blocker utama."}
+          <b>Belum lolos:</b> {blockers.length ? blockers.slice(0, 4).join(" · ") : "Tidak ada hambatan utama."}
         </div>
         <div>
-          <b>Metric:</b> Spread {metrics.spread ?? "-"} / max {metrics.maxSpread ?? "-"} · ATR {metrics.atr14 ?? "-"} · Feed {formatAgeCompact(metrics.feedAgeSec)}
+          <b>Detail:</b> Spread {metrics.spread ?? "-"} / max {metrics.maxSpread ?? "-"} · ATR {metrics.atr14 ?? "-"} · Feed {formatAgeCompact(metrics.feedAgeSec)}
         </div>
       </div>
     </section>
@@ -5746,7 +5744,7 @@ function formatChecklistText(item) {
 
 function SnapshotRow({ row, defaultOpen = false }) {
   const valueText = formatChecklistText(row.value || "-");
-  const statusText = formatChecklistText(row.status || "WAIT");
+  const statusText = formatChecklistText(row.status || "Menunggu");
   return (
     <details className="snapshotRow" open={defaultOpen}>
       <summary>
