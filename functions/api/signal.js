@@ -340,20 +340,23 @@ function buildMainM5EmaPullbackLimitSignal(market = {}, m1Candles = []) {
   const prevCandle = m5[m5.length - 2] || null;
   const bullishEngulfing = Boolean(prevCandle && isBullishEngulfing(prevCandle, last));
   const bearishEngulfing = Boolean(prevCandle && isBearishEngulfing(prevCandle, last));
-  const emaUp = ema9Now > ema20Now && ema9Now >= prevEma9 && ema20Now >= prevEma20 * 0.9997;
-  const emaDown = ema9Now < ema20Now && ema9Now <= prevEma9 && ema20Now <= prevEma20 * 1.0003;
+  const emaBuyBias = ema9Now > ema20Now;
+  const emaSellBias = ema9Now < ema20Now;
+  const emaUp = emaBuyBias && ema9Now >= prevEma9 && ema20Now >= prevEma20 * 0.9997;
+  const emaDown = emaSellBias && ema9Now <= prevEma9 && ema20Now <= prevEma20 * 1.0003;
+  const focusDirection = emaBuyBias ? "BUY_ONLY" : emaSellBias ? "SELL_ONLY" : "WAIT";
   const touchedEmaZone = Number(last.low) <= Math.max(ema9Now, ema20Now) + buffer && Number(last.high) >= Math.min(ema9Now, ema20Now) - buffer;
   const closeHoldsBuy = Number(last.close) >= Math.min(ema9Now, ema20Now) - buffer;
   const closeHoldsSell = Number(last.close) <= Math.max(ema9Now, ema20Now) + buffer;
-  const buyEngulfAtEma = bullishEngulfing && touchedEmaZone && closeHoldsBuy;
-  const sellEngulfAtEma = bearishEngulfing && touchedEmaZone && closeHoldsSell;
+  const buyEngulfAtEma = bullishEngulfing && touchedEmaZone && closeHoldsBuy && emaBuyBias;
+  const sellEngulfAtEma = bearishEngulfing && touchedEmaZone && closeHoldsSell && emaSellBias;
 
-  const buyStructureValid = structure.breakHigh;
-  const sellStructureValid = structure.breakLow;
-  const buyReady = buyStructureValid && emaUp && !buyEngulfAtEma;
-  const sellReady = sellStructureValid && emaDown && !sellEngulfAtEma;
-  const buyValid = buyStructureValid && emaUp && buyEngulfAtEma;
-  const sellValid = sellStructureValid && emaDown && sellEngulfAtEma;
+  const buyStructureValid = structure.breakHigh && emaBuyBias;
+  const sellStructureValid = structure.breakLow && emaSellBias;
+  const buyReady = focusDirection === "BUY_ONLY" && buyStructureValid && emaUp && !buyEngulfAtEma;
+  const sellReady = focusDirection === "SELL_ONLY" && sellStructureValid && emaDown && !sellEngulfAtEma;
+  const buyValid = focusDirection === "BUY_ONLY" && buyStructureValid && emaUp && buyEngulfAtEma;
+  const sellValid = focusDirection === "SELL_ONLY" && sellStructureValid && emaDown && sellEngulfAtEma;
 
   let action = "WAIT";
   let direction = "WAIT";
@@ -364,9 +367,13 @@ function buildMainM5EmaPullbackLimitSignal(market = {}, m1Candles = []) {
   let tp1 = 0;
   let tp2 = 0;
   let score = 0;
-  let blocker = "Menunggu struktur M5 break swing lalu EMA 9/20 searah.";
+  let blocker = focusDirection === "BUY_ONLY"
+    ? "Mode fokus BUY: EMA9 di atas EMA20. Menunggu struktur bullish dan bullish engulfing di area EMA."
+    : focusDirection === "SELL_ONLY"
+      ? "Mode fokus SELL: EMA9 di bawah EMA20. Menunggu struktur bearish dan bearish engulfing di area EMA."
+      : "Menunggu EMA9/EMA20 menentukan arah trend.";
 
-  const previewDirection = buyEngulfAtEma ? "BUY" : sellEngulfAtEma ? "SELL" : emaUp ? "BUY" : emaDown ? "SELL" : "WAIT";
+  const previewDirection = buyEngulfAtEma ? "BUY" : sellEngulfAtEma ? "SELL" : focusDirection === "BUY_ONLY" ? "BUY" : focusDirection === "SELL_ONLY" ? "SELL" : "WAIT";
   const previewEntry = (buyEngulfAtEma || sellEngulfAtEma) ? Number(last.open) : ema9Now;
   const previewLabel = previewDirection === "BUY"
     ? (buyEngulfAtEma ? "Preview BUY limit · open engulfing" : "Preview BUY area · EMA9")
@@ -462,6 +469,8 @@ function buildMainM5EmaPullbackLimitSignal(market = {}, m1Candles = []) {
     sourceTimeframe: Array.isArray(market?.candlesM5) ? "MT5_VPS_M5" : "M1_AGGREGATED_TO_M5",
     ema9: round(ema9Now),
     ema20: round(ema20Now),
+    emaDirectionLock: focusDirection,
+    focusDirection,
     atr: round(atrValue),
     cross,
     bosKey: structure.bosKey || null,
@@ -508,7 +517,8 @@ function buildMainM5EmaPullbackLimitSignal(market = {}, m1Candles = []) {
     blocker,
     checklist: [
       { name: "Struktur M5 break", status: buyStructureValid || sellStructureValid ? "PASS" : "WAIT" },
-      { name: "EMA 9/20 searah", status: (direction === "BUY" && emaUp) || (direction === "SELL" && emaDown) ? "PASS" : "WAIT" },
+      { name: "Mode fokus EMA", status: focusDirection !== "WAIT" ? focusDirection : "WAIT" },
+      { name: "EMA 9/20 searah", status: (focusDirection === "BUY_ONLY" && emaUp) || (focusDirection === "SELL_ONLY" && emaDown) ? "PASS" : "WAIT" },
       { name: "Candle sentuh EMA", status: touchedEmaZone ? "PASS" : "WAIT" },
       { name: "Engulfing M5 area EMA", status: buyEngulfAtEma || sellEngulfAtEma ? "PASS" : "WAIT" },
       { name: "Entry limit dinamis", status: entry > 0 ? "PASS" : "WAIT" },
@@ -1995,23 +2005,37 @@ async function maybeSaveCallHistory(env, dbUrl, signal, market) {
     planKey: [signal.signal, signal.strategy?.mainM5?.bosKey || "NO_BOS", signal.entry, signal.sl, signal.tp].join("_")
   };
 
-  await expireOldMainPendingSlots(dbUrl, signal.signal, callId, payload);
+  const slotCheck = await expireOldMainPendingSlots(dbUrl, signal.signal, callId, payload);
+  if (slotCheck?.allow === false) {
+    return { ok: false, skipped: slotCheck.reason || "main-trend-slot-full", callId: null, activeCount: slotCheck.activeCount || 0 };
+  }
+
   await fbPut(dbUrl, `/xauusd/callHistory/${callId}`, payload);
 
-  return { ok: true, callId };
+  return { ok: true, callId, slotCheck };
 }
 
 async function expireOldMainPendingSlots(dbUrl, signalSide, newId, newPayload = {}) {
-  const raw = await fbGet(dbUrl, "/xauusd/callHistory");
-  const items = Object.values(raw || {})
-    .filter(Boolean)
-    .filter((item) => String(item.signal || "").toUpperCase() === String(signalSide || "").toUpperCase())
-    .filter((item) => ["PENDING", "OPEN", "RUNNING"].includes(String(item.status || "PENDING").toUpperCase()))
-    .filter((item) => !["WIN", "LOSS", "BE", "EXPIRED"].includes(String(item.result || "").toUpperCase()))
-    .sort((a, b) => String(a.createdAt || "").localeCompare(String(b.createdAt || "")));
+  const side = String(signalSide || "").toUpperCase();
+  const readActive = async () => {
+    const raw = await fbGet(dbUrl, "/xauusd/callHistory");
+    return Object.values(raw || {})
+      .filter(Boolean)
+      .filter((item) => String(item.signal || "").toUpperCase() === side)
+      .filter((item) => ["PENDING", "OPEN", "RUNNING"].includes(String(item.status || "PENDING").toUpperCase()))
+      .filter((item) => !["WIN", "LOSS", "BE", "EXPIRED"].includes(String(item.result || "").toUpperCase()))
+      .sort((a, b) => String(a.createdAt || "").localeCompare(String(b.createdAt || "")));
+  };
+
+  const items = await readActive();
 
   for (const item of items) {
     if (!item?.id || item.id === newId) continue;
+    const status = String(item.status || "PENDING").toUpperCase();
+
+    // Yang sudah tersentuh entry / sedang running tidak boleh dihapus otomatis.
+    if (status !== "PENDING") continue;
+
     const oldBosKey = String(item.bosKey || item.strategySnapshot?.mainM5?.bosKey || "");
     const newBosKey = String(newPayload.bosKey || newPayload.strategySnapshot?.mainM5?.bosKey || "");
     const oldPlan = [Number(item.entry || 0), Number(item.sl || 0), Number(item.tp || 0)];
@@ -2033,25 +2057,34 @@ async function expireOldMainPendingSlots(dbUrl, signalSide, newId, newPayload = 
     });
   }
 
-  const refreshed = await fbGet(dbUrl, "/xauusd/callHistory");
-  const active = Object.values(refreshed || {})
-    .filter(Boolean)
-    .filter((item) => String(item.signal || "").toUpperCase() === String(signalSide || "").toUpperCase())
-    .filter((item) => ["PENDING", "OPEN", "RUNNING"].includes(String(item.status || "PENDING").toUpperCase()))
-    .filter((item) => !["WIN", "LOSS", "BE", "EXPIRED"].includes(String(item.result || "").toUpperCase()))
-    .sort((a, b) => String(a.createdAt || "").localeCompare(String(b.createdAt || "")));
+  let active = await readActive();
+  const pending = active.filter((item) => String(item.status || "PENDING").toUpperCase() === "PENDING");
 
-  while (active.length >= 2) {
-    const oldest = active.shift();
-    if (!oldest?.id || oldest.id === newId) continue;
-    await fbPut(dbUrl, `/xauusd/callHistory/${oldest.id}`, {
-      ...oldest,
+  // Maksimal 2 plan aktif per arah trend. Jika slot penuh, hapus pending tertua saja.
+  while (active.length >= 2 && pending.length > 0) {
+    const oldestPending = pending.shift();
+    if (!oldestPending?.id || oldestPending.id === newId) continue;
+    await fbPut(dbUrl, `/xauusd/callHistory/${oldestPending.id}`, {
+      ...oldestPending,
       status: "CLOSED",
       result: "EXPIRED",
       closedAt: new Date().toISOString(),
-      note: "Expired otomatis karena slot pending sisi yang sama sudah penuh (maksimal 2 BUY dan 2 SELL aktif)."
+      note: "Expired otomatis karena slot trend sudah penuh. Maksimal 2 plan aktif per arah EMA."
     });
+    active = await readActive();
   }
+
+  active = await readActive();
+  if (active.length >= 2) {
+    return {
+      allow: false,
+      reason: "max-2-active-main-trend-slots",
+      activeCount: active.length,
+      note: "Sinyal baru ditahan karena sudah ada 2 posisi/plan aktif pada arah EMA yang sama."
+    };
+  }
+
+  return { allow: true, activeCount: active.length };
 }
 
 function buildProbability(signalLabel, callStage, buyScore, sellScore, flags = {}) {
