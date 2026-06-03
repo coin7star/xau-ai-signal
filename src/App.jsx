@@ -914,7 +914,7 @@ function AppInner() {
     cross: { type: "NONE", time: null },
     correction: { touchedEma9: false, buffer: 0 },
     confidence: signal?.confidence || 0,
-    blocker: "Menunggu setup M1.",
+    blocker: "Menunggu setup M1 EMA cross direct.",
     checklist: [],
     sourceTimeframe: "MT5_VPS_M1",
     maxBuyPending: 2,
@@ -952,23 +952,23 @@ function AppInner() {
       value: humanize(mainM5.cross?.type || signal?.strategy?.emaCross || "WAIT"),
       status: mainM5.direction === "BUY" ? "BULLISH" : mainM5.direction === "SELL" ? "BEARISH" : trendBias,
       note: `EMA9 ${mainM5.ema9 || "-"} · EMA20 ${mainM5.ema20 || "-"}`,
-      detail: "Strategi utama fokus ke EMA 9/20 M1. Setelah arah valid, sistem menunggu candle M1 close break EMA 9/20."
+      detail: "Strategi utama fokus EMA9/EMA20 M1. Entry valid saat EMA9 cross EMA20 dan candle close berada di sisi kedua EMA."
     },
     {
       id: "pullback",
-      title: "Koreksi EMA 9",
-      value: mainM5.correction?.touchedEma9 ? "SUDAH SENTUH" : "BELUM SENTUH",
+      title: "Close Filter EMA",
+      value: mainM5.correction?.touchedEma9 ? "VALID" : "WAIT",
       status: mainM5.correction?.touchedEma9 ? "PASS" : "WAIT",
-      note: mainM5.correction?.touchedEma9 ? "Harga sudah menyentuh area EMA 9." : "Menunggu candle M1 break EMA 9/20.",
-      detail: "Entry valid setelah candle M1 close break EMA 9/20 sesuai arah trend."
+      note: mainM5.correction?.touchedEma9 ? "Candle close sudah berada di sisi EMA9/EMA20 yang valid." : "Menunggu EMA cross dan close filter M1.",
+      detail: "BUY valid jika close di atas EMA9/EMA20 setelah bullish cross. SELL valid jika close di bawah EMA9/EMA20 setelah bearish cross."
     },
     {
       id: "entry",
       title: "Entry Open M1",
       value: mainM5.entry ? `${mainM5.direction || "WAIT"} ${mainM5.entry}` : "Belum ada entry",
       status: mainM5.action || "WAIT",
-      note: mainM5.reason || "Menunggu candle M1 close break EMA 9/20.",
-      detail: "Entry dibuka setelah candle M1 close break EMA 9/20. Jika muncul setup baru sebelum posisi selesai, plan lama yang belum jalan bisa expired."
+      note: mainM5.reason || "Menunggu EMA9 cross EMA20 dan candle close di sisi EMA yang valid.",
+      detail: "Entry dibuka langsung setelah candle M1 close yang memenuhi EMA cross + close filter. SL pakai swing terdekat ±0.1 ATR, TP Max RR 1:1."
     },
     {
       id: "risk",
@@ -976,7 +976,7 @@ function AppInner() {
       value: mainM5.tp2 && mainM5.sl ? `TP1 ${mainM5.tp1 || "-"} · TP Max ${mainM5.tp2} · SL ${mainM5.sl}` : "- / -",
       status: mainM5.rr || "Partial",
       note: "TP1 setengah jalan → BE · TP Max RR 1:1",
-      detail: "Entry memakai close candle M1 yang break EMA 9/20. SL memakai swing M1 + 0.1 ATR. TP1 adalah setengah jarak menuju TP Max, lalu SL bisa dipindah ke BE."
+      detail: "Entry memakai close candle M1 saat EMA9 cross EMA20 dan harga close di sisi kedua EMA. SL memakai swing M1 terdekat ±0.1 ATR. TP1 setengah jarak menuju TP Max, lalu SL pindah ke BE."
     },
     {
       id: "probability",
@@ -984,15 +984,15 @@ function AppInner() {
       value: `${probability.score || 0}% · ${probability.label || "LOW"}`,
       status: probability.label || "LOW",
       note: (mainM5.checklist || []).map((item) => `${item.name}: ${item.status}`).join(" · ") || "Menunggu score.",
-      detail: "Probability sekarang mengikuti strategi M1 EMA Break Momentum. Semakin lengkap checklist EMA, candle break, dan risk plan, semakin tinggi peluangnya."
+      detail: "Probability mengikuti strategi M1 EMA Cross Direct Entry. Semakin lengkap checklist cross EMA, close filter, dan risk plan, semakin tinggi peluangnya."
     },
     {
       id: "slot",
       title: "Slot Trend",
-      value: mainM5.focusDirection === "BUY_ONLY" ? `Fokus BUY · Engulf ${mainM5.engulfingWave?.count ?? 0}/2` : mainM5.focusDirection === "SELL_ONLY" ? `Fokus SELL · Engulf ${mainM5.engulfingWave?.count ?? 0}/2` : "Menunggu arah",
+      value: mainM5.focusDirection === "BUY_ONLY" ? `Fokus BUY · Cross ${mainM5.engulfingWave?.count ?? 0}/2` : mainM5.focusDirection === "SELL_ONLY" ? `Fokus SELL · Cross ${mainM5.engulfingWave?.count ?? 0}/2` : "Menunggu arah",
       status: mainM5.focusDirection || "WAIT",
-      note: `Maksimal 2 setup valid setiap arah EMA. Sisa ${mainM5.engulfingWave?.remaining ?? 2}.`,
-      detail: "Saat EMA fokus BUY, sistem hanya cari BUY. Saat EMA fokus SELL, sistem hanya cari SELL. Setelah 2 setup valid dalam satu arah EMA, sistem menunggu arah baru."
+      note: `Satu sinyal utama hanya muncul saat cross baru valid. Tunggu cross berikutnya untuk sinyal baru.`,
+      detail: "Saat EMA9 cross ke atas EMA20, sistem hanya validkan BUY jika close di atas keduanya. Saat EMA9 cross ke bawah EMA20, sistem hanya validkan SELL jika close di bawah keduanya."
     }
   ];
   const historyStats = callHistory?.stats || {};
@@ -1052,7 +1052,7 @@ function AppInner() {
   }
 
   const dashboardTabs = [
-    { id: "signal", label: "Sinyal", icon: <Zap size={15} /> },
+    { id: "signal", label: "Sinyal M1", icon: <Zap size={15} /> },
     { id: "chart", label: "Candle", icon: <Activity size={15} /> },
     { id: "history", label: "History", icon: <Clock size={15} /> },
     { id: "telegram", label: "Telegram", icon: <Radio size={15} /> },
@@ -1180,14 +1180,14 @@ function AppInner() {
         <>
           <section className="chartWrap card">
             <div className="sectionTitle">
-              <div><h3>Grafik Candlestick M1</h3><span>{market?.symbol || "XAUUSD"} · Visual M1 · Strategi M1 · {marketSession.chartStatusText} · Bid {market?.bid || "-"} · Spread {spread}</span></div>
+              <div><h3>Grafik Candlestick M1</h3><span>{market?.symbol || "XAUUSD"} · Visual M1 · EMA Cross Direct · {marketSession.chartStatusText} · Bid {market?.bid || "-"} · Spread {spread}</span></div>
               <div className="legend">
                 <b><i className="bullDot"></i> Bullish</b>
                 <b><i className="bearDot"></i> Bearish</b>
                 <b><i className="ema9Dot"></i> EMA 9</b>
                 <b><i className="ema20Dot"></i> EMA 20</b>
                 <b><i className="entryDot"></i> Entry / TP / SL</b>
-                <em><span></span> Visual M1 · Entry/TP/SL dari setup M1</em>
+                <em><span></span> Visual M1 · Entry/TP/SL dari EMA Cross M1</em>
               </div>
             </div>
             {marketSession.chartNotice && <div className={`chartSessionNotice ${marketSession.type}`}>{marketSession.chartNotice}</div>}
@@ -2102,7 +2102,7 @@ function AdminStrategyControlCenter({ adminToken }) {
       <div className="adminTelegramTestHeader">
         <span className="pill mini"><Shield size={14} /> MASTER CONTROL</span>
         <h3>Strategy Control Center</h3>
-        <p>Admin master switch untuk Sinyal Utama M5. Alert user premium hanya jalan kalau master switch admin ON dan toggle user juga ON.</p>
+        <p>Admin master switch untuk Sinyal Utama M1 EMA Cross Direct. Alert user premium hanya jalan kalau master switch admin ON dan toggle user juga ON.</p>
       </div>
 
       <div className="strategyControlRule card">
@@ -4250,7 +4250,7 @@ function LandingPage({ onLogin }) {
           <h1>Dashboard sinyal XAUUSD dengan notifikasi Telegram premium.</h1>
           <p>
             XAU AI Signal membantu memantau market gold dengan kombinasi market structure,
-            EMA 9/20, M5 scalping radar, Area M15 Fresh, dan history performa signal.
+            EMA 9/20 M1, Telegram alert, auto result, dan history performa signal.
           </p>
 
           <div className="landingCta">
@@ -4261,7 +4261,7 @@ function LandingPage({ onLogin }) {
 
           <div className="landingTrust">
             <span>Notifikasi Telegram</span>
-            <span>M5 Scalp Radar</span>
+            <span>Main Signal M1</span>
             <span>CALL History</span>
           </div>
         </div>
@@ -4289,7 +4289,7 @@ function LandingPage({ onLogin }) {
 
       <section className="landingStats">
         <div><b>SINYAL UTAMA</b><span>Signal utama berbasis konfirmasi</span></div>
-        <div><b>SCALP M5</b><span>Radar engulfing limit M5</span></div>
+        <div><b>SCALP M5</b><span>EMA Cross Direct Entry</span></div>
         <div><b>AREA M15</b><span>Pantauan area penting M15</span></div>
         <div><b>History</b><span>Winrate & hasil transparan</span></div>
       </section>
@@ -4303,10 +4303,10 @@ function LandingPage({ onLogin }) {
 
         <div className="landingFeatureGrid">
           <LandingFeature title="SINYAL UTAMA Alert" text="Notifikasi BUY/SELL saat kondisi utama sudah valid." />
-          <LandingFeature title="M5 Scalp Radar" text="Pantau setup scalping M5 dengan engulfing di swing low/high dan filter EMA 9/20." />
+          <LandingFeature title="Main Signal M1" text="Fokus pada satu strategi utama: EMA9 cross EMA20 M1 dengan close filter dan risk RR 1:1." />
           <LandingFeature title="Area M15 Fresh" text="Monitoring demand/supply fresh order block untuk area penting market." />
           <LandingFeature title="Notifikasi Telegram" text="User premium bisa connect Telegram untuk menerima alert langsung." />
-          <LandingFeature title="Grafik Live" text="Chart M5/M15, EMA 9/20, area struktur, dan market status." />
+          <LandingFeature title="Grafik Live" text="Chart M1, EMA 9/20, garis Entry/TP/SL, dan market status." />
           <LandingFeature title="Riwayat Performa" text="Riwayat signal valid, result, dan winrate untuk evaluasi transparan." />
         </div>
       </section>
@@ -4518,7 +4518,7 @@ function AuthScreen({ onBack }) {
           {resetMode
             ? "Masukkan email akun kamu. Link reset password akan dikirim lewat email."
             : mode === "login"
-              ? "Login dulu buat akses dashboard premium, SINYAL UTAMA, M5 Scalp Radar, Area M15 Fresh, dan history signal."
+              ? "Login dulu buat akses dashboard premium, SINYAL UTAMA, Main Signal M1, Area M15 Fresh, dan history signal."
               : "Buat akun dulu, lalu verifikasi email untuk lanjut ke premium access."}
         </p>
 
@@ -4766,7 +4766,7 @@ function PaywallScreen({ user, profile, onLogout }) {
           <b>Premium unlock:</b>
           <span>✅ Live dashboard XAU AI</span>
           <span>✅ SINYAL UTAMA Alert</span>
-          <span>✅ M5 Scalp Radar</span>
+          <span>✅ Main Signal M1</span>
           <span>✅ Area M15 Fresh</span>
           <span>✅ CALL & SCALP History</span>
           <span>✅ Analisis Performa 7/30 Hari</span>
@@ -5009,7 +5009,7 @@ function addTradePlanLines(series, linesRef, mainM5) {
 
   const action = String(mainM5?.action || "WAIT");
   const preview = mainM5?.preview || {};
-  const isPlan = ["BUY_LIMIT", "SELL_LIMIT"].includes(action);
+  const isPlan = ["BUY_OPEN", "SELL_OPEN", "BUY_LIMIT", "SELL_LIMIT"].includes(action);
   const entry = Number((isPlan ? mainM5?.entry : preview?.entry) || 0);
   const sl = Number(mainM5?.sl || 0);
   const tp1 = Number(mainM5?.tp1 || 0);
@@ -5026,7 +5026,7 @@ function addTradePlanLines(series, linesRef, mainM5) {
     lineWidth: isPlan ? 2 : 1,
     lineStyle: isPlan ? 0 : 1,
     axisLabelVisible: true,
-    title: isPlan ? `${direction || "PLAN"} LIMIT · OPEN ENGULF` : `${direction || "WAIT"} PREVIEW · OPEN ENGULF`
+    title: isPlan ? `${direction || "PLAN"} OPEN · EMA CROSS` : `${direction || "WAIT"} PREVIEW · EMA CROSS`
   });
   newLines.push({ series, line: entryLine });
 
