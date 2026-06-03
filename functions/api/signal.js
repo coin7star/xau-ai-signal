@@ -350,13 +350,16 @@ function buildMainM5EmaPullbackLimitSignal(market = {}, m1Candles = []) {
   const closeHoldsSell = Number(last.close) <= Math.max(ema9Now, ema20Now) + buffer;
   const buyEngulfAtEma = bullishEngulfing && touchedEmaZone && closeHoldsBuy && emaBuyBias;
   const sellEngulfAtEma = bearishEngulfing && touchedEmaZone && closeHoldsSell && emaSellBias;
+  const engulfingWave = countM5EngulfingsInCurrentEmaWave(m5, ema9Series, ema20Series, focusDirection, atrValue);
+  const buyEngulfSlotOk = focusDirection !== "BUY_ONLY" || engulfingWave.count <= 2;
+  const sellEngulfSlotOk = focusDirection !== "SELL_ONLY" || engulfingWave.count <= 2;
 
   const buyStructureValid = structure.breakHigh && emaBuyBias;
   const sellStructureValid = structure.breakLow && emaSellBias;
-  const buyReady = focusDirection === "BUY_ONLY" && buyStructureValid && emaUp && !buyEngulfAtEma;
-  const sellReady = focusDirection === "SELL_ONLY" && sellStructureValid && emaDown && !sellEngulfAtEma;
-  const buyValid = focusDirection === "BUY_ONLY" && buyStructureValid && emaUp && buyEngulfAtEma;
-  const sellValid = focusDirection === "SELL_ONLY" && sellStructureValid && emaDown && sellEngulfAtEma;
+  const buyReady = focusDirection === "BUY_ONLY" && buyStructureValid && emaUp && !buyEngulfAtEma && buyEngulfSlotOk;
+  const sellReady = focusDirection === "SELL_ONLY" && sellStructureValid && emaDown && !sellEngulfAtEma && sellEngulfSlotOk;
+  const buyValid = focusDirection === "BUY_ONLY" && buyStructureValid && emaUp && buyEngulfAtEma && buyEngulfSlotOk;
+  const sellValid = focusDirection === "SELL_ONLY" && sellStructureValid && emaDown && sellEngulfAtEma && sellEngulfSlotOk;
 
   let action = "WAIT";
   let direction = "WAIT";
@@ -373,8 +376,12 @@ function buildMainM5EmaPullbackLimitSignal(market = {}, m1Candles = []) {
       ? "Mode fokus SELL: EMA9 di bawah EMA20. Menunggu struktur bearish dan bearish engulfing di area EMA."
       : "Menunggu EMA9/EMA20 menentukan arah trend.";
 
-  const previewDirection = buyEngulfAtEma ? "BUY" : sellEngulfAtEma ? "SELL" : "WAIT";
-  const previewEntry = (buyEngulfAtEma || sellEngulfAtEma) ? Number(last.open) : 0;
+  if ((focusDirection === "BUY_ONLY" && !buyEngulfSlotOk) || (focusDirection === "SELL_ONLY" && !sellEngulfSlotOk)) {
+    blocker = "Maksimal 2 engulfing valid untuk EMA cross/trend saat ini sudah terpenuhi. Menunggu EMA cross baru.";
+  }
+
+  const previewDirection = (buyEngulfAtEma && buyEngulfSlotOk) ? "BUY" : (sellEngulfAtEma && sellEngulfSlotOk) ? "SELL" : "WAIT";
+  const previewEntry = ((buyEngulfAtEma && buyEngulfSlotOk) || (sellEngulfAtEma && sellEngulfSlotOk)) ? Number(last.open) : 0;
   const previewLabel = previewDirection === "BUY"
     ? "Preview BUY limit · open engulfing"
     : previewDirection === "SELL"
@@ -447,6 +454,19 @@ function buildMainM5EmaPullbackLimitSignal(market = {}, m1Candles = []) {
     }
   }
 
+  if ((buyEngulfAtEma && !buyEngulfSlotOk) || (sellEngulfAtEma && !sellEngulfSlotOk)) {
+    action = "WAIT";
+    direction = "WAIT";
+    label = "Main Signal WAIT";
+    entry = 0;
+    sl = 0;
+    tp = 0;
+    tp1 = 0;
+    tp2 = 0;
+    score = Math.max(45, score);
+    blocker = "Engulfing di area EMA terdeteksi, tapi kuota 2 engulfing untuk EMA cross saat ini sudah habis.";
+  }
+
   const confidence = action.includes("LIMIT") ? 88 : action.includes("READY") ? 66 : Math.max(45, score);
   const cross = { type: buyStructureValid ? "STRUCTURE_BULLISH" : sellStructureValid ? "STRUCTURE_BEARISH" : "NONE", index: structure.breakIndex, time: structure.breakTime };
   const reason = buildMainM5LimitReason({ action, direction, entry, sl, tp, cross, touchedEma9: touchedEmaZone, ema9Now, ema20Now, structure, blocker });
@@ -471,6 +491,8 @@ function buildMainM5EmaPullbackLimitSignal(market = {}, m1Candles = []) {
     ema20: round(ema20Now),
     emaDirectionLock: focusDirection,
     focusDirection,
+    engulfingWave,
+    maxEngulfingPerEmaCross: 2,
     atr: round(atrValue),
     cross,
     bosKey: structure.bosKey || null,
@@ -521,7 +543,8 @@ function buildMainM5EmaPullbackLimitSignal(market = {}, m1Candles = []) {
       { name: "EMA 9/20 searah", status: (focusDirection === "BUY_ONLY" && emaUp) || (focusDirection === "SELL_ONLY" && emaDown) ? "PASS" : "WAIT" },
       { name: "Candle sentuh EMA", status: touchedEmaZone ? "PASS" : "WAIT" },
       { name: "Engulfing M5 area EMA", status: buyEngulfAtEma || sellEngulfAtEma ? "PASS" : "WAIT" },
-      { name: "Entry limit dinamis", status: entry > 0 ? "PASS" : "WAIT" },
+      { name: "Max 2 engulfing/cross", status: engulfingWave.count <= 2 ? `${engulfingWave.count}/2` : "FULL" },
+      { name: "Entry limit open engulf", status: entry > 0 ? "PASS" : "WAIT" },
       { name: "TP parsial", status: tp1 > 0 && tp2 > 0 ? "PASS" : "WAIT" },
       { name: "SL candle sentuh EMA", status: sl > 0 ? "PASS" : "WAIT" }
     ]
@@ -559,6 +582,58 @@ function getM5EmaStructureBreak(candles = []) {
     targetHighBody: round(prevHighCandle ? Math.max(prevHighCandle.open, prevHighCandle.close) : 0),
     targetLowBody: round(prevLowCandle ? Math.min(prevLowCandle.open, prevLowCandle.close) : 0),
     method: "M5_BREAK_PREVIOUS_SWING_THEN_DYNAMIC_EMA_LIMIT"
+  };
+}
+
+function countM5EngulfingsInCurrentEmaWave(candles = [], ema9Values = [], ema20Values = [], focusDirection = "WAIT", atrValue = 0) {
+  const valid = candles
+    .map((c, idx) => ({ ...c, _idx: idx, high: Number(c.high), low: Number(c.low), open: Number(c.open), close: Number(c.close), time: c.time || null }))
+    .filter((c) => [c.high, c.low, c.open, c.close].every(Number.isFinite));
+
+  if (valid.length < 2 || !Array.isArray(ema9Values) || !Array.isArray(ema20Values)) {
+    return { direction: focusDirection, count: 0, max: 2, crossIndex: -1, crossTime: null, isFull: false, items: [] };
+  }
+
+  const direction = focusDirection === "BUY_ONLY" ? "BUY" : focusDirection === "SELL_ONLY" ? "SELL" : "WAIT";
+  if (direction === "WAIT") return { direction, count: 0, max: 2, crossIndex: -1, crossTime: null, isFull: false, items: [] };
+
+  let crossIndex = 1;
+  for (let i = Math.min(valid.length - 1, ema9Values.length - 1, ema20Values.length - 1); i >= 1; i--) {
+    const p9 = Number(ema9Values[i - 1]);
+    const p20 = Number(ema20Values[i - 1]);
+    const e9 = Number(ema9Values[i]);
+    const e20 = Number(ema20Values[i]);
+    if (direction === "BUY" && p9 <= p20 && e9 > e20) { crossIndex = i; break; }
+    if (direction === "SELL" && p9 >= p20 && e9 < e20) { crossIndex = i; break; }
+  }
+
+  const items = [];
+  for (let i = Math.max(1, crossIndex); i < valid.length; i++) {
+    const prev = valid[i - 1];
+    const curr = valid[i];
+    const ema9 = Number(ema9Values[i] || 0);
+    const ema20 = Number(ema20Values[i] || 0);
+    const localAtr = Number(atrValue || Math.max(Math.abs(curr.high - curr.low), 1));
+    const buffer = Math.max(localAtr * 0.25, Number(curr.close) * 0.00008);
+    const touchedEmaZone = curr.low <= Math.max(ema9, ema20) + buffer && curr.high >= Math.min(ema9, ema20) - buffer;
+    const closeHoldsBuy = curr.close >= Math.min(ema9, ema20) - buffer;
+    const closeHoldsSell = curr.close <= Math.max(ema9, ema20) + buffer;
+    const bullish = direction === "BUY" && isBullishEngulfing(prev, curr) && touchedEmaZone && closeHoldsBuy && ema9 > ema20;
+    const bearish = direction === "SELL" && isBearishEngulfing(prev, curr) && touchedEmaZone && closeHoldsSell && ema9 < ema20;
+    if (bullish || bearish) {
+      items.push({ index: i, time: curr.time || null, open: round(curr.open), type: bullish ? "BULLISH_ENGULFING" : "BEARISH_ENGULFING" });
+    }
+  }
+
+  return {
+    direction,
+    count: items.length,
+    max: 2,
+    remaining: Math.max(0, 2 - items.length),
+    crossIndex,
+    crossTime: valid[crossIndex]?.time || null,
+    isFull: items.length >= 2,
+    items: items.slice(-2)
   };
 }
 
