@@ -964,11 +964,11 @@ function AppInner() {
     },
     {
       id: "entry",
-      title: "Entry Limit",
+      title: "Entry Open Engulfing",
       value: mainM5.entry ? `${mainM5.direction || "WAIT"} ${mainM5.entry}` : "Belum ada limit",
       status: mainM5.action || "WAIT",
-      note: mainM5.reason || "Menunggu setup entry limit valid.",
-      detail: "Saat engulfing valid sudah close, limit dipasang di open candle engulfing. Kalau muncul struktur baru sebelum tersentuh, plan lama otomatis expired."
+      note: mainM5.reason || "Menunggu candle engulfing M5 close valid di area EMA 9/20.",
+      detail: "Limit dipasang di OPEN candle engulfing M5 yang sudah close valid di area EMA 9/20. Jika struktur baru muncul sebelum tersentuh, plan lama otomatis expired."
     },
     {
       id: "risk",

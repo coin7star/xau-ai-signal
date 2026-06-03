@@ -712,9 +712,9 @@ function buildMainM5LimitReason(data = {}) {
   }
   if (action === "READY_BUY") return blocker || "EMA bullish sudah aktif. Menunggu bullish engulfing M5 di area EMA untuk BUY LIMIT.";
   if (action === "READY_SELL") return blocker || "EMA bearish sudah aktif. Menunggu bearish engulfing M5 di area EMA untuk SELL LIMIT.";
-  if (cross?.type === "NONE") return "Menunggu EMA 9 break EMA 20 di M5.";
+  if (cross?.type === "NONE") return "Menunggu arah EMA 9/20 valid, lalu tunggu candle engulfing M5 close di area EMA.";
   if (!touchedEma9) return blocker || "Menunggu candle engulfing M5 close valid di area EMA 9/20.";
-  return blocker || "Menunggu setup M5 EMA pullback limit yang valid.";
+  return blocker || "Menunggu candle engulfing M5 yang close di area EMA 9/20 untuk membuat limit di open candle engulfing.";
 }
 
 function buildMainM5LimitHumanReason(ctx = {}) {
