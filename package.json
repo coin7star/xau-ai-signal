@@ -1,6 +1,6 @@
 {
-  "name": "xau-ai-signal-step10ar-max-2-engulfing-per-ema-cross",
-  "version": "7.36.0-step10ar-max-2-engulfing-per-ema-cross",
+  "name": "xau-ai-signal-step10ar1-clean-m5-chart-legend",
+  "version": "7.36.1-step10ar1-clean-m5-chart-legend",
   "type": "module",
   "scripts": {
     "dev": "vite",
