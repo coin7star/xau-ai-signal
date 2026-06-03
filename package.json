@@ -1,6 +1,6 @@
 {
-  "name": "xau-ai-signal-step10ar4-m1-chart-view-m5-strategy",
-  "version": "7.36.4-step10ar4-m1-chart-view-m5-strategy",
+  "name": "xau-ai-signal-step10as-main-m1-ema-break-momentum",
+  "version": "7.37.0-step10as-main-m1-ema-break-momentum",
   "type": "module",
   "scripts": {
     "dev": "vite",
