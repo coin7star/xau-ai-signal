@@ -5699,34 +5699,40 @@ function SignalQualityGuardPanel({ guard }) {
   const checks = Array.isArray(guard.checks) ? guard.checks : [];
   const blockers = Array.isArray(guard.blockers) ? guard.blockers : [];
   const metrics = guard.metrics || {};
+  const isAllowed = guard.decision === "CALL_ALLOWED" || guard.allowCall === true || guard.status === "SAFE";
+  const cleanChecks = checks.map((item) => ({
+    ...item,
+    passed: isQualityCheckPass(item),
+    displayStatus: formatQualityCheckStatus(item)
+  }));
 
   return (
     <section className={`qualityGuardPanel card ${tone}`}>
       <div className="qualityGuardTop">
         <div>
-          <span className="pill mini"><Shield size={14} /> QUALITY CHECK</span>
-          <h3>{guard.label || "Cek Kualitas Market"}</h3>
+          <span className="pill mini"><Shield size={14} /> CEK MARKET</span>
+          <h3>{guard.label || "Kondisi Market"}</h3>
           <p>{guard.message || "Sistem mengecek kualitas market sebelum sinyal premium ditampilkan."}</p>
         </div>
         <div className={`qualityGuardScore ${tone}`}>
           <b>{guard.score ?? 0}%</b>
-          <span>{guard.decision === "CALL_ALLOWED" ? "Sinyal layak tampil" : "Sinyal ditahan dulu"}</span>
+          <span>{isAllowed ? "Sinyal layak tampil" : "Menunggu setup valid"}</span>
         </div>
       </div>
 
       <div className="qualityGuardChecks">
-        {checks.map((item, idx) => (
-          <div key={`${item.name}-${idx}`} className={`qualityGuardCheck ${item.status === "Lolos" ? "pass" : "wait"}`}>
-            <b>{item.name}</b>
-            <strong>{item.status === "Lolos" ? "Lolos" : "Menunggu"}</strong>
-            <span>{item.note}</span>
+        {cleanChecks.map((item, idx) => (
+          <div key={`${item.name}-${idx}`} className={`qualityGuardCheck ${item.passed ? "pass" : "wait"}`}>
+            <b>{formatQualityCheckName(item.name)}</b>
+            <strong>{item.displayStatus}</strong>
+            <span>{formatChecklistText(item.note)}</span>
           </div>
         ))}
       </div>
 
       <div className="qualityGuardFooter">
         <div>
-          <b>Belum lolos:</b> {blockers.length ? blockers.slice(0, 4).join(" · ") : "Tidak ada hambatan utama."}
+          <b>{blockers.length ? "Perlu ditunggu:" : "Status:"}</b> {blockers.length ? blockers.slice(0, 4).map(formatChecklistText).join(" · ") : "Semua data utama sudah pas."}
         </div>
         <div>
           <b>Detail:</b> Spread {metrics.spread ?? "-"} / max {metrics.maxSpread ?? "-"} · ATR {metrics.atr14 ?? "-"} · Feed {formatAgeCompact(metrics.feedAgeSec)}
@@ -5734,6 +5740,28 @@ function SignalQualityGuardPanel({ guard }) {
       </div>
     </section>
   );
+}
+
+function isQualityCheckPass(item = {}) {
+  const raw = String(item.status || item.value || "").toUpperCase();
+  return ["PASS", "PAS", "LOLOS", "VALID", "OK", "SAFE"].includes(raw);
+}
+
+function formatQualityCheckStatus(item = {}) {
+  const raw = String(item.status || item.value || "").toUpperCase();
+  if (["PASS", "PAS", "LOLOS", "VALID", "OK", "SAFE"].includes(raw)) return "Pas";
+  if (["FAIL", "BLOCK", "BLOCKED", "DANGER"].includes(raw)) return "Belum pas";
+  if (["CAUTION", "WARN", "WARNING"].includes(raw)) return "Hati-hati";
+  return "Pantau";
+}
+
+function formatQualityCheckName(name) {
+  const raw = String(name || "");
+  return raw
+    .replaceAll("Direct Entry Plan", "Rencana Entry")
+    .replaceAll("Kekuatan Setup", "Kualitas Setup")
+    .replaceAll("Data Live", "Live Feed")
+    .replaceAll("Setup", "Validasi Setup");
 }
 
 function formatAgeCompact(seconds) {
