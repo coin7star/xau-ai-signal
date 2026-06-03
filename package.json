@@ -1,6 +1,6 @@
 {
-  "name": "xau-ai-signal-step10aq9-engulfing-open-fixed-limit-line",
-  "version": "7.35.9-step10aq9-engulfing-open-fixed-limit-line",
+  "name": "xau-ai-signal-step10ar-max-2-engulfing-per-ema-cross",
+  "version": "7.36.0-step10ar-max-2-engulfing-per-ema-cross",
   "type": "module",
   "scripts": {
     "dev": "vite",
