@@ -700,7 +700,7 @@ function AppInner() {
         ema20M1Ref.current.setData(buildEMAData(tvM1, 20));
       }
     } catch (error) {
-      setChartError(error?.message || "EMA M5 sedang disiapkan ulang.");
+      setChartError(error?.message || "EMA M1 sedang disiapkan ulang.");
     }
   }, [tvM1]);
 
@@ -729,7 +729,7 @@ function AppInner() {
         // Step 10AR1: Swing structure lines are hidden from user chart to keep M5 view clean.
       }
     } catch (error) {
-      setChartError(error?.message || "Garis struktur M5 sedang disiapkan ulang.");
+      setChartError(error?.message || "Garis struktur M1 sedang disiapkan ulang.");
     }
   }, [
     signal?.strategy?.scalping?.support,
@@ -914,9 +914,9 @@ function AppInner() {
     cross: { type: "NONE", time: null },
     correction: { touchedEma9: false, buffer: 0 },
     confidence: signal?.confidence || 0,
-    blocker: "Menunggu setup M5.",
+    blocker: "Menunggu setup M1.",
     checklist: [],
-    sourceTimeframe: "MT5_VPS_M5",
+    sourceTimeframe: "MT5_VPS_M1",
     maxBuyPending: 2,
     maxSellPending: 2
   };
@@ -927,7 +927,7 @@ function AppInner() {
     entry: "-",
     sl: "-",
     tp: "-",
-    reason: "Menunggu data M5 hasil gabungan M1."
+    reason: "Menunggu data M1."
   };
   const strategyB = signal?.strategyB || signal?.strategy?.strategyB || {
     name: "SMC AI",
@@ -952,23 +952,23 @@ function AppInner() {
       value: humanize(mainM5.cross?.type || signal?.strategy?.emaCross || "WAIT"),
       status: mainM5.direction === "BUY" ? "BULLISH" : mainM5.direction === "SELL" ? "BEARISH" : trendBias,
       note: `EMA9 ${mainM5.ema9 || "-"} · EMA20 ${mainM5.ema20 || "-"}`,
-      detail: "Strategi utama fokus ke EMA 9/20 M5. Setelah arah valid, sistem menunggu engulfing M5 close di area EMA 9/20."
+      detail: "Strategi utama fokus ke EMA 9/20 M1. Setelah arah valid, sistem menunggu candle M1 close break EMA 9/20."
     },
     {
       id: "pullback",
       title: "Koreksi EMA 9",
       value: mainM5.correction?.touchedEma9 ? "SUDAH SENTUH" : "BELUM SENTUH",
       status: mainM5.correction?.touchedEma9 ? "PASS" : "WAIT",
-      note: mainM5.correction?.touchedEma9 ? "Harga sudah menyentuh area EMA 9." : "Menunggu engulfing M5 di area EMA 9/20.",
-      detail: "Buy/Sell limit baru valid setelah candle engulfing M5 close di area EMA 9/20 sesuai arah trend."
+      note: mainM5.correction?.touchedEma9 ? "Harga sudah menyentuh area EMA 9." : "Menunggu candle M1 break EMA 9/20.",
+      detail: "Entry valid setelah candle M1 close break EMA 9/20 sesuai arah trend."
     },
     {
       id: "entry",
-      title: "Entry Open Engulfing",
-      value: mainM5.entry ? `${mainM5.direction || "WAIT"} ${mainM5.entry}` : "Belum ada limit",
+      title: "Entry Open M1",
+      value: mainM5.entry ? `${mainM5.direction || "WAIT"} ${mainM5.entry}` : "Belum ada entry",
       status: mainM5.action || "WAIT",
-      note: mainM5.reason || "Menunggu candle engulfing M5 close valid di area EMA 9/20.",
-      detail: "Limit dipasang di OPEN candle engulfing M5 yang sudah close valid di area EMA 9/20. Jika struktur baru muncul sebelum tersentuh, plan lama otomatis expired."
+      note: mainM5.reason || "Menunggu candle M1 close break EMA 9/20.",
+      detail: "Entry dibuka setelah candle M1 close break EMA 9/20. Jika muncul setup baru sebelum posisi selesai, plan lama yang belum jalan bisa expired."
     },
     {
       id: "risk",
@@ -976,7 +976,7 @@ function AppInner() {
       value: mainM5.tp2 && mainM5.sl ? `TP1 ${mainM5.tp1 || "-"} · TP Max ${mainM5.tp2} · SL ${mainM5.sl}` : "- / -",
       status: mainM5.rr || "Partial",
       note: "TP1 setengah jalan → BE · TP Max RR 1:1",
-      detail: "Entry limit memakai open candle engulfing M5 yang menyentuh EMA 9/20. SL memakai low/high candle engulfing + 0.5 ATR. TP1 adalah setengah jarak menuju TP Max, lalu SL bisa dipindah ke BE."
+      detail: "Entry memakai close candle M1 yang break EMA 9/20. SL memakai swing M1 + 0.1 ATR. TP1 adalah setengah jarak menuju TP Max, lalu SL bisa dipindah ke BE."
     },
     {
       id: "probability",
@@ -984,15 +984,15 @@ function AppInner() {
       value: `${probability.score || 0}% · ${probability.label || "LOW"}`,
       status: probability.label || "LOW",
       note: (mainM5.checklist || []).map((item) => `${item.name}: ${item.status}`).join(" · ") || "Menunggu score.",
-      detail: "Probability sekarang mengikuti strategi M5 EMA Pullback Limit. Semakin lengkap checklist EMA, pullback, dan target, semakin tinggi peluangnya."
+      detail: "Probability sekarang mengikuti strategi M1 EMA Break Momentum. Semakin lengkap checklist EMA, candle break, dan risk plan, semakin tinggi peluangnya."
     },
     {
       id: "slot",
       title: "Slot Trend",
       value: mainM5.focusDirection === "BUY_ONLY" ? `Fokus BUY · Engulf ${mainM5.engulfingWave?.count ?? 0}/2` : mainM5.focusDirection === "SELL_ONLY" ? `Fokus SELL · Engulf ${mainM5.engulfingWave?.count ?? 0}/2` : "Menunggu arah",
       status: mainM5.focusDirection || "WAIT",
-      note: `Maksimal 2 engulfing valid setiap EMA cross. Sisa ${mainM5.engulfingWave?.remaining ?? 2}.`,
-      detail: "Saat EMA fokus BUY, sistem hanya cari BUY. Saat EMA fokus SELL, sistem hanya cari SELL. Setelah 2 engulfing valid dalam satu EMA cross, sistem menunggu EMA cross baru."
+      note: `Maksimal 2 setup valid setiap arah EMA. Sisa ${mainM5.engulfingWave?.remaining ?? 2}.`,
+      detail: "Saat EMA fokus BUY, sistem hanya cari BUY. Saat EMA fokus SELL, sistem hanya cari SELL. Setelah 2 setup valid dalam satu arah EMA, sistem menunggu arah baru."
     }
   ];
   const historyStats = callHistory?.stats || {};
@@ -1066,7 +1066,7 @@ function AppInner() {
           <div className="logo dashboardLogo"><Bot size={22} /></div>
           <div className="dashboardBrandText">
             <b>XAU AI Signal</b>
-            <span>Dashboard Premium · Sinyal Utama M5 · Grafik · History</span>
+            <span>Dashboard Premium · Sinyal Utama M1 · Grafik · History</span>
           </div>
         </div>
         <div className="navActions dashboardHeaderActions">
@@ -1180,14 +1180,14 @@ function AppInner() {
         <>
           <section className="chartWrap card">
             <div className="sectionTitle">
-              <div><h3>Grafik Candlestick M1</h3><span>{market?.symbol || "XAUUSD"} · Visual M1 · Strategi tetap M5 · {marketSession.chartStatusText} · Bid {market?.bid || "-"} · Spread {spread}</span></div>
+              <div><h3>Grafik Candlestick M1</h3><span>{market?.symbol || "XAUUSD"} · Visual M1 · Strategi M1 · {marketSession.chartStatusText} · Bid {market?.bid || "-"} · Spread {spread}</span></div>
               <div className="legend">
                 <b><i className="bullDot"></i> Bullish</b>
                 <b><i className="bearDot"></i> Bearish</b>
                 <b><i className="ema9Dot"></i> EMA 9</b>
                 <b><i className="ema20Dot"></i> EMA 20</b>
                 <b><i className="entryDot"></i> Entry / TP / SL</b>
-                <em><span></span> Visual M1 · Entry/TP/SL tetap dari setup M5</em>
+                <em><span></span> Visual M1 · Entry/TP/SL dari setup M1</em>
               </div>
             </div>
             {marketSession.chartNotice && <div className={`chartSessionNotice ${marketSession.type}`}>{marketSession.chartNotice}</div>}
@@ -1418,7 +1418,7 @@ function AppInner() {
           <details className="adminWindow card" open>
             <summary>
               <span>Strategy Control Center</span>
-              <small>Master switch untuk Sinyal Utama M5 dan alert result.</small>
+              <small>Master switch untuk Sinyal Utama M1 dan alert result.</small>
             </summary>
             <div className="adminWindowBody">
               <AdminStrategyControlCenter adminToken={adminToken} />
@@ -2136,7 +2136,7 @@ function AdminStrategyControlCenter({ adminToken }) {
         </button>
       </div>
 
-      <p className="miniNote">Terakhir simpan: {lastSavedAt ? lastSavedAt.toLocaleString("id-ID") : "Belum ada perubahan di sesi ini"}. Fokus saat ini: Sinyal Utama M5.</p>
+      <p className="miniNote">Terakhir simpan: {lastSavedAt ? lastSavedAt.toLocaleString("id-ID") : "Belum ada perubahan di sesi ini"}. Fokus saat ini: Sinyal Utama M1.</p>
     </section>
   );
 }
