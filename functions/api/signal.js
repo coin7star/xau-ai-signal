@@ -13,8 +13,10 @@ export async function onRequest({ env }) {
   const candlesM15 = []; // Step 10AT: Strategi utama fokus M1 EMA Cross Direct Entry. M5/M15/OB tidak dipakai untuk call utama.
   const signal = buildSignal(candles, candlesM15, market);
 
-  const telegram = await maybeSendTelegramAlert(env, dbUrl, signal, market);
+  // Step 10AX: simpan history dulu, baru kirim Telegram.
+  // Tujuannya agar sinyal yang sama tidak bisa mengirim alert 2x saat /api/signal dipanggil cepat/bersamaan.
   const callHistory = await maybeSaveCallHistory(env, dbUrl, signal, market);
+  const telegram = await maybeSendTelegramAlert(env, dbUrl, signal, market, callHistory);
   const scalpHistory = { ok: false, skipped: "disabled-focus-main-strategy-only" };
   const strategyBHistory = { ok: false, skipped: "disabled-focus-main-strategy-only" };
 
@@ -1996,7 +1998,7 @@ async function maybeSaveCallHistory(env, dbUrl, signal, market) {
 
   const existing = await fbGet(dbUrl, `/xauusd/callHistory/${callId}`);
   if (existing?.id === callId) {
-    return { ok: true, skipped: "duplicate-call", callId };
+    return { ok: true, skipped: "duplicate-call", callId, created: false };
   }
 
   const payload = {
@@ -2050,9 +2052,18 @@ async function maybeSaveCallHistory(env, dbUrl, signal, market) {
     return { ok: false, skipped: slotCheck.reason || "main-trend-slot-full", callId: null, activeCount: slotCheck.activeCount || 0 };
   }
 
-  await fbPut(dbUrl, `/xauusd/callHistory/${callId}`, payload);
+  const created = await fbCreateIfAbsent(dbUrl, `/xauusd/callHistory/${callId}`, payload);
+  if (!created.created) {
+    return {
+      ok: true,
+      skipped: created.reason || "duplicate-call-race",
+      callId,
+      created: false,
+      slotCheck
+    };
+  }
 
-  return { ok: true, callId, slotCheck };
+  return { ok: true, callId, slotCheck, created: true };
 }
 
 async function expireOldMainPendingSlots(dbUrl, signalSide, newId, newPayload = {}) {
@@ -2169,7 +2180,7 @@ async function getStrategyControls(dbUrl) {
   return { ...defaults, ...(raw || {}) };
 }
 
-async function maybeSendTelegramAlert(env, dbUrl, signal, market) {
+async function maybeSendTelegramAlert(env, dbUrl, signal, market, callHistory = null) {
   const enabled = String(env.TELEGRAM_ALERT_ENABLED || "true").toLowerCase() !== "false";
   const readyEnabled = String(env.TELEGRAM_READY_ALERT_ENABLED || "false").toLowerCase() === "true";
   const controls = await getStrategyControls(dbUrl);
@@ -2184,6 +2195,16 @@ async function maybeSendTelegramAlert(env, dbUrl, signal, market) {
 
   if (!isCall && !isReady) return { ok: false, skipped: "not-call-signal" };
 
+  // Main CALL wajib punya history baru. Kalau history sudah ada/duplicate, Telegram ikut skip.
+  // Ini memutus sumber dobel dari refresh dashboard, cron health check, atau request paralel.
+  if (isCall && callHistory?.created !== true) {
+    return {
+      ok: true,
+      skipped: callHistory?.skipped || "main-call-history-not-created",
+      callId: callHistory?.callId || null
+    };
+  }
+
   const alertKey = [
     signal.pair || "XAUUSD",
     signal.signal,
@@ -2197,18 +2218,14 @@ async function maybeSendTelegramAlert(env, dbUrl, signal, market) {
   const nowMs = Date.now();
 
   const lastAlert = await fbGet(dbUrl, "/xauusd/telegram/lastAlert");
-  const lock = await fbGet(dbUrl, duplicateLockPath);
 
   if (lastAlert?.alertKey === alertKey) {
     return { ok: true, skipped: "duplicate-alert", alertKey, duplicateKey };
   }
 
-  if (lock?.sentAtMs && nowMs - Number(lock.sentAtMs) <= duplicateWindowMs) {
-    return { ok: true, skipped: "duplicate-main-signal-lock", alertKey, duplicateKey };
-  }
-
-  // Lock sebelum kirim agar kalau /api/signal kepanggil beberapa kali cepat, Telegram tidak spam.
-  await fbPut(dbUrl, duplicateLockPath, {
+  // Atomic lock: hanya request pertama yang boleh lanjut kirim Telegram.
+  // Request kedua dengan sinyal sama akan kena duplicate-main-signal-lock/race.
+  const lockResult = await acquireTelegramAlertLock(dbUrl, duplicateLockPath, {
     duplicateKey,
     alertKey,
     signal: signal.signal,
@@ -2219,7 +2236,11 @@ async function maybeSendTelegramAlert(env, dbUrl, signal, market) {
     sentAtMs: nowMs,
     lockedAt: new Date(nowMs).toISOString(),
     ttlSec: Math.round(duplicateWindowMs / 1000)
-  });
+  }, duplicateWindowMs, nowMs);
+
+  if (!lockResult.acquired) {
+    return { ok: true, skipped: lockResult.reason || "duplicate-main-signal-lock", alertKey, duplicateKey };
+  }
 
   const message = buildTelegramMessage(signal, market);
   const recipients = await getTelegramAlertRecipients(env, dbUrl);
@@ -2577,6 +2598,96 @@ async function sendTelegram(botToken, chatId, text, dashboardUrl = "") {
   try { response = await res.json(); } catch { response = await res.text(); }
 
   return { ok: res.ok, status: res.status, response };
+}
+
+
+async function fbCreateIfAbsent(dbUrl, path, data) {
+  const current = await fbGetWithEtag(dbUrl, path);
+
+  if (current.ok && current.data) {
+    return { created: false, reason: "already-exists", data: current.data };
+  }
+
+  if (!current.ok || !current.etag) {
+    const existing = await fbGet(dbUrl, path);
+    if (existing) return { created: false, reason: "already-exists", data: existing };
+    return { created: false, reason: "etag-unavailable" };
+  }
+
+  const res = await fetch(`${dbUrl}${path}.json`, {
+    method: "PUT",
+    headers: {
+      "Content-Type": "application/json",
+      "if-match": current.etag
+    },
+    body: JSON.stringify(data)
+  });
+
+  if (res.status === 412) {
+    return { created: false, reason: "duplicate-race" };
+  }
+
+  if (!res.ok) {
+    return { created: false, reason: `firebase-put-failed-${res.status}` };
+  }
+
+  let saved = null;
+  try { saved = await res.json(); } catch { saved = data; }
+  return { created: true, data: saved };
+}
+
+async function acquireTelegramAlertLock(dbUrl, path, data, duplicateWindowMs, nowMs = Date.now()) {
+  const current = await fbGetWithEtag(dbUrl, path);
+
+  if (current.ok && current.data?.sentAtMs && nowMs - Number(current.data.sentAtMs) <= duplicateWindowMs) {
+    return { acquired: false, reason: "duplicate-main-signal-lock" };
+  }
+
+  if (!current.ok || !current.etag) {
+    return { acquired: false, reason: "telegram-lock-etag-unavailable" };
+  }
+
+  const res = await fetch(`${dbUrl}${path}.json`, {
+    method: "PUT",
+    headers: {
+      "Content-Type": "application/json",
+      "if-match": current.etag
+    },
+    body: JSON.stringify(data)
+  });
+
+  if (res.status === 412) {
+    return { acquired: false, reason: "duplicate-main-signal-race" };
+  }
+
+  if (!res.ok) {
+    return { acquired: false, reason: `telegram-lock-failed-${res.status}` };
+  }
+
+  return { acquired: true };
+}
+
+async function fbGetWithEtag(dbUrl, path) {
+  const res = await fetch(`${dbUrl}${path}.json?ts=${Date.now()}`, {
+    headers: {
+      "Cache-Control": "no-cache",
+      "X-Firebase-ETag": "true"
+    }
+  });
+
+  if (!res.ok) {
+    return { ok: false, status: res.status, etag: null, data: null };
+  }
+
+  let data = null;
+  try { data = await res.json(); } catch { data = null; }
+
+  return {
+    ok: true,
+    status: res.status,
+    etag: res.headers.get("ETag") || res.headers.get("etag"),
+    data
+  };
 }
 
 async function fbGet(dbUrl, path) {

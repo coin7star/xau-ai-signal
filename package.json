@@ -1,6 +1,6 @@
 {
-  "name": "xau-ai-signal-step10aw-premium-snapshot-copy-fix",
-  "version": "7.41.0-step10aw-premium-snapshot-copy-fix",
+  "name": "xau-ai-signal-step10ax-telegram-main-dedup-fix",
+  "version": "7.42.0-step10ax-telegram-main-dedup-fix",
   "type": "module",
   "scripts": {
     "dev": "vite",
