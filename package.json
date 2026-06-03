@@ -1,6 +1,6 @@
 {
-  "name": "xau-ai-signal-step10aq8-strict-ema-direction-lock",
-  "version": "7.35.8-step10aq8-strict-ema-direction-lock",
+  "name": "xau-ai-signal-step10aq9-engulfing-open-fixed-limit-line",
+  "version": "7.35.9-step10aq9-engulfing-open-fixed-limit-line",
   "type": "module",
   "scripts": {
     "dev": "vite",
