@@ -1,6 +1,6 @@
 {
-  "name": "xau-ai-signal-step10aq5-partial-tp-ema-touch-sl",
-  "version": "7.35.5-step10aq5-partial-tp-ema-touch-sl",
+  "name": "xau-ai-signal-step10aq7-engulfing-open-limit-tpmax",
+  "version": "7.35.7-step10aq7-engulfing-open-limit-tpmax",
   "type": "module",
   "scripts": {
     "dev": "vite",
