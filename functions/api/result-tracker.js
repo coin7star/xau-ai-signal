@@ -81,6 +81,7 @@ export async function buildTrackerSummary(dbUrl, env, shouldUpdate) {
       const closedAt = new Date().toISOString();
       const payload = {
         ...item,
+        ...(result.patch || {}),
         status: result.status || "CLOSED",
         result: result.result,
         closedAt: result.result ? closedAt : null,
@@ -355,6 +356,7 @@ function evaluateItem(item, livePrice) {
   const signal = String(item.signal || "").toUpperCase();
   const sl = toNumber(item.sl);
   const tp = toNumber(item.tp);
+  const tp1 = toNumber(item.tp1);
   const entry = toNumber(item.entry);
   const status = String(item.status || "OPEN").toUpperCase();
 
@@ -389,12 +391,42 @@ function evaluateItem(item, livePrice) {
   }
 
   if (signal === "BUY") {
+    if (Number.isFinite(tp1) && !item.tp1Hit && livePrice >= tp1) {
+      return {
+        result: null,
+        status: "OPEN",
+        patch: {
+          tp1Hit: true,
+          tp1HitAt: new Date().toISOString(),
+          breakEvenActive: true,
+          originalSl: item.originalSl || sl,
+          sl: entry
+        },
+        note: `TP1 tercapai di harga ${formatPrice(livePrice)}. SL dipindahkan ke BE ${formatPrice(entry)}.`
+      };
+    }
     if (livePrice >= tp) return { result: "WIN", note: `TP tercapai otomatis di harga ${formatPrice(livePrice)}.` };
+    if (item.breakEvenActive && livePrice <= entry) return { result: "BE", note: `Harga kembali ke BE ${formatPrice(entry)} setelah TP1.` };
     if (livePrice <= sl) return { result: "LOSS", note: `SL tersentuh otomatis di harga ${formatPrice(livePrice)}.` };
   }
 
   if (signal === "SELL") {
+    if (Number.isFinite(tp1) && !item.tp1Hit && livePrice <= tp1) {
+      return {
+        result: null,
+        status: "OPEN",
+        patch: {
+          tp1Hit: true,
+          tp1HitAt: new Date().toISOString(),
+          breakEvenActive: true,
+          originalSl: item.originalSl || sl,
+          sl: entry
+        },
+        note: `TP1 tercapai di harga ${formatPrice(livePrice)}. SL dipindahkan ke BE ${formatPrice(entry)}.`
+      };
+    }
     if (livePrice <= tp) return { result: "WIN", note: `TP tercapai otomatis di harga ${formatPrice(livePrice)}.` };
+    if (item.breakEvenActive && livePrice >= entry) return { result: "BE", note: `Harga kembali ke BE ${formatPrice(entry)} setelah TP1.` };
     if (livePrice >= sl) return { result: "LOSS", note: `SL tersentuh otomatis di harga ${formatPrice(livePrice)}.` };
   }
 
