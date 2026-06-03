@@ -1,6 +1,6 @@
 {
-  "name": "xau-ai-signal-step10ar2-fix-entry-limit-copy",
-  "version": "7.36.2-step10ar2-fix-entry-limit-copy",
+  "name": "xau-ai-signal-step10ar3-force-entry-copy-open-engulf",
+  "version": "7.36.3-step10ar3-force-entry-copy-open-engulf",
   "type": "module",
   "scripts": {
     "dev": "vite",
