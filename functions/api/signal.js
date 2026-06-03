@@ -229,6 +229,8 @@ export function buildSignal(candles, candlesM15, market) {
     entry: round(mainEntry),
     sl: round(sl),
     tp: round(tp),
+    tp1: round(mainM5.tp1 || 0),
+    tp2: round(mainM5.tp2 || tp || 0),
     confidence,
     reason: humanReason.summary,
     reasonDetails: humanReason,
@@ -314,7 +316,9 @@ function buildMainM5EmaPullbackLimitSignal(market = {}, m1Candles = []) {
       entry: 0,
       sl: 0,
       tp: 0,
-      rr: "1:1",
+      tp1: 0,
+      tp2: 0,
+      rr: "partial",
       dataReady: false,
       sourceTimeframe: Array.isArray(market?.candlesM5) ? "MT5_VPS_M5" : "M1_AGGREGATED_TO_M5",
       reason: "Menunggu data candle M5 cukup untuk membaca struktur, EMA 9/20, dan area limit.",
@@ -352,6 +356,8 @@ function buildMainM5EmaPullbackLimitSignal(market = {}, m1Candles = []) {
   let entry = 0;
   let sl = 0;
   let tp = 0;
+  let tp1 = 0;
+  let tp2 = 0;
   let score = 0;
   let blocker = "Menunggu struktur M5 break swing lalu EMA 9/20 searah.";
 
@@ -368,8 +374,10 @@ function buildMainM5EmaPullbackLimitSignal(market = {}, m1Candles = []) {
     direction = "BUY";
     label = "Main Signal siap BUY LIMIT";
     entry = ema9Now;
-    tp = structure.targetHighBody;
-    if (tp > entry) sl = entry - Math.abs(tp - entry);
+    tp = 0;
+    tp1 = 0;
+    tp2 = 0;
+    sl = 0;
     score = 64;
     blocker = "Struktur M5 sudah break swing high dan EMA naik. Garis BUY LIMIT mengikuti EMA 9 sampai candle menyentuh area EMA.";
   } else if (sellReady) {
@@ -377,8 +385,10 @@ function buildMainM5EmaPullbackLimitSignal(market = {}, m1Candles = []) {
     direction = "SELL";
     label = "Main Signal siap SELL LIMIT";
     entry = ema9Now;
-    tp = structure.targetLowBody;
-    if (tp < entry) sl = entry + Math.abs(entry - tp);
+    tp = 0;
+    tp1 = 0;
+    tp2 = 0;
+    sl = 0;
     score = 64;
     blocker = "Struktur M5 sudah break swing low dan EMA turun. Garis SELL LIMIT mengikuti EMA 9 sampai candle menyentuh area EMA.";
   }
@@ -388,9 +398,11 @@ function buildMainM5EmaPullbackLimitSignal(market = {}, m1Candles = []) {
     direction = "BUY";
     label = "Main Signal BUY LIMIT";
     entry = ema9Now;
-    tp = structure.targetHighBody;
-    if (tp > entry) {
-      sl = entry - Math.abs(tp - entry);
+    tp2 = structure.targetHighBody;
+    tp1 = entry + Math.abs(tp2 - entry) * 0.5;
+    tp = tp2;
+    sl = Number(last.low) - atrValue * 0.5;
+    if (tp2 > entry && sl < entry) {
       score = 88;
       blocker = "";
     } else {
@@ -405,9 +417,11 @@ function buildMainM5EmaPullbackLimitSignal(market = {}, m1Candles = []) {
     direction = "SELL";
     label = "Main Signal SELL LIMIT";
     entry = ema9Now;
-    tp = structure.targetLowBody;
-    if (tp < entry) {
-      sl = entry + Math.abs(entry - tp);
+    tp2 = structure.targetLowBody;
+    tp1 = entry - Math.abs(entry - tp2) * 0.5;
+    tp = tp2;
+    sl = Number(last.high) + atrValue * 0.5;
+    if (tp2 < entry && sl > entry) {
       score = 88;
       blocker = "";
     } else {
@@ -433,7 +447,9 @@ function buildMainM5EmaPullbackLimitSignal(market = {}, m1Candles = []) {
     entry: round(entry),
     sl: round(sl),
     tp: round(tp),
-    rr: "1:1",
+    tp1: round(tp1),
+    tp2: round(tp2 || tp),
+    rr: "TP1 50% · TP2 max",
     dataReady: true,
     timeframe: "M5",
     sourceTimeframe: Array.isArray(market?.candlesM5) ? "MT5_VPS_M5" : "M1_AGGREGATED_TO_M5",
@@ -453,8 +469,22 @@ function buildMainM5EmaPullbackLimitSignal(market = {}, m1Candles = []) {
     },
     structure,
     entryMethod: "DYNAMIC_LIMIT_AT_EMA9_AFTER_M5_STRUCTURE_BREAK",
-    tpMethod: direction === "BUY" ? "BODY_TOP_OF_BROKEN_SWING_HIGH" : direction === "SELL" ? "BODY_BOTTOM_OF_BROKEN_SWING_LOW" : "WAIT",
-    slMethod: "RR_1_1_FROM_TP_DISTANCE",
+    tpMethod: direction === "BUY" ? "TP1_HALF_TO_TP2_BODY_SWING_HIGH" : direction === "SELL" ? "TP1_HALF_TO_TP2_BODY_SWING_LOW" : "WAIT",
+    slMethod: direction === "BUY" ? "BELOW_EMA_TOUCH_M5_CANDLE_LOW_PLUS_0_5_ATR" : direction === "SELL" ? "ABOVE_EMA_TOUCH_M5_CANDLE_HIGH_PLUS_0_5_ATR" : "WAIT",
+    partialTp: {
+      enabled: true,
+      tp1: round(tp1),
+      tp2: round(tp2 || tp),
+      tp1Note: "TP1 di tengah jarak Entry ke TP2.",
+      tp2Note: "TP2 di body swing utama."
+    },
+    emaTouchCandle: {
+      time: last.time || null,
+      open: round(last.open),
+      high: round(last.high),
+      low: round(last.low),
+      close: round(last.close)
+    },
     maxPending: 4,
     maxBuyPending: 2,
     maxSellPending: 2,
@@ -466,8 +496,8 @@ function buildMainM5EmaPullbackLimitSignal(market = {}, m1Candles = []) {
       { name: "EMA 9/20 searah", status: (direction === "BUY" && emaUp) || (direction === "SELL" && emaDown) ? "PASS" : "WAIT" },
       { name: "Candle sentuh EMA", status: touchedEmaZone ? "PASS" : "WAIT" },
       { name: "Entry limit dinamis", status: entry > 0 ? "PASS" : "WAIT" },
-      { name: "TP body swing", status: tp > 0 ? "PASS" : "WAIT" },
-      { name: "RR 1:1", status: sl > 0 && tp > 0 ? "PASS" : "WAIT" }
+      { name: "TP parsial", status: tp1 > 0 && tp2 > 0 ? "PASS" : "WAIT" },
+      { name: "SL candle sentuh EMA", status: sl > 0 ? "PASS" : "WAIT" }
     ]
   };
 }
@@ -574,10 +604,10 @@ function getM5PullbackStructure(candles = [], crossIndex = -1) {
 function buildMainM5LimitReason(data = {}) {
   const { action, direction, entry, sl, tp, cross, touchedEma9, blocker } = data;
   if (action === "BUY_LIMIT") {
-    return `Main Signal BUY LIMIT valid. EMA 9 sudah break ke atas EMA 20, harga koreksi ke EMA 9. Entry limit ${round(entry)}, TP di body swing high koreksi, SL RR 1:1.`;
+    return `Main Signal BUY LIMIT valid. EMA 9 sudah break ke atas EMA 20, harga koreksi ke EMA 9. Entry limit ${round(entry)}, TP1 setengah target, TP2 di body swing high, SL di bawah low candle M5 yang sentuh EMA + 0.5 ATR.`;
   }
   if (action === "SELL_LIMIT") {
-    return `Main Signal SELL LIMIT valid. EMA 9 sudah break ke bawah EMA 20, harga koreksi ke EMA 9. Entry limit ${round(entry)}, TP di body swing low koreksi, SL RR 1:1.`;
+    return `Main Signal SELL LIMIT valid. EMA 9 sudah break ke bawah EMA 20, harga koreksi ke EMA 9. Entry limit ${round(entry)}, TP1 setengah target, TP2 di body swing low, SL di atas high candle M5 yang sentuh EMA + 0.5 ATR.`;
   }
   if (action === "READY_BUY") return blocker || "EMA bullish sudah aktif. Menunggu koreksi ke EMA 9 untuk BUY LIMIT.";
   if (action === "READY_SELL") return blocker || "EMA bearish sudah aktif. Menunggu koreksi ke EMA 9 untuk SELL LIMIT.";
@@ -1914,6 +1944,9 @@ async function maybeSaveCallHistory(env, dbUrl, signal, market) {
     entry: signal.entry,
     sl: signal.sl,
     tp: signal.tp,
+    tp1: signal.tp1 ?? signal.strategy?.mainM5?.tp1 ?? null,
+    tp2: signal.tp2 ?? signal.strategy?.mainM5?.tp2 ?? signal.tp ?? null,
+    partialTp: signal.strategy?.mainM5?.partialTp ?? null,
     confidence: signal.confidence,
     probability: signal.strategy?.probability || null,
     reason: signal.reason || "",

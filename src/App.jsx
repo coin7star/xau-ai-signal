@@ -972,11 +972,11 @@ function AppInner() {
     },
     {
       id: "risk",
-      title: "TP / SL",
-      value: mainM5.tp && mainM5.sl ? `${mainM5.tp} / ${mainM5.sl}` : "- / -",
-      status: mainM5.rr || "1:1",
-      note: `TP pakai body swing · RR ${mainM5.rr || "1:1"}`,
-      detail: "TP memakai open/close body swing koreksi, bukan ujung wick. SL dihitung otomatis dengan risk-reward 1:1."
+      title: "TP Parsial / SL",
+      value: mainM5.tp2 && mainM5.sl ? `TP1 ${mainM5.tp1 || "-"} · TP2 ${mainM5.tp2} · SL ${mainM5.sl}` : "- / -",
+      status: mainM5.rr || "Partial",
+      note: "TP1 setengah target · TP2 target utama",
+      detail: "SL memakai low/high candle M5 yang menyentuh EMA 9/20 ditambah buffer 0.5 ATR. TP1 setengah jalan ke TP2, TP2 di body swing utama."
     },
     {
       id: "probability",
@@ -1157,7 +1157,7 @@ function AppInner() {
               <div className="tradePlan">
                 <div><small>Entry</small><strong>{signal?.entry || "-"}</strong></div>
                 <div><small>Stop Loss</small><strong>{signal?.sl || "-"}</strong></div>
-                <div><small>Take Profit</small><strong>{signal?.tp || "-"}</strong></div>
+                <div><small>Take Profit</small><strong>{signal?.tp1 && signal?.tp2 ? `TP1 ${signal.tp1} / TP2 ${signal.tp2}` : signal?.tp || "-"}</strong></div>
               </div>
             </div>
 
@@ -5014,7 +5014,8 @@ function addTradePlanLines(series, linesRef, mainM5) {
   const isPlan = ["BUY_LIMIT", "SELL_LIMIT", "READY_BUY", "READY_SELL"].includes(action);
   const entry = Number((isPlan ? mainM5?.entry : preview?.entry) || 0);
   const sl = Number(mainM5?.sl || 0);
-  const tp = Number(mainM5?.tp || 0);
+  const tp1 = Number(mainM5?.tp1 || 0);
+  const tp2 = Number(mainM5?.tp2 || mainM5?.tp || 0);
   const direction = String((isPlan ? mainM5?.direction : preview?.direction) || "WAIT");
 
   if (!isPlan && !preview?.active) return;
@@ -5043,16 +5044,28 @@ function addTradePlanLines(series, linesRef, mainM5) {
     newLines.push({ series, line: slLine });
   }
 
-  if (Number.isFinite(tp) && tp > 0) {
-    const tpLine = series.createPriceLine({
-      price: tp,
+  if (Number.isFinite(tp1) && tp1 > 0) {
+    const tp1Line = series.createPriceLine({
+      price: tp1,
       color: "#38bdf8",
+      lineWidth: 1,
+      lineStyle: 1,
+      axisLabelVisible: true,
+      title: "TP1"
+    });
+    newLines.push({ series, line: tp1Line });
+  }
+
+  if (Number.isFinite(tp2) && tp2 > 0) {
+    const tp2Line = series.createPriceLine({
+      price: tp2,
+      color: "#0ea5e9",
       lineWidth: 1,
       lineStyle: 2,
       axisLabelVisible: true,
-      title: "TP"
+      title: "TP2"
     });
-    newLines.push({ series, line: tpLine });
+    newLines.push({ series, line: tp2Line });
   }
 
   linesRef.current = newLines;
