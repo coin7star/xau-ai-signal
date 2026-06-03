@@ -369,6 +369,20 @@ function evaluateItem(item, livePrice) {
   }
 
   if (status === "PENDING") {
+    const directEntry = isMainDirectEntry(item);
+    if (directEntry) {
+      return {
+        result: null,
+        status: "OPEN",
+        patch: {
+          entryTriggered: true,
+          triggeredAt: item.triggeredAt || item.createdAt || new Date().toISOString(),
+          note: item.note || "Sinyal lama direct entry diperbaiki dari status pending ke berjalan. Tetap dipantau sampai TP/SL/BE."
+        },
+        note: "Sinyal direct entry aktif. Dipantau sampai TP/SL/BE, bukan di-expire karena muncul sinyal baru."
+      };
+    }
+
     if (!Number.isFinite(entry)) return { result: null, note: "Entry limit belum lengkap." };
     const buyTriggered = signal === "BUY" && livePrice <= entry;
     const sellTriggered = signal === "SELL" && livePrice >= entry;
@@ -437,6 +451,23 @@ function evaluateItem(item, livePrice) {
   }
 
   return { result: null, note: "Masih berjalan. Belum menyentuh TP/SL." };
+}
+
+function isMainDirectEntry(item = {}) {
+  const type = String(item.type || "").toUpperCase();
+  const mode = String(item.mode || item.strategySnapshot?.mainM5?.mode || "").toUpperCase();
+  const action = String(item.action || item.strategySnapshot?.mainM5?.action || "").toUpperCase();
+  const entryMethod = String(item.entryMethod || item.strategySnapshot?.mainM5?.entryMethod || "").toUpperCase();
+  const directFlag = item.entryTriggered === true || item.strategySnapshot?.mainM5?.candleBreak?.directCrossEntry === true;
+
+  return (
+    type.includes("MAIN_M1_EMA_CROSS_DIRECT") ||
+    mode.includes("M1_EMA_CROSS_DIRECT") ||
+    action === "BUY_OPEN" ||
+    action === "SELL_OPEN" ||
+    entryMethod.includes("OPEN_MARKET_AFTER_M1") ||
+    directFlag
+  );
 }
 
 function isOpen(item) {

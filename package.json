@@ -1,6 +1,6 @@
 {
-  "name": "xau-ai-signal-step10ax-telegram-main-dedup-fix",
-  "version": "7.43.0-step10ay-quality-guard-status-copy-fix",
+  "name": "xau-ai-signal-step10az-main-direct-history-no-auto-expire",
+  "version": "7.44.0-step10az-main-direct-history-no-auto-expire",
   "type": "module",
   "scripts": {
     "dev": "vite",

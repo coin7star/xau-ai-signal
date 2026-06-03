@@ -485,10 +485,10 @@ function buildMainM1EmaCrossDirectEntrySignal(market = {}, m1Candles = []) {
       tp2Note: "TP Max = RR 1:1 dari jarak Entry ke SL.",
       afterTp1: "MOVE_SL_TO_BE"
     },
-    maxPending: 1,
-    maxBuyPending: 1,
-    maxSellPending: 1,
-    replaceOldOnNewStructure: true,
+    maxPending: 0,
+    maxBuyPending: 0,
+    maxSellPending: 0,
+    replaceOldOnNewStructure: false,
     reason,
     blocker,
     checklist: [
@@ -1570,7 +1570,9 @@ async function maybeSaveScalpHistory(env, dbUrl, signal, market) {
     candleTime: signal.candleTime || null,
     serverTime: market?.serverTime || null,
     createdAt: new Date().toISOString(),
-    status: "PENDING",
+    status: "OPEN",
+    entryTriggered: true,
+    triggeredAt: new Date().toISOString(),
     result: null,
     closedAt: null,
     note: ""
@@ -2003,8 +2005,11 @@ async function maybeSaveCallHistory(env, dbUrl, signal, market) {
 
   const payload = {
     id: callId,
-    type: "MAIN_M5_LIMIT",
-    timeframe: "M5",
+    type: "MAIN_M1_EMA_CROSS_DIRECT_ENTRY",
+    timeframe: "M1",
+    mode: "M1_EMA_CROSS_DIRECT_ENTRY_MAIN",
+    action: signal.action || (signal.signal === "BUY" ? "BUY_OPEN" : "SELL_OPEN"),
+    entryMethod: "OPEN_MARKET_AFTER_M1_CLOSE",
     pair: market?.symbol || signal.pair || "XAUUSD",
     signal: signal.signal,
     signalLabel: signal.signalLabel || signal.signal,
@@ -2038,19 +2043,21 @@ async function maybeSaveCallHistory(env, dbUrl, signal, market) {
       buyScore: signal.strategy?.buyScore ?? null,
       sellScore: signal.strategy?.sellScore ?? null
     },
-    maxPending: 4,
-    maxBuyPending: 2,
-    maxSellPending: 2,
-    pendingPolicy: "MAX_2_BUY_2_SELL_EXPIRE_OLD_ON_NEW_STRUCTURE",
-    bosKey: signal.strategy?.mainM5?.bosKey || null,
-    bosDirection: signal.strategy?.mainM5?.bosDirection || null,
-    planKey: [signal.signal, signal.strategy?.mainM5?.bosKey || "NO_BOS", signal.entry, signal.sl, signal.tp].join("_")
+    maxPending: 0,
+    maxBuyPending: 0,
+    maxSellPending: 0,
+    pendingPolicy: "DIRECT_ENTRY_KEEP_ACTIVE_UNTIL_TP_SL_BE_OR_TIME_EXPIRE",
+    bosKey: null,
+    bosDirection: null,
+    planKey: ["M1_DIRECT", signal.signal, signal.candleTime || market?.serverTime || callId, signal.entry, signal.sl, signal.tp].join("_"),
+    lifecyclePolicy: "KEEP_RUNNING_SIGNALS_DO_NOT_EXPIRE_ON_NEW_SIGNAL"
   };
 
-  const slotCheck = await expireOldMainPendingSlots(dbUrl, signal.signal, callId, payload);
-  if (slotCheck?.allow === false) {
-    return { ok: false, skipped: slotCheck.reason || "main-trend-slot-full", callId: null, activeCount: slotCheck.activeCount || 0 };
-  }
+  const slotCheck = {
+    allow: true,
+    skipped: "direct-entry-no-slot-expire",
+    note: "Sinyal direct entry tidak menutup sinyal lama. Sinyal lama tetap dipantau sampai TP/SL/BE atau expire waktu."
+  };
 
   const created = await fbCreateIfAbsent(dbUrl, `/xauusd/callHistory/${callId}`, payload);
   if (!created.created) {
