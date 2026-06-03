@@ -1,6 +1,6 @@
 {
-  "name": "xau-ai-signal-step10aq7-engulfing-open-limit-tpmax",
-  "version": "7.35.7-step10aq7-engulfing-open-limit-tpmax",
+  "name": "xau-ai-signal-step10aq8-strict-ema-direction-lock",
+  "version": "7.35.8-step10aq8-strict-ema-direction-lock",
   "type": "module",
   "scripts": {
     "dev": "vite",
