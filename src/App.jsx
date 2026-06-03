@@ -987,12 +987,12 @@ function AppInner() {
       detail: "Probability mengikuti strategi M1 EMA Cross Direct Entry. Semakin lengkap checklist cross EMA, close filter, dan risk plan, semakin tinggi peluangnya."
     },
     {
-      id: "slot",
-      title: "Slot Trend",
-      value: mainM5.focusDirection === "BUY_ONLY" ? `Fokus BUY · Cross ${mainM5.engulfingWave?.count ?? 0}/2` : mainM5.focusDirection === "SELL_ONLY" ? `Fokus SELL · Cross ${mainM5.engulfingWave?.count ?? 0}/2` : "Menunggu arah",
-      status: mainM5.focusDirection || "WAIT",
-      note: `Satu sinyal utama hanya muncul saat cross baru valid. Tunggu cross berikutnya untuk sinyal baru.`,
-      detail: "Saat EMA9 cross ke atas EMA20, sistem hanya validkan BUY jika close di atas keduanya. Saat EMA9 cross ke bawah EMA20, sistem hanya validkan SELL jika close di bawah keduanya."
+      id: "main-rule",
+      title: "Main Rule",
+      value: mainM5.direction && mainM5.entry ? `${mainM5.direction} DIRECT` : "WAIT DIRECT",
+      status: mainM5.action || "WAIT",
+      note: mainM5.direction && mainM5.entry ? "Sinyal utama hanya dari M1 EMA Cross Direct Entry." : "Menunggu EMA9 cross EMA20 di M1 + candle close valid.",
+      detail: "Panel Slot Trend lama disembunyikan karena tidak dipakai lagi. Sistem sekarang fokus satu rule: EMA9/EMA20 cross M1, close di sisi kedua EMA, entry langsung setelah candle close."
     }
   ];
   const historyStats = callHistory?.stats || {};
