@@ -1,6 +1,6 @@
 {
   "name": "xau-ai-signal-step10at-main-m1-ema-cross-direct-entry",
-  "version": "7.38.0-step10at-main-m1-ema-cross-direct-entry",
+  "version": "7.39.0-step10au-hide-slot-trend-main-rule",
   "type": "module",
   "scripts": {
     "dev": "vite",
