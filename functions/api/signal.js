@@ -45,7 +45,7 @@ export function buildSignal(candles, candlesM15, market) {
       sl: 0,
       tp: 0,
       confidence: 50,
-      reason: "Menunggu minimal 50 candle M1. Strategi butuh RSI + MFI + EMA 9/20 + OB M15.",
+      reason: "Menunggu minimal 30 candle M1 untuk membaca EMA 9/20 dan candle break.",
       mode: market ? "firebase-mt5-data" : "waiting-mt5",
       strategy: emptyStrategy()
     };
@@ -134,7 +134,7 @@ export function buildSignal(candles, candlesM15, market) {
   }
 
   if (finalSignal === "WAIT") {
-    reasons.push(mainM5.blocker || "Menunggu EMA 9/20 M5 valid lalu engulfing close di area EMA 9/20.");
+    reasons.push(mainM5.blocker || "Menunggu candle M1 close break EMA 9/20 sesuai arah trend.");
   }
 
   const score = Math.max(buyScore, sellScore);
@@ -189,7 +189,7 @@ export function buildSignal(candles, candlesM15, market) {
     entry: 0,
     sl: 0,
     tp: 0,
-    reason: "Mode scalp disembunyikan agar dashboard fokus ke Sinyal Utama M5."
+    reason: "Mode scalp disembunyikan agar dashboard fokus ke Sinyal Utama M1."
   };
 
   const strategyB = {
@@ -202,7 +202,7 @@ export function buildSignal(candles, candlesM15, market) {
     entry: 0,
     sl: 0,
     tp: 0,
-    reason: "SMC AI disembunyikan agar dashboard fokus ke Sinyal Utama M5."
+    reason: "SMC AI disembunyikan agar dashboard fokus ke Sinyal Utama M1."
   };
 
   const humanReason = buildMainM5LimitHumanReason({
@@ -239,7 +239,7 @@ export function buildSignal(candles, candlesM15, market) {
     mode: "firebase-mt5-data",
     strategy: {
       trendBias,
-      mainMode: "M5_EMA_PULLBACK_LIMIT",
+      mainMode: "M1_EMA_BREAK_MOMENTUM",
       mainM5,
       rsi: round(rsi14),
       rsiMethod: "Wilder RSI 14 seperti MT5 iRSI",
@@ -303,11 +303,13 @@ export function buildSignal(candles, candlesM15, market) {
 
 
 function buildMainM5EmaPullbackLimitSignal(market = {}, m1Candles = []) {
-  const m5 = getMainM5Candles(market, m1Candles);
-  const last = m5[m5.length - 1];
-  if (!last || m5.length < 20) {
+  const m1 = clean(m1Candles).slice(-240);
+  const last = m1[m1.length - 1];
+  const prev = m1[m1.length - 2];
+
+  if (!last || !prev || m1.length < 30) {
     return {
-      mode: "M5_EMA_STRUCTURE_DYNAMIC_LIMIT_MAIN",
+      mode: "M1_EMA_BREAK_MOMENTUM_MAIN",
       action: "WAIT",
       label: "Main Signal WAIT",
       direction: "WAIT",
@@ -318,48 +320,51 @@ function buildMainM5EmaPullbackLimitSignal(market = {}, m1Candles = []) {
       tp: 0,
       tp1: 0,
       tp2: 0,
-      rr: "partial",
+      rr: "TP1 50% → BE · TP Max 1:1",
       dataReady: false,
-      sourceTimeframe: Array.isArray(market?.candlesM5) ? "MT5_VPS_M5" : "M1_AGGREGATED_TO_M5",
-      reason: "Menunggu data candle M5 cukup untuk membaca struktur, EMA 9/20, dan area limit.",
-      blocker: "Data candle M5 belum cukup."
+      timeframe: "M1",
+      sourceTimeframe: "MT5_VPS_M1",
+      reason: "Menunggu minimal 30 candle M1 untuk membaca EMA 9/20, break candle, ATR, dan swing struktur.",
+      blocker: "Data candle M1 belum cukup."
     };
   }
 
-  const closes = m5.map((c) => Number(c.close));
+  const closes = m1.map((c) => Number(c.close));
   const ema9Series = emaSeries(closes, 9);
   const ema20Series = emaSeries(closes, 20);
   const ema9Now = Number(ema9Series[ema9Series.length - 1] || 0);
   const ema20Now = Number(ema20Series[ema20Series.length - 1] || 0);
   const prevEma9 = Number(ema9Series[ema9Series.length - 2] || ema9Now);
   const prevEma20 = Number(ema20Series[ema20Series.length - 2] || ema20Now);
-  const atrValue = Number(atr(m5, 14) || Math.max(Math.abs(Number(last.high) - Number(last.low)), 1));
-  const buffer = Math.max(atrValue * 0.25, Number(last.close) * 0.00008);
+  const atrValue = Number(atr(m1, 14) || Math.max(Math.abs(Number(last.high) - Number(last.low)), 0.5));
+  const structure = getM1BreakMomentumStructure(m1);
 
-  const structure = getM5EmaStructureBreak(m5);
-  const prevCandle = m5[m5.length - 2] || null;
-  const bullishEngulfing = Boolean(prevCandle && isBullishEngulfing(prevCandle, last));
-  const bearishEngulfing = Boolean(prevCandle && isBearishEngulfing(prevCandle, last));
+  const open = Number(last.open);
+  const high = Number(last.high);
+  const low = Number(last.low);
+  const close = Number(last.close);
+  const range = Math.max(Math.abs(high - low), 0.01);
+  const body = Math.abs(close - open);
+  const bodyRatio = body / range;
+  const bodyStrong = bodyRatio >= 0.5;
+
+  const bullishCandle = close > open;
+  const bearishCandle = close < open;
+  const upperEma = Math.max(ema9Now, ema20Now);
+  const lowerEma = Math.min(ema9Now, ema20Now);
   const emaBuyBias = ema9Now > ema20Now;
   const emaSellBias = ema9Now < ema20Now;
   const emaUp = emaBuyBias && ema9Now >= prevEma9 && ema20Now >= prevEma20 * 0.9997;
   const emaDown = emaSellBias && ema9Now <= prevEma9 && ema20Now <= prevEma20 * 1.0003;
   const focusDirection = emaBuyBias ? "BUY_ONLY" : emaSellBias ? "SELL_ONLY" : "WAIT";
-  const touchedEmaZone = Number(last.low) <= Math.max(ema9Now, ema20Now) + buffer && Number(last.high) >= Math.min(ema9Now, ema20Now) - buffer;
-  const closeHoldsBuy = Number(last.close) >= Math.min(ema9Now, ema20Now) - buffer;
-  const closeHoldsSell = Number(last.close) <= Math.max(ema9Now, ema20Now) + buffer;
-  const buyEngulfAtEma = bullishEngulfing && touchedEmaZone && closeHoldsBuy && emaBuyBias;
-  const sellEngulfAtEma = bearishEngulfing && touchedEmaZone && closeHoldsSell && emaSellBias;
-  const engulfingWave = countM5EngulfingsInCurrentEmaWave(m5, ema9Series, ema20Series, focusDirection, atrValue);
-  const buyEngulfSlotOk = focusDirection !== "BUY_ONLY" || engulfingWave.count <= 2;
-  const sellEngulfSlotOk = focusDirection !== "SELL_ONLY" || engulfingWave.count <= 2;
 
-  const buyStructureValid = structure.breakHigh && emaBuyBias;
-  const sellStructureValid = structure.breakLow && emaSellBias;
-  const buyReady = focusDirection === "BUY_ONLY" && buyStructureValid && emaUp && !buyEngulfAtEma && buyEngulfSlotOk;
-  const sellReady = focusDirection === "SELL_ONLY" && sellStructureValid && emaDown && !sellEngulfAtEma && sellEngulfSlotOk;
-  const buyValid = focusDirection === "BUY_ONLY" && buyStructureValid && emaUp && buyEngulfAtEma && buyEngulfSlotOk;
-  const sellValid = focusDirection === "SELL_ONLY" && sellStructureValid && emaDown && sellEngulfAtEma && sellEngulfSlotOk;
+  // Break candle wajib menembus kedua EMA dengan body, bukan sekadar wick.
+  const buyBreakEma = bullishCandle && open <= lowerEma && close > upperEma;
+  const sellBreakEma = bearishCandle && open >= upperEma && close < lowerEma;
+  const buyValid = focusDirection === "BUY_ONLY" && emaUp && buyBreakEma && bodyStrong;
+  const sellValid = focusDirection === "SELL_ONLY" && emaDown && sellBreakEma && bodyStrong;
+  const buyReady = focusDirection === "BUY_ONLY" && emaUp && !buyValid;
+  const sellReady = focusDirection === "SELL_ONLY" && emaDown && !sellValid;
 
   let action = "WAIT";
   let direction = "WAIT";
@@ -371,90 +376,51 @@ function buildMainM5EmaPullbackLimitSignal(market = {}, m1Candles = []) {
   let tp2 = 0;
   let score = 0;
   let blocker = focusDirection === "BUY_ONLY"
-    ? "Mode fokus BUY: EMA9 di atas EMA20. Menunggu struktur bullish dan bullish engulfing di area EMA."
+    ? "Mode fokus BUY: EMA9 di atas EMA20. Menunggu candle bullish M1 close break di atas EMA9 dan EMA20."
     : focusDirection === "SELL_ONLY"
-      ? "Mode fokus SELL: EMA9 di bawah EMA20. Menunggu struktur bearish dan bearish engulfing di area EMA."
+      ? "Mode fokus SELL: EMA9 di bawah EMA20. Menunggu candle bearish M1 close break di bawah EMA9 dan EMA20."
       : "Menunggu EMA9/EMA20 menentukan arah trend.";
-
-  if ((focusDirection === "BUY_ONLY" && !buyEngulfSlotOk) || (focusDirection === "SELL_ONLY" && !sellEngulfSlotOk)) {
-    blocker = "Maksimal 2 engulfing valid untuk EMA cross/trend saat ini sudah terpenuhi. Menunggu EMA cross baru.";
-  }
-
-  const previewDirection = (buyEngulfAtEma && buyEngulfSlotOk) ? "BUY" : (sellEngulfAtEma && sellEngulfSlotOk) ? "SELL" : "WAIT";
-  const previewEntry = ((buyEngulfAtEma && buyEngulfSlotOk) || (sellEngulfAtEma && sellEngulfSlotOk)) ? Number(last.open) : 0;
-  const previewLabel = previewDirection === "BUY"
-    ? "Preview BUY limit · open engulfing"
-    : previewDirection === "SELL"
-      ? "Preview SELL limit · open engulfing"
-      : "Menunggu engulfing di area EMA";
 
   if (buyReady) {
     action = "READY_BUY";
     direction = "BUY";
-    label = "Main Signal siap BUY LIMIT";
-    entry = 0;
-    tp = 0;
-    tp1 = 0;
-    tp2 = 0;
-    sl = 0;
+    label = "Main Signal siap BUY";
     score = 64;
-    blocker = "Struktur M5 sudah break swing high dan EMA naik. Menunggu bullish engulfing di area EMA 9/20. Preview limit akan memakai open candle engulfing.";
   } else if (sellReady) {
     action = "READY_SELL";
     direction = "SELL";
-    label = "Main Signal siap SELL LIMIT";
-    entry = 0;
-    tp = 0;
-    tp1 = 0;
-    tp2 = 0;
-    sl = 0;
+    label = "Main Signal siap SELL";
     score = 64;
-    blocker = "Struktur M5 sudah break swing low dan EMA turun. Menunggu bearish engulfing di area EMA 9/20. Preview limit akan memakai open candle engulfing.";
   }
 
   if (buyValid) {
     action = "BUY_LIMIT";
     direction = "BUY";
-    label = "Main Signal BUY LIMIT";
-    entry = Number(last.open);
-    sl = Number(last.low) - atrValue * 0.5;
+    label = "BUY OPEN";
+    entry = close;
+    sl = Number(structure.swingLow) - atrValue * 0.1;
     const risk = Math.abs(entry - sl);
     tp1 = entry + (risk * 0.5);
     tp2 = entry + risk;
     tp = tp2;
-    if (tp2 > tp1 && tp1 > entry && sl < entry) {
-      score = 88;
-      blocker = "";
-    } else {
-      action = "WAIT";
-      direction = "WAIT";
-      label = "Main Signal WAIT";
-      blocker = "Risk BUY belum valid dari open engulfing ke SL.";
-      score = 55;
-    }
+    score = 88;
+    blocker = "";
   } else if (sellValid) {
     action = "SELL_LIMIT";
     direction = "SELL";
-    label = "Main Signal SELL LIMIT";
-    entry = Number(last.open);
-    sl = Number(last.high) + atrValue * 0.5;
+    label = "SELL OPEN";
+    entry = close;
+    sl = Number(structure.swingHigh) + atrValue * 0.1;
     const risk = Math.abs(sl - entry);
     tp1 = entry - (risk * 0.5);
     tp2 = entry - risk;
     tp = tp2;
-    if (tp2 < tp1 && tp1 < entry && sl > entry) {
-      score = 88;
-      blocker = "";
-    } else {
-      action = "WAIT";
-      direction = "WAIT";
-      label = "Main Signal WAIT";
-      blocker = "Risk SELL belum valid dari open engulfing ke SL.";
-      score = 55;
-    }
+    score = 88;
+    blocker = "";
   }
 
-  if ((buyEngulfAtEma && !buyEngulfSlotOk) || (sellEngulfAtEma && !sellEngulfSlotOk)) {
+  if ((action === "BUY_LIMIT" && !(sl < entry && tp1 > entry && tp2 > tp1)) ||
+      (action === "SELL_LIMIT" && !(sl > entry && tp1 < entry && tp2 < tp1))) {
     action = "WAIT";
     direction = "WAIT";
     label = "Main Signal WAIT";
@@ -463,16 +429,16 @@ function buildMainM5EmaPullbackLimitSignal(market = {}, m1Candles = []) {
     tp = 0;
     tp1 = 0;
     tp2 = 0;
-    score = Math.max(45, score);
-    blocker = "Engulfing di area EMA terdeteksi, tapi kuota 2 engulfing untuk EMA cross saat ini sudah habis.";
+    score = 55;
+    blocker = "Risk M1 belum valid dari entry close candle ke swing SL.";
   }
 
   const confidence = action.includes("LIMIT") ? 88 : action.includes("READY") ? 66 : Math.max(45, score);
-  const cross = { type: buyStructureValid ? "STRUCTURE_BULLISH" : sellStructureValid ? "STRUCTURE_BEARISH" : "NONE", index: structure.breakIndex, time: structure.breakTime };
-  const reason = buildMainM5LimitReason({ action, direction, entry, sl, tp, cross, touchedEma9: touchedEmaZone, ema9Now, ema20Now, structure, blocker });
+  const cross = { type: buyValid ? "M1_BULLISH_EMA_BREAK" : sellValid ? "M1_BEARISH_EMA_BREAK" : focusDirection, index: m1.length - 1, time: last.time || null };
+  const reason = buildMainM5LimitReason({ action, direction, entry, sl, tp, tp1, tp2, cross, touchedEma9: buyBreakEma || sellBreakEma, ema9Now, ema20Now, structure, blocker });
 
   return {
-    mode: "M5_EMA_STRUCTURE_DYNAMIC_LIMIT_MAIN",
+    mode: "M1_EMA_BREAK_MOMENTUM_MAIN",
     action,
     label,
     direction,
@@ -483,71 +449,70 @@ function buildMainM5EmaPullbackLimitSignal(market = {}, m1Candles = []) {
     tp: round(tp),
     tp1: round(tp1),
     tp2: round(tp2 || tp),
-    rr: "TP1 1:1 → BE · TP2 max",
+    rr: "TP1 50% → BE · TP Max 1:1",
     dataReady: true,
-    timeframe: "M5",
-    sourceTimeframe: Array.isArray(market?.candlesM5) ? "MT5_VPS_M5" : "M1_AGGREGATED_TO_M5",
+    timeframe: "M1",
+    sourceTimeframe: "MT5_VPS_M1",
     ema9: round(ema9Now),
     ema20: round(ema20Now),
     emaDirectionLock: focusDirection,
     focusDirection,
-    engulfingWave,
-    maxEngulfingPerEmaCross: 2,
     atr: round(atrValue),
-    cross,
-    bosKey: structure.bosKey || null,
-    bosDirection: structure.breakHigh ? "BULLISH_BOS" : structure.breakLow ? "BEARISH_BOS" : "NONE",
-    correction: { touchedEma9: touchedEmaZone, touchedEmaZone, buffer: round(buffer), candleTime: last.time || null },
-    engulfing: {
+    candleBreak: {
       required: true,
-      bullish: bullishEngulfing,
-      bearish: bearishEngulfing,
-      validAtEma: direction === "BUY" ? buyEngulfAtEma : direction === "SELL" ? sellEngulfAtEma : Boolean(buyEngulfAtEma || sellEngulfAtEma),
-      note: "Entry limit hanya valid jika candle engulfing M5 muncul di area EMA 9/20."
+      bullish: buyBreakEma,
+      bearish: sellBreakEma,
+      bodyRatio: round(bodyRatio),
+      minBodyRatio: 0.5,
+      time: last.time || null,
+      open: round(open),
+      high: round(high),
+      low: round(low),
+      close: round(close)
     },
-    preview: {
-      active: previewEntry > 0 && Boolean(buyEngulfAtEma || sellEngulfAtEma),
-      direction: previewDirection,
-      entry: round(previewEntry),
-      label: previewLabel,
-      note: "Garis preview hanya muncul setelah candle engulfing M5 close valid di area EMA 9/20, dan posisinya memakai open candle engulfing."
-    },
+    cross,
+    correction: { touchedEma9: buyBreakEma || sellBreakEma, touchedEmaZone: buyBreakEma || sellBreakEma, candleTime: last.time || null },
     structure,
-    entryMethod: "LIMIT_AT_OPEN_OF_M5_ENGULFING_THAT_TOUCHES_EMA_9_20",
-    tpMethod: direction === "BUY" ? "TP1_HALF_RISK_THEN_TP2_RR_1_1" : direction === "SELL" ? "TP1_HALF_RISK_THEN_TP2_RR_1_1" : "WAIT",
-    slMethod: direction === "BUY" ? "BELOW_EMA_TOUCH_M5_CANDLE_LOW_PLUS_0_5_ATR" : direction === "SELL" ? "ABOVE_EMA_TOUCH_M5_CANDLE_HIGH_PLUS_0_5_ATR" : "WAIT",
+    entryMethod: "OPEN_MARKET_AFTER_M1_CANDLE_CLOSE_BREAKS_EMA_9_20",
+    tpMethod: "TP1_HALF_RISK_THEN_TP_MAX_RR_1_1",
+    slMethod: direction === "BUY" ? "BELOW_M1_SWING_LOW_PLUS_0_1_ATR" : direction === "SELL" ? "ABOVE_M1_SWING_HIGH_PLUS_0_1_ATR" : "WAIT",
     partialTp: {
       enabled: true,
       tp1: round(tp1),
       tp2: round(tp2 || tp),
-      tp1Note: "TP1 = setengah jarak menuju TP Max. Setelah TP1, posisi disarankan jadi BE.",
+      tp1Note: "TP1 = setengah jarak menuju TP Max. Setelah TP1, SL disarankan pindah ke BE.",
       tp2Note: "TP Max = RR 1:1 dari jarak Entry ke SL.",
       afterTp1: "MOVE_SL_TO_BE"
     },
-    emaTouchCandle: {
-      time: last.time || null,
-      open: round(last.open),
-      high: round(last.high),
-      low: round(last.low),
-      close: round(last.close)
-    },
-    maxPending: 4,
+    maxPending: 2,
     maxBuyPending: 2,
     maxSellPending: 2,
     replaceOldOnNewStructure: true,
     reason,
     blocker,
     checklist: [
-      { name: "Struktur M5 break", status: buyStructureValid || sellStructureValid ? "PASS" : "WAIT" },
       { name: "Mode fokus EMA", status: focusDirection !== "WAIT" ? focusDirection : "WAIT" },
       { name: "EMA 9/20 searah", status: (focusDirection === "BUY_ONLY" && emaUp) || (focusDirection === "SELL_ONLY" && emaDown) ? "PASS" : "WAIT" },
-      { name: "Candle sentuh EMA", status: touchedEmaZone ? "PASS" : "WAIT" },
-      { name: "Engulfing M5 area EMA", status: buyEngulfAtEma || sellEngulfAtEma ? "PASS" : "WAIT" },
-      { name: "Max 2 engulfing/cross", status: engulfingWave.count <= 2 ? `${engulfingWave.count}/2` : "FULL" },
-      { name: "Entry limit open engulf", status: entry > 0 ? "PASS" : "WAIT" },
-      { name: "TP parsial", status: tp1 > 0 && tp2 > 0 ? "PASS" : "WAIT" },
-      { name: "SL candle sentuh EMA", status: sl > 0 ? "PASS" : "WAIT" }
+      { name: "Candle break EMA 9/20", status: buyBreakEma || sellBreakEma ? "PASS" : "WAIT" },
+      { name: "Body candle kuat", status: bodyStrong ? "PASS" : "WAIT" },
+      { name: "Entry open setelah close", status: entry > 0 ? "PASS" : "WAIT" },
+      { name: "TP1 / BE", status: tp1 > 0 ? "PASS" : "WAIT" },
+      { name: "TP Max 1:1", status: tp2 > 0 ? "PASS" : "WAIT" },
+      { name: "SL swing + 0.1 ATR", status: sl > 0 ? "PASS" : "WAIT" }
     ]
+  };
+}
+
+function getM1BreakMomentumStructure(candles = []) {
+  const before = clean(candles).slice(-18, -1);
+  const lows = before.map((c) => Number(c.low)).filter(Number.isFinite);
+  const highs = before.map((c) => Number(c.high)).filter(Number.isFinite);
+  const fallback = clean(candles).slice(-2)[0] || clean(candles).slice(-1)[0] || {};
+  return {
+    swingLow: round(lows.length ? Math.min(...lows) : Number(fallback.low || 0)),
+    swingHigh: round(highs.length ? Math.max(...highs) : Number(fallback.high || 0)),
+    method: "M1_RECENT_SWING_17_CANDLES",
+    candleCount: before.length
   };
 }
 
@@ -703,18 +668,16 @@ function getM5PullbackStructure(candles = [], crossIndex = -1) {
 }
 
 function buildMainM5LimitReason(data = {}) {
-  const { action, direction, entry, sl, tp, cross, touchedEma9, blocker } = data;
+  const { action, direction, entry, tp1, tp2, blocker } = data;
   if (action === "BUY_LIMIT") {
-    return `Main Signal BUY LIMIT valid. Struktur M5 bullish, EMA 9/20 searah, dan bullish engulfing muncul di area EMA. Entry limit di open engulfing ${round(entry)}, TP1 setengah jalan untuk BE, TP Max RR 1:1, SL di bawah low engulfing + 0.5 ATR.`;
+    return `BUY OPEN valid. Candle bullish M1 sudah close break di atas EMA 9/20. Entry setelah close di ${round(entry)}, TP1 ${round(tp1)} untuk BE, TP Max ${round(tp2)} RR 1:1, SL di bawah swing low + 0.1 ATR.`;
   }
   if (action === "SELL_LIMIT") {
-    return `Main Signal SELL LIMIT valid. Struktur M5 bearish, EMA 9/20 searah, dan bearish engulfing muncul di area EMA. Entry limit di open engulfing ${round(entry)}, TP1 setengah jalan untuk BE, TP Max RR 1:1, SL di atas high engulfing + 0.5 ATR.`;
+    return `SELL OPEN valid. Candle bearish M1 sudah close break di bawah EMA 9/20. Entry setelah close di ${round(entry)}, TP1 ${round(tp1)} untuk BE, TP Max ${round(tp2)} RR 1:1, SL di atas swing high + 0.1 ATR.`;
   }
-  if (action === "READY_BUY") return blocker || "EMA bullish sudah aktif. Menunggu bullish engulfing M5 di area EMA untuk BUY LIMIT.";
-  if (action === "READY_SELL") return blocker || "EMA bearish sudah aktif. Menunggu bearish engulfing M5 di area EMA untuk SELL LIMIT.";
-  if (cross?.type === "NONE") return "Menunggu arah EMA 9/20 valid, lalu tunggu candle engulfing M5 close di area EMA.";
-  if (!touchedEma9) return blocker || "Menunggu candle engulfing M5 close valid di area EMA 9/20.";
-  return blocker || "Menunggu candle engulfing M5 yang close di area EMA 9/20 untuk membuat limit di open candle engulfing.";
+  if (action === "READY_BUY") return blocker || "EMA bullish aktif. Menunggu candle bullish M1 close break di atas EMA 9/20.";
+  if (action === "READY_SELL") return blocker || "EMA bearish aktif. Menunggu candle bearish M1 close break di bawah EMA 9/20.";
+  return blocker || "Menunggu candle M1 close break EMA 9/20 sesuai arah trend.";
 }
 
 function buildMainM5LimitHumanReason(ctx = {}) {
@@ -728,10 +691,10 @@ function buildMainM5LimitHumanReason(ctx = {}) {
     ctx.qualityGuard?.message ? `Safety: ${ctx.qualityGuard.message}` : ""
   ].filter(Boolean).join(" ");
   return {
-    version: "10AO-main-m5-ema-pullback-limit",
+    version: "10AS-main-m1-ema-break-momentum",
     title,
     summary,
-    action: isCall ? "Pantau limit sesuai entry, SL, dan TP. Jangan entry market kalau harga belum sesuai rencana." : "Tunggu EMA valid dan engulfing close di area EMA 9/20.",
+    action: isCall ? "Pantau limit sesuai entry, SL, dan TP. Jangan entry market kalau harga belum sesuai rencana." : "Tunggu candle M1 close break EMA 9/20 sesuai arah trend.",
     direction: m.direction || "WAIT",
     checklist: m.checklist || [],
     blockers: m.blocker ? [m.blocker] : [],
@@ -993,16 +956,16 @@ function buildSignalQualityGuardV2(ctx = {}) {
   checks.push(makeGuardCheck("Data", dataPassed ? "PASS" : "WAIT", dataPassed ? "Data market cukup untuk analisa sinyal." : "Data market belum cukup untuk analisa sinyal."));
   checks.push(makeGuardCheck("Volatility", volatilityPassed ? "PASS" : "WAIT", atr14 ? `ATR ${round(atr14)} masih dalam batas aman.` : "ATR belum terbaca."));
   checks.push(makeGuardCheck("Confidence", confidencePassed ? "PASS" : "WAIT", `Confidence ${confidence || 0}% · minimal 68% untuk CALL.`));
-  checks.push(makeGuardCheck("Setup", setupPassed ? "PASS" : "WAIT", setupPassed ? (isMainM5 ? "Setup M5 EMA pullback mulai valid." : "Setup utama mulai cocok.") : "Setup utama belum lengkap."));
-  checks.push(makeGuardCheck(isMainM5 ? "Limit Plan" : "OB M15", obPassed ? "PASS" : "WAIT", obPassed ? (isMainM5 ? "Entry limit, TP, dan SL sudah terbentuk." : "Filter OB M15 mendukung setup.") : (isMainM5 ? "Menunggu koreksi EMA 9 dan target swing valid." : "Harga belum dekat OB M15 valid.")));
+  checks.push(makeGuardCheck("Setup", setupPassed ? "PASS" : "WAIT", setupPassed ? (isMainM5 ? "Setup M1 EMA break mulai valid." : "Setup utama mulai cocok.") : "Setup utama belum lengkap."));
+  checks.push(makeGuardCheck(isMainM5 ? "Limit Plan" : "OB M15", obPassed ? "PASS" : "WAIT", obPassed ? (isMainM5 ? "Entry open, TP1/TP Max, dan SL sudah terbentuk." : "Filter OB M15 mendukung setup.") : (isMainM5 ? "Menunggu candle M1 break EMA 9/20 valid." : "Harga belum dekat OB M15 valid.")));
 
   if (!feedPassed) blockers.push("koneksi market belum fresh");
   if (!spreadPassed) blockers.push("spread belum aman");
-  if (!dataPassed) blockers.push(isMainM5 ? "data candle M5 belum cukup" : "data candle M1/M15 belum cukup");
+  if (!dataPassed) blockers.push(isMainM5 ? "data candle M1 belum cukup" : "data candle M1/M15 belum cukup");
   if (!volatilityPassed) blockers.push("volatilitas candle/ATR terlalu tinggi");
   if (!confidencePassed) blockers.push("confidence belum cukup untuk CALL");
-  if (!setupPassed) blockers.push(isMainM5 ? "EMA 9/20 M5 dan engulfing area EMA belum lengkap" : "setup utama belum lengkap");
-  if (!obPassed) blockers.push(isMainM5 ? "rencana limit belum lengkap" : "OB M15 belum mendukung");
+  if (!setupPassed) blockers.push(isMainM5 ? "EMA 9/20 M1 dan candle break belum lengkap" : "setup utama belum lengkap");
+  if (!obPassed) blockers.push(isMainM5 ? "rencana entry belum lengkap" : "OB M15 belum mendukung");
 
   if (spread === null) warnings.push("Spread belum terbaca dari bid/ask.");
   if (feedInfo.ageSec !== null && feedInfo.ageSec > 900) warnings.push("Feed mulai tua, hati-hati sebelum entry.");
@@ -2441,7 +2404,7 @@ function buildTelegramMessage(signal, market) {
   const candleTime = signal.candleTime || market?.serverTime || market?.receivedAt || "-";
   const dashboardUrl = "https://www.xauaisignal.online";
 
-  const setupSnapshot = s.mainM5?.mode === "M5_EMA_PULLBACK_LIMIT_MAIN"
+  const setupSnapshot = s.mainM5?.mode === "M1_EMA_BREAK_MOMENTUM_MAIN"
     ? [
         `EMA 9/20 M5 ${formatIndicator(s.mainM5.ema9)} / ${formatIndicator(s.mainM5.ema20)}`,
         `Plan: ${escapeHtml(s.mainM5.label || signal.signalLabel || "WAIT")} · RR ${escapeHtml(s.mainM5.rr || "1:1")}`,
@@ -2538,7 +2501,7 @@ function buildTelegramQuality(confidence, callStage) {
 function buildTelegramReasonLines(signal, s, c, obText) {
   const lines = [];
   const m = s.mainM5 || null;
-  if (m?.mode === "M5_EMA_PULLBACK_LIMIT_MAIN") {
+  if (m?.mode === "M1_EMA_BREAK_MOMENTUM_MAIN") {
     lines.push(`• Strategi utama: EMA 9/20 M5 valid lalu tunggu engulfing di area EMA 9/20.`);
     lines.push(`• Rencana: ${escapeHtml(m.label || signal.signalLabel || "WAIT")}.`);
     if (m.cross?.type && m.cross.type !== "NONE") lines.push(`• EMA break: ${escapeHtml(m.cross.type)} pada M5.`);
