@@ -131,6 +131,7 @@ export async function buildTrackerSummary(dbUrl, env, shouldUpdate) {
   }
 
   return {
+    checkedAt: new Date().toISOString(),
     livePrice,
     scanned: allOpen.length,
     updatedCount: updated.length,
@@ -477,17 +478,49 @@ function isOpen(item) {
 }
 
 function getMarketPrice(market) {
-  const direct = toNumber(market?.lastPrice ?? market?.price ?? market?.latest?.lastPrice ?? market?.m1?.lastPrice);
+  // MT5/VPS sender di broker bisa memakai nama field berbeda-beda.
+  // Dashboard sudah bisa membaca lastClose/bid/ask, jadi tracker juga wajib membaca field yang sama
+  // supaya auto result tidak bilang live price kosong saat harga sebenarnya tersedia.
+  const direct = firstValidNumber(
+    market?.lastPrice,
+    market?.price,
+    market?.lastClose,
+    market?.close,
+    market?.bid,
+    market?.ask,
+    market?.latest?.lastPrice,
+    market?.latest?.price,
+    market?.latest?.lastClose,
+    market?.latest?.bid,
+    market?.latest?.ask,
+    market?.ticker?.lastPrice,
+    market?.ticker?.price,
+    market?.ticker?.bid,
+    market?.ticker?.ask,
+    market?.m1?.lastPrice,
+    market?.m1?.price,
+    market?.m1?.lastClose,
+    market?.m1?.bid,
+    market?.m1?.ask
+  );
   if (Number.isFinite(direct) && direct > 0) return direct;
 
   const candles = market?.m1 || market?.candles?.m1 || market?.candlesM1 || [];
   if (Array.isArray(candles) && candles.length) {
     const last = candles[candles.length - 1];
-    const price = toNumber(last?.close ?? last?.c);
+    const price = firstValidNumber(last?.close, last?.c, last?.lastClose, last?.bid, last?.ask);
     if (Number.isFinite(price) && price > 0) return price;
   }
 
   return 0;
+}
+
+function firstValidNumber(...values) {
+  for (const value of values) {
+    const n = toNumber(value);
+    if (Number.isFinite(n) && n > 0) return n;
+  }
+  return NaN;
 }
 
 function toNumber(value) {
