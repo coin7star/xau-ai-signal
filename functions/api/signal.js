@@ -941,13 +941,15 @@ function buildPullbackLimitPlan({ direction, entry, ema9, ema20, atrValue, sl, t
   const upperEma = Math.max(emaFast, emaSlow);
   const lowerEma = Math.min(emaFast, emaSlow);
 
-  // Step 10BV:
-  // Pullback limit dibuat lebih mudah tersentuh setelah beberapa kasus miss tipis.
-  // BUY limit dinaikkan sedikit dari area EMA bawah supaya pullback tipis tidak miss.
-  // SELL limit tetap diarahkan ke area EMA atas, tapi dengan touch buffer yang lebih realistis.
+  // Step 10CC:
+  // Pullback limit dibuat lebih mudah tersentuh untuk user manual.
+  // BUY limit dinaikkan ke area EMA atas + touch buffer agar pullback tipis tidak sering miss.
+  // SELL limit dibuat lebih dekat ke area EMA bawah - touch buffer agar retest kecil lebih mudah kena.
   const buffer = Math.max(atrNum * 0.10, e * 0.00004);
-  const extraTouchBuffer = Math.max(atrNum * 0.06, e * 0.00002);
-  const minGapFromAggressive = Math.max(atrNum * 0.015, e * 0.000005);
+  const extraTouchBuffer = Math.max(atrNum * 0.08, e * 0.000025);
+  const buyTouchBoost = Math.max(atrNum * 0.16, Math.abs(e - stop) * 0.08, e * 0.000035);
+  const sellTouchBoost = Math.max(atrNum * 0.16, Math.abs(e - stop) * 0.08, e * 0.000035);
+  const minGapFromAggressive = Math.max(atrNum * 0.012, e * 0.000004);
   const zoneLow = lowerEma - buffer;
   const zoneHigh = upperEma + buffer;
 
@@ -964,23 +966,24 @@ function buildPullbackLimitPlan({ direction, entry, ema9, ema20, atrValue, sl, t
 
   if (side === "BUY") {
     type = "BUY_LIMIT_PULLBACK_EMA";
-    // BUY limit dipasang di area EMA bawah + sedikit buffer agar pullback tipis masih bisa kena.
-    const preferredBuyLimit = lowerEma + extraTouchBuffer;
-    // Cap tetap di bawah entry agresif, tapi jaraknya tidak terlalu jauh supaya limit lebih mudah kena.
+    // BUY limit dipasang lebih tinggi, dekat EMA atas + touch boost.
+    // Tujuannya supaya pullback kecil/tipis tetap berpeluang kena untuk user manual.
+    const preferredBuyLimit = upperEma + buyTouchBoost;
+    // Cap tetap di bawah entry agresif, tapi dibuat tipis supaya tidak miss 1-2 pip.
     const buyCap = e - minGapFromAggressive;
     limitEntry = Math.min(buyCap, Math.max(zoneLow, preferredBuyLimit));
     // Jangan biarkan BUY limit terlalu dekat dengan SL, karena TP RR 1:1 akan terlalu pendek.
     limitEntry = Math.max(limitEntry, stop + minLimitRisk);
     limitEntry = Math.min(limitEntry, buyCap);
     if (!(limitEntry > stop && limitEntry < e && target2 > limitEntry)) status = "INFO_ONLY";
-    note = "Entry agresif mengikuti cross. Jika harga sudah jalan, opsi kedua adalah BUY limit di area pullback EMA dengan touch buffer lebih mudah kena. Limit dijaga tidak terlalu dekat dengan SL agar RR 1:1 tetap masuk akal.";
+    note = "Entry agresif mengikuti cross. Jika harga sudah jalan, opsi kedua adalah BUY limit di area pullback EMA atas dengan touch boost agar pullback tipis tidak mudah miss. Limit tetap dijaga tidak terlalu dekat dengan SL agar RR 1:1 masuk akal.";
   }
 
   if (side === "SELL") {
     type = "SELL_LIMIT_PULLBACK_EMA";
-    // SELL limit dipasang di area EMA atas + sedikit buffer agar tidak terlalu bawah.
-    // Ini membantu kasus pullback hampir kena tapi limit masih terlalu rendah/kurang pas secara visual.
-    const preferredSellLimit = upperEma + extraTouchBuffer;
+    // SELL limit dipasang lebih mudah tersentuh, dekat EMA bawah dengan touch boost.
+    // Jika harga retest kecil saja, user manual tetap punya peluang entry limit.
+    const preferredSellLimit = lowerEma - sellTouchBoost;
     // Floor tetap di atas entry agresif, tapi jangan terlalu jauh supaya pullback kecil masih bisa menyentuh.
     const sellFloor = e + minGapFromAggressive;
     limitEntry = Math.max(sellFloor, Math.min(zoneHigh, preferredSellLimit));
@@ -988,7 +991,7 @@ function buildPullbackLimitPlan({ direction, entry, ema9, ema20, atrValue, sl, t
     limitEntry = Math.min(limitEntry, stop - minLimitRisk);
     limitEntry = Math.max(limitEntry, sellFloor);
     if (!(limitEntry < stop && limitEntry > e && target2 < limitEntry)) status = "INFO_ONLY";
-    note = "Entry agresif mengikuti cross. Jika harga sudah jalan, opsi kedua adalah SELL limit di area pullback EMA atas dengan touch buffer lebih mudah kena. Limit dijaga tidak terlalu dekat dengan SL agar RR 1:1 tetap masuk akal.";
+    note = "Entry agresif mengikuti cross. Jika harga sudah jalan, opsi kedua adalah SELL limit di area pullback EMA dengan touch boost agar retest tipis tidak mudah miss. Limit tetap dijaga tidak terlalu dekat dengan SL agar RR 1:1 masuk akal.";
   }
 
   const limitRisk = side === "BUY" ? Math.abs(limitEntry - stop) : Math.abs(stop - limitEntry);
@@ -1011,6 +1014,9 @@ function buildPullbackLimitPlan({ direction, entry, ema9, ema20, atrValue, sl, t
     ema9: round(emaFast),
     ema20: round(emaSlow),
     buffer: round(buffer),
+    extraTouchBuffer: round(extraTouchBuffer),
+    buyTouchBoost: round(buyTouchBoost),
+    sellTouchBoost: round(sellTouchBoost),
     minLimitRisk: round(minLimitRisk),
     sl: round(stop),
     aggressiveTp1: round(target1),

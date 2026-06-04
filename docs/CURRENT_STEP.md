@@ -1,25 +1,14 @@
-# Step 10CB — Clear History Trade Controls
+# Step 10CC — Pullback Limit Touch Boost
 
-## Update
-Menambahkan kontrol admin untuk membersihkan history trade langsung dari dashboard tanpa harus hapus manual lewat Firebase RTDB.
+## Fokus
+Menaikkan/mendekatkan area limit pullback supaya entry manual tidak sering miss tipis 1–2 pip.
 
-## File penting
-- `functions/api/history-reset.js`
-- `src/App.jsx`
-- `src/style.css`
-- `package.json`
-
-## Fitur
-- Tombol **Clear History Trade** di panel Reset Analisis.
-- Menghapus `/xauusd/callHistory` dari RTDB.
-- Menyimpan audit kecil di `/xauusd/historyReset`.
-- Otomatis reset titik analisis supaya WR, TP1/BE, dan Limit Pullback mulai dari nol.
-- Tidak menghapus market feed MT5, candle, Telegram connect, user premium, payment/admin data, atau setting strategi.
-
-## Pengaman
-- Wajib admin token.
-- Wajib konfirmasi dua tahap.
-- Prompt harus mengetik `CLEAR_HISTORY` agar tidak kepencet tidak sengaja.
+## Perubahan
+- BUY limit sekarang lebih dekat ke area EMA atas + touch boost.
+- SELL limit dibuat lebih mudah tersentuh saat retest tipis.
+- Limit tetap dijaga agar tidak terlalu dekat SL, supaya RR 1:1 masih masuk akal.
+- TP limit tetap RR 1:1, TP1 setengah target, lalu BE.
+- Entry agresif, SL smart swing, cron result, Telegram, dan history tidak berubah.
 
 ## Catatan
-Gunakan Clear History Trade hanya saat ingin mulai forward test baru dari nol. Kalau hanya ingin reset statistik tanpa hapus riwayat, gunakan **Reset Limit** atau **Reset Semua Analisis**.
+Limit pullback sekarang lebih mudah kena untuk user manual, tetapi tetap bukan entry wajib. Kalau harga sudah jauh dari limit, jangan kejar harga.

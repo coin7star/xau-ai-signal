@@ -1,6 +1,6 @@
 {
-  "name": "xau-ai-signal-step10cb-clear-history-trade-controls",
-  "version": "7.71.0-step10cb-clear-history-trade-controls",
+  "name": "xau-ai-signal-step10cc-pullback-limit-touch-boost",
+  "version": "7.72.0-step10cc-pullback-limit-touch-boost",
   "type": "module",
   "scripts": {
     "dev": "vite",
