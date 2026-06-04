@@ -1,6 +1,6 @@
 {
-  "name": "xau-ai-signal-step10bn-rtdb-lite-mode",
-  "version": "7.58.0-step10bn-rtdb-lite-mode",
+  "name": "xau-ai-signal-step10bo-mt5-m1-candle-close-sync-fix",
+  "version": "7.59.0-step10bo-mt5-m1-candle-close-sync-fix",
   "type": "module",
   "scripts": {
     "dev": "vite",

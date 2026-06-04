@@ -579,6 +579,7 @@ function AppInner() {
   }
 
   const mt5Status = getMt5Status(market);
+  const candleSync = signal?.candleSync || signal?.strategy?.mainM5?.candleSync || market?.candleSync || null;
   const shouldPauseHeavyRefresh = mt5Status.isStale;
 
   useEffect(() => {
@@ -1146,12 +1147,13 @@ function AppInner() {
           <span><Activity size={14} /> Grafik M1: <b>{candlesM1.length || market?.m1Count || 0} candle</b></span>
           <span>{isSell ? <TrendingDown size={14} /> : <TrendingUp size={14} />} Harga Sekarang: <b>{lastCandle?.close || "-"}</b></span>
           <span><Radio size={14} /> Status Data: <b>{marketSession.feedLabel}</b></span>
+          <span><Clock size={14} /> Candle Close M1: <b>{formatCandleSyncLabel(candleSync)}</b></span>
           <span><RefreshCcw size={14} /> Mode Hemat RTDB: <b>{shouldPauseHeavyRefresh ? "30 detik" : "5 detik"}</b></span>
         </div>
       </div>
 
       <div className="liteModeNotice">
-        <b>Mode Hemat RTDB aktif</b> · Harga & sinyal refresh 5 detik, chart 60 detik, history 60 detik. Auto result tetap membaca harga live/latest price dari MT5/VPS.
+        <b>Mode Hemat RTDB aktif</b> · Harga & sinyal refresh 5 detik, chart 60 detik, history 60 detik. Sinyal M1 memakai candle yang sudah close dari MT5, sedangkan TP/SL/BE tetap membaca latest price.
       </div>
 
       {activeDashboardTab === "signal" && (
@@ -1629,6 +1631,18 @@ function getPremiumInfo(profile) {
 
 
 
+
+
+function formatCandleSyncLabel(sync) {
+  if (!sync) return "menunggu";
+  const age = sync.closedCandleAgeSec;
+  const ageText = Number.isFinite(Number(age)) ? `${Number(age)}d` : "-";
+  const status = String(sync.status || "").toUpperCase();
+  if (status === "SYNCED") return `sinkron · ${ageText}`;
+  if (status === "VALID" || status === "OK") return `valid · ${ageText}`;
+  if (status === "STALE_CANDLE") return `telat · ${ageText}`;
+  return `menunggu · ${ageText}`;
+}
 
 function getMarketSessionStatus({ market, mt5Status, m1Count = 0, m15Count = 0 }) {
   const weekendPause = isForexWeekendPause();

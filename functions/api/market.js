@@ -45,9 +45,17 @@ export async function onRequest({ request, env }) {
     if (mt5Token !== envToken) return j({ ok: false, error: "Unauthorized: token MT5 salah" }, 401);
 
     const symbol = body.symbol || "XAUUSD";
-    const candles = Array.isArray(body.candles) ? body.candles.slice(-180) : [];
+    const nowIso = new Date().toISOString();
+    const rawCandles = Array.isArray(body.candles) ? body.candles : [];
+    const closedFromBody = body.lastClosedCandle || body.closedCandle || body.m1ClosedCandle || body.lastClosedM1 || null;
+    const candles = normalizeClosedM1Candles(rawCandles, closedFromBody, body.serverTime || body.time || nowIso).slice(-180);
+    const lastClosed = candles[candles.length - 1] || null;
     // Step 10AQ: M15 chart/OB disembunyikan agar payload RTDB lebih ringan.
     const candlesM15 = [];
+
+    const bid = Number(body.bid || body.lastPrice || body.price || 0);
+    const ask = Number(body.ask || body.lastPrice || body.price || bid || 0);
+    const lastPrice = Number(body.lastPrice || body.price || body.close || ((bid && ask) ? (bid + ask) / 2 : bid || ask || 0));
 
     const payload = {
       ok: true,
@@ -55,11 +63,17 @@ export async function onRequest({ request, env }) {
       symbol,
       timeframe: body.timeframe || "M1",
       obTimeframe: "M5_ONLY",
-      bid: Number(body.bid || 0),
-      ask: Number(body.ask || 0),
+      bid,
+      ask,
+      lastPrice,
+      price: lastPrice,
       digits: Number(body.digits || 2),
       serverTime: body.serverTime || null,
-      receivedAt: new Date().toISOString(),
+      receivedAt: nowIso,
+      tickUpdatedAt: nowIso,
+      lastClosedCandle: lastClosed,
+      lastClosedCandleTime: lastClosed?.time || null,
+      candleSync: buildCandleSyncMeta({ candles, serverTime: body.serverTime || nowIso, receivedAt: nowIso }),
       candles,
       candlesM15: []
     };
@@ -81,9 +95,13 @@ export async function onRequest({ request, env }) {
 
 
 function toMarketLite(data) {
-  const candles = Array.isArray(data.candles) ? data.candles : [];
+  const candles = normalizeClosedM1Candles(Array.isArray(data.candles) ? data.candles : [], data.lastClosedCandle || null, data.serverTime || data.receivedAt || null);
   const candlesM15 = [];
-  const last = candles[candles.length - 1] || null;
+  const last = data.lastClosedCandle || candles[candles.length - 1] || null;
+  const sync = buildCandleSyncMeta({ candles, serverTime: data.serverTime || data.receivedAt, receivedAt: data.receivedAt });
+  const bid = Number(data.bid || data.lastPrice || data.price || 0);
+  const ask = Number(data.ask || data.lastPrice || data.price || bid || 0);
+  const lastPrice = Number(data.lastPrice || data.price || last?.close || ((bid && ask) ? (bid + ask) / 2 : bid || ask || 0));
 
   return {
     ok: true,
@@ -92,22 +110,28 @@ function toMarketLite(data) {
     symbol: data.symbol || "XAUUSD",
     timeframe: data.timeframe || "M1",
     obTimeframe: "M5_ONLY",
-    bid: Number(data.bid || 0),
-    ask: Number(data.ask || 0),
+    bid,
+    ask,
+    lastPrice,
+    price: lastPrice,
     digits: Number(data.digits || 2),
     serverTime: data.serverTime || null,
     receivedAt: data.receivedAt || null,
-    lastClose: Number(last?.close || data.bid || 0),
-    lastCandleTime: last?.time || null,
+    tickUpdatedAt: data.tickUpdatedAt || data.receivedAt || null,
+    lastClose: Number(last?.close || lastPrice || bid || 0),
+    lastCandleTime: last?.time || data.lastClosedCandleTime || null,
+    lastClosedCandle: last,
+    candleSync: data.candleSync || sync,
     m1Count: candles.length,
     m15Count: candlesM15.length
   };
 }
 
 function toMarketChart(data, m1Limit = 80, m15Limit = 60) {
-  const candles = Array.isArray(data.candles) ? data.candles.slice(-m1Limit) : [];
+  const closedCandles = normalizeClosedM1Candles(Array.isArray(data.candles) ? data.candles : [], data.lastClosedCandle || null, data.serverTime || data.receivedAt || null);
+  const candles = closedCandles.slice(-m1Limit);
   const candlesM15 = [];
-  const candlesM5 = aggregateCandlesToM5(Array.isArray(data.candles) ? data.candles : []).slice(-90);
+  const candlesM5 = aggregateCandlesToM5(closedCandles).slice(-90);
 
   return {
     ...toMarketLite(data),
@@ -117,6 +141,89 @@ function toMarketChart(data, m1Limit = 80, m15Limit = 60) {
     candlesM15: [],
     m5Count: candlesM5.length
   };
+}
+
+
+function normalizeClosedM1Candles(candles = [], explicitClosed = null, referenceTime = null) {
+  const valid = (Array.isArray(candles) ? candles : [])
+    .map(normalizeCandle)
+    .filter(Boolean);
+
+  const closed = explicitClosed ? normalizeCandle(explicitClosed) : null;
+  if (closed) {
+    const idx = valid.findIndex((c) => String(c.time || "") === String(closed.time || ""));
+    if (idx >= 0) valid[idx] = { ...valid[idx], ...closed };
+    else valid.push(closed);
+  }
+
+  valid.sort((a, b) => parseCandleTimeMs(a.time) - parseCandleTimeMs(b.time));
+
+  const refMs = parseCandleTimeMs(referenceTime) || Date.now();
+  const out = [];
+  for (const c of valid) {
+    const candleMs = parseCandleTimeMs(c.time);
+    // Jika timestamp valid, M1 candle baru dianggap closed setelah lewat 60 detik.
+    // Ini mencegah candle running MT5 shift-0 ikut dihitung sebagai sinyal.
+    if (candleMs && refMs && refMs < candleMs + 60000) continue;
+    const last = out[out.length - 1];
+    if (last && String(last.time || "") === String(c.time || "")) out[out.length - 1] = c;
+    else out.push(c);
+  }
+
+  return out;
+}
+
+function normalizeCandle(c) {
+  if (!c || typeof c !== "object") return null;
+  const open = Number(c.open);
+  const high = Number(c.high);
+  const low = Number(c.low);
+  const close = Number(c.close);
+  if (![open, high, low, close].every(Number.isFinite)) return null;
+  return {
+    ...c,
+    time: c.time || c.datetime || c.timestamp || null,
+    open,
+    high,
+    low,
+    close,
+    volume: Number(c.volume || c.tick_volume || c.tickVolume || 0)
+  };
+}
+
+function buildCandleSyncMeta({ candles = [], serverTime = null, receivedAt = null } = {}) {
+  const last = candles[candles.length - 1] || null;
+  const nowMs = Date.now();
+  const tickMs = parseCandleTimeMs(receivedAt || serverTime) || nowMs;
+  const candleMs = parseCandleTimeMs(last?.time);
+  const closedCandleAgeSec = candleMs ? Math.max(0, Math.round((nowMs - (candleMs + 60000)) / 1000)) : null;
+  const liveFeedAgeSec = tickMs ? Math.max(0, Math.round((nowMs - tickMs) / 1000)) : null;
+  const status = !last
+    ? "WAITING_CANDLE"
+    : closedCandleAgeSec != null && closedCandleAgeSec <= 15
+      ? "SYNCED"
+      : closedCandleAgeSec != null && closedCandleAgeSec <= 75
+        ? "OK"
+        : "STALE_CANDLE";
+  return {
+    status,
+    lastClosedCandleTime: last?.time || null,
+    closedCandleAgeSec,
+    liveFeedAgeSec,
+    note: status === "SYNCED" ? "Candle M1 close sudah sinkron." : status === "OK" ? "Candle M1 close masih valid." : "Menunggu candle M1 close terbaru dari MT5."
+  };
+}
+
+function parseCandleTimeMs(value) {
+  if (value == null || value === "") return 0;
+  if (typeof value === "number") return value > 1000000000000 ? value : value * 1000;
+  const raw = String(value).trim();
+  if (!raw) return 0;
+  const numeric = Number(raw);
+  if (Number.isFinite(numeric)) return numeric > 1000000000000 ? numeric : numeric * 1000;
+  const normalized = raw.includes("T") ? raw : raw.replace(" ", "T");
+  const parsed = Date.parse(normalized);
+  return Number.isFinite(parsed) ? parsed : 0;
 }
 
 function aggregateCandlesToM5(candles) {

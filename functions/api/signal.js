@@ -9,7 +9,7 @@ export async function onRequest({ env }) {
     if (res.ok) market = await res.json();
   }
 
-  const candles = Array.isArray(market?.candles) ? market.candles : [];
+  const candles = getClosedM1Candles(market);
   const candlesM15 = []; // Step 10AT: Strategi utama fokus M1 EMA Cross Direct Entry. M5/M15/OB tidak dipakai untuk call utama.
   const signal = buildSignal(candles, candlesM15, market);
 
@@ -29,9 +29,96 @@ export async function onRequest({ env }) {
   });
 }
 
+
+function getClosedM1Candles(market = {}) {
+  const raw = Array.isArray(market?.candles) ? market.candles : [];
+  const explicitClosed = market?.lastClosedCandle || market?.closedCandle || market?.m1ClosedCandle || null;
+  const referenceTime = market?.serverTime || market?.receivedAt || market?.tickUpdatedAt || Date.now();
+  const candles = raw.map(normalizeM1Candle).filter(Boolean);
+  const closed = normalizeM1Candle(explicitClosed);
+  if (closed) {
+    const idx = candles.findIndex((c) => String(c.time || "") === String(closed.time || ""));
+    if (idx >= 0) candles[idx] = { ...candles[idx], ...closed };
+    else candles.push(closed);
+  }
+  candles.sort((a, b) => parseMarketTimeMs(a.time) - parseMarketTimeMs(b.time));
+  const refMs = parseMarketTimeMs(referenceTime) || Date.now();
+  const out = [];
+  for (const c of candles) {
+    const t = parseMarketTimeMs(c.time);
+    if (t && refMs && refMs < t + 60000) continue;
+    const prev = out[out.length - 1];
+    if (prev && String(prev.time || "") === String(c.time || "")) out[out.length - 1] = c;
+    else out.push(c);
+  }
+  return out.slice(-240);
+}
+
+function normalizeM1Candle(c) {
+  if (!c || typeof c !== "object") return null;
+  const open = Number(c.open);
+  const high = Number(c.high);
+  const low = Number(c.low);
+  const close = Number(c.close);
+  if (![open, high, low, close].every(Number.isFinite)) return null;
+  return {
+    ...c,
+    time: c.time || c.datetime || c.timestamp || null,
+    open,
+    high,
+    low,
+    close,
+    volume: Number(c.volume || c.tick_volume || c.tickVolume || 0)
+  };
+}
+
+function getCandleSyncStatus(market = {}, m1 = []) {
+  const last = m1[m1.length - 1] || market?.lastClosedCandle || null;
+  const nowMs = Date.now();
+  const tickMs = parseMarketTimeMs(market?.tickUpdatedAt || market?.receivedAt || market?.serverTime || market?.updatedAt || null);
+  const candleMs = parseMarketTimeMs(last?.time || market?.lastClosedCandleTime || null);
+  const liveFeedAgeSec = tickMs ? Math.max(0, Math.round((nowMs - tickMs) / 1000)) : null;
+  const closedCandleAgeSec = candleMs ? Math.max(0, Math.round((nowMs - (candleMs + 60000)) / 1000)) : null;
+  const status = !last
+    ? "WAITING_CANDLE"
+    : closedCandleAgeSec != null && closedCandleAgeSec <= 15
+      ? "SYNCED"
+      : closedCandleAgeSec != null && closedCandleAgeSec <= 95
+        ? "VALID"
+        : "STALE_CANDLE";
+  return {
+    status,
+    lastClosedCandleTime: last?.time || market?.lastClosedCandleTime || null,
+    closedCandleAgeSec,
+    liveFeedAgeSec,
+    usingClosedCandle: true,
+    source: "MT5_M1_SHIFT_1_CLOSED_CANDLE",
+    message: status === "SYNCED"
+      ? "Candle M1 close baru sudah sinkron."
+      : status === "VALID"
+        ? "Candle M1 close masih valid untuk dibaca."
+        : status === "STALE_CANDLE"
+          ? "Candle M1 close telat. Sinyal baru ditahan agar tidak terlambat."
+          : "Menunggu candle M1 close dari MT5."
+  };
+}
+
+function parseMarketTimeMs(value) {
+  if (value == null || value === "") return 0;
+  if (typeof value === "number") return value > 1000000000000 ? value : value * 1000;
+  const raw = String(value).trim();
+  if (!raw) return 0;
+  const n = Number(raw);
+  if (Number.isFinite(n)) return n > 1000000000000 ? n : n * 1000;
+  const normalized = raw.includes("T") ? raw : raw.replace(" ", "T");
+  const parsed = Date.parse(normalized);
+  return Number.isFinite(parsed) ? parsed : 0;
+}
+
 export function buildSignal(candles, candlesM15, market) {
   const m1 = clean(candles);
   const m15 = clean(candlesM15);
+  const candleSync = getCandleSyncStatus(market, m1);
   const closes = m1.map((c) => c.close);
   const last = m1[m1.length - 1];
 
@@ -47,8 +134,9 @@ export function buildSignal(candles, candlesM15, market) {
       sl: 0,
       tp: 0,
       confidence: 50,
-      reason: "Menunggu minimal 30 candle M1 untuk membaca EMA 9/20 cross direct entry.",
+      reason: "Menunggu minimal 30 candle M1 closed dari MT5 untuk membaca EMA 9/20 cross direct entry.",
       mode: market ? "firebase-mt5-data" : "waiting-mt5",
+      candleSync,
       strategy: emptyStrategy()
     };
   }
@@ -100,7 +188,7 @@ export function buildSignal(candles, candlesM15, market) {
   else if (ema9 > ema20) emaCross = "BULLISH_TREND";
   else if (ema9 < ema20) emaCross = "BEARISH_TREND";
 
-  const mainM5 = buildMainM1EmaCrossDirectEntrySignal(market, m1);
+  const mainM5 = buildMainM1EmaCrossDirectEntrySignal(market, m1, candleSync);
 
   let buyScore = mainM5.direction === "BUY" ? mainM5.score : 0;
   let sellScore = mainM5.direction === "SELL" ? mainM5.score : 0;
@@ -236,6 +324,7 @@ export function buildSignal(candles, candlesM15, market) {
     confidence,
     reason: humanReason.summary,
     reasonDetails: humanReason,
+    candleSync,
     qualityGuard: finalQualityGuard,
     strategyB,
     mode: "firebase-mt5-data",
@@ -304,7 +393,7 @@ export function buildSignal(candles, candlesM15, market) {
 
 
 
-function buildMainM1EmaCrossDirectEntrySignal(market = {}, m1Candles = []) {
+function buildMainM1EmaCrossDirectEntrySignal(market = {}, m1Candles = [], candleSync = null) {
   const m1 = clean(m1Candles).slice(-240);
   const last = m1[m1.length - 1];
   const prev = m1[m1.length - 2];
@@ -325,11 +414,15 @@ function buildMainM1EmaCrossDirectEntrySignal(market = {}, m1Candles = []) {
       rr: "TP1 50% → BE · TP Max 1:1.25",
       dataReady: false,
       timeframe: "M1",
-      sourceTimeframe: "MT5_VPS_M1",
-      reason: "Menunggu data M1 cukup agar sinyal premium bisa dibaca dengan akurat.",
-      blocker: "Data market M1 belum cukup."
+      sourceTimeframe: "MT5_VPS_M1_CLOSED_CANDLE",
+      candleSync,
+      reason: "Menunggu data M1 closed candle cukup agar sinyal premium bisa dibaca dengan akurat.",
+      blocker: "Data market M1 closed candle belum cukup."
     };
   }
+
+  const signalCandleAgeSec = Number(candleSync?.closedCandleAgeSec ?? 0);
+  const candleTooOldForNewCall = Number.isFinite(signalCandleAgeSec) && signalCandleAgeSec > 95;
 
   const closes = m1.map((c) => Number(c.close));
   const ema9Series = emaSeries(closes, 9);
@@ -410,6 +503,19 @@ function buildMainM1EmaCrossDirectEntrySignal(market = {}, m1Candles = []) {
     blocker = "";
   }
 
+  if (action.includes("OPEN") && candleTooOldForNewCall) {
+    action = "WAIT";
+    direction = "WAIT";
+    label = "Menunggu Sinyal Premium";
+    entry = 0;
+    sl = 0;
+    tp = 0;
+    tp1 = 0;
+    tp2 = 0;
+    score = 55;
+    blocker = `Candle M1 close terakhir sudah ${signalCandleAgeSec} detik. Sistem menahan alert agar tidak mengirim sinyal dari candle lama.`;
+  }
+
   if ((action === "BUY_OPEN" && !(sl < entry && tp1 > entry && tp2 > tp1)) ||
       (action === "SELL_OPEN" && !(sl > entry && tp1 < entry && tp2 < tp1))) {
     action = "WAIT";
@@ -449,7 +555,8 @@ function buildMainM1EmaCrossDirectEntrySignal(market = {}, m1Candles = []) {
     rr: "TP1 50% → BE · TP Max 1:1.25",
     dataReady: true,
     timeframe: "M1",
-    sourceTimeframe: "MT5_VPS_M1",
+    sourceTimeframe: "MT5_VPS_M1_CLOSED_CANDLE",
+    candleSync,
     ema9: round(ema9Now),
     ema20: round(ema20Now),
     emaDirectionLock: ema9Now > ema20Now ? "BUY_ONLY" : ema9Now < ema20Now ? "SELL_ONLY" : "WAIT",
@@ -491,6 +598,7 @@ function buildMainM1EmaCrossDirectEntrySignal(market = {}, m1Candles = []) {
     reason,
     blocker,
     checklist: [
+      { name: "Candle M1 closed sinkron", status: !candleTooOldForNewCall ? "PASS" : "WAIT" },
       { name: "EMA9 cross EMA20 M1", status: bullishCrossNow || bearishCrossNow ? "PASS" : "WAIT" },
       { name: "Close di sisi EMA valid", status: closeAboveBoth || closeBelowBoth ? "PASS" : "WAIT" },
       { name: "BUY filter", status: buyValid ? "PASS" : "WAIT" },
