@@ -476,6 +476,39 @@ function AppInner() {
     }
   }
 
+  async function resetAnalytics(kind) {
+    if (!adminToken) {
+      alert("Isi ADMIN_ACTION_TOKEN dulu.");
+      return;
+    }
+
+    const label = kind === "all" ? "semua analisis" : "analisis Limit Pullback";
+    const ok = window.confirm(`Reset ${label} mulai dari sekarang? History trade tidak dihapus.`);
+    if (!ok) return;
+
+    try {
+      const res = await fetch("/api/analytics-reset", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          ...(adminToken ? { Authorization: `Bearer ${adminToken}` } : {})
+        },
+        body: JSON.stringify({ kind, token: adminToken })
+      });
+
+      const json = await res.json();
+      if (!json.ok) {
+        alert(json.error || "Gagal reset analisis");
+        return;
+      }
+
+      alert(json.message || "Analisis berhasil direset.");
+      await loadHistoryData();
+    } catch (err) {
+      alert(err.message || String(err));
+    }
+  }
+
 
   async function updateScalpResult(id, result) {
     if (!id) return;
@@ -1360,6 +1393,8 @@ function AppInner() {
             callHistory={callHistory}
             scalpHistory={{ stats: null, history: [] }}
             isAdmin={isAdmin}
+            adminToken={adminToken}
+            onResetAnalytics={resetAnalytics}
           />
 
           <section className="historyPanel card">
@@ -3429,11 +3464,12 @@ function formatSecondsToAge(value) {
   return restHour ? `${day} hari ${restHour} jam` : `${day} hari`;
 }
 
-function PerformanceAnalyticsPanel({ callHistory, scalpHistory, isAdmin }) {
+function PerformanceAnalyticsPanel({ callHistory, scalpHistory, isAdmin, adminToken, onResetAnalytics }) {
   const callItems = callHistory?.history || [];
+  const analyticsReset = callHistory?.analyticsReset || {};
 
-  const call7 = buildPerformanceStats(callItems, 7);
-  const call30 = buildPerformanceStats(callItems, 30);
+  const call7 = buildPerformanceStats(callItems, 7, analyticsReset);
+  const call30 = buildPerformanceStats(callItems, 30, analyticsReset);
 
   const best = pickBestPerformance([
     { label: "SINYAL UTAMA 7D", ...call7 },
@@ -3471,8 +3507,16 @@ function PerformanceAnalyticsPanel({ callHistory, scalpHistory, isAdmin }) {
         </div>
       </div>
 
-      <Tp1BeAnalytics items={callItems} />
-      <LimitPullbackAnalytics items={callItems} />
+      {isAdmin && (
+        <AnalyticsResetPanel
+          analyticsReset={analyticsReset}
+          adminToken={adminToken}
+          onResetAnalytics={onResetAnalytics}
+        />
+      )}
+
+      <Tp1BeAnalytics items={callItems} analyticsReset={analyticsReset} />
+      <LimitPullbackAnalytics items={callItems} analyticsReset={analyticsReset} />
 
       {isAdmin && (
         <div className="performanceAdminNote">
@@ -3485,9 +3529,30 @@ function PerformanceAnalyticsPanel({ callHistory, scalpHistory, isAdmin }) {
 
 
 
-function LimitPullbackAnalytics({ items }) {
-  const stats7 = buildLimitPullbackStats(items, 7);
-  const stats30 = buildLimitPullbackStats(items, 30);
+function AnalyticsResetPanel({ analyticsReset, adminToken, onResetAnalytics }) {
+  const allStart = analyticsReset?.allStartAt || null;
+  const limitStart = analyticsReset?.limitStartAt || null;
+
+  return (
+    <div className="analyticsResetBox">
+      <div>
+        <b>Reset Analisis</b>
+        <span>Reset hanya mengubah titik mulai hitungan analisis. History trade tetap aman dan tidak dihapus.</span>
+        <small>
+          Semua analisis: {allStart ? formatHistoryTime(allStart) : "Belum direset"} · Limit: {limitStart ? formatHistoryTime(limitStart) : "Belum direset"}
+        </small>
+      </div>
+      <div className="analyticsResetActions">
+        <button type="button" onClick={() => onResetAnalytics?.("limit")} disabled={!adminToken}>Reset Limit</button>
+        <button type="button" onClick={() => onResetAnalytics?.("all")} disabled={!adminToken}>Reset Semua Analisis</button>
+      </div>
+    </div>
+  );
+}
+
+function LimitPullbackAnalytics({ items, analyticsReset }) {
+  const stats7 = buildLimitPullbackStats(items, 7, analyticsReset);
+  const stats30 = buildLimitPullbackStats(items, 30, analyticsReset);
 
   return (
     <div className="tp1AnalyticsBox limitAnalyticsBox">
@@ -3530,9 +3595,9 @@ function LimitPullbackCard({ title, stats }) {
   );
 }
 
-function Tp1BeAnalytics({ items }) {
-  const stats7 = buildTp1BeStats(items, 7);
-  const stats30 = buildTp1BeStats(items, 30);
+function Tp1BeAnalytics({ items, analyticsReset }) {
+  const stats7 = buildTp1BeStats(items, 7, analyticsReset);
+  const stats30 = buildTp1BeStats(items, 30, analyticsReset);
 
   return (
     <div className="tp1AnalyticsBox">
@@ -3688,9 +3753,11 @@ function formatPrice(value) {
   return n.toFixed(2);
 }
 
-function buildPerformanceStats(items, days) {
+function buildPerformanceStats(items, days, analyticsReset = {}) {
   const now = Date.now();
-  const from = now - days * 24 * 60 * 60 * 1000;
+  const periodFrom = now - days * 24 * 60 * 60 * 1000;
+  const resetFrom = parseHistoryTimeMs(analyticsReset?.allStartAt);
+  const from = resetFrom ? Math.max(periodFrom, resetFrom) : periodFrom;
 
   const filtered = (items || []).filter((item) => {
     const t = parseHistoryTimeMs(item.createdAt || item.candleTime || item.time || item.timestamp || item.closedAt || item.resultAt);
@@ -3737,9 +3804,11 @@ function buildPerformanceStats(items, days) {
 
 
 
-function buildLimitPullbackStats(items, days) {
+function buildLimitPullbackStats(items, days, analyticsReset = {}) {
   const now = Date.now();
-  const from = now - days * 24 * 60 * 60 * 1000;
+  const periodFrom = now - days * 24 * 60 * 60 * 1000;
+  const resetFrom = parseHistoryTimeMs(analyticsReset?.limitStartAt || analyticsReset?.allStartAt);
+  const from = resetFrom ? Math.max(periodFrom, resetFrom) : periodFrom;
   const filtered = (items || []).filter((item) => {
     const t = parseHistoryTimeMs(item.createdAt || item.candleTime || item.time || item.timestamp || item.closedAt || item.resultAt);
     if (!t) return true;
@@ -3781,9 +3850,11 @@ function buildLimitPullbackNote(stats) {
   return `${stats.triggered}/${stats.total} limit tersentuh (${stats.touchRate}%). Dari yang selesai: ${stats.wins} TP Max, ${stats.be} BE, ${stats.losses} SL. TP1 limit rate ${stats.tp1Rate}%.`;
 }
 
-function buildTp1BeStats(items, days) {
+function buildTp1BeStats(items, days, analyticsReset = {}) {
   const now = Date.now();
-  const from = now - days * 24 * 60 * 60 * 1000;
+  const periodFrom = now - days * 24 * 60 * 60 * 1000;
+  const resetFrom = parseHistoryTimeMs(analyticsReset?.allStartAt);
+  const from = resetFrom ? Math.max(periodFrom, resetFrom) : periodFrom;
   const filtered = (items || []).filter((item) => {
     const t = parseHistoryTimeMs(item.createdAt || item.candleTime || item.time || item.timestamp || item.closedAt || item.resultAt);
     if (!t) return true;

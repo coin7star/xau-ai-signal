@@ -1,17 +1,29 @@
-# Step 10BY — Limit Analytics Isolation Fix
+# Step 10BZ — Reset Analytics Controls
 
-## Tujuan
-Memisahkan hasil utama/agresif dari hasil analisis Limit Pullback.
+Update ini menambahkan kontrol reset analisis tanpa menghapus history trade.
 
-## Fix
-- Patch Limit Pullback sekarang selalu dianggap meta-only ketika tidak ada result utama.
-- Limit TP1/BE/SL/TP Max tidak boleh mengubah `result`, `status`, `closedAt`, atau `resultPrice` utama agresif.
-- History utama tetap berjalan sampai entry agresif benar-benar kena TP Max, SL, BE, atau expired normal.
-- Analytics limit tetap menghitung `pullbackLimitResult`, `pullbackLimitTriggered`, `pullbackLimitTp1Hit`, dan `pullbackLimitBeActive` secara terpisah.
+## Fitur
 
-## Strategi utama tidak berubah
-- M1 EMA Cross Direct Entry
-- Entry agresif + Limit Pullback EMA
-- Aggressive TP Max RR 1:1.25
-- Limit TP Max RR 1:1
-- TP1 -> BE
+- Reset Analisis Limit Pullback mulai dari waktu sekarang.
+- Reset Semua Analisis mulai dari waktu sekarang.
+- History sinyal tetap aman dan tidak dihapus.
+- Reset disimpan di Firebase path `/xauusd/analyticsReset`.
+- Panel performa 7D/30D membaca data hanya setelah waktu reset.
+
+## Analisis yang terdampak
+
+### Reset Limit
+
+Hanya panel Analisis Limit Pullback yang mulai dari 0 lagi.
+
+### Reset Semua Analisis
+
+Panel berikut mulai hitung dari waktu reset:
+
+- Performa 7/30 Hari
+- Analisis TP1 & BE
+- Analisis Limit Pullback
+
+## Catatan
+
+Reset ini tidak menghapus history trade. Untuk menghapus history trade, harus dilakukan manual di Firebase, tetapi tidak disarankan karena data WR dan evaluasi strategi akan hilang.

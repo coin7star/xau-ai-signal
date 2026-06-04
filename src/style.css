@@ -5859,3 +5859,72 @@ canvas {
 .liteModeNotice b {
   color: #b8fff0;
 }
+
+.analyticsResetBox {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 18px;
+  margin: 18px 0;
+  padding: 16px 18px;
+  border: 1px solid rgba(99, 245, 227, 0.2);
+  border-radius: 18px;
+  background: rgba(5, 16, 28, 0.55);
+}
+
+.analyticsResetBox b {
+  display: block;
+  color: #f8fafc;
+  font-size: 16px;
+  margin-bottom: 4px;
+}
+
+.analyticsResetBox span,
+.analyticsResetBox small {
+  display: block;
+  color: #b9c5e6;
+  line-height: 1.45;
+}
+
+.analyticsResetBox small {
+  margin-top: 6px;
+  color: #95a8d0;
+}
+
+.analyticsResetActions {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+.analyticsResetActions button {
+  border: 0;
+  border-radius: 14px;
+  padding: 10px 14px;
+  font-weight: 900;
+  cursor: pointer;
+  color: #07111f;
+  background: linear-gradient(135deg, #47e8ff, #d5a9ff);
+}
+
+.analyticsResetActions button:last-child {
+  background: linear-gradient(135deg, #fff36e, #3bf587);
+}
+
+.analyticsResetActions button:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+@media (max-width: 720px) {
+  .analyticsResetBox {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .analyticsResetActions {
+    width: 100%;
+    justify-content: flex-start;
+  }
+}

@@ -19,11 +19,13 @@ export async function onRequest({ request, env }) {
       .slice(0, 100);
 
     const stats = buildStats(list);
+    const analyticsReset = normalizeAnalyticsReset(await fbGet(dbUrl, "/xauusd/analyticsReset"));
 
     return json({
       ok: true,
       stats,
-      history: list
+      history: list,
+      analyticsReset
     }, 200, {
       ...H,
       "Cache-Control": "public, max-age=30, s-maxage=30, stale-while-revalidate=30"
@@ -81,6 +83,17 @@ export async function onRequest({ request, env }) {
   }
 
   return json({ ok: false, error: `Method ${request.method} not allowed` }, 405);
+}
+
+function normalizeAnalyticsReset(data) {
+  return {
+    allStartAt: data?.allStartAt || null,
+    limitStartAt: data?.limitStartAt || null,
+    allResetAt: data?.allResetAt || null,
+    limitResetAt: data?.limitResetAt || null,
+    updatedAt: data?.updatedAt || null,
+    lastAction: data?.lastAction || null
+  };
 }
 
 function buildStats(list) {
