@@ -960,6 +960,14 @@ function AppInner() {
   const setupLabel = formatPremiumStrength(probability.label, probability.score);
   const closeFilterValid = Boolean(mainM5.correction?.touchedEma9 && mainM5.cross?.type?.includes("CROSS"));
   const hasEntryPlan = Boolean(mainM5.entry && mainM5.sl && (mainM5.tp2 || mainM5.tp));
+  const pullbackPlan = mainM5.pullbackLimitPlan || signal?.pullbackLimitPlan || {};
+  const hasPullbackLimit = Boolean(pullbackPlan?.enabled && pullbackPlan?.limitEntry);
+  const entryPlanText = hasEntryPlan
+    ? `${mainM5.direction} agresif ${mainM5.entry}${hasPullbackLimit ? ` · Limit ${pullbackPlan.limitEntry}` : ""}`
+    : "Belum ada entry";
+  const riskPlanText = hasEntryPlan
+    ? `SL ${mainM5.sl} · TP1 ${mainM5.tp1 || "-"} · Max ${mainM5.tp2 || mainM5.tp}`
+    : "Belum tersedia";
   const checklistText = (mainM5.checklist || [])
     .slice(0, 4)
     .map((item) => `${item.name}: ${formatPremiumChecklistStatus(item.status)}`)
@@ -985,18 +993,18 @@ function AppInner() {
     {
       id: "entry",
       title: "Status Entry",
-      value: hasEntryPlan ? `${mainM5.direction} aktif di ${mainM5.entry}` : "Belum ada entry",
+      value: entryPlanText,
       status: actionDisplay,
-      note: hasEntryPlan ? mainM5.reason || "Sinyal premium aktif." : mainM5.blocker || "Sistem masih menunggu cross EMA M1 yang benar-benar valid.",
-      detail: "Kalau belum ada entry, sistem hanya memantau market dan belum mengirim sinyal open posisi."
+      note: hasEntryPlan ? (hasPullbackLimit ? `Entry agresif aktif. Opsi limit pullback di area ${pullbackPlan.zoneLow} - ${pullbackPlan.zoneHigh}.` : mainM5.reason || "Sinyal premium aktif.") : mainM5.blocker || "Sistem masih menunggu cross EMA M1 yang benar-benar valid.",
+      detail: "Entry agresif mengikuti cross. Jika harga sudah keburu jalan, gunakan area limit pullback EMA dan jangan kejar harga."
     },
     {
       id: "risk",
       title: "Target & Risiko",
-      value: hasEntryPlan ? `TP1 ${mainM5.tp1 || "-"} · Target Max ${mainM5.tp2 || mainM5.tp} · SL ${mainM5.sl}` : "Belum tersedia",
+      value: riskPlanText,
       status: hasEntryPlan ? "Siap dipantau" : "Menunggu entry",
-      note: hasEntryPlan ? "TP1 berada di tengah target. Jika TP1 tersentuh, posisi diamankan ke BE." : "Target dan batas risiko baru muncul setelah sinyal entry aktif.",
-      detail: "Target Max memakai RR 1:1.25 dari jarak entry ke SL. SL memakai swing M1 terdekat dengan buffer 0.2 ATR."
+      note: hasEntryPlan ? "TP1 berada di tengah target. Jika TP1 tersentuh, posisi diamankan ke BE. SL/TP tetap mengikuti plan utama." : "Target dan batas risiko baru muncul setelah sinyal entry aktif.",
+      detail: "SL dan TP utama tetap sama untuk entry agresif dan opsi limit pullback. Limit hanya membantu user manual agar tidak mengejar harga."
     },
     {
       id: "probability",
@@ -1212,7 +1220,7 @@ function AppInner() {
                 <b><i className="bearDot"></i> Bearish</b>
                 <b><i className="ema9Dot"></i> EMA 9</b>
                 <b><i className="ema20Dot"></i> EMA 20</b>
-                <b><i className="entryDot"></i> Entry / Target / Risiko</b>
+                <b><i className="entryDot"></i> Entry / Limit / Target / Risiko</b>
                 <em><span></span> Visual M1 · Entry/Target/Risiko dari EMA Cross M1</em>
               </div>
             </div>
@@ -5192,6 +5200,8 @@ function addTradePlanLines(series, linesRef, mainM5) {
   const preview = mainM5?.preview || {};
   const isPlan = ["BUY_OPEN", "SELL_OPEN", "BUY_LIMIT", "SELL_LIMIT"].includes(action);
   const entry = Number((isPlan ? mainM5?.entry : preview?.entry) || 0);
+  const pullbackPlan = mainM5?.pullbackLimitPlan || {};
+  const limitEntry = Number(pullbackPlan?.limitEntry || mainM5?.limitEntry || 0);
   const sl = Number(mainM5?.sl || 0);
   const tp1 = Number(mainM5?.tp1 || 0);
   const tp2 = Number(mainM5?.tp2 || mainM5?.tp || 0);
@@ -5210,6 +5220,18 @@ function addTradePlanLines(series, linesRef, mainM5) {
     title: isPlan ? `${direction || "PLAN"} OPEN · EMA CROSS` : `${direction || "Menunggu"} PREVIEW · EMA CROSS`
   });
   newLines.push({ series, line: entryLine });
+
+  if (isPlan && Number.isFinite(limitEntry) && limitEntry > 0 && Math.abs(limitEntry - entry) > 0.00001) {
+    const limitLine = series.createPriceLine({
+      price: limitEntry,
+      color: "#f59e0b",
+      lineWidth: 2,
+      lineStyle: 1,
+      axisLabelVisible: true,
+      title: `${direction || "PLAN"} LIMIT · PULLBACK EMA`
+    });
+    newLines.push({ series, line: limitLine });
+  }
 
   if (Number.isFinite(sl) && sl > 0) {
     const slLine = series.createPriceLine({

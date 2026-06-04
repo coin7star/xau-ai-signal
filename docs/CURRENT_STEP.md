@@ -1,16 +1,36 @@
-# Step 10BR — Result Tracker Candle Range TP1 Fix
-
-Fix auto result agar TP1 / TP Max / SL / BE tidak kelewat ketika harga sempat menyentuh level lewat wick candle M1, lalu live price sudah balik saat cron berikutnya berjalan.
+# Step 10BS — Aggressive Entry + EMA Pullback Limit
 
 ## Update
-- Result tracker tidak hanya mengecek `lastPrice`.
-- Cron juga membaca high/low candle M1 sejak sinyal aktif.
-- BUY: TP1/TP Max dicek dari high, SL/BE dicek dari low.
-- SELL: TP1/TP Max dicek dari low, SL/BE dicek dari high.
-- Jika TP1 tersentuh, SL otomatis pindah ke BE dan Telegram TP1 tetap dikirim 1x.
+Strategi utama tetap M1 EMA Cross Direct Entry, tetapi sekarang signal plan punya dua opsi entry untuk user manual:
 
-## Strategi tetap
-- M1 EMA Cross Direct Entry.
-- SL Smart Swing ± 0.2 ATR.
-- TP Max RR 1:1.25.
-- TP1 aktifkan BE.
+1. **Entry agresif**: mengikuti EMA cross valid setelah candle M1 close.
+2. **Limit pullback EMA**: opsi entry kedua di area pullback EMA9/EMA20 dengan buffer kecil supaya user tidak perlu mengejar harga jika sinyal sudah bergerak cepat.
+
+## Rule tetap sama
+- Timeframe utama: M1 closed candle dari MT5.
+- BUY: EMA9 cross ke atas EMA20 dan candle close di atas kedua EMA.
+- SELL: EMA9 cross ke bawah EMA20 dan candle close di bawah kedua EMA.
+- SL: smart swing anchor ± 0.2 ATR.
+- TP Max: RR 1:1.25 dari plan utama.
+- TP1: 50% menuju TP Max, lalu BE aktif.
+
+## Chart
+Chart M1 sekarang menampilkan garis:
+- Entry agresif / OPEN
+- Limit pullback EMA
+- SL
+- TP1 / BE
+- TP Max
+
+## Telegram
+Notif CALL sekarang menampilkan:
+- Entry agresif
+- Limit pullback
+- Zona limit
+- SL awal
+- TP1
+- TP Max
+- BE
+
+## Catatan
+Limit pullback adalah opsi untuk manual user agar tidak mengejar harga saat M1 bergerak cepat. History dan result tracker tetap memakai plan utama sinyal.

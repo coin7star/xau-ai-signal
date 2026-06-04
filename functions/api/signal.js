@@ -321,6 +321,10 @@ export function buildSignal(candles, candlesM15, market) {
     tp: round(tp),
     tp1: round(mainM5.tp1 || 0),
     tp2: round(mainM5.tp2 || tp || 0),
+    aggressiveEntry: round(mainM5.aggressiveEntry || mainEntry),
+    pullbackLimitPlan: mainM5.pullbackLimitPlan || null,
+    limitEntry: mainM5.limitEntry || 0,
+    entryPlanMode: mainM5.entryPlanMode || null,
     confidence,
     reason: humanReason.summary,
     reasonDetails: humanReason,
@@ -503,6 +507,10 @@ function buildMainM1EmaCrossDirectEntrySignal(market = {}, m1Candles = [], candl
     blocker = "";
   }
 
+  let pullbackLimitPlan = action.includes("OPEN")
+    ? buildPullbackLimitPlan({ direction, entry, ema9: ema9Now, ema20: ema20Now, atrValue, sl, tp1, tp2 })
+    : buildPullbackLimitPlan({ direction, entry: 0, ema9: ema9Now, ema20: ema20Now, atrValue, sl: 0, tp1: 0, tp2: 0 });
+
   if (action.includes("OPEN") && candleTooOldForNewCall) {
     action = "WAIT";
     direction = "WAIT";
@@ -530,6 +538,10 @@ function buildMainM1EmaCrossDirectEntrySignal(market = {}, m1Candles = [], candl
     blocker = "Rencana risiko belum ideal dari harga masuk ke swing terdekat.";
   }
 
+  pullbackLimitPlan = action.includes("OPEN")
+    ? buildPullbackLimitPlan({ direction, entry, ema9: ema9Now, ema20: ema20Now, atrValue, sl, tp1, tp2 })
+    : buildPullbackLimitPlan({ direction, entry: 0, ema9: ema9Now, ema20: ema20Now, atrValue, sl: 0, tp1: 0, tp2: 0 });
+
   const confidence = action.includes("OPEN") ? score : action.includes("READY") ? 64 : Math.max(45, score);
   const cross = {
     type: buyValid ? "M1_BULLISH_EMA_CROSS_DIRECT" : sellValid ? "M1_BEARISH_EMA_CROSS_DIRECT" : bullishCrossNow ? "BULLISH_CROSS_NO_CLOSE_FILTER" : bearishCrossNow ? "BEARISH_CROSS_NO_CLOSE_FILTER" : ema9Now > ema20Now ? "BULLISH_TREND" : ema9Now < ema20Now ? "BEARISH_TREND" : "WAIT",
@@ -553,6 +565,10 @@ function buildMainM1EmaCrossDirectEntrySignal(market = {}, m1Candles = [], candl
     tp1: round(tp1),
     tp2: round(tp2 || tp),
     rr: "TP1 50% → BE · TP Max 1:1.25",
+    aggressiveEntry: round(entry),
+    pullbackLimitPlan,
+    limitEntry: pullbackLimitPlan?.limitEntry || 0,
+    entryPlanMode: action.includes("OPEN") ? "AGGRESSIVE_OPEN_PLUS_PULLBACK_LIMIT" : "WAIT",
     dataReady: true,
     timeframe: "M1",
     sourceTimeframe: "MT5_VPS_M1_CLOSED_CANDLE",
@@ -580,7 +596,7 @@ function buildMainM1EmaCrossDirectEntrySignal(market = {}, m1Candles = [], candl
     cross,
     correction: { touchedEma9: closeAboveBoth || closeBelowBoth, touchedEmaZone: closeAboveBoth || closeBelowBoth, candleTime: last.time || null },
     structure,
-    entryMethod: "OPEN_MARKET_AFTER_M1_EMA9_CROSS_EMA20_AND_CANDLE_CLOSE_FILTER",
+    entryMethod: "AGGRESSIVE_OPEN_AFTER_M1_CLOSE_PLUS_OPTIONAL_EMA_PULLBACK_LIMIT",
     tpMethod: "TP1_HALF_TO_TARGET_THEN_TP_MAX_RR_1_25",
     slMethod: direction === "BUY" ? "BELOW_SMART_M1_SWING_LOW_ANCHOR_MINUS_0_2_ATR" : direction === "SELL" ? "ABOVE_SMART_M1_SWING_HIGH_ANCHOR_PLUS_0_2_ATR" : "WAIT",
     partialTp: {
@@ -603,7 +619,8 @@ function buildMainM1EmaCrossDirectEntrySignal(market = {}, m1Candles = [], candl
       { name: "Close di sisi EMA valid", status: closeAboveBoth || closeBelowBoth ? "PASS" : "WAIT" },
       { name: "BUY filter", status: buyValid ? "PASS" : "WAIT" },
       { name: "SELL filter", status: sellValid ? "PASS" : "WAIT" },
-      { name: "Entry langsung setelah close", status: entry > 0 ? "PASS" : "WAIT" },
+      { name: "Entry agresif setelah close", status: entry > 0 ? "PASS" : "WAIT" },
+      { name: "Limit pullback EMA", status: pullbackLimitPlan?.enabled ? "PASS" : "WAIT" },
       { name: "SL swing ± 0.2 ATR", status: sl > 0 ? "PASS" : "WAIT" },
       { name: "TP1 / BE", status: tp1 > 0 ? "PASS" : "WAIT" },
       { name: "TP Max 1:1.25", status: tp2 > 0 ? "PASS" : "WAIT" }
@@ -897,13 +914,86 @@ function getM5PullbackStructure(candles = [], crossIndex = -1) {
   };
 }
 
+
+function buildPullbackLimitPlan({ direction, entry, ema9, ema20, atrValue, sl, tp1, tp2 }) {
+  const side = String(direction || "WAIT").toUpperCase();
+  const e = Number(entry || 0);
+  const emaFast = Number(ema9 || 0);
+  const emaSlow = Number(ema20 || 0);
+  const atrNum = Number(atrValue || 0);
+  const stop = Number(sl || 0);
+  const target1 = Number(tp1 || 0);
+  const target2 = Number(tp2 || 0);
+
+  if (!e || !emaFast || !emaSlow || !atrNum || !stop || !target2 || !["BUY", "SELL"].includes(side)) {
+    return {
+      enabled: false,
+      status: "WAIT",
+      type: "WAIT",
+      limitEntry: 0,
+      zoneLow: 0,
+      zoneHigh: 0,
+      buffer: 0,
+      note: "Limit pullback belum tersedia."
+    };
+  }
+
+  const upperEma = Math.max(emaFast, emaSlow);
+  const lowerEma = Math.min(emaFast, emaSlow);
+  const buffer = Math.max(atrNum * 0.08, e * 0.00003);
+  const zoneLow = lowerEma - buffer;
+  const zoneHigh = upperEma + buffer;
+
+  let limitEntry = 0;
+  let type = "WAIT";
+  let status = "READY";
+  let note = "";
+
+  if (side === "BUY") {
+    type = "BUY_LIMIT_PULLBACK_EMA";
+    limitEntry = Math.min(zoneHigh, e - buffer * 0.25);
+    if (!(limitEntry > stop && limitEntry < e && target2 > limitEntry)) status = "INFO_ONLY";
+    note = "Entry agresif mengikuti cross. Jika harga sudah jalan, opsi kedua adalah BUY limit di area pullback EMA + buffer kecil. Jangan kejar harga jika sudah jauh dari entry agresif.";
+  }
+
+  if (side === "SELL") {
+    type = "SELL_LIMIT_PULLBACK_EMA";
+    limitEntry = Math.max(zoneLow, e + buffer * 0.25);
+    if (!(limitEntry < stop && limitEntry > e && target2 < limitEntry)) status = "INFO_ONLY";
+    note = "Entry agresif mengikuti cross. Jika harga sudah jalan, opsi kedua adalah SELL limit di area pullback EMA + buffer kecil. Jangan kejar harga jika sudah jauh dari entry agresif.";
+  }
+
+  const limitRisk = side === "BUY" ? Math.abs(limitEntry - stop) : Math.abs(stop - limitEntry);
+  const limitReward = side === "BUY" ? Math.abs(target2 - limitEntry) : Math.abs(limitEntry - target2);
+  const rrFromLimit = limitRisk > 0 ? limitReward / limitRisk : 0;
+
+  return {
+    enabled: true,
+    status,
+    type,
+    direction: side,
+    aggressiveEntry: round(e),
+    limitEntry: round(limitEntry),
+    zoneLow: round(zoneLow),
+    zoneHigh: round(zoneHigh),
+    ema9: round(emaFast),
+    ema20: round(emaSlow),
+    buffer: round(buffer),
+    sl: round(stop),
+    tp1: round(target1),
+    tp2: round(target2),
+    rrFromLimit: round(rrFromLimit),
+    note
+  };
+}
+
 function buildMainM1CrossDirectReason(data = {}) {
   const { action, direction, entry, sl, tp1, tp2, blocker } = data;
   if (action === "BUY_OPEN") {
-    return `BUY aktif. EMA9 sudah cross ke atas EMA20 dan candle M1 close di atas EMA9/EMA20. Harga masuk ${round(entry)}, SL ${round(sl)}, TP1 ${round(tp1)} lalu BE, TP Max ${round(tp2)} RR 1:1.25.`;
+    return `BUY aktif. EMA9 sudah cross ke atas EMA20 dan candle M1 close di atas EMA9/EMA20. Entry agresif ${round(entry)}, limit pullback ${data?.pullbackLimitPlan?.limitEntry || "-"}, SL ${round(sl)}, TP1 ${round(tp1)} lalu BE, TP Max ${round(tp2)} RR 1:1.25.`;
   }
   if (action === "SELL_OPEN") {
-    return `SELL aktif. EMA9 sudah cross ke bawah EMA20 dan candle M1 close di bawah EMA9/EMA20. Harga masuk ${round(entry)}, SL ${round(sl)}, TP1 ${round(tp1)} lalu BE, TP Max ${round(tp2)} RR 1:1.25.`;
+    return `SELL aktif. EMA9 sudah cross ke bawah EMA20 dan candle M1 close di bawah EMA9/EMA20. Entry agresif ${round(entry)}, limit pullback ${data?.pullbackLimitPlan?.limitEntry || "-"}, SL ${round(sl)}, TP1 ${round(tp1)} lalu BE, TP Max ${round(tp2)} RR 1:1.25.`;
   }
   if (action === "READY_BUY") return blocker || "EMA9 dekat EMA20. Menunggu cross bullish dan candle close di atas EMA9/EMA20.";
   if (action === "READY_SELL") return blocker || "EMA9 dekat EMA20. Menunggu cross bearish dan candle close di bawah EMA9/EMA20.";
@@ -921,7 +1011,7 @@ function buildMainM1CrossDirectHumanReason(ctx = {}) {
     ctx.qualityGuard?.message ? `Safety: ${ctx.qualityGuard.message}` : ""
   ].filter(Boolean).join(" ");
   return {
-    version: "10AT-main-m1-ema-cross-direct-entry",
+    version: "10BS-aggressive-entry-plus-ema-pullback-limit",
     title,
     summary,
     action: isCall ? "Sinyal aktif setelah candle M1 close. Pantau TP1 untuk amankan BE, lalu target max RR 1:1.25." : "Tunggu EMA9 cross EMA20 di M1 dan candle close yang valid.",
@@ -2238,7 +2328,7 @@ async function maybeSaveCallHistory(env, dbUrl, signal, market) {
     timeframe: "M1",
     mode: "M1_EMA_CROSS_DIRECT_ENTRY_MAIN",
     action: signal.action || (signal.signal === "BUY" ? "BUY_OPEN" : "SELL_OPEN"),
-    entryMethod: "OPEN_MARKET_AFTER_M1_CLOSE",
+    entryMethod: "AGGRESSIVE_OPEN_PLUS_OPTIONAL_EMA_PULLBACK_LIMIT",
     pair: market?.symbol || signal.pair || "XAUUSD",
     signal: signal.signal,
     signalLabel: signal.signalLabel || signal.signal,
@@ -2250,6 +2340,10 @@ async function maybeSaveCallHistory(env, dbUrl, signal, market) {
     tp1: signal.tp1 ?? signal.strategy?.mainM5?.tp1 ?? null,
     tp2: signal.tp2 ?? signal.strategy?.mainM5?.tp2 ?? signal.tp ?? null,
     partialTp: signal.strategy?.mainM5?.partialTp ?? null,
+    aggressiveEntry: signal.aggressiveEntry ?? signal.entry ?? null,
+    pullbackLimitPlan: signal.pullbackLimitPlan ?? signal.strategy?.mainM5?.pullbackLimitPlan ?? null,
+    limitEntry: signal.limitEntry ?? signal.strategy?.mainM5?.limitEntry ?? null,
+    entryPlanMode: signal.entryPlanMode ?? signal.strategy?.mainM5?.entryPlanMode ?? null,
     confidence: signal.confidence,
     probability: signal.strategy?.probability || null,
     reason: signal.reason || "",
@@ -2644,6 +2738,12 @@ function buildTelegramMessage(signal, market) {
   const action = buildTelegramAction({ isCall, isReady, direction });
   const quality = buildTelegramQuality(confidence, signal.callStage);
   const mainPlan = s.mainM5 || {};
+  const pullbackPlan = signal.pullbackLimitPlan || mainPlan.pullbackLimitPlan || {};
+  const aggressiveEntry = formatPrice(signal.aggressiveEntry || signal.entry || mainPlan.entry);
+  const limitEntry = formatPrice(pullbackPlan.limitEntry || signal.limitEntry || mainPlan.limitEntry);
+  const limitZone = pullbackPlan.zoneLow && pullbackPlan.zoneHigh
+    ? `${formatPrice(pullbackPlan.zoneLow)} - ${formatPrice(pullbackPlan.zoneHigh)}`
+    : "-";
   const entry = formatPrice(signal.entry || mainPlan.entry);
   const sl = formatPrice(signal.sl || mainPlan.sl);
   const tp1 = formatPrice(signal.tp1 || mainPlan.tp1);
@@ -2697,7 +2797,9 @@ function buildTelegramMessage(signal, market) {
     `<b>Harga Live:</b> ${escapeHtml(lastPrice)}`,
     "",
     `🎯 <b>Rencana Entry</b>`,
-    `<b>Entry:</b> ${escapeHtml(entry)}`,
+    `<b>Entry agresif:</b> ${escapeHtml(aggressiveEntry)} <i>(langsung setelah cross valid)</i>`,
+    `<b>Limit pullback:</b> ${escapeHtml(limitEntry)} <i>(area EMA + buffer)</i>`,
+    `<b>Zona limit:</b> ${escapeHtml(limitZone)}`,
     `<b>SL Awal:</b> ${escapeHtml(sl)}`,
     `<b>TP1:</b> ${escapeHtml(tp1)} <i>(aktifkan BE)</i>`,
     `<b>TP Max:</b> ${escapeHtml(tpMax)} <i>(target menang)</i>`,
@@ -2705,6 +2807,7 @@ function buildTelegramMessage(signal, market) {
     `<b>RR:</b> ${escapeHtml(rrText)}`,
     "",
     `🛡️ <b>Alur Result Otomatis</b>`,
+    `• Entry agresif untuk yang siap cepat. Jika harga sudah jalan, tunggu limit pullback dan jangan kejar harga.`,
     `• Jika TP1 tersentuh → SL otomatis naik ke BE ${escapeHtml(bePrice)}.`,
     `• Jika lanjut ke TP Max → hasil <b>Menang</b>.`,
     `• Jika balik ke BE setelah TP1 → hasil <b>BE</b>.`,
