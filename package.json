@@ -1,6 +1,6 @@
 {
-  "name": "xau-ai-signal-step10bp-chart-candles-preserve-fix",
-  "version": "7.60.0-step10bp-chart-candles-preserve-fix",
+  "name": "xau-ai-signal-step10bq-smart-swing-anchor-sl-fix",
+  "version": "7.61.0-step10bq-smart-swing-anchor-sl-fix",
   "type": "module",
   "scripts": {
     "dev": "vite",

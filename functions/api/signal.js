@@ -582,7 +582,7 @@ function buildMainM1EmaCrossDirectEntrySignal(market = {}, m1Candles = [], candl
     structure,
     entryMethod: "OPEN_MARKET_AFTER_M1_EMA9_CROSS_EMA20_AND_CANDLE_CLOSE_FILTER",
     tpMethod: "TP1_HALF_TO_TARGET_THEN_TP_MAX_RR_1_25",
-    slMethod: direction === "BUY" ? "BELOW_NEAREST_M1_SWING_LOW_LOOKBACK_10_MINUS_0_2_ATR" : direction === "SELL" ? "ABOVE_NEAREST_M1_SWING_HIGH_LOOKBACK_10_PLUS_0_2_ATR" : "WAIT",
+    slMethod: direction === "BUY" ? "BELOW_SMART_M1_SWING_LOW_ANCHOR_MINUS_0_2_ATR" : direction === "SELL" ? "ABOVE_SMART_M1_SWING_HIGH_ANCHOR_PLUS_0_2_ATR" : "WAIT",
     partialTp: {
       enabled: true,
       tp1: round(tp1),
@@ -625,62 +625,124 @@ function getM1DirectEntrySwingStructure(candles = [], entryPrice = 0, atrValue =
 
   const entry = Number(entryPrice || valid[valid.length - 1]?.close || 0);
   const atrSafe = Number(atrValue || 0);
-  const maxDistance = atrSafe > 0 ? atrSafe * 2.5 : Infinity;
+  const softMaxDistance = atrSafe > 0 ? atrSafe * 2.5 : Infinity;
+  const hardMaxDistance = atrSafe > 0 ? atrSafe * 4.0 : Infinity;
 
-  // Exclude candle entry/current. Untuk direct entry M1, SL lebih cocok pakai struktur dekat,
-  // bukan highest/lowest jauh dari banyak candle belakang.
-  const before = valid.slice(-13, -1); // ±12 candle sebelum candle entry
-  const recent = valid.slice(-9, -1);  // fallback 8 candle terdekat
+  // Exclude candle entry/current. Untuk direct entry M1, SL harus pakai struktur sebelum entry.
+  // Step 10BQ: smart anchor tidak langsung mengambil swing paling dekat saja.
+  // SELL lebih cocok memakai swing high pullback terakhir sebelum breakdown/cross.
+  // BUY lebih cocok memakai swing low pullback terakhir sebelum breakout/cross.
+  const anchorWindow = valid.slice(-16, -1); // 15 candle sebelum candle entry
+  const recentWindow = valid.slice(-9, -1);  // fallback 8 candle terdekat
   const pivotLows = [];
   const pivotHighs = [];
 
-  for (let i = 1; i < before.length - 1; i++) {
-    const prev = before[i - 1];
-    const curr = before[i];
-    const next = before[i + 1];
+  for (let i = 1; i < anchorWindow.length - 1; i++) {
+    const prev = anchorWindow[i - 1];
+    const curr = anchorWindow[i];
+    const next = anchorWindow[i + 1];
     if (curr.low <= prev.low && curr.low <= next.low) {
-      pivotLows.push({ price: curr.low, time: curr.time || null, index: curr._idx, distance: Math.abs(entry - curr.low) });
+      pivotLows.push({
+        price: curr.low,
+        time: curr.time || null,
+        index: curr._idx,
+        distance: Math.abs(entry - curr.low),
+        candle: curr
+      });
     }
     if (curr.high >= prev.high && curr.high >= next.high) {
-      pivotHighs.push({ price: curr.high, time: curr.time || null, index: curr._idx, distance: Math.abs(curr.high - entry) });
+      pivotHighs.push({
+        price: curr.high,
+        time: curr.time || null,
+        index: curr._idx,
+        distance: Math.abs(curr.high - entry),
+        candle: curr
+      });
     }
   }
 
-  const lowCandidates = pivotLows
+  const lowPivotsBelowEntry = pivotLows
     .filter((x) => entry > 0 ? x.price < entry : true)
     .sort((a, b) => b.index - a.index);
-  const highCandidates = pivotHighs
+  const highPivotsAboveEntry = pivotHighs
     .filter((x) => entry > 0 ? x.price > entry : true)
     .sort((a, b) => b.index - a.index);
 
-  const recentLows = recent
-    .map((c) => ({ price: c.low, time: c.time || null, index: c._idx, distance: Math.abs(entry - c.low) }))
+  const recentLows = recentWindow
+    .map((c) => ({ price: c.low, time: c.time || null, index: c._idx, distance: Math.abs(entry - c.low), candle: c }))
     .filter((x) => entry > 0 ? x.price < entry : true)
     .sort((a, b) => a.distance - b.distance || b.index - a.index);
-  const recentHighs = recent
-    .map((c) => ({ price: c.high, time: c.time || null, index: c._idx, distance: Math.abs(c.high - entry) }))
+  const recentHighs = recentWindow
+    .map((c) => ({ price: c.high, time: c.time || null, index: c._idx, distance: Math.abs(c.high - entry), candle: c }))
     .filter((x) => entry > 0 ? x.price > entry : true)
     .sort((a, b) => a.distance - b.distance || b.index - a.index);
 
-  const newestLowWithinLimit = lowCandidates.find((x) => x.distance <= maxDistance);
-  const newestHighWithinLimit = highCandidates.find((x) => x.distance <= maxDistance);
-  const closestRecentLow = recentLows.find((x) => x.distance <= maxDistance) || recentLows[0] || lowCandidates[0] || null;
-  const closestRecentHigh = recentHighs.find((x) => x.distance <= maxDistance) || recentHighs[0] || highCandidates[0] || null;
+  const windowLowest = anchorWindow.length
+    ? anchorWindow.reduce((best, c) => c.low < best.low ? c : best, anchorWindow[0])
+    : null;
+  const windowHighest = anchorWindow.length
+    ? anchorWindow.reduce((best, c) => c.high > best.high ? c : best, anchorWindow[0])
+    : null;
 
-  const selectedLow = newestLowWithinLimit || closestRecentLow || { price: Number(valid[valid.length - 2]?.low || valid[valid.length - 1]?.low || 0), time: null, index: 0, distance: 0 };
-  const selectedHigh = newestHighWithinLimit || closestRecentHigh || { price: Number(valid[valid.length - 2]?.high || valid[valid.length - 1]?.high || 0), time: null, index: 0, distance: 0 };
+  const lowAnchorFromWindow = windowLowest && (!entry || windowLowest.low < entry)
+    ? { price: windowLowest.low, time: windowLowest.time || null, index: windowLowest._idx, distance: Math.abs(entry - windowLowest.low), candle: windowLowest }
+    : null;
+  const highAnchorFromWindow = windowHighest && (!entry || windowHighest.high > entry)
+    ? { price: windowHighest.high, time: windowHighest.time || null, index: windowHighest._idx, distance: Math.abs(windowHighest.high - entry), candle: windowHighest }
+    : null;
+
+  const chooseSmartLow = () => {
+    const newestConfirmedSoft = lowPivotsBelowEntry.find((x) => x.distance <= softMaxDistance);
+    if (newestConfirmedSoft) return { ...newestConfirmedSoft, source: "SMART_CONFIRMED_SWING_LOW_SOFT_2_5_ATR" };
+
+    // Kalau swing valid sedikit lebih jauh tapi masih struktur pullback terakhir, tetap lebih baik daripada SL terlalu dekat noise.
+    const newestConfirmedHard = lowPivotsBelowEntry.find((x) => x.distance <= hardMaxDistance);
+    if (newestConfirmedHard) return { ...newestConfirmedHard, source: "SMART_CONFIRMED_SWING_LOW_HARD_4_ATR" };
+
+    const recentLow = recentLows.find((x) => x.distance <= hardMaxDistance) || recentLows[0];
+    if (recentLow) return { ...recentLow, source: "RECENT_LOW_FALLBACK" };
+
+    if (lowAnchorFromWindow) return { ...lowAnchorFromWindow, source: "WINDOW_LOW_ANCHOR" };
+
+    return { price: Number(valid[valid.length - 2]?.low || valid[valid.length - 1]?.low || 0), time: null, index: 0, distance: 0, source: "LAST_LOW_FALLBACK" };
+  };
+
+  const chooseSmartHigh = () => {
+    const newestConfirmedSoft = highPivotsAboveEntry.find((x) => x.distance <= softMaxDistance);
+    if (newestConfirmedSoft) return { ...newestConfirmedSoft, source: "SMART_CONFIRMED_SWING_HIGH_SOFT_2_5_ATR" };
+
+    // Step 10BQ: jangan langsung skip swing high visual yang valid hanya karena sedikit lewat 2.5 ATR.
+    // Pakai hard cap 4 ATR agar SL masih masuk akal, tapi tetap mengikuti struktur terakhir.
+    const newestConfirmedHard = highPivotsAboveEntry.find((x) => x.distance <= hardMaxDistance);
+    if (newestConfirmedHard) return { ...newestConfirmedHard, source: "SMART_CONFIRMED_SWING_HIGH_HARD_4_ATR" };
+
+    const recentHigh = recentHighs.find((x) => x.distance <= hardMaxDistance) || recentHighs[0];
+    if (recentHigh) return { ...recentHigh, source: "RECENT_HIGH_FALLBACK" };
+
+    if (highAnchorFromWindow) return { ...highAnchorFromWindow, source: "WINDOW_HIGH_ANCHOR" };
+
+    return { price: Number(valid[valid.length - 2]?.high || valid[valid.length - 1]?.high || 0), time: null, index: 0, distance: 0, source: "LAST_HIGH_FALLBACK" };
+  };
+
+  const selectedLow = chooseSmartLow();
+  const selectedHigh = chooseSmartHigh();
 
   return {
     swingLow: round(selectedLow.price),
     swingHigh: round(selectedHigh.price),
     swingLowDistance: round(selectedLow.distance),
     swingHighDistance: round(selectedHigh.distance),
-    maxSwingDistance: Number.isFinite(maxDistance) ? round(maxDistance) : null,
-    swingLowSource: newestLowWithinLimit ? "NEAREST_CONFIRMED_SWING_LOW" : "RECENT_LOW_FALLBACK",
-    swingHighSource: newestHighWithinLimit ? "NEAREST_CONFIRMED_SWING_HIGH" : "RECENT_HIGH_FALLBACK",
-    method: "M1_NEAREST_SWING_LOOKBACK_10_WITH_RECENT_FALLBACK_MAX_2_5_ATR",
-    candleCount: before.length,
-    recentFallbackCount: recent.length
+    maxSwingDistance: Number.isFinite(softMaxDistance) ? round(softMaxDistance) : null,
+    hardMaxSwingDistance: Number.isFinite(hardMaxDistance) ? round(hardMaxDistance) : null,
+    swingLowSource: selectedLow.source,
+    swingHighSource: selectedHigh.source,
+    swingLowTime: selectedLow.time || null,
+    swingHighTime: selectedHigh.time || null,
+    swingLowIndex: selectedLow.index ?? null,
+    swingHighIndex: selectedHigh.index ?? null,
+    method: "M1_SMART_SWING_ANCHOR_LOOKBACK_15_SOFT_2_5_ATR_HARD_4_ATR",
+    candleCount: anchorWindow.length,
+    recentFallbackCount: recentWindow.length
   };
 }
 
