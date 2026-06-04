@@ -1,18 +1,18 @@
-# Step 10BU — Pullback Limit Touch Buffer Fix
+# Step 10BV — Pullback Limit More Touchable
 
-Update ini merapikan area limit pullback EMA agar tidak terlalu jauh dari area yang kemungkinan tersentuh.
+Update ini menaikkan/merapikan area **Limit Pullback EMA** supaya order limit tidak mudah miss tipis.
 
 ## Perubahan utama
 
-- Strategi utama tetap M1 EMA Cross Direct Entry.
-- Entry agresif tetap mengikuti candle M1 close setelah EMA cross valid.
-- Opsi limit pullback tetap aktif untuk user yang telat entry agresif.
-- BUY limit diarahkan ke area EMA bawah dengan touch buffer kecil.
-- SELL limit diarahkan ke area EMA atas dengan touch buffer kecil agar tidak terlalu bawah.
-- SL tetap smart swing anchor ± 0.2 ATR.
-- TP Max tetap RR 1:1.25.
-- TP1 tetap 50% menuju TP Max lalu BE aktif.
+- Strategi utama tetap **M1 EMA Cross Direct Entry**.
+- Entry agresif tetap mengikuti candle M1 close setelah EMA9/EMA20 cross valid.
+- Opsi kedua tetap **Limit Pullback EMA**.
+- BUY limit dinaikkan sedikit dari area EMA bawah agar pullback tipis lebih mudah menyentuh limit.
+- SELL limit tetap diarahkan ke area pullback EMA atas dengan touch buffer lebih realistis.
+- SL tetap memakai **Smart Swing Anchor ± 0.2 ATR**.
+- TP Max tetap **RR 1:1.25**.
+- TP1 tetap 50% menuju TP Max lalu SL pindah ke BE.
 
 ## Catatan
 
-Fix ini hanya mengubah posisi rencana limit pullback agar lebih enak untuk entry manual. Logic result tracker, cron TP/SL/BE, Telegram result, dan RTDB Lite tidak diubah.
+Limit dibuat lebih mudah tersentuh, tapi tetap tidak boleh mengejar harga terlalu dekat dengan entry agresif. Jika harga sudah jauh dari entry ideal, tunggu setup berikutnya.
