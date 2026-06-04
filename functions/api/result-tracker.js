@@ -485,6 +485,15 @@ function evaluateItem(item, marketContext) {
   const lowSinceEntry = Number.isFinite(range.low) ? range.low : livePrice;
   const rangeNote = String(range.source || "") .startsWith("CANDLE_RANGE") ? " berdasarkan range candle M1 setelah entry aktif" : " berdasarkan harga live";
 
+  // Step 10CD:
+  // BE tidak boleh dicek dari range sejak entry, karena low/high sebelum TP1 bisa membuat BE palsu.
+  // Contoh BUY: harga sempat low di bawah entry sebelum TP1, lalu TP1 kena; range lama akan langsung menganggap BE.
+  // Jadi BE memakai range khusus setelah TP1/BE aktif.
+  const beRange = getRangeForBreakEven(marketContext, item);
+  const highAfterBreakEven = Number.isFinite(beRange.high) ? beRange.high : livePrice;
+  const lowAfterBreakEven = Number.isFinite(beRange.low) ? beRange.low : livePrice;
+  const beRangeNote = String(beRange.source || "").startsWith("CANDLE_RANGE") ? " berdasarkan range candle M1 setelah BE aktif" : " berdasarkan harga live setelah BE aktif";
+
   if (!Number.isFinite(livePrice) || livePrice <= 0) {
     return { result: null, note: "Harga live belum tersedia." };
   }
@@ -536,8 +545,8 @@ function evaluateItem(item, marketContext) {
     if (highSinceEntry >= tp) {
       return mergeLimitPatch({ result: "WIN", resultPrice: Math.max(livePrice, tp), note: `TP Max tersentuh${rangeNote} di area ${formatPrice(Math.max(highSinceEntry, livePrice))}.` }, limitUpdateEarly);
     }
-    if (breakEvenActive && Number.isFinite(entry) && lowSinceEntry <= entry) {
-      return mergeLimitPatch({ result: "BE", resultPrice: entry, note: `Harga kembali ke BE ${formatPrice(entry)} setelah TP1.` }, limitUpdateEarly);
+    if (breakEvenActive && Number.isFinite(entry) && lowAfterBreakEven <= entry) {
+      return mergeLimitPatch({ result: "BE", resultPrice: entry, note: `Harga kembali ke BE ${formatPrice(entry)} setelah TP1${beRangeNote}.` }, limitUpdateEarly);
     }
     if (lowSinceEntry <= sl) {
       return mergeLimitPatch({ result: "LOSS", resultPrice: Math.min(livePrice, sl), note: `SL tersentuh${rangeNote} di area ${formatPrice(Math.min(lowSinceEntry, livePrice))}.` }, limitUpdateEarly);
@@ -553,8 +562,8 @@ function evaluateItem(item, marketContext) {
     if (lowSinceEntry <= tp) {
       return mergeLimitPatch({ result: "WIN", resultPrice: Math.min(livePrice, tp), note: `TP Max tersentuh${rangeNote} di area ${formatPrice(Math.min(lowSinceEntry, livePrice))}.` }, limitUpdateEarly);
     }
-    if (breakEvenActive && Number.isFinite(entry) && highSinceEntry >= entry) {
-      return mergeLimitPatch({ result: "BE", resultPrice: entry, note: `Harga kembali ke BE ${formatPrice(entry)} setelah TP1.` }, limitUpdateEarly);
+    if (breakEvenActive && Number.isFinite(entry) && highAfterBreakEven >= entry) {
+      return mergeLimitPatch({ result: "BE", resultPrice: entry, note: `Harga kembali ke BE ${formatPrice(entry)} setelah TP1${beRangeNote}.` }, limitUpdateEarly);
     }
     if (highSinceEntry >= sl) {
       return mergeLimitPatch({ result: "LOSS", resultPrice: Math.max(livePrice, sl), note: `SL tersentuh${rangeNote} di area ${formatPrice(Math.max(highSinceEntry, livePrice))}.` }, limitUpdateEarly);
@@ -729,6 +738,8 @@ function buildBreakEvenPatch(item, entry, sl, livePrice, tp1, rangeNote = "") {
       tp1HitAt: item.tp1HitAt || now,
       breakEvenActive: true,
       beActive: true,
+      breakEvenActivatedAt: item.breakEvenActivatedAt || now,
+      beActiveAt: item.beActiveAt || now,
       bePrice: entry,
       breakEvenPrice: entry,
       originalSl: item.originalSl || sl,
@@ -815,6 +826,57 @@ function buildMarketRange(market, livePrice) {
     latestHigh: firstValidNumber(market?.high, market?.lastHigh, market?.latest?.high, market?.m1?.high),
     latestLow: firstValidNumber(market?.low, market?.lastLow, market?.latest?.low, market?.m1?.low)
   };
+}
+
+
+function getRangeFromTime(marketContext = {}, startedAt = 0, sourceLabel = "CANDLE_RANGE") {
+  const livePrice = Number(marketContext.livePrice || 0);
+  let high = Number.isFinite(livePrice) && livePrice > 0 ? livePrice : NaN;
+  let low = Number.isFinite(livePrice) && livePrice > 0 ? livePrice : NaN;
+  let usedCandle = false;
+
+  if (!startedAt) {
+    return { high, low, source: "LIVE_PRICE", skippedReason: "NO_VALID_RANGE_START" };
+  }
+
+  for (const candle of marketContext.candles || []) {
+    const t = parseAnyTimeMs(candle?.time || candle?.datetime || candle?.timestamp || candle?.timeUnix);
+    if (!t) continue;
+
+    // Candle open time harus setelah range start. Ini sengaja tidak memakai candle yang sama
+    // dengan trigger sebelumnya supaya urutan wick dalam 1 candle tidak membuat result palsu.
+    if (t < startedAt - 1000) continue;
+
+    const cHigh = toNumber(candle?.high ?? candle?.h);
+    const cLow = toNumber(candle?.low ?? candle?.l);
+    if (Number.isFinite(cHigh)) {
+      high = Number.isFinite(high) ? Math.max(high, cHigh) : cHigh;
+      usedCandle = true;
+    }
+    if (Number.isFinite(cLow)) {
+      low = Number.isFinite(low) ? Math.min(low, cLow) : cLow;
+      usedCandle = true;
+    }
+  }
+
+  return { high, low, source: usedCandle ? sourceLabel : "LIVE_PRICE", startedAt };
+}
+
+function getRangeForBreakEven(marketContext = {}, item = {}) {
+  const beStartedAt = firstValidTimeMs(
+    item.breakEvenActivatedAt,
+    item.tp1HitAt,
+    item.tp1TouchedAt,
+    item.beActiveAt,
+    item.updatedAt
+  );
+
+  if (!beStartedAt) {
+    const livePrice = Number(marketContext.livePrice || 0);
+    return { high: livePrice, low: livePrice, source: "LIVE_PRICE_BE_NOT_CONFIRMED" };
+  }
+
+  return getRangeFromTime(marketContext, beStartedAt, "CANDLE_RANGE_AFTER_BE_ACTIVE");
 }
 
 function getRangeForItem(marketContext = {}, item = {}) {

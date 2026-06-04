@@ -1,6 +1,6 @@
 {
   "name": "xau-ai-signal-step10cc-pullback-limit-touch-boost",
-  "version": "7.72.0-step10cc-pullback-limit-touch-boost",
+  "version": "7.73.0-step10cd-aggressive-be-range-fix",
   "type": "module",
   "scripts": {
     "dev": "vite",

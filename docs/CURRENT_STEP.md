@@ -1,14 +1,16 @@
-# Step 10CC — Pullback Limit Touch Boost
+# Step 10CD — Aggressive BE Range Fix
 
-## Fokus
-Menaikkan/mendekatkan area limit pullback supaya entry manual tidak sering miss tipis 1–2 pip.
+Fix auto result agar sinyal utama/agresif tidak tiba-tiba menjadi BE hanya karena range candle sebelum TP1 ikut terbaca.
 
 ## Perubahan
-- BUY limit sekarang lebih dekat ke area EMA atas + touch boost.
-- SELL limit dibuat lebih mudah tersentuh saat retest tipis.
-- Limit tetap dijaga agar tidak terlalu dekat SL, supaya RR 1:1 masih masuk akal.
-- TP limit tetap RR 1:1, TP1 setengah target, lalu BE.
-- Entry agresif, SL smart swing, cron result, Telegram, dan history tidak berubah.
+- BE sinyal utama sekarang dicek dari range harga setelah TP1/BE aktif, bukan dari range sejak entry.
+- TP1 tetap mengaktifkan BE dan memindahkan SL ke entry.
+- Jika harga balik ke entry setelah BE aktif, baru hasil utama ditutup sebagai BE.
+- Limit Pullback analytics tetap terpisah dari hasil utama/agresif.
 
-## Catatan
-Limit pullback sekarang lebih mudah kena untuk user manual, tetapi tetap bukan entry wajib. Kalau harga sudah jauh dari limit, jangan kejar harga.
+## Strategi tetap
+- Entry agresif M1 EMA Cross.
+- Limit Pullback EMA untuk manual plan.
+- SL smart swing anchor + buffer.
+- TP agresif RR 1:1.25.
+- TP limit RR 1:1.
