@@ -940,7 +940,13 @@ function buildPullbackLimitPlan({ direction, entry, ema9, ema20, atrValue, sl, t
 
   const upperEma = Math.max(emaFast, emaSlow);
   const lowerEma = Math.min(emaFast, emaSlow);
+
+  // Step 10BU:
+  // Limit pullback dibuat sedikit lebih dekat ke area EMA yang kemungkinan tersentuh.
+  // BUY memakai area bawah EMA supaya tidak terlalu tinggi mengejar harga.
+  // SELL memakai area atas EMA supaya limit tidak terlalu bawah / terlalu dekat entry agresif.
   const buffer = Math.max(atrNum * 0.08, e * 0.00003);
+  const extraTouchBuffer = Math.max(atrNum * 0.03, e * 0.00001);
   const zoneLow = lowerEma - buffer;
   const zoneHigh = upperEma + buffer;
 
@@ -951,16 +957,21 @@ function buildPullbackLimitPlan({ direction, entry, ema9, ema20, atrValue, sl, t
 
   if (side === "BUY") {
     type = "BUY_LIMIT_PULLBACK_EMA";
-    limitEntry = Math.min(zoneHigh, e - buffer * 0.25);
+    // BUY limit dipasang di area EMA bawah + sedikit buffer agar pullback tipis masih bisa kena.
+    const preferredBuyLimit = lowerEma + extraTouchBuffer;
+    limitEntry = Math.min(e - buffer * 0.25, Math.max(zoneLow, preferredBuyLimit));
     if (!(limitEntry > stop && limitEntry < e && target2 > limitEntry)) status = "INFO_ONLY";
-    note = "Entry agresif mengikuti cross. Jika harga sudah jalan, opsi kedua adalah BUY limit di area pullback EMA + buffer kecil. Jangan kejar harga jika sudah jauh dari entry agresif.";
+    note = "Entry agresif mengikuti cross. Jika harga sudah jalan, opsi kedua adalah BUY limit di area pullback EMA dengan touch buffer kecil. Jangan kejar harga jika sudah jauh dari entry agresif.";
   }
 
   if (side === "SELL") {
     type = "SELL_LIMIT_PULLBACK_EMA";
-    limitEntry = Math.max(zoneLow, e + buffer * 0.25);
+    // SELL limit dipasang di area EMA atas + sedikit buffer agar tidak terlalu bawah.
+    // Ini membantu kasus pullback hampir kena tapi limit masih terlalu rendah/kurang pas secara visual.
+    const preferredSellLimit = upperEma + extraTouchBuffer;
+    limitEntry = Math.max(e + buffer * 0.25, Math.min(zoneHigh, preferredSellLimit));
     if (!(limitEntry < stop && limitEntry > e && target2 < limitEntry)) status = "INFO_ONLY";
-    note = "Entry agresif mengikuti cross. Jika harga sudah jalan, opsi kedua adalah SELL limit di area pullback EMA + buffer kecil. Jangan kejar harga jika sudah jauh dari entry agresif.";
+    note = "Entry agresif mengikuti cross. Jika harga sudah jalan, opsi kedua adalah SELL limit di area pullback EMA atas dengan touch buffer kecil. Jangan kejar harga jika sudah jauh dari entry agresif.";
   }
 
   const limitRisk = side === "BUY" ? Math.abs(limitEntry - stop) : Math.abs(stop - limitEntry);
@@ -1011,7 +1022,7 @@ function buildMainM1CrossDirectHumanReason(ctx = {}) {
     ctx.qualityGuard?.message ? `Safety: ${ctx.qualityGuard.message}` : ""
   ].filter(Boolean).join(" ");
   return {
-    version: "10BS-aggressive-entry-plus-ema-pullback-limit",
+    version: "10BU-pullback-limit-touch-buffer-fix",
     title,
     summary,
     action: isCall ? "Sinyal aktif setelah candle M1 close. Pantau TP1 untuk amankan BE, lalu target max RR 1:1.25." : "Tunggu EMA9 cross EMA20 di M1 dan candle close yang valid.",

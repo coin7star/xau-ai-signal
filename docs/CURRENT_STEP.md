@@ -1,23 +1,18 @@
-# Step 10BT — Result Tracker Range After Entry Fix
+# Step 10BU — Pullback Limit Touch Buffer Fix
 
-Fix false LOSS/WIN pada auto result saat tracker membaca high/low candle pembentuk sinyal.
+Update ini merapikan area limit pullback EMA agar tidak terlalu jauh dari area yang kemungkinan tersentuh.
 
-## Perubahan
+## Perubahan utama
 
-- Result tracker tetap bisa membaca range candle M1 untuk TP1 / TP Max / SL / BE.
-- Candle pembentuk sinyal tidak ikut dihitung sebagai range result.
-- Range candle dimulai setelah entry aktif / setelah candle sinyal selesai.
-- Field `latestHigh` dan `latestLow` global tidak lagi dipakai untuk menutup result karena bisa berasal dari candle sebelum entry.
-- Signal history baru menyimpan `entryCandleTime` dan `resultTrackingStartAt`.
+- Strategi utama tetap M1 EMA Cross Direct Entry.
+- Entry agresif tetap mengikuti candle M1 close setelah EMA cross valid.
+- Opsi limit pullback tetap aktif untuk user yang telat entry agresif.
+- BUY limit diarahkan ke area EMA bawah dengan touch buffer kecil.
+- SELL limit diarahkan ke area EMA atas dengan touch buffer kecil agar tidak terlalu bawah.
+- SL tetap smart swing anchor ± 0.2 ATR.
+- TP Max tetap RR 1:1.25.
+- TP1 tetap 50% menuju TP Max lalu BE aktif.
 
-## Tujuan
+## Catatan
 
-Mencegah kasus posisi SELL/BUY tiba-tiba menjadi Kalah padahal setelah sinyal muncul harga belum pernah menyentuh SL.
-
-## Strategi tetap
-
-- M1 EMA Cross Direct Entry.
-- Entry agresif + opsi limit pullback EMA.
-- Smart swing SL + 0.2 ATR.
-- TP Max RR 1:1.25.
-- TP1 mengaktifkan BE.
+Fix ini hanya mengubah posisi rencana limit pullback agar lebih enak untuk entry manual. Logic result tracker, cron TP/SL/BE, Telegram result, dan RTDB Lite tidak diubah.
