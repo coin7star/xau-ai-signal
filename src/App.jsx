@@ -1386,7 +1386,7 @@ function AppInner() {
                   <span>{formatHistoryTime(item.createdAt || item.candleTime)}</span>
                   <strong className={String(item.signal || "").toLowerCase()}>{item.signal}</strong>
                   <span>{item.entry}</span>
-                  <span>{item.sl || "-"} / {item.tp || "-"}</span>
+                  <span>{formatRiskTargetText(item)}</span>
                   <span>{item.probability?.score ?? item.confidence ?? "-"}%</span>
                   <span className={`resultBadge ${getResultStatusTone(item)}`}>
                     {formatResultStatus(item)}
@@ -3224,6 +3224,7 @@ function ResultTrackerPrepPanel({ callHistory, scalpHistory, market, signal, isA
   const scannedCount = trackerState?.scanned || 0;
   const resultAlertSentCount = trackerState?.resultAlertSentCount || 0;
   const resultAlertSkippedCount = trackerState?.resultAlertSkippedCount || 0;
+  const tp1AlertSentCount = trackerState?.tp1AlertSentCount || 0;
 
   return (
     <section className="resultTrackerPanel card">
@@ -3260,7 +3261,7 @@ function ResultTrackerPrepPanel({ callHistory, scalpHistory, market, signal, isA
 
       <div className="trackerLiteNotice autoEngineNotice">
         <b>Auto Result aktif</b>
-        <span>Sistem memantau sinyal aktif. Hasil akan berubah otomatis saat harga menyentuh target profit, batas risiko, atau break-even.</span>
+        <span>Sistem memantau sinyal aktif. Saat TP1 tersentuh, batas risiko otomatis pindah ke BE. Hasil akhir tetap menunggu Target Max, SL, BE, atau batas waktu.</span>
       </div>
 
       {isAdmin && (
@@ -3268,7 +3269,7 @@ function ResultTrackerPrepPanel({ callHistory, scalpHistory, market, signal, isA
           <div>
             <b>Cek Manual Hasil</b>
             <span>{trackerState?.message || "Klik tombol untuk memperbarui hasil sinyal aktif sekarang."}</span>
-            {trackerState?.lastRun ? <small>Terakhir diperbarui: {formatHistoryTime(trackerState.lastRun)} · Dicek {scannedCount} · Diperbarui {updatedCount} · Telegram {resultAlertSentCount}</small> : null}
+            {trackerState?.lastRun ? <small>Terakhir diperbarui: {formatHistoryTime(trackerState.lastRun)} · Dicek {scannedCount} · Diperbarui {updatedCount} · Result TG {resultAlertSentCount} · TP1 TG {tp1AlertSentCount}</small> : null}
             {resultAlertSkippedCount > 0 ? <small>{resultAlertSkippedCount} hasil belum terkirim ke Telegram karena koneksi notifikasi belum aktif.</small> : null}
           </div>
           <button type="button" onClick={onRunTracker} disabled={trackerState?.loading || !adminToken}>
@@ -3281,7 +3282,7 @@ function ResultTrackerPrepPanel({ callHistory, scalpHistory, market, signal, isA
         <div className="trackerUpdateList">
           {trackerState.updated.slice(0, 5).map((item) => (
             <span key={`${item.type}-${item.id}`}>
-              {item.type} · {item.result} · {formatPrice(item.price)} · Telegram {item.resultAlertSent ? "Sent" : "Menunggu"}
+              {item.type} · {item.tp1BreakEvenUpdate ? "TP1 kena · BE aktif" : item.result} · {formatPrice(item.price)} · Telegram {item.tp1AlertSent || item.resultAlertSent ? "Sent" : "Menunggu"}
             </span>
           ))}
         </div>
@@ -3298,7 +3299,7 @@ function ResultTrackerPrepPanel({ callHistory, scalpHistory, market, signal, isA
           <div className="trackerQueueRow" key={`${item.trackerType}-${item.id || item.createdAt || item.candleTime}`}>
             <strong className={String(item.signal || "").toLowerCase()}>{item.trackerType} · {item.signal || "-"}</strong>
             <span>{item.entry || "-"}</span>
-            <span>{item.sl || "-"} / {item.tp || "-"}</span>
+            <span>{formatRiskTargetText(item)}</span>
             <em className={`resultBadge ${getResultStatusTone(item)}`}>{formatResultStatus(item)}</em>
           </div>
         ))}
@@ -3490,7 +3491,9 @@ function isOpenResult(item) {
 
 function formatResultStatus(item) {
   const raw = String(item?.result || item?.status || "OPEN").toUpperCase();
-  if (raw === "OPEN" || raw === "RUNNING" || raw === "PENDING" || raw === "WAITING") return "Berjalan";
+  if (raw === "OPEN" || raw === "RUNNING" || raw === "PENDING" || raw === "WAITING") {
+    return isTp1BreakEvenActive(item) ? "TP1 kena · BE aktif" : "Berjalan";
+  }
   if (raw === "BE" || raw === "BREAKEVEN") return "BE";
   if (raw === "WIN") return "Menang";
   if (raw === "LOSS") return "Kalah";
@@ -3500,12 +3503,25 @@ function formatResultStatus(item) {
 
 function getResultStatusTone(item) {
   const raw = String(item?.result || item?.status || "OPEN").toUpperCase();
-  if (["OPEN", "RUNNING", "PENDING", "WAITING"].includes(raw)) return "running";
+  if (["OPEN", "RUNNING", "PENDING", "WAITING"].includes(raw)) return isTp1BreakEvenActive(item) ? "be" : "running";
   if (raw === "EXPIRED") return "expired";
   if (raw === "BE" || raw === "BREAKEVEN") return "be";
   if (raw === "WIN") return "win";
   if (raw === "LOSS") return "loss";
   return "open";
+}
+
+function isTp1BreakEvenActive(item = {}) {
+  return item.tp1Hit === true || item.breakEvenActive === true || item.beActive === true;
+}
+
+function formatRiskTargetText(item = {}) {
+  const tp = item.tp || item.tpMax || item.tp2 || "-";
+  if (isTp1BreakEvenActive(item)) {
+    const be = item.bePrice || item.breakEvenPrice || item.entry || "-";
+    return `BE ${be} / ${tp}`;
+  }
+  return `${item.sl || "-"} / ${tp}`;
 }
 
 function getTrackerMarketPrice(market, signal) {

@@ -96,9 +96,15 @@ export async function buildTrackerSummary(dbUrl, env, shouldUpdate) {
       delete payload.expireHours;
       delete payload.trackerType;
 
+      const isTp1BreakEvenUpdate = !result.result && result.patch?.tp1Hit === true;
+
       const alertResult = result.result && item.telegramResultAlert
         ? await maybeSendResultAlert(env, item, payload, result.result, livePrice, result.note)
         : { sent: false, skippedReason: result.result ? "RESULT_ALERT_DISABLED_FOR_TRACKER" : "PENDING_TRIGGER_ONLY" };
+
+      const tp1AlertResult = isTp1BreakEvenUpdate && item.telegramResultAlert
+        ? await maybeSendTp1BreakEvenAlert(env, item, payload, livePrice, result.note)
+        : { sent: false, skippedReason: isTp1BreakEvenUpdate ? "TP1_ALERT_DISABLED_FOR_TRACKER" : "NOT_TP1_UPDATE" };
 
       if (alertResult.sent) {
         payload.resultAlertSent = true;
@@ -108,6 +114,16 @@ export async function buildTrackerSummary(dbUrl, env, shouldUpdate) {
 
       if (alertResult.skippedReason) {
         payload.resultAlertSkippedReason = alertResult.skippedReason;
+      }
+
+      if (tp1AlertResult.sent) {
+        payload.tp1AlertSent = true;
+        payload.tp1AlertSentAt = closedAt;
+        payload.tp1AlertChannel = "TELEGRAM_GLOBAL";
+      }
+
+      if (tp1AlertResult.skippedReason) {
+        payload.tp1AlertSkippedReason = tp1AlertResult.skippedReason;
       }
 
       if (item.trackerType === "SMC_AI") {
@@ -125,6 +141,10 @@ export async function buildTrackerSummary(dbUrl, env, shouldUpdate) {
         resultAlertSent: alertResult.sent,
         resultAlertStatus: alertResult.status || null,
         resultAlertSkippedReason: alertResult.skippedReason || null,
+        tp1AlertSent: tp1AlertResult.sent,
+        tp1AlertStatus: tp1AlertResult.status || null,
+        tp1AlertSkippedReason: tp1AlertResult.skippedReason || null,
+        tp1BreakEvenUpdate: isTp1BreakEvenUpdate,
         liveBacktestOnly: item.trackerType === "SMC_AI"
       });
     }
@@ -137,6 +157,8 @@ export async function buildTrackerSummary(dbUrl, env, shouldUpdate) {
     updatedCount: updated.length,
     resultAlertSentCount: updated.filter((item) => item.resultAlertSent).length,
     resultAlertSkippedCount: updated.filter((item) => item.resultAlertSkippedReason).length,
+    tp1AlertSentCount: updated.filter((item) => item.tp1AlertSent).length,
+    tp1AlertSkippedCount: updated.filter((item) => item.tp1AlertSkippedReason).length,
     updated,
     checked,
     mode: shouldUpdate ? "AUTO_UPDATE" : "PREVIEW",
@@ -159,6 +181,54 @@ async function getStrategyControls(dbUrl) {
   if (!dbUrl) return defaults;
   const raw = await fbGet(dbUrl, "/xauusd/settings/strategyControls");
   return { ...defaults, ...(raw || {}) };
+}
+
+
+async function maybeSendTp1BreakEvenAlert(env, originalItem, payload, livePrice, note) {
+  if (String(env.RESULT_ALERT_ENABLED || "true").toLowerCase() === "false") {
+    return { sent: false, skippedReason: "RESULT_ALERT_DISABLED" };
+  }
+
+  if (String(env.TP1_ALERT_ENABLED || "true").toLowerCase() === "false") {
+    return { sent: false, skippedReason: "TP1_ALERT_DISABLED" };
+  }
+
+  if (originalItem.tp1AlertSent || payload.tp1AlertSent) {
+    return { sent: false, skippedReason: "TP1_ALERT_ALREADY_SENT" };
+  }
+
+  const botToken = env.TELEGRAM_BOT_TOKEN || "";
+  const chatId = env.TELEGRAM_CHAT_ID || "";
+  if (!botToken || !chatId) {
+    return { sent: false, skippedReason: "TELEGRAM_GATEWAY_NOT_READY" };
+  }
+
+  const dashboardUrl = env.PUBLIC_DASHBOARD_URL || "https://www.xauaisignal.online";
+  const text = buildTp1BreakEvenTelegramMessage(originalItem, payload, livePrice, note, dashboardUrl);
+  const res = await fetch(`https://api.telegram.org/bot${botToken}/sendMessage`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      chat_id: chatId,
+      text,
+      parse_mode: "HTML",
+      disable_web_page_preview: true,
+      reply_markup: {
+        inline_keyboard: [[
+          { text: "🚀 Open Premium Dashboard", url: dashboardUrl }
+        ]]
+      }
+    })
+  });
+
+  let response = null;
+  try { response = await res.json(); } catch { response = await res.text(); }
+
+  if (!res.ok) {
+    return { sent: false, status: res.status, response, skippedReason: "TELEGRAM_SEND_FAILED" };
+  }
+
+  return { sent: true, status: res.status, response };
 }
 
 async function maybeSendResultAlert(env, originalItem, closedPayload, result, livePrice, note) {
@@ -282,6 +352,40 @@ function readSmcFlag(item, key, fallback) {
     if (value.status) return value.status;
   }
   return value || fallback;
+}
+
+
+function buildTp1BreakEvenTelegramMessage(item, payload, livePrice, note, dashboardUrl) {
+  const signal = String(item.signal || "-").toUpperCase();
+  const pair = escapeHtml(item.pair || item.symbol || "XAUUSD+");
+  const entry = firstFiniteNumber(payload.entry, item.entry);
+  const tp1 = getItemTp1(payload, getItemTp(payload));
+  const tpMax = getItemTp(payload);
+  const originalSl = firstFiniteNumber(payload.originalSl, item.originalSl, item.sl);
+  const confidence = Number(item.confidence);
+  const confidenceText = Number.isFinite(confidence) ? `${confidence}%` : "-";
+
+  return [
+    "🟡 <b>XAU AI UPDATE · TP1 KENA</b>",
+    "<i>Sinyal masih berjalan. Batas risiko sudah diamankan otomatis.</i>",
+    "",
+    `<b>Signal:</b> ${escapeHtml(signal)} ${pair}`,
+    `<b>Entry / BE:</b> ${formatPrice(entry)}`,
+    `<b>TP1:</b> ${formatPrice(tp1)}`,
+    `<b>Target Max:</b> ${formatPrice(tpMax)}`,
+    `<b>SL Awal:</b> ${formatPrice(originalSl)}`,
+    `<b>SL Baru:</b> BE ${formatPrice(entry)}`,
+    `<b>Harga Live:</b> ${formatPrice(livePrice)}`,
+    `<b>Kekuatan Awal:</b> ${escapeHtml(confidenceText)}`,
+    "",
+    "🛡️ <b>Proteksi Aktif</b>",
+    "TP1 sudah tersentuh. Jika harga balik ke entry, hasil akan ditutup sebagai BE.",
+    note ? escapeHtml(note) : "",
+    "",
+    `🚀 <b>Dashboard:</b> ${escapeHtml(dashboardUrl)}`,
+    "",
+    "<i>Bukan financial advice.</i>"
+  ].filter(Boolean).join("\n");
 }
 
 function buildResultTelegramMessage(item, payload, result, livePrice, note, dashboardUrl) {
