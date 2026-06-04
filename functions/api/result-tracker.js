@@ -46,6 +46,7 @@ export async function buildTrackerSummary(dbUrl, env, shouldUpdate) {
   const controls = await getStrategyControls(dbUrl);
   const market = await fbGet(dbUrl, "/xauusd/latest");
   const livePrice = getMarketPrice(market);
+  const marketRange = buildMarketRange(market, livePrice);
   // Jangan batasi terlalu kecil. Sinyal M1 bisa muncul berdekatan, jadi cron harus scan semua posisi utama yang masih berjalan.
   const maxItemsRaw = Number(env.RESULT_TRACKER_MAX_ITEMS || 100);
   const maxItems = Math.max(50, Math.min(200, Number.isFinite(maxItemsRaw) ? maxItemsRaw : 100));
@@ -71,7 +72,7 @@ export async function buildTrackerSummary(dbUrl, env, shouldUpdate) {
   const updated = [];
 
   for (const item of allOpen) {
-    const result = evaluateItem(item, livePrice);
+    const result = evaluateItem(item, marketRange);
     checked.push({
       id: item.id,
       type: item.trackerType,
@@ -91,7 +92,7 @@ export async function buildTrackerSummary(dbUrl, env, shouldUpdate) {
         status: result.status || "CLOSED",
         result: result.result,
         closedAt: result.result ? closedAt : null,
-        resultPrice: livePrice,
+        resultPrice: result.resultPrice || livePrice,
         resultSource: "AUTO_RESULT_ENGINE",
         resultCheckedAt: closedAt,
         triggeredAt: result.triggeredAt || item.triggeredAt || null,
@@ -105,11 +106,11 @@ export async function buildTrackerSummary(dbUrl, env, shouldUpdate) {
       const isTp1BreakEvenUpdate = !result.result && result.patch?.tp1Hit === true;
 
       const alertResult = result.result && item.telegramResultAlert
-        ? await maybeSendResultAlert(env, item, payload, result.result, livePrice, result.note)
+        ? await maybeSendResultAlert(env, item, payload, result.result, result.resultPrice || livePrice, result.note)
         : { sent: false, skippedReason: result.result ? "RESULT_ALERT_DISABLED_FOR_TRACKER" : "PENDING_TRIGGER_ONLY" };
 
       const tp1AlertResult = isTp1BreakEvenUpdate && item.telegramResultAlert
-        ? await maybeSendTp1BreakEvenAlert(env, item, payload, livePrice, result.note)
+        ? await maybeSendTp1BreakEvenAlert(env, item, payload, result.resultPrice || livePrice, result.note)
         : { sent: false, skippedReason: isTp1BreakEvenUpdate ? "TP1_ALERT_DISABLED_FOR_TRACKER" : "NOT_TP1_UPDATE" };
 
       if (alertResult.sent) {
@@ -465,7 +466,7 @@ function escapeHtml(value) {
     .replace(/"/g, "&quot;");
 }
 
-function evaluateItem(item, livePrice) {
+function evaluateItem(item, marketContext) {
   const signal = String(item.signal || "").toUpperCase();
   const sl = toNumber(item.sl);
   const tp = getItemTp(item);
@@ -473,6 +474,11 @@ function evaluateItem(item, livePrice) {
   const entry = toNumber(item.entry);
   const status = String(item.status || "OPEN").toUpperCase();
   const breakEvenActive = item.breakEvenActive === true || item.beActive === true || item.tp1Hit === true;
+  const livePrice = Number(marketContext?.livePrice || 0);
+  const range = getRangeForItem(marketContext, item);
+  const highSinceEntry = Number.isFinite(range.high) ? range.high : livePrice;
+  const lowSinceEntry = Number.isFinite(range.low) ? range.low : livePrice;
+  const rangeNote = range.source === "CANDLE_RANGE" ? " berdasarkan range candle M1 sejak sinyal aktif" : " berdasarkan harga live";
 
   if (!Number.isFinite(livePrice) || livePrice <= 0) {
     return { result: null, note: "Harga live belum tersedia." };
@@ -519,28 +525,36 @@ function evaluateItem(item, livePrice) {
   }
 
   if (signal === "BUY") {
-    // Urutan aman: TP Max tetap WIN, lalu BE aktif jika sudah pernah kena TP1, lalu SL awal.
-    if (livePrice >= tp) return { result: "WIN", note: `TP Max tercapai otomatis di harga ${formatPrice(livePrice)}.` };
-    if (breakEvenActive && Number.isFinite(entry) && livePrice <= entry) {
-      return { result: "BE", note: `Harga kembali ke BE ${formatPrice(entry)} setelah TP1.` };
+    // Step 10BR: jangan hanya lihat last price. Jika candle M1 sempat wick ke TP1/TP/SL, cron tetap harus bisa membaca range high/low.
+    if (highSinceEntry >= tp) {
+      return { result: "WIN", resultPrice: Math.max(livePrice, tp), note: `TP Max tersentuh${rangeNote} di area ${formatPrice(Math.max(highSinceEntry, livePrice))}.` };
     }
-    if (livePrice <= sl) return { result: "LOSS", note: `SL tersentuh otomatis di harga ${formatPrice(livePrice)}.` };
+    if (breakEvenActive && Number.isFinite(entry) && lowSinceEntry <= entry) {
+      return { result: "BE", resultPrice: entry, note: `Harga kembali ke BE ${formatPrice(entry)} setelah TP1.` };
+    }
+    if (lowSinceEntry <= sl) {
+      return { result: "LOSS", resultPrice: Math.min(livePrice, sl), note: `SL tersentuh${rangeNote} di area ${formatPrice(Math.min(lowSinceEntry, livePrice))}.` };
+    }
 
-    if (Number.isFinite(tp1) && Number.isFinite(entry) && !item.tp1Hit && livePrice >= tp1) {
-      return buildBreakEvenPatch(item, entry, sl, livePrice, tp1);
+    if (Number.isFinite(tp1) && Number.isFinite(entry) && !item.tp1Hit && highSinceEntry >= tp1) {
+      return buildBreakEvenPatch(item, entry, sl, Math.max(livePrice, tp1), tp1, rangeNote);
     }
   }
 
   if (signal === "SELL") {
-    // Urutan aman: TP Max tetap WIN, lalu BE aktif jika sudah pernah kena TP1, lalu SL awal.
-    if (livePrice <= tp) return { result: "WIN", note: `TP Max tercapai otomatis di harga ${formatPrice(livePrice)}.` };
-    if (breakEvenActive && Number.isFinite(entry) && livePrice >= entry) {
-      return { result: "BE", note: `Harga kembali ke BE ${formatPrice(entry)} setelah TP1.` };
+    // Step 10BR: SELL juga memakai low/high candle supaya TP1/TP/SL yang tersentuh wick tidak kelewat saat cron berikutnya.
+    if (lowSinceEntry <= tp) {
+      return { result: "WIN", resultPrice: Math.min(livePrice, tp), note: `TP Max tersentuh${rangeNote} di area ${formatPrice(Math.min(lowSinceEntry, livePrice))}.` };
     }
-    if (livePrice >= sl) return { result: "LOSS", note: `SL tersentuh otomatis di harga ${formatPrice(livePrice)}.` };
+    if (breakEvenActive && Number.isFinite(entry) && highSinceEntry >= entry) {
+      return { result: "BE", resultPrice: entry, note: `Harga kembali ke BE ${formatPrice(entry)} setelah TP1.` };
+    }
+    if (highSinceEntry >= sl) {
+      return { result: "LOSS", resultPrice: Math.max(livePrice, sl), note: `SL tersentuh${rangeNote} di area ${formatPrice(Math.max(highSinceEntry, livePrice))}.` };
+    }
 
-    if (Number.isFinite(tp1) && Number.isFinite(entry) && !item.tp1Hit && livePrice <= tp1) {
-      return buildBreakEvenPatch(item, entry, sl, livePrice, tp1);
+    if (Number.isFinite(tp1) && Number.isFinite(entry) && !item.tp1Hit && lowSinceEntry <= tp1) {
+      return buildBreakEvenPatch(item, entry, sl, Math.min(livePrice, tp1), tp1, rangeNote);
     }
   }
 
@@ -553,7 +567,7 @@ function evaluateItem(item, livePrice) {
   return { result: null, note: "Masih berjalan. Belum menyentuh TP/SL/BE." };
 }
 
-function buildBreakEvenPatch(item, entry, sl, livePrice, tp1) {
+function buildBreakEvenPatch(item, entry, sl, livePrice, tp1, rangeNote = "") {
   const now = new Date().toISOString();
   return {
     result: null,
@@ -567,9 +581,10 @@ function buildBreakEvenPatch(item, entry, sl, livePrice, tp1) {
       breakEvenPrice: entry,
       originalSl: item.originalSl || sl,
       sl: entry,
-      note: `TP1 tercapai di harga ${formatPrice(livePrice)}. Batas risiko otomatis dipindahkan ke BE ${formatPrice(entry)}.`
+      note: `TP1 tercapai${rangeNote} di area ${formatPrice(livePrice)}. Batas risiko otomatis dipindahkan ke BE ${formatPrice(entry)}.`
     },
-    note: `TP1 tercapai di harga ${formatPrice(livePrice)}. Batas risiko otomatis dipindahkan ke BE ${formatPrice(entry)}.`
+    resultPrice: livePrice,
+    note: `TP1 tercapai${rangeNote} di area ${formatPrice(livePrice)}. Batas risiko otomatis dipindahkan ke BE ${formatPrice(entry)}.`
   };
 }
 
@@ -637,6 +652,91 @@ function isOpen(item) {
   const status = String(item?.status || "OPEN").toUpperCase();
   const result = String(item?.result || "").toUpperCase();
   return status !== "CLOSED" && !["WIN", "LOSS", "BE", "EXPIRED"].includes(result);
+}
+
+
+function buildMarketRange(market, livePrice) {
+  const candles = getMarketCandles(market);
+  return {
+    livePrice,
+    candles,
+    latestHigh: firstValidNumber(market?.high, market?.lastHigh, market?.latest?.high, market?.m1?.high),
+    latestLow: firstValidNumber(market?.low, market?.lastLow, market?.latest?.low, market?.m1?.low)
+  };
+}
+
+function getRangeForItem(marketContext = {}, item = {}) {
+  const livePrice = Number(marketContext.livePrice || 0);
+  const startedAt = firstValidTimeMs(
+    item.triggeredAt,
+    item.createdAt,
+    item.candleTime,
+    item.serverTime,
+    item.marketTime
+  );
+
+  let high = Number.isFinite(livePrice) && livePrice > 0 ? livePrice : NaN;
+  let low = Number.isFinite(livePrice) && livePrice > 0 ? livePrice : NaN;
+  let usedCandle = false;
+
+  for (const candle of marketContext.candles || []) {
+    const t = parseAnyTimeMs(candle?.time || candle?.datetime || candle?.timestamp || candle?.timeUnix);
+    if (startedAt && t && t + 60000 < startedAt - 1000) continue;
+    const cHigh = toNumber(candle?.high ?? candle?.h);
+    const cLow = toNumber(candle?.low ?? candle?.l);
+    if (Number.isFinite(cHigh)) {
+      high = Number.isFinite(high) ? Math.max(high, cHigh) : cHigh;
+      usedCandle = true;
+    }
+    if (Number.isFinite(cLow)) {
+      low = Number.isFinite(low) ? Math.min(low, cLow) : cLow;
+      usedCandle = true;
+    }
+  }
+
+  if (Number.isFinite(marketContext.latestHigh)) high = Number.isFinite(high) ? Math.max(high, marketContext.latestHigh) : marketContext.latestHigh;
+  if (Number.isFinite(marketContext.latestLow)) low = Number.isFinite(low) ? Math.min(low, marketContext.latestLow) : marketContext.latestLow;
+
+  return { high, low, source: usedCandle ? "CANDLE_RANGE" : "LIVE_PRICE" };
+}
+
+function getMarketCandles(market = {}) {
+  const candidates = [
+    market?.candles,
+    market?.m1,
+    market?.candles?.m1,
+    market?.candlesM1,
+    market?.latest?.candles,
+    market?.market?.candles
+  ];
+
+  for (const value of candidates) {
+    if (Array.isArray(value) && value.length) return value;
+  }
+  return [];
+}
+
+function firstValidTimeMs(...values) {
+  for (const value of values) {
+    const ms = parseAnyTimeMs(value);
+    if (ms) return ms;
+  }
+  return 0;
+}
+
+function parseAnyTimeMs(value) {
+  if (value == null || value === "") return 0;
+  if (typeof value === "number") {
+    if (value > 1000000000000) return value;
+    if (value > 1000000000) return value * 1000;
+  }
+  const raw = String(value).trim();
+  if (!raw) return 0;
+  const numeric = Number(raw);
+  if (Number.isFinite(numeric)) return numeric > 1000000000000 ? numeric : numeric > 1000000000 ? numeric * 1000 : 0;
+  const normalized = raw.includes("T") ? raw : raw.replace(/\./g, "-").replace(" ", "T");
+  const ms = new Date(normalized).getTime();
+  return Number.isFinite(ms) ? ms : 0;
 }
 
 function getMarketPrice(market) {

@@ -1,22 +1,16 @@
-# Step 10BQ — Smart Swing Anchor SL Fix
+# Step 10BR — Result Tracker Candle Range TP1 Fix
 
-## Tujuan
-Merapikan posisi SL untuk strategi utama **M1 EMA Cross Direct Entry** agar SELL lebih sering memakai swing high pullback terakhir sebelum breakdown/cross, dan BUY memakai swing low pullback terakhir sebelum breakout/cross.
+Fix auto result agar TP1 / TP Max / SL / BE tidak kelewat ketika harga sempat menyentuh level lewat wick candle M1, lalu live price sudah balik saat cron berikutnya berjalan.
 
-## Perubahan
-- Logic SL tidak hanya memilih swing terdekat yang sangat kecil.
-- Lookback anchor diperluas ke ±15 candle M1 sebelum candle entry.
-- Batas 2.5 ATR tetap menjadi soft limit.
-- Swing visual yang valid masih bisa dipakai sampai hard limit ±4 ATR agar swing utama tidak langsung diskip.
-- Fallback tetap memakai high/low terbaru kalau swing confirmed belum ada.
-- Debug structure menampilkan sumber swing, waktu swing, index, soft max distance, dan hard max distance.
+## Update
+- Result tracker tidak hanya mengecek `lastPrice`.
+- Cron juga membaca high/low candle M1 sejak sinyal aktif.
+- BUY: TP1/TP Max dicek dari high, SL/BE dicek dari low.
+- SELL: TP1/TP Max dicek dari low, SL/BE dicek dari high.
+- Jika TP1 tersentuh, SL otomatis pindah ke BE dan Telegram TP1 tetap dikirim 1x.
 
-## Rule aktif tetap sama
-- BUY: EMA9 cross up EMA20, candle M1 close di atas EMA9/EMA20.
-- SELL: EMA9 cross down EMA20, candle M1 close di bawah EMA9/EMA20.
-- SL: Smart swing anchor ± 0.2 ATR.
-- TP Max: RR 1:1.25.
-- TP1: 50% jarak menuju TP Max, lalu SL pindah ke BE.
-
-## Catatan
-Strategi, Telegram, auto result, TP1/BE, RTDB Lite, dan candle close sync tidak diubah. Step ini hanya memperbaiki pemilihan anchor SL.
+## Strategi tetap
+- M1 EMA Cross Direct Entry.
+- SL Smart Swing ± 0.2 ATR.
+- TP Max RR 1:1.25.
+- TP1 aktifkan BE.

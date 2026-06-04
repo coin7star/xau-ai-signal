@@ -1,6 +1,6 @@
 {
   "name": "xau-ai-signal-step10bq-smart-swing-anchor-sl-fix",
-  "version": "7.61.0-step10bq-smart-swing-anchor-sl-fix",
+  "version": "7.62.0-step10br-result-tracker-candle-range-tp1-fix",
   "type": "module",
   "scripts": {
     "dev": "vite",
