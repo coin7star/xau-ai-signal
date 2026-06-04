@@ -1,6 +1,6 @@
 {
-  "name": "xau-ai-signal-step10by-limit-analytics-isolation-fix",
-  "version": "7.70.0-step10ca-limit-rr-safety-fix",
+  "name": "xau-ai-signal-step10cb-clear-history-trade-controls",
+  "version": "7.71.0-step10cb-clear-history-trade-controls",
   "type": "module",
   "scripts": {
     "dev": "vite",

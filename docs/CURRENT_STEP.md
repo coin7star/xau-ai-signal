@@ -1,13 +1,25 @@
-# Step 10CA — Limit RR Safety Fix
+# Step 10CB — Clear History Trade Controls
 
-Update ini memperbaiki plan Limit Pullback agar TP RR 1:1 tidak terlalu pendek karena limit terlalu dekat dengan SL.
+## Update
+Menambahkan kontrol admin untuk membersihkan history trade langsung dari dashboard tanpa harus hapus manual lewat Firebase RTDB.
 
-## Perubahan
-- BUY Limit tetap dibuat mudah tersentuh, tapi tidak boleh terlalu dekat dengan SL.
-- SELL Limit tetap dibuat mudah tersentuh, tapi tidak boleh terlalu dekat dengan SL.
-- Ditambah `minLimitRisk` sebagai jarak minimal dari limit ke SL.
-- TP Limit tetap RR 1:1 dari jarak limit ke SL.
-- TP1 Limit tetap 50% menuju TP Max, lalu BE.
+## File penting
+- `functions/api/history-reset.js`
+- `src/App.jsx`
+- `src/style.css`
+- `package.json`
+
+## Fitur
+- Tombol **Clear History Trade** di panel Reset Analisis.
+- Menghapus `/xauusd/callHistory` dari RTDB.
+- Menyimpan audit kecil di `/xauusd/historyReset`.
+- Otomatis reset titik analisis supaya WR, TP1/BE, dan Limit Pullback mulai dari nol.
+- Tidak menghapus market feed MT5, candle, Telegram connect, user premium, payment/admin data, atau setting strategi.
+
+## Pengaman
+- Wajib admin token.
+- Wajib konfirmasi dua tahap.
+- Prompt harus mengetik `CLEAR_HISTORY` agar tidak kepencet tidak sengaja.
 
 ## Catatan
-Strategi utama, entry agresif, cron result, Telegram, dan analytics reset tidak diubah.
+Gunakan Clear History Trade hanya saat ingin mulai forward test baru dari nol. Kalau hanya ingin reset statistik tanpa hapus riwayat, gunakan **Reset Limit** atau **Reset Semua Analisis**.

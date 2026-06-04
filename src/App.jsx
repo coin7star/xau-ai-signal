@@ -510,6 +510,47 @@ function AppInner() {
   }
 
 
+  async function clearTradeHistory() {
+    if (!adminToken) {
+      alert("Isi ADMIN_ACTION_TOKEN dulu.");
+      return;
+    }
+
+    const warning = "Hapus semua history trade sinyal utama?\n\nWR, TP1/BE, Limit analytics, dan daftar Riwayat Sinyal akan kosong lagi.\nData market/MT5 dan Telegram connect tidak dihapus.";
+    const ok = window.confirm(warning);
+    if (!ok) return;
+
+    const confirmText = window.prompt("Ketik CLEAR_HISTORY untuk konfirmasi hapus history trade:");
+    if (String(confirmText || "").trim().toUpperCase() !== "CLEAR_HISTORY") {
+      alert("Dibatalkan. Konfirmasi tidak cocok.");
+      return;
+    }
+
+    try {
+      const res = await fetch("/api/history-reset", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          ...(adminToken ? { Authorization: `Bearer ${adminToken}` } : {})
+        },
+        body: JSON.stringify({ token: adminToken, confirm: "CLEAR_HISTORY" })
+      });
+
+      const json = await res.json();
+      if (!json.ok) {
+        alert(json.error || "Gagal clear history trade");
+        return;
+      }
+
+      alert(json.message || "History trade berhasil dibersihkan.");
+      await loadHistoryData();
+      await loadCronHealth();
+    } catch (err) {
+      alert(err.message || String(err));
+    }
+  }
+
+
   async function updateScalpResult(id, result) {
     if (!id) return;
 
@@ -1395,6 +1436,7 @@ function AppInner() {
             isAdmin={isAdmin}
             adminToken={adminToken}
             onResetAnalytics={resetAnalytics}
+            onClearTradeHistory={clearTradeHistory}
           />
 
           <section className="historyPanel card">
@@ -3464,7 +3506,7 @@ function formatSecondsToAge(value) {
   return restHour ? `${day} hari ${restHour} jam` : `${day} hari`;
 }
 
-function PerformanceAnalyticsPanel({ callHistory, scalpHistory, isAdmin, adminToken, onResetAnalytics }) {
+function PerformanceAnalyticsPanel({ callHistory, scalpHistory, isAdmin, adminToken, onResetAnalytics, onClearTradeHistory }) {
   const callItems = callHistory?.history || [];
   const analyticsReset = callHistory?.analyticsReset || {};
 
@@ -3512,6 +3554,7 @@ function PerformanceAnalyticsPanel({ callHistory, scalpHistory, isAdmin, adminTo
           analyticsReset={analyticsReset}
           adminToken={adminToken}
           onResetAnalytics={onResetAnalytics}
+          onClearTradeHistory={onClearTradeHistory}
         />
       )}
 
@@ -3529,7 +3572,7 @@ function PerformanceAnalyticsPanel({ callHistory, scalpHistory, isAdmin, adminTo
 
 
 
-function AnalyticsResetPanel({ analyticsReset, adminToken, onResetAnalytics }) {
+function AnalyticsResetPanel({ analyticsReset, adminToken, onResetAnalytics, onClearTradeHistory }) {
   const allStart = analyticsReset?.allStartAt || null;
   const limitStart = analyticsReset?.limitStartAt || null;
 
@@ -3537,7 +3580,7 @@ function AnalyticsResetPanel({ analyticsReset, adminToken, onResetAnalytics }) {
     <div className="analyticsResetBox">
       <div>
         <b>Reset Analisis</b>
-        <span>Reset hanya mengubah titik mulai hitungan analisis. History trade tetap aman dan tidak dihapus.</span>
+        <span>Reset analisis tidak menghapus history. Clear history trade akan mengosongkan riwayat sinyal utama dan membuat statistik mulai dari nol.</span>
         <small>
           Semua analisis: {allStart ? formatHistoryTime(allStart) : "Belum direset"} · Limit: {limitStart ? formatHistoryTime(limitStart) : "Belum direset"}
         </small>
@@ -3545,6 +3588,7 @@ function AnalyticsResetPanel({ analyticsReset, adminToken, onResetAnalytics }) {
       <div className="analyticsResetActions">
         <button type="button" onClick={() => onResetAnalytics?.("limit")} disabled={!adminToken}>Reset Limit</button>
         <button type="button" onClick={() => onResetAnalytics?.("all")} disabled={!adminToken}>Reset Semua Analisis</button>
+        <button type="button" className="dangerSoft" onClick={() => onClearTradeHistory?.()} disabled={!adminToken}>Clear History Trade</button>
       </div>
     </div>
   );

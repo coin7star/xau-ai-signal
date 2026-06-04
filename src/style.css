@@ -5912,6 +5912,12 @@ canvas {
   background: linear-gradient(135deg, #fff36e, #3bf587);
 }
 
+.analyticsResetActions button.dangerSoft {
+  color: #fff4f4;
+  background: linear-gradient(135deg, rgba(255, 88, 88, 0.92), rgba(255, 147, 79, 0.92));
+  box-shadow: 0 12px 30px rgba(255, 88, 88, 0.18);
+}
+
 .analyticsResetActions button:disabled {
   opacity: 0.55;
   cursor: not-allowed;
