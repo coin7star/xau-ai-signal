@@ -951,6 +951,12 @@ function buildPullbackLimitPlan({ direction, entry, ema9, ema20, atrValue, sl, t
   const zoneLow = lowerEma - buffer;
   const zoneHigh = upperEma + buffer;
 
+  // Step 10CA:
+  // Limit pullback harus tetap enak disentuh, tapi tidak boleh terlalu mepet ke SL.
+  // Kalau limit terlalu dekat SL, TP RR 1:1 jadi sangat pendek dan tidak layak untuk user manual.
+  const aggressiveRisk = Math.abs(e - stop);
+  const minLimitRisk = Math.max(atrNum * 0.45, aggressiveRisk * 0.45, e * 0.00008);
+
   let limitEntry = 0;
   let type = "WAIT";
   let status = "READY";
@@ -963,8 +969,11 @@ function buildPullbackLimitPlan({ direction, entry, ema9, ema20, atrValue, sl, t
     // Cap tetap di bawah entry agresif, tapi jaraknya tidak terlalu jauh supaya limit lebih mudah kena.
     const buyCap = e - minGapFromAggressive;
     limitEntry = Math.min(buyCap, Math.max(zoneLow, preferredBuyLimit));
+    // Jangan biarkan BUY limit terlalu dekat dengan SL, karena TP RR 1:1 akan terlalu pendek.
+    limitEntry = Math.max(limitEntry, stop + minLimitRisk);
+    limitEntry = Math.min(limitEntry, buyCap);
     if (!(limitEntry > stop && limitEntry < e && target2 > limitEntry)) status = "INFO_ONLY";
-    note = "Entry agresif mengikuti cross. Jika harga sudah jalan, opsi kedua adalah BUY limit di area pullback EMA dengan touch buffer lebih mudah kena. Jangan kejar harga jika sudah jauh dari entry agresif.";
+    note = "Entry agresif mengikuti cross. Jika harga sudah jalan, opsi kedua adalah BUY limit di area pullback EMA dengan touch buffer lebih mudah kena. Limit dijaga tidak terlalu dekat dengan SL agar RR 1:1 tetap masuk akal.";
   }
 
   if (side === "SELL") {
@@ -975,8 +984,11 @@ function buildPullbackLimitPlan({ direction, entry, ema9, ema20, atrValue, sl, t
     // Floor tetap di atas entry agresif, tapi jangan terlalu jauh supaya pullback kecil masih bisa menyentuh.
     const sellFloor = e + minGapFromAggressive;
     limitEntry = Math.max(sellFloor, Math.min(zoneHigh, preferredSellLimit));
+    // Jangan biarkan SELL limit terlalu dekat dengan SL, karena TP RR 1:1 akan terlalu pendek.
+    limitEntry = Math.min(limitEntry, stop - minLimitRisk);
+    limitEntry = Math.max(limitEntry, sellFloor);
     if (!(limitEntry < stop && limitEntry > e && target2 < limitEntry)) status = "INFO_ONLY";
-    note = "Entry agresif mengikuti cross. Jika harga sudah jalan, opsi kedua adalah SELL limit di area pullback EMA atas dengan touch buffer lebih mudah kena. Jangan kejar harga jika sudah jauh dari entry agresif.";
+    note = "Entry agresif mengikuti cross. Jika harga sudah jalan, opsi kedua adalah SELL limit di area pullback EMA atas dengan touch buffer lebih mudah kena. Limit dijaga tidak terlalu dekat dengan SL agar RR 1:1 tetap masuk akal.";
   }
 
   const limitRisk = side === "BUY" ? Math.abs(limitEntry - stop) : Math.abs(stop - limitEntry);
@@ -999,6 +1011,7 @@ function buildPullbackLimitPlan({ direction, entry, ema9, ema20, atrValue, sl, t
     ema9: round(emaFast),
     ema20: round(emaSlow),
     buffer: round(buffer),
+    minLimitRisk: round(minLimitRisk),
     sl: round(stop),
     aggressiveTp1: round(target1),
     aggressiveTp2: round(target2),

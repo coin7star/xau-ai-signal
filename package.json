@@ -1,6 +1,6 @@
 {
   "name": "xau-ai-signal-step10by-limit-analytics-isolation-fix",
-  "version": "7.70.0-step10bz-reset-analytics-controls",
+  "version": "7.70.0-step10ca-limit-rr-safety-fix",
   "type": "module",
   "scripts": {
     "dev": "vite",

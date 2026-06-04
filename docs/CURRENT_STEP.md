@@ -1,29 +1,13 @@
-# Step 10BZ — Reset Analytics Controls
+# Step 10CA — Limit RR Safety Fix
 
-Update ini menambahkan kontrol reset analisis tanpa menghapus history trade.
+Update ini memperbaiki plan Limit Pullback agar TP RR 1:1 tidak terlalu pendek karena limit terlalu dekat dengan SL.
 
-## Fitur
-
-- Reset Analisis Limit Pullback mulai dari waktu sekarang.
-- Reset Semua Analisis mulai dari waktu sekarang.
-- History sinyal tetap aman dan tidak dihapus.
-- Reset disimpan di Firebase path `/xauusd/analyticsReset`.
-- Panel performa 7D/30D membaca data hanya setelah waktu reset.
-
-## Analisis yang terdampak
-
-### Reset Limit
-
-Hanya panel Analisis Limit Pullback yang mulai dari 0 lagi.
-
-### Reset Semua Analisis
-
-Panel berikut mulai hitung dari waktu reset:
-
-- Performa 7/30 Hari
-- Analisis TP1 & BE
-- Analisis Limit Pullback
+## Perubahan
+- BUY Limit tetap dibuat mudah tersentuh, tapi tidak boleh terlalu dekat dengan SL.
+- SELL Limit tetap dibuat mudah tersentuh, tapi tidak boleh terlalu dekat dengan SL.
+- Ditambah `minLimitRisk` sebagai jarak minimal dari limit ke SL.
+- TP Limit tetap RR 1:1 dari jarak limit ke SL.
+- TP1 Limit tetap 50% menuju TP Max, lalu BE.
 
 ## Catatan
-
-Reset ini tidak menghapus history trade. Untuk menghapus history trade, harus dilakukan manual di Firebase, tetapi tidak disarankan karena data WR dan evaluasi strategi akan hilang.
+Strategi utama, entry agresif, cron result, Telegram, dan analytics reset tidak diubah.
