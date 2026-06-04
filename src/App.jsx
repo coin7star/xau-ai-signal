@@ -3217,15 +3217,14 @@ function UserPaymentHistoryCard({ user }) {
 
 function ResultTrackerPrepPanel({ callHistory, scalpHistory, market, signal, isAdmin, adminToken, trackerState, onRunTracker, cronHealth, onRefreshCronHealth }) {
   const callItems = callHistory?.history || [];
-  const scalpItems = scalpHistory?.history || [];
-  const allItems = [
-    ...callItems.map((item) => ({ ...item, trackerType: "SINYAL UTAMA" })),
-    ...scalpItems.map((item) => ({ ...item, trackerType: "SCALP M5" }))
-  ];
-  const runningItems = allItems.filter((item) => isOpenResult(item)).slice(0, 5);
+  // Fokus versi sekarang hanya sinyal utama. Data Scalp lama tidak ikut dihitung supaya angka Auto Result sinkron dengan history utama.
+  const allItems = callItems.map((item) => ({ ...item, trackerType: "SINYAL UTAMA" }));
+  const allRunningItems = allItems.filter((item) => isOpenResult(item));
+  const runningItems = allRunningItems;
   const closedItems = allItems.filter((item) => !isOpenResult(item));
+  const shouldScrollQueue = allRunningItems.length > 6;
   const lastPrice = getTrackerMarketPrice(market, signal);
-  const trackerReady = runningItems.length > 0 && lastPrice;
+  const trackerReady = allRunningItems.length > 0 && lastPrice;
   const updatedCount = trackerState?.updatedCount || 0;
   const scannedCount = trackerState?.scanned || 0;
   const resultAlertSentCount = trackerState?.resultAlertSentCount || 0;
@@ -3248,8 +3247,8 @@ function ResultTrackerPrepPanel({ callHistory, scalpHistory, market, signal, isA
       <div className="trackerSummaryGrid">
         <div>
           <small>Sinyal Aktif</small>
-          <strong>{runningItems.length}</strong>
-          <span>Sinyal yang masih berjalan dan belum selesai.</span>
+          <strong>{allRunningItems.length}</strong>
+          <span>Sinyal utama yang masih berjalan dan belum selesai.</span>
         </div>
         <div>
           <small>Sinyal Selesai</small>
@@ -3294,7 +3293,7 @@ function ResultTrackerPrepPanel({ callHistory, scalpHistory, market, signal, isA
         </div>
       )}
 
-      <div className="trackerQueue">
+      <div className={`trackerQueue ${shouldScrollQueue ? "scrollMode" : ""}`}>
         <div className="trackerQueueHead">
           <span>Sinyal</span>
           <span>Harga Masuk</span>
@@ -3309,7 +3308,10 @@ function ResultTrackerPrepPanel({ callHistory, scalpHistory, market, signal, isA
             <em className={`resultBadge ${getResultStatusTone(item)}`}>{formatResultStatus(item)}</em>
           </div>
         ))}
-        {runningItems.length === 0 && (
+        {shouldScrollQueue && (
+          <div className="trackerQueueInfo">Semua sinyal aktif ditampilkan. Scroll daftar ini untuk melihat sinyal lama tanpa membuat halaman terlalu panjang.</div>
+        )}
+        {allRunningItems.length === 0 && (
           <div className="trackerEmpty">Belum ada sinyal aktif. Sinyal yang sedang berjalan akan tampil di sini.</div>
         )}
       </div>

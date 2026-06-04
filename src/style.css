@@ -4169,6 +4169,28 @@ canvas {
   gap: 8px;
 }
 
+.trackerQueue.scrollMode {
+  max-height: 520px;
+  overflow-y: auto;
+  padding-right: 6px;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(96, 239, 255, .55) rgba(255, 255, 255, .06);
+}
+
+.trackerQueue.scrollMode::-webkit-scrollbar {
+  width: 8px;
+}
+
+.trackerQueue.scrollMode::-webkit-scrollbar-track {
+  background: rgba(255, 255, 255, .06);
+  border-radius: 999px;
+}
+
+.trackerQueue.scrollMode::-webkit-scrollbar-thumb {
+  background: linear-gradient(180deg, rgba(96,239,255,.72), rgba(190,142,255,.66));
+  border-radius: 999px;
+}
+
 .trackerQueueHead,
 .trackerQueueRow {
   display: grid;
@@ -4184,6 +4206,16 @@ canvas {
   letter-spacing: .08em;
   font-size: 12px;
   font-weight: 900;
+}
+
+.trackerQueue.scrollMode .trackerQueueHead {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  padding-top: 8px;
+  border-radius: 14px;
+  background: linear-gradient(135deg, rgba(9, 15, 32, .98), rgba(4, 30, 34, .96));
+  backdrop-filter: blur(10px);
 }
 
 .trackerQueueRow {
@@ -4208,6 +4240,16 @@ canvas {
 .trackerQueueRow strong.call_sell,
 .trackerQueueRow strong.scalp_sell {
   color: #ffb1c0;
+}
+
+.trackerQueueInfo {
+  padding: 12px 14px;
+  border-radius: 16px;
+  background: rgba(96, 239, 255, .08);
+  border: 1px solid rgba(96, 239, 255, .16);
+  color: #c7d2fe;
+  font-weight: 800;
+  line-height: 1.45;
 }
 
 .trackerEmpty {
@@ -4253,6 +4295,10 @@ canvas {
 
   .trackerQueueHead {
     display: none;
+  }
+
+  .trackerQueue.scrollMode {
+    max-height: 430px;
   }
 
   .trackerQueueRow {

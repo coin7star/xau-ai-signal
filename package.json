@@ -1,6 +1,6 @@
 {
-  "name": "xau-ai-signal-step10be-dashboard-refresh-3s",
-  "version": "7.49.0-step10be-dashboard-refresh-3s",
+  "name": "xau-ai-signal-step10bg-result-queue-scroll-all",
+  "version": "7.51.0-step10bg-result-queue-scroll-all",
   "type": "module",
   "scripts": {
     "dev": "vite",

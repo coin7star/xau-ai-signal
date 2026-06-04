@@ -46,7 +46,9 @@ export async function buildTrackerSummary(dbUrl, env, shouldUpdate) {
   const controls = await getStrategyControls(dbUrl);
   const market = await fbGet(dbUrl, "/xauusd/latest");
   const livePrice = getMarketPrice(market);
-  const maxItems = Number(env.RESULT_TRACKER_MAX_ITEMS || 20);
+  // Jangan batasi terlalu kecil. Sinyal M1 bisa muncul berdekatan, jadi cron harus scan semua posisi utama yang masih berjalan.
+  const maxItemsRaw = Number(env.RESULT_TRACKER_MAX_ITEMS || 100);
+  const maxItems = Math.max(50, Math.min(200, Number.isFinite(maxItemsRaw) ? maxItemsRaw : 100));
   const mainExpireHours = Number(env.RESULT_TRACKER_MAIN_EXPIRE_HOURS || 24);
   const [callRaw] = await Promise.all([
     fbGet(dbUrl, "/xauusd/callHistory")
@@ -60,6 +62,10 @@ export async function buildTrackerSummary(dbUrl, env, shouldUpdate) {
     .filter(isOpen)
     .sort((a, b) => String(a.createdAt || "").localeCompare(String(b.createdAt || "")))
     .slice(0, maxItems);
+
+  const totalOpenCount = [
+    ...callItems.map((item) => ({ ...item, trackerType: "MAIN_CALL", path: "/xauusd/callHistory", expireHours: mainExpireHours, telegramResultAlert: controls.mainSignalResultAlert !== false }))
+  ].filter(isOpen).length;
 
   const checked = [];
   const updated = [];
@@ -154,6 +160,8 @@ export async function buildTrackerSummary(dbUrl, env, shouldUpdate) {
     checkedAt: new Date().toISOString(),
     livePrice,
     scanned: allOpen.length,
+    totalOpenCount,
+    maxItems,
     updatedCount: updated.length,
     resultAlertSentCount: updated.filter((item) => item.resultAlertSent).length,
     resultAlertSkippedCount: updated.filter((item) => item.resultAlertSkippedReason).length,
