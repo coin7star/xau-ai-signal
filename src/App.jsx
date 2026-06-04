@@ -1268,9 +1268,9 @@ function AppInner() {
               </div>
             )}
 
-            {(callHistory?.history || []).length > 8 && (
+            {(scalpHistory?.history || []).length > 8 && (
               <div className="historyScrollNote">
-                Semua riwayat sinyal ditampilkan. Scroll daftar ini supaya halaman tetap rapi dan tidak terlalu panjang.
+                Semua riwayat scalp ditampilkan. Scroll daftar ini supaya halaman tetap rapi dan tidak terlalu panjang.
               </div>
             )}
 
@@ -1382,7 +1382,13 @@ function AppInner() {
               </div>
             )}
 
-            <div className="historyTable">
+            {(callHistory?.history || []).length > 6 && (
+              <div className="historyScrollNote">
+                Semua riwayat sinyal ditampilkan. Scroll daftar ini supaya halaman tetap rapi dan tidak terlalu panjang.
+              </div>
+            )}
+
+            <div className="historyTable mainHistoryScrollTable">
               <div className={`historyHead ${isAdmin ? "adminMode" : "viewerMode"}`}>
                 <span>Waktu</span>
                 <span>Sinyal</span>

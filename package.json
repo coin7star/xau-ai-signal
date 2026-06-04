@@ -1,6 +1,6 @@
 {
-  "name": "xau-ai-signal-step10bh-history-scroll-all",
-  "version": "7.52.0-step10bh-history-scroll-all",
+  "name": "xau-ai-signal-step10bi-history-scroll-wrapper-fix",
+  "version": "7.53.0-step10bi-history-scroll-wrapper-fix",
   "type": "module",
   "scripts": {
     "dev": "vite",

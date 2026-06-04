@@ -115,10 +115,11 @@
 }
 
 .mainHistoryScrollTable {
-  max-height: 640px;
-  overflow-y: auto;
+  max-height: 560px;
+  min-height: 220px;
+  overflow-y: scroll;
   overflow-x: hidden;
-  padding-right: 8px;
+  padding: 0 8px 6px 0;
   scrollbar-width: thin;
   scrollbar-color: rgba(96, 239, 255, .55) rgba(255, 255, 255, .06);
 }
@@ -149,7 +150,8 @@
 
 @media(max-width: 900px) {
   .mainHistoryScrollTable {
-    max-height: 520px;
+    max-height: 430px;
+    min-height: 220px;
     padding-right: 4px;
   }
 }
