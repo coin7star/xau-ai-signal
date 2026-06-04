@@ -48,31 +48,44 @@ export async function onRequest({ request, env }) {
     const nowIso = new Date().toISOString();
     const rawCandles = Array.isArray(body.candles) ? body.candles : [];
     const closedFromBody = body.lastClosedCandle || body.closedCandle || body.m1ClosedCandle || body.lastClosedM1 || null;
-    const candles = normalizeClosedM1Candles(rawCandles, closedFromBody, body.serverTime || body.time || nowIso).slice(-180);
-    const lastClosed = candles[candles.length - 1] || null;
+
+    // Step 10BP:
+    // EA v2.2 mengirim latest price setiap 1-2 detik, tapi full candle array hanya saat M1 close / force sync.
+    // Jangan overwrite /xauusd/latest.candles menjadi hanya 1 candle saat packet latest-only masuk.
+    const previousData = await fbGet(dbUrl, "/xauusd/latest");
+    const previousCandles = Array.isArray(previousData?.candles) ? previousData.candles : [];
+    const isFullCandlePacket = body.sendFullCandles === true || rawCandles.length >= 20;
+    const candleSource = isFullCandlePacket ? rawCandles : previousCandles;
+    const candles = normalizeClosedM1Candles(candleSource, closedFromBody, body.serverTime || body.time || nowIso).slice(-180);
+    const lastClosed = candles[candles.length - 1] || normalizeCandle(closedFromBody) || previousData?.lastClosedCandle || null;
     // Step 10AQ: M15 chart/OB disembunyikan agar payload RTDB lebih ringan.
     const candlesM15 = [];
 
-    const bid = Number(body.bid || body.lastPrice || body.price || 0);
-    const ask = Number(body.ask || body.lastPrice || body.price || bid || 0);
-    const lastPrice = Number(body.lastPrice || body.price || body.close || ((bid && ask) ? (bid + ask) / 2 : bid || ask || 0));
+    const bid = Number(body.bid || body.lastPrice || body.price || previousData?.bid || 0);
+    const ask = Number(body.ask || body.lastPrice || body.price || previousData?.ask || bid || 0);
+    const lastPrice = Number(body.lastPrice || body.price || body.close || previousData?.lastPrice || previousData?.price || ((bid && ask) ? (bid + ask) / 2 : bid || ask || 0));
 
     const payload = {
+      ...(previousData && typeof previousData === "object" ? previousData : {}),
       ok: true,
       source: "mt5",
       symbol,
-      timeframe: body.timeframe || "M1",
+      rawSymbol: body.rawSymbol || symbol,
+      timeframe: body.timeframe || previousData?.timeframe || "M1",
       obTimeframe: "M5_ONLY",
       bid,
       ask,
       lastPrice,
       price: lastPrice,
-      digits: Number(body.digits || 2),
-      serverTime: body.serverTime || null,
+      spreadPoints: Number(body.spreadPoints ?? previousData?.spreadPoints ?? 0),
+      digits: Number(body.digits || previousData?.digits || 2),
+      serverTime: body.serverTime || previousData?.serverTime || null,
+      serverTimeUnix: Number(body.serverTimeUnix || previousData?.serverTimeUnix || 0),
       receivedAt: nowIso,
       tickUpdatedAt: nowIso,
       lastClosedCandle: lastClosed,
-      lastClosedCandleTime: lastClosed?.time || null,
+      lastClosedCandleTime: lastClosed?.time || previousData?.lastClosedCandleTime || null,
+      lastClosedCandleTimeUnix: Number(body.lastClosedCandleTimeUnix || previousData?.lastClosedCandleTimeUnix || 0),
       candleSync: buildCandleSyncMeta({ candles, serverTime: body.serverTime || nowIso, receivedAt: nowIso }),
       candles,
       candlesM15: []
@@ -82,10 +95,13 @@ export async function onRequest({ request, env }) {
 
     return j({
       ok: true,
-      message: "Market data saved to Firebase (RTDB Lite Mode)",
+      message: isFullCandlePacket
+        ? "Market full candles saved to Firebase (RTDB Lite Mode)"
+        : "Market latest price saved, previous candles preserved (RTDB Lite Mode)",
       symbol,
       candleCount: candles.length,
       candleM15Count: 0,
+      packet: isFullCandlePacket ? "full-candles" : "latest-only-preserve-candles",
       receivedAt: payload.receivedAt
     });
   }

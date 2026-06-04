@@ -1,6 +1,6 @@
 {
-  "name": "xau-ai-signal-step10bo-mt5-m1-candle-close-sync-fix",
-  "version": "7.59.0-step10bo-mt5-m1-candle-close-sync-fix",
+  "name": "xau-ai-signal-step10bp-chart-candles-preserve-fix",
+  "version": "7.60.0-step10bp-chart-candles-preserve-fix",
   "type": "module",
   "scripts": {
     "dev": "vite",
