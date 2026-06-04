@@ -558,6 +558,9 @@ function evaluateItem(item, marketContext) {
     }
   }
 
+  const limitUpdate = evaluatePullbackLimitPlan(item, signal, highSinceEntry, lowSinceEntry, livePrice);
+  if (limitUpdate) return limitUpdate;
+
   const ageHours = getAgeHours(item.createdAt || item.candleTime || item.serverTime);
   const expireHours = Number(item.expireHours || 24);
   if (ageHours >= expireHours) {
@@ -565,6 +568,100 @@ function evaluateItem(item, marketContext) {
   }
 
   return { result: null, note: "Masih berjalan. Belum menyentuh TP/SL/BE." };
+}
+
+
+function evaluatePullbackLimitPlan(item, signal, highSinceEntry, lowSinceEntry, livePrice) {
+  const plan = item.pullbackLimitPlan || item.strategySnapshot?.mainM5?.pullbackLimitPlan || null;
+  if (!plan || plan.enabled === false) return null;
+  if (item.pullbackLimitResult) return null;
+
+  const limitEntry = toNumber(plan.limitEntry || item.limitEntry);
+  const sl = toNumber(plan.sl || item.sl);
+  const tp1 = toNumber(plan.limitTp1 || plan.tp1);
+  const tp2 = toNumber(plan.limitTp2 || plan.tp2);
+  if (!Number.isFinite(limitEntry) || !Number.isFinite(sl) || !Number.isFinite(tp1) || !Number.isFinite(tp2)) return null;
+
+  const side = String(signal || item.signal || plan.direction || "").toUpperCase();
+  const alreadyTriggered = item.pullbackLimitTriggered === true;
+  const touchLimit = side === "BUY" ? lowSinceEntry <= limitEntry : side === "SELL" ? highSinceEntry >= limitEntry : false;
+  const triggered = alreadyTriggered || touchLimit;
+  if (!triggered) return null;
+
+  const patch = {
+    pullbackLimitTriggered: true,
+    pullbackLimitTriggeredAt: item.pullbackLimitTriggeredAt || new Date().toISOString(),
+    pullbackLimitEntry: limitEntry,
+    pullbackLimitSl: item.pullbackLimitSl || sl,
+    pullbackLimitTp1: tp1,
+    pullbackLimitTp2: tp2,
+    pullbackLimitRr: "1:1",
+    pullbackLimitStatus: "OPEN"
+  };
+
+  if (side === "BUY") {
+    if (highSinceEntry >= tp2) {
+      patch.pullbackLimitResult = "WIN";
+      patch.pullbackLimitStatus = "CLOSED";
+      patch.pullbackLimitClosedAt = new Date().toISOString();
+      patch.pullbackLimitResultPrice = tp2;
+      return { result: null, status: "OPEN", patch, resultPrice: livePrice, note: `Limit BUY pullback tersentuh lalu TP Max RR 1:1 tercapai di ${formatPrice(tp2)}.` };
+    }
+    if ((item.pullbackLimitBeActive || item.pullbackLimitTp1Hit) && lowSinceEntry <= limitEntry) {
+      patch.pullbackLimitResult = "BE";
+      patch.pullbackLimitStatus = "CLOSED";
+      patch.pullbackLimitClosedAt = new Date().toISOString();
+      patch.pullbackLimitResultPrice = limitEntry;
+      return { result: null, status: "OPEN", patch, resultPrice: livePrice, note: `Limit BUY pullback balik ke BE ${formatPrice(limitEntry)} setelah TP1.` };
+    }
+    if (!item.pullbackLimitTp1Hit && highSinceEntry >= tp1) {
+      patch.pullbackLimitTp1Hit = true;
+      patch.pullbackLimitTp1HitAt = item.pullbackLimitTp1HitAt || new Date().toISOString();
+      patch.pullbackLimitBeActive = true;
+      patch.pullbackLimitBePrice = limitEntry;
+      return { result: null, status: "OPEN", patch, resultPrice: livePrice, note: `Limit BUY pullback menyentuh TP1 ${formatPrice(tp1)}. SL limit naik ke BE ${formatPrice(limitEntry)}.` };
+    }
+    if (!item.pullbackLimitTp1Hit && lowSinceEntry <= sl) {
+      patch.pullbackLimitResult = "LOSS";
+      patch.pullbackLimitStatus = "CLOSED";
+      patch.pullbackLimitClosedAt = new Date().toISOString();
+      patch.pullbackLimitResultPrice = sl;
+      return { result: null, status: "OPEN", patch, resultPrice: livePrice, note: `Limit BUY pullback tersentuh lalu SL kena di ${formatPrice(sl)}.` };
+    }
+  }
+
+  if (side === "SELL") {
+    if (lowSinceEntry <= tp2) {
+      patch.pullbackLimitResult = "WIN";
+      patch.pullbackLimitStatus = "CLOSED";
+      patch.pullbackLimitClosedAt = new Date().toISOString();
+      patch.pullbackLimitResultPrice = tp2;
+      return { result: null, status: "OPEN", patch, resultPrice: livePrice, note: `Limit SELL pullback tersentuh lalu TP Max RR 1:1 tercapai di ${formatPrice(tp2)}.` };
+    }
+    if ((item.pullbackLimitBeActive || item.pullbackLimitTp1Hit) && highSinceEntry >= limitEntry) {
+      patch.pullbackLimitResult = "BE";
+      patch.pullbackLimitStatus = "CLOSED";
+      patch.pullbackLimitClosedAt = new Date().toISOString();
+      patch.pullbackLimitResultPrice = limitEntry;
+      return { result: null, status: "OPEN", patch, resultPrice: livePrice, note: `Limit SELL pullback balik ke BE ${formatPrice(limitEntry)} setelah TP1.` };
+    }
+    if (!item.pullbackLimitTp1Hit && lowSinceEntry <= tp1) {
+      patch.pullbackLimitTp1Hit = true;
+      patch.pullbackLimitTp1HitAt = item.pullbackLimitTp1HitAt || new Date().toISOString();
+      patch.pullbackLimitBeActive = true;
+      patch.pullbackLimitBePrice = limitEntry;
+      return { result: null, status: "OPEN", patch, resultPrice: livePrice, note: `Limit SELL pullback menyentuh TP1 ${formatPrice(tp1)}. SL limit turun ke BE ${formatPrice(limitEntry)}.` };
+    }
+    if (!item.pullbackLimitTp1Hit && highSinceEntry >= sl) {
+      patch.pullbackLimitResult = "LOSS";
+      patch.pullbackLimitStatus = "CLOSED";
+      patch.pullbackLimitClosedAt = new Date().toISOString();
+      patch.pullbackLimitResultPrice = sl;
+      return { result: null, status: "OPEN", patch, resultPrice: livePrice, note: `Limit SELL pullback tersentuh lalu SL kena di ${formatPrice(sl)}.` };
+    }
+  }
+
+  return null;
 }
 
 function buildBreakEvenPatch(item, entry, sl, livePrice, tp1, rangeNote = "") {

@@ -3472,6 +3472,7 @@ function PerformanceAnalyticsPanel({ callHistory, scalpHistory, isAdmin }) {
       </div>
 
       <Tp1BeAnalytics items={callItems} />
+      <LimitPullbackAnalytics items={callItems} />
 
       {isAdmin && (
         <div className="performanceAdminNote">
@@ -3482,6 +3483,52 @@ function PerformanceAnalyticsPanel({ callHistory, scalpHistory, isAdmin }) {
   );
 }
 
+
+
+function LimitPullbackAnalytics({ items }) {
+  const stats7 = buildLimitPullbackStats(items, 7);
+  const stats30 = buildLimitPullbackStats(items, 30);
+
+  return (
+    <div className="tp1AnalyticsBox limitAnalyticsBox">
+      <div className="tp1AnalyticsHead">
+        <div>
+          <b>Analisis Limit Pullback</b>
+          <span>Mengukur opsi entry manual di area EMA pullback. Target limit memakai RR 1:1, TP1 setengah target, lalu SL pindah ke BE.</span>
+        </div>
+        <em>{stats7.winRate}% WR Limit 7D</em>
+      </div>
+
+      <div className="tp1AnalyticsGrid">
+        <LimitPullbackCard title="7 Hari" stats={stats7} />
+        <LimitPullbackCard title="30 Hari" stats={stats30} />
+      </div>
+    </div>
+  );
+}
+
+function LimitPullbackCard({ title, stats }) {
+  return (
+    <div className="tp1AnalyticsCard">
+      <div className="tp1AnalyticsTop">
+        <span>{title}</span>
+        <strong>{stats.winRate}%</strong>
+      </div>
+      <small>WR Limit RR 1:1</small>
+
+      <div className="tp1MiniGrid">
+        <div><span>Total</span><b>{stats.total}</b></div>
+        <div><span>Limit kena</span><b>{stats.triggered}</b></div>
+        <div><span>TP Max</span><b>{stats.wins}</b></div>
+        <div><span>BE</span><b>{stats.be}</b></div>
+        <div><span>SL</span><b>{stats.losses}</b></div>
+        <div><span>Berjalan</span><b>{stats.open}</b></div>
+      </div>
+
+      <p>{buildLimitPullbackNote(stats)}</p>
+    </div>
+  );
+}
 
 function Tp1BeAnalytics({ items }) {
   const stats7 = buildTp1BeStats(items, 7);
@@ -3688,6 +3735,51 @@ function buildPerformanceStats(items, days) {
   };
 }
 
+
+
+function buildLimitPullbackStats(items, days) {
+  const now = Date.now();
+  const from = now - days * 24 * 60 * 60 * 1000;
+  const filtered = (items || []).filter((item) => {
+    const t = parseHistoryTimeMs(item.createdAt || item.candleTime || item.time || item.timestamp || item.closedAt || item.resultAt);
+    if (!t) return true;
+    return t >= from;
+  });
+
+  let total = 0;
+  let triggered = 0;
+  let wins = 0;
+  let losses = 0;
+  let be = 0;
+  let open = 0;
+  let tp1Hit = 0;
+
+  filtered.forEach((item) => {
+    const plan = item.pullbackLimitPlan || item.strategySnapshot?.mainM5?.pullbackLimitPlan || null;
+    if (!plan?.limitEntry) return;
+    total += 1;
+    if (item.pullbackLimitTriggered) triggered += 1;
+    if (item.pullbackLimitTp1Hit || item.pullbackLimitBeActive) tp1Hit += 1;
+    const result = String(item.pullbackLimitResult || "").toUpperCase();
+    if (result === "WIN") wins += 1;
+    else if (result === "LOSS") losses += 1;
+    else if (result === "BE" || result === "BREAKEVEN") be += 1;
+    else if (item.pullbackLimitTriggered) open += 1;
+  });
+
+  const closed = wins + losses + be;
+  const winRate = closed > 0 ? Math.round((wins / closed) * 100) : 0;
+  const touchRate = total > 0 ? Math.round((triggered / total) * 100) : 0;
+  const tp1Rate = triggered > 0 ? Math.round((tp1Hit / triggered) * 100) : 0;
+
+  return { days, total, triggered, wins, losses, be, open, closed, winRate, touchRate, tp1Hit, tp1Rate };
+}
+
+function buildLimitPullbackNote(stats) {
+  if (!stats.total) return "Menunggu sinyal yang punya plan limit pullback.";
+  if (!stats.triggered) return `Ada ${stats.total} plan limit, tapi belum ada limit yang tersentuh dalam ${stats.days} hari.`;
+  return `${stats.triggered}/${stats.total} limit tersentuh (${stats.touchRate}%). Dari yang selesai: ${stats.wins} TP Max, ${stats.be} BE, ${stats.losses} SL. TP1 limit rate ${stats.tp1Rate}%.`;
+}
 
 function buildTp1BeStats(items, days) {
   const now = Date.now();
@@ -5205,6 +5297,8 @@ function addTradePlanLines(series, linesRef, mainM5) {
   const sl = Number(mainM5?.sl || 0);
   const tp1 = Number(mainM5?.tp1 || 0);
   const tp2 = Number(mainM5?.tp2 || mainM5?.tp || 0);
+  const limitTp1 = Number(pullbackPlan?.limitTp1 || pullbackPlan?.tp1 || 0);
+  const limitTp2 = Number(pullbackPlan?.limitTp2 || pullbackPlan?.tp2 || 0);
   const direction = String((isPlan ? mainM5?.direction : preview?.direction) || "Menunggu");
 
   if (!isPlan && !preview?.active) return;
@@ -5231,6 +5325,30 @@ function addTradePlanLines(series, linesRef, mainM5) {
       title: `${direction || "PLAN"} LIMIT · PULLBACK EMA`
     });
     newLines.push({ series, line: limitLine });
+
+    if (Number.isFinite(limitTp1) && limitTp1 > 0) {
+      const limitTp1Line = series.createPriceLine({
+        price: limitTp1,
+        color: "#67e8f9",
+        lineWidth: 1,
+        lineStyle: 1,
+        axisLabelVisible: true,
+        title: "LIMIT TP1 · BE"
+      });
+      newLines.push({ series, line: limitTp1Line });
+    }
+
+    if (Number.isFinite(limitTp2) && limitTp2 > 0) {
+      const limitTp2Line = series.createPriceLine({
+        price: limitTp2,
+        color: "#facc15",
+        lineWidth: 1,
+        lineStyle: 2,
+        axisLabelVisible: true,
+        title: "LIMIT TP MAX 1:1"
+      });
+      newLines.push({ series, line: limitTp2Line });
+    }
   }
 
   if (Number.isFinite(sl) && sl > 0) {

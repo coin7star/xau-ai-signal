@@ -1,6 +1,6 @@
 {
-  "name": "xau-ai-signal-step10bu-pullback-limit-touch-buffer-fix",
-  "version": "7.66.0-step10bv-pullback-limit-more-touchable",
+  "name": "xau-ai-signal-step10bw-limit-pullback-rr-1-analytics",
+  "version": "7.67.0-step10bw-limit-pullback-rr-1-analytics",
   "type": "module",
   "scripts": {
     "dev": "vite",

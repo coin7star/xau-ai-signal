@@ -1,18 +1,20 @@
-# Step 10BV — Pullback Limit More Touchable
+# Step 10BW — Limit Pullback RR 1:1 Analytics
 
-Update ini menaikkan/merapikan area **Limit Pullback EMA** supaya order limit tidak mudah miss tipis.
+## Fokus update
+- Entry agresif tetap mengikuti EMA Cross M1.
+- Limit pullback EMA sekarang punya plan target sendiri.
+- Limit pullback memakai TP Max RR 1:1 dari jarak limit entry ke SL.
+- TP1 limit = 50% menuju TP Max limit.
+- Jika TP1 limit kena, SL limit dianggap naik ke BE / harga limit entry.
+- Dashboard menampilkan analisis Limit Pullback 7 hari dan 30 hari.
+- Chart menampilkan garis Limit Entry, Limit TP1, dan Limit TP Max RR 1:1.
 
-## Perubahan utama
-
-- Strategi utama tetap **M1 EMA Cross Direct Entry**.
-- Entry agresif tetap mengikuti candle M1 close setelah EMA9/EMA20 cross valid.
-- Opsi kedua tetap **Limit Pullback EMA**.
-- BUY limit dinaikkan sedikit dari area EMA bawah agar pullback tipis lebih mudah menyentuh limit.
-- SELL limit tetap diarahkan ke area pullback EMA atas dengan touch buffer lebih realistis.
-- SL tetap memakai **Smart Swing Anchor ± 0.2 ATR**.
-- TP Max tetap **RR 1:1.25**.
-- TP1 tetap 50% menuju TP Max lalu SL pindah ke BE.
+## Rule utama
+- BUY/SELL agresif: tetap direct setelah candle M1 close valid.
+- BUY/SELL limit: area pullback EMA dengan touch buffer.
+- SL: smart swing anchor ± 0.2 ATR.
+- TP agresif: RR 1:1.25.
+- TP limit: RR 1:1.
 
 ## Catatan
-
-Limit dibuat lebih mudah tersentuh, tapi tetap tidak boleh mengejar harga terlalu dekat dengan entry agresif. Jika harga sudah jauh dari entry ideal, tunggu setup berikutnya.
+Docs lama tidak disertakan agar ZIP tetap ringan.
