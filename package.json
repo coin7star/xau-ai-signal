@@ -1,6 +1,6 @@
 {
-  "name": "xau-ai-signal-step10bx-limit-analytics-touch-sync-fix",
-  "version": "7.68.0-step10bx-limit-analytics-touch-sync-fix",
+  "name": "xau-ai-signal-step10by-limit-analytics-isolation-fix",
+  "version": "7.69.0-step10by-limit-analytics-isolation-fix",
   "type": "module",
   "scripts": {
     "dev": "vite",

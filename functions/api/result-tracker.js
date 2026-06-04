@@ -565,7 +565,7 @@ function evaluateItem(item, marketContext) {
     }
   }
 
-  if (limitUpdateEarly) return limitUpdateEarly;
+  if (limitUpdateEarly) return markLimitMetaOnly(limitUpdateEarly);
 
   const ageHours = getAgeHours(item.createdAt || item.candleTime || item.serverTime);
   const expireHours = Number(item.expireHours || 24);
@@ -578,10 +578,23 @@ function evaluateItem(item, marketContext) {
 
 function mergeLimitPatch(result, limitUpdate) {
   if (!limitUpdate?.patch) return result;
+  // Limit Pullback adalah analytics terpisah. Patch limit boleh ikut tersimpan,
+  // tapi tidak boleh mengubah status/result utama agresif kecuali result utama memang kena TP/SL/BE.
   return {
     ...result,
     patch: { ...(result.patch || {}), ...limitUpdate.patch },
     note: [result.note, limitUpdate.note].filter(Boolean).join(" | ")
+  };
+}
+
+function markLimitMetaOnly(update) {
+  if (!update) return update;
+  return {
+    ...update,
+    metaOnly: true,
+    result: null,
+    // Preserve status utama. Jangan jadikan closed/BE hanya karena plan limit kena BE.
+    status: update.status || "OPEN"
   };
 }
 
@@ -647,28 +660,28 @@ function evaluatePullbackLimitPlan(item, signal, highSinceEntry, lowSinceEntry, 
       patch.pullbackLimitStatus = "CLOSED";
       patch.pullbackLimitClosedAt = new Date().toISOString();
       patch.pullbackLimitResultPrice = tp2;
-      return { result: null, status: "OPEN", patch, resultPrice: livePrice, note: `Limit BUY pullback tersentuh lalu TP Max RR 1:1 tercapai di ${formatPrice(tp2)}.` };
+      return { result: null, status: "OPEN", metaOnly: true, patch, resultPrice: livePrice, note: `Limit BUY pullback tersentuh lalu TP Max RR 1:1 tercapai di ${formatPrice(tp2)}.` };
     }
     if ((item.pullbackLimitBeActive || item.pullbackLimitTp1Hit) && lowSinceEntry <= limitEntry) {
       patch.pullbackLimitResult = "BE";
       patch.pullbackLimitStatus = "CLOSED";
       patch.pullbackLimitClosedAt = new Date().toISOString();
       patch.pullbackLimitResultPrice = limitEntry;
-      return { result: null, status: "OPEN", patch, resultPrice: livePrice, note: `Limit BUY pullback balik ke BE ${formatPrice(limitEntry)} setelah TP1.` };
+      return { result: null, status: "OPEN", metaOnly: true, patch, resultPrice: livePrice, note: `Limit BUY pullback balik ke BE ${formatPrice(limitEntry)} setelah TP1.` };
     }
     if (!item.pullbackLimitTp1Hit && highSinceEntry >= tp1) {
       patch.pullbackLimitTp1Hit = true;
       patch.pullbackLimitTp1HitAt = item.pullbackLimitTp1HitAt || new Date().toISOString();
       patch.pullbackLimitBeActive = true;
       patch.pullbackLimitBePrice = limitEntry;
-      return { result: null, status: "OPEN", patch, resultPrice: livePrice, note: `Limit BUY pullback menyentuh TP1 ${formatPrice(tp1)}. SL limit naik ke BE ${formatPrice(limitEntry)}.` };
+      return { result: null, status: "OPEN", metaOnly: true, patch, resultPrice: livePrice, note: `Limit BUY pullback menyentuh TP1 ${formatPrice(tp1)}. SL limit naik ke BE ${formatPrice(limitEntry)}.` };
     }
     if (!item.pullbackLimitTp1Hit && lowSinceEntry <= sl) {
       patch.pullbackLimitResult = "LOSS";
       patch.pullbackLimitStatus = "CLOSED";
       patch.pullbackLimitClosedAt = new Date().toISOString();
       patch.pullbackLimitResultPrice = sl;
-      return { result: null, status: "OPEN", patch, resultPrice: livePrice, note: `Limit BUY pullback tersentuh lalu SL kena di ${formatPrice(sl)}.` };
+      return { result: null, status: "OPEN", metaOnly: true, patch, resultPrice: livePrice, note: `Limit BUY pullback tersentuh lalu SL kena di ${formatPrice(sl)}.` };
     }
   }
 
@@ -678,28 +691,28 @@ function evaluatePullbackLimitPlan(item, signal, highSinceEntry, lowSinceEntry, 
       patch.pullbackLimitStatus = "CLOSED";
       patch.pullbackLimitClosedAt = new Date().toISOString();
       patch.pullbackLimitResultPrice = tp2;
-      return { result: null, status: "OPEN", patch, resultPrice: livePrice, note: `Limit SELL pullback tersentuh lalu TP Max RR 1:1 tercapai di ${formatPrice(tp2)}.` };
+      return { result: null, status: "OPEN", metaOnly: true, patch, resultPrice: livePrice, note: `Limit SELL pullback tersentuh lalu TP Max RR 1:1 tercapai di ${formatPrice(tp2)}.` };
     }
     if ((item.pullbackLimitBeActive || item.pullbackLimitTp1Hit) && highSinceEntry >= limitEntry) {
       patch.pullbackLimitResult = "BE";
       patch.pullbackLimitStatus = "CLOSED";
       patch.pullbackLimitClosedAt = new Date().toISOString();
       patch.pullbackLimitResultPrice = limitEntry;
-      return { result: null, status: "OPEN", patch, resultPrice: livePrice, note: `Limit SELL pullback balik ke BE ${formatPrice(limitEntry)} setelah TP1.` };
+      return { result: null, status: "OPEN", metaOnly: true, patch, resultPrice: livePrice, note: `Limit SELL pullback balik ke BE ${formatPrice(limitEntry)} setelah TP1.` };
     }
     if (!item.pullbackLimitTp1Hit && lowSinceEntry <= tp1) {
       patch.pullbackLimitTp1Hit = true;
       patch.pullbackLimitTp1HitAt = item.pullbackLimitTp1HitAt || new Date().toISOString();
       patch.pullbackLimitBeActive = true;
       patch.pullbackLimitBePrice = limitEntry;
-      return { result: null, status: "OPEN", patch, resultPrice: livePrice, note: `Limit SELL pullback menyentuh TP1 ${formatPrice(tp1)}. SL limit turun ke BE ${formatPrice(limitEntry)}.` };
+      return { result: null, status: "OPEN", metaOnly: true, patch, resultPrice: livePrice, note: `Limit SELL pullback menyentuh TP1 ${formatPrice(tp1)}. SL limit turun ke BE ${formatPrice(limitEntry)}.` };
     }
     if (!item.pullbackLimitTp1Hit && highSinceEntry >= sl) {
       patch.pullbackLimitResult = "LOSS";
       patch.pullbackLimitStatus = "CLOSED";
       patch.pullbackLimitClosedAt = new Date().toISOString();
       patch.pullbackLimitResultPrice = sl;
-      return { result: null, status: "OPEN", patch, resultPrice: livePrice, note: `Limit SELL pullback tersentuh lalu SL kena di ${formatPrice(sl)}.` };
+      return { result: null, status: "OPEN", metaOnly: true, patch, resultPrice: livePrice, note: `Limit SELL pullback tersentuh lalu SL kena di ${formatPrice(sl)}.` };
     }
   }
 

@@ -1,23 +1,17 @@
-# Step 10BX — Limit Analytics Touch Sync Fix
+# Step 10BY — Limit Analytics Isolation Fix
 
-Update ini memperbaiki analytics Limit Pullback yang sebelumnya bisa tetap 0 meskipun harga sudah menyentuh area limit.
+## Tujuan
+Memisahkan hasil utama/agresif dari hasil analisis Limit Pullback.
 
-## Fix utama
+## Fix
+- Patch Limit Pullback sekarang selalu dianggap meta-only ketika tidak ada result utama.
+- Limit TP1/BE/SL/TP Max tidak boleh mengubah `result`, `status`, `closedAt`, atau `resultPrice` utama agresif.
+- History utama tetap berjalan sampai entry agresif benar-benar kena TP Max, SL, BE, atau expired normal.
+- Analytics limit tetap menghitung `pullbackLimitResult`, `pullbackLimitTriggered`, `pullbackLimitTp1Hit`, dan `pullbackLimitBeActive` secara terpisah.
 
-- Result tracker sekarang tetap mengecek plan Limit Pullback secara independen dari hasil entry agresif.
-- Jika entry agresif sudah selesai lebih dulu, limit plan tetap bisa di-update sebagai analytics/backtest.
-- Jika dalam candle yang sama entry agresif dan limit sama-sama tersentuh, patch limit tetap disimpan.
-- Status utama WIN/LOSS/BE agresif tidak ditimpa oleh update analytics limit.
-- Panel Analisis Limit Pullback sekarang bisa membaca `Limit kena`, `TP Max`, `BE`, dan `SL` lebih akurat.
-
-## Strategi tetap
-
-- Entry agresif: EMA Cross M1.
-- Limit Pullback: area EMA pullback.
-- Limit RR: 1:1.
-- TP1 limit: 50% menuju TP Max, lalu BE.
-- SL: smart swing anchor ± 0.2 ATR.
-
-## Catatan
-
-Update ini tidak mengubah posisi entry/SL/TP. Ini hanya memperbaiki sinkronisasi analytics limit agar tidak kosong saat harga sebenarnya sudah menyentuh limit.
+## Strategi utama tidak berubah
+- M1 EMA Cross Direct Entry
+- Entry agresif + Limit Pullback EMA
+- Aggressive TP Max RR 1:1.25
+- Limit TP Max RR 1:1
+- TP1 -> BE
