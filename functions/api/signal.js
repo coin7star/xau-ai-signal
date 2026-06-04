@@ -339,7 +339,7 @@ function buildMainM1EmaCrossDirectEntrySignal(market = {}, m1Candles = []) {
   const prevEma9 = Number(ema9Series[ema9Series.length - 2] || ema9Now);
   const prevEma20 = Number(ema20Series[ema20Series.length - 2] || ema20Now);
   const atrValue = Number(atr(m1, 14) || Math.max(Math.abs(Number(last.high) - Number(last.low)), 0.5));
-  const structure = getM1DirectEntrySwingStructure(m1);
+  const structure = getM1DirectEntrySwingStructure(m1, close, atrValue);
 
   const open = Number(last.open);
   const high = Number(last.high);
@@ -476,7 +476,7 @@ function buildMainM1EmaCrossDirectEntrySignal(market = {}, m1Candles = []) {
     structure,
     entryMethod: "OPEN_MARKET_AFTER_M1_EMA9_CROSS_EMA20_AND_CANDLE_CLOSE_FILTER",
     tpMethod: "TP1_HALF_TO_TARGET_THEN_TP_MAX_RR_1_25",
-    slMethod: direction === "BUY" ? "BELOW_NEAREST_M1_SWING_LOW_MINUS_0_2_ATR" : direction === "SELL" ? "ABOVE_NEAREST_M1_SWING_HIGH_PLUS_0_2_ATR" : "WAIT",
+    slMethod: direction === "BUY" ? "BELOW_NEAREST_M1_SWING_LOW_LOOKBACK_10_MINUS_0_2_ATR" : direction === "SELL" ? "ABOVE_NEAREST_M1_SWING_HIGH_LOOKBACK_10_PLUS_0_2_ATR" : "WAIT",
     partialTp: {
       enabled: true,
       tp1: round(tp1),
@@ -504,16 +504,76 @@ function buildMainM1EmaCrossDirectEntrySignal(market = {}, m1Candles = []) {
   };
 }
 
-function getM1DirectEntrySwingStructure(candles = []) {
-  const before = clean(candles).slice(-18, -1);
-  const lows = before.map((c) => Number(c.low)).filter(Number.isFinite);
-  const highs = before.map((c) => Number(c.high)).filter(Number.isFinite);
-  const fallback = clean(candles).slice(-2)[0] || clean(candles).slice(-1)[0] || {};
+function getM1DirectEntrySwingStructure(candles = [], entryPrice = 0, atrValue = 0) {
+  const valid = clean(candles)
+    .map((c, idx) => ({
+      ...c,
+      _idx: idx,
+      high: Number(c.high),
+      low: Number(c.low),
+      open: Number(c.open),
+      close: Number(c.close)
+    }))
+    .filter((c) => [c.high, c.low, c.open, c.close].every(Number.isFinite));
+
+  const entry = Number(entryPrice || valid[valid.length - 1]?.close || 0);
+  const atrSafe = Number(atrValue || 0);
+  const maxDistance = atrSafe > 0 ? atrSafe * 2.5 : Infinity;
+
+  // Exclude candle entry/current. Untuk direct entry M1, SL lebih cocok pakai struktur dekat,
+  // bukan highest/lowest jauh dari banyak candle belakang.
+  const before = valid.slice(-13, -1); // ±12 candle sebelum candle entry
+  const recent = valid.slice(-9, -1);  // fallback 8 candle terdekat
+  const pivotLows = [];
+  const pivotHighs = [];
+
+  for (let i = 1; i < before.length - 1; i++) {
+    const prev = before[i - 1];
+    const curr = before[i];
+    const next = before[i + 1];
+    if (curr.low <= prev.low && curr.low <= next.low) {
+      pivotLows.push({ price: curr.low, time: curr.time || null, index: curr._idx, distance: Math.abs(entry - curr.low) });
+    }
+    if (curr.high >= prev.high && curr.high >= next.high) {
+      pivotHighs.push({ price: curr.high, time: curr.time || null, index: curr._idx, distance: Math.abs(curr.high - entry) });
+    }
+  }
+
+  const lowCandidates = pivotLows
+    .filter((x) => entry > 0 ? x.price < entry : true)
+    .sort((a, b) => b.index - a.index);
+  const highCandidates = pivotHighs
+    .filter((x) => entry > 0 ? x.price > entry : true)
+    .sort((a, b) => b.index - a.index);
+
+  const recentLows = recent
+    .map((c) => ({ price: c.low, time: c.time || null, index: c._idx, distance: Math.abs(entry - c.low) }))
+    .filter((x) => entry > 0 ? x.price < entry : true)
+    .sort((a, b) => a.distance - b.distance || b.index - a.index);
+  const recentHighs = recent
+    .map((c) => ({ price: c.high, time: c.time || null, index: c._idx, distance: Math.abs(c.high - entry) }))
+    .filter((x) => entry > 0 ? x.price > entry : true)
+    .sort((a, b) => a.distance - b.distance || b.index - a.index);
+
+  const newestLowWithinLimit = lowCandidates.find((x) => x.distance <= maxDistance);
+  const newestHighWithinLimit = highCandidates.find((x) => x.distance <= maxDistance);
+  const closestRecentLow = recentLows.find((x) => x.distance <= maxDistance) || recentLows[0] || lowCandidates[0] || null;
+  const closestRecentHigh = recentHighs.find((x) => x.distance <= maxDistance) || recentHighs[0] || highCandidates[0] || null;
+
+  const selectedLow = newestLowWithinLimit || closestRecentLow || { price: Number(valid[valid.length - 2]?.low || valid[valid.length - 1]?.low || 0), time: null, index: 0, distance: 0 };
+  const selectedHigh = newestHighWithinLimit || closestRecentHigh || { price: Number(valid[valid.length - 2]?.high || valid[valid.length - 1]?.high || 0), time: null, index: 0, distance: 0 };
+
   return {
-    swingLow: round(lows.length ? Math.min(...lows) : Number(fallback.low || 0)),
-    swingHigh: round(highs.length ? Math.max(...highs) : Number(fallback.high || 0)),
-    method: "M1_NEAREST_RECENT_SWING_FOR_EMA_CROSS_DIRECT_ENTRY",
-    candleCount: before.length
+    swingLow: round(selectedLow.price),
+    swingHigh: round(selectedHigh.price),
+    swingLowDistance: round(selectedLow.distance),
+    swingHighDistance: round(selectedHigh.distance),
+    maxSwingDistance: Number.isFinite(maxDistance) ? round(maxDistance) : null,
+    swingLowSource: newestLowWithinLimit ? "NEAREST_CONFIRMED_SWING_LOW" : "RECENT_LOW_FALLBACK",
+    swingHighSource: newestHighWithinLimit ? "NEAREST_CONFIRMED_SWING_HIGH" : "RECENT_HIGH_FALLBACK",
+    method: "M1_NEAREST_SWING_LOOKBACK_10_WITH_RECENT_FALLBACK_MAX_2_5_ATR",
+    candleCount: before.length,
+    recentFallbackCount: recent.length
   };
 }
 
