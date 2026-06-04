@@ -356,10 +356,11 @@ function escapeHtml(value) {
 function evaluateItem(item, livePrice) {
   const signal = String(item.signal || "").toUpperCase();
   const sl = toNumber(item.sl);
-  const tp = toNumber(item.tp);
-  const tp1 = toNumber(item.tp1);
+  const tp = getItemTp(item);
+  const tp1 = getItemTp1(item, tp);
   const entry = toNumber(item.entry);
   const status = String(item.status || "OPEN").toUpperCase();
+  const breakEvenActive = item.breakEvenActive === true || item.beActive === true || item.tp1Hit === true;
 
   if (!Number.isFinite(livePrice) || livePrice <= 0) {
     return { result: null, note: "Harga live belum tersedia." };
@@ -378,7 +379,7 @@ function evaluateItem(item, livePrice) {
         patch: {
           entryTriggered: true,
           triggeredAt: item.triggeredAt || item.createdAt || new Date().toISOString(),
-          note: item.note || "Sinyal lama direct entry diperbaiki dari status pending ke berjalan. Tetap dipantau sampai TP/SL/BE."
+          note: item.note || "Sinyal direct entry diperbaiki dari status pending ke berjalan. Tetap dipantau sampai TP/SL/BE."
         },
         note: "Sinyal direct entry aktif. Dipantau sampai TP/SL/BE, bukan di-expire karena muncul sinyal baru."
       };
@@ -406,43 +407,29 @@ function evaluateItem(item, livePrice) {
   }
 
   if (signal === "BUY") {
-    if (Number.isFinite(tp1) && !item.tp1Hit && livePrice >= tp1) {
-      return {
-        result: null,
-        status: "OPEN",
-        patch: {
-          tp1Hit: true,
-          tp1HitAt: new Date().toISOString(),
-          breakEvenActive: true,
-          originalSl: item.originalSl || sl,
-          sl: entry
-        },
-        note: `TP1 tercapai di harga ${formatPrice(livePrice)}. SL dipindahkan ke BE ${formatPrice(entry)}.`
-      };
+    // Urutan aman: TP Max tetap WIN, lalu BE aktif jika sudah pernah kena TP1, lalu SL awal.
+    if (livePrice >= tp) return { result: "WIN", note: `TP Max tercapai otomatis di harga ${formatPrice(livePrice)}.` };
+    if (breakEvenActive && Number.isFinite(entry) && livePrice <= entry) {
+      return { result: "BE", note: `Harga kembali ke BE ${formatPrice(entry)} setelah TP1.` };
     }
-    if (livePrice >= tp) return { result: "WIN", note: `TP tercapai otomatis di harga ${formatPrice(livePrice)}.` };
-    if (item.breakEvenActive && livePrice <= entry) return { result: "BE", note: `Harga kembali ke BE ${formatPrice(entry)} setelah TP1.` };
     if (livePrice <= sl) return { result: "LOSS", note: `SL tersentuh otomatis di harga ${formatPrice(livePrice)}.` };
+
+    if (Number.isFinite(tp1) && Number.isFinite(entry) && !item.tp1Hit && livePrice >= tp1) {
+      return buildBreakEvenPatch(item, entry, sl, livePrice, tp1);
+    }
   }
 
   if (signal === "SELL") {
-    if (Number.isFinite(tp1) && !item.tp1Hit && livePrice <= tp1) {
-      return {
-        result: null,
-        status: "OPEN",
-        patch: {
-          tp1Hit: true,
-          tp1HitAt: new Date().toISOString(),
-          breakEvenActive: true,
-          originalSl: item.originalSl || sl,
-          sl: entry
-        },
-        note: `TP1 tercapai di harga ${formatPrice(livePrice)}. SL dipindahkan ke BE ${formatPrice(entry)}.`
-      };
+    // Urutan aman: TP Max tetap WIN, lalu BE aktif jika sudah pernah kena TP1, lalu SL awal.
+    if (livePrice <= tp) return { result: "WIN", note: `TP Max tercapai otomatis di harga ${formatPrice(livePrice)}.` };
+    if (breakEvenActive && Number.isFinite(entry) && livePrice >= entry) {
+      return { result: "BE", note: `Harga kembali ke BE ${formatPrice(entry)} setelah TP1.` };
     }
-    if (livePrice <= tp) return { result: "WIN", note: `TP tercapai otomatis di harga ${formatPrice(livePrice)}.` };
-    if (item.breakEvenActive && livePrice >= entry) return { result: "BE", note: `Harga kembali ke BE ${formatPrice(entry)} setelah TP1.` };
     if (livePrice >= sl) return { result: "LOSS", note: `SL tersentuh otomatis di harga ${formatPrice(livePrice)}.` };
+
+    if (Number.isFinite(tp1) && Number.isFinite(entry) && !item.tp1Hit && livePrice <= tp1) {
+      return buildBreakEvenPatch(item, entry, sl, livePrice, tp1);
+    }
   }
 
   const ageHours = getAgeHours(item.createdAt || item.candleTime || item.serverTime);
@@ -451,7 +438,70 @@ function evaluateItem(item, livePrice) {
     return { result: "EXPIRED", note: `Signal melewati batas waktu ${expireHours} jam tanpa menyentuh TP/SL.` };
   }
 
-  return { result: null, note: "Masih berjalan. Belum menyentuh TP/SL." };
+  return { result: null, note: "Masih berjalan. Belum menyentuh TP/SL/BE." };
+}
+
+function buildBreakEvenPatch(item, entry, sl, livePrice, tp1) {
+  const now = new Date().toISOString();
+  return {
+    result: null,
+    status: "OPEN",
+    patch: {
+      tp1Hit: true,
+      tp1HitAt: item.tp1HitAt || now,
+      breakEvenActive: true,
+      beActive: true,
+      bePrice: entry,
+      breakEvenPrice: entry,
+      originalSl: item.originalSl || sl,
+      sl: entry,
+      note: `TP1 tercapai di harga ${formatPrice(livePrice)}. Batas risiko otomatis dipindahkan ke BE ${formatPrice(entry)}.`
+    },
+    note: `TP1 tercapai di harga ${formatPrice(livePrice)}. Batas risiko otomatis dipindahkan ke BE ${formatPrice(entry)}.`
+  };
+}
+
+function getItemTp(item = {}) {
+  return firstFiniteNumber(
+    item.tp,
+    item.tpMax,
+    item.tp2,
+    item.target,
+    item.takeProfit,
+    item.strategy?.mainM5?.tp,
+    item.strategy?.mainM5?.tp2,
+    item.strategySnapshot?.mainM5?.tp,
+    item.strategySnapshot?.mainM5?.tp2
+  );
+}
+
+function getItemTp1(item = {}, tp) {
+  const direct = firstFiniteNumber(
+    item.tp1,
+    item.tpOne,
+    item.tpPartial,
+    item.partialTp,
+    item.beTrigger,
+    item.breakEvenTrigger,
+    item.strategy?.mainM5?.tp1,
+    item.strategySnapshot?.mainM5?.tp1
+  );
+  if (Number.isFinite(direct)) return direct;
+
+  const entry = toNumber(item.entry);
+  const signal = String(item.signal || "").toUpperCase();
+  if (!Number.isFinite(entry) || !Number.isFinite(tp)) return NaN;
+  if (signal === "BUY") return entry + (tp - entry) * 0.5;
+  if (signal === "SELL") return entry - (entry - tp) * 0.5;
+  return NaN;
+}
+
+function firstFiniteNumber(...values) {
+  for (const value of values) {
+    const n = toNumber(value);
+    if (Number.isFinite(n)) return n;
+  }
+  return NaN;
 }
 
 function isMainDirectEntry(item = {}) {

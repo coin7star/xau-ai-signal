@@ -1,6 +1,6 @@
 {
-  "name": "xau-ai-signal-step10az-main-direct-history-no-auto-expire",
-  "version": "7.46.0-step10bb-auto-result-live-price-field-fix",
+  "name": "xau-ai-signal-step10bc-auto-be-tp1-cron-fix",
+  "version": "7.47.0-step10bc-auto-be-tp1-cron-fix",
   "type": "module",
   "scripts": {
     "dev": "vite",
