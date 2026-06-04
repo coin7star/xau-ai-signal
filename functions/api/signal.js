@@ -338,13 +338,12 @@ function buildMainM1EmaCrossDirectEntrySignal(market = {}, m1Candles = []) {
   const ema20Now = Number(ema20Series[ema20Series.length - 1] || 0);
   const prevEma9 = Number(ema9Series[ema9Series.length - 2] || ema9Now);
   const prevEma20 = Number(ema20Series[ema20Series.length - 2] || ema20Now);
-  const atrValue = Number(atr(m1, 14) || Math.max(Math.abs(Number(last.high) - Number(last.low)), 0.5));
-  const structure = getM1DirectEntrySwingStructure(m1, close, atrValue);
-
   const open = Number(last.open);
   const high = Number(last.high);
   const low = Number(last.low);
   const close = Number(last.close);
+  const atrValue = Number(atr(m1, 14) || Math.max(Math.abs(high - low), 0.5));
+  const structure = getM1DirectEntrySwingStructure(m1, close, atrValue);
   const upperEma = Math.max(ema9Now, ema20Now);
   const lowerEma = Math.min(ema9Now, ema20Now);
 

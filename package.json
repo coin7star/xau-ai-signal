@@ -1,6 +1,6 @@
 {
-  "name": "xau-ai-signal-step10bi-history-scroll-wrapper-fix",
-  "version": "7.55.0-step10bk-nearest-swing-sl-fix",
+  "name": "xau-ai-signal-step10bl-market-source-reconnect-fix",
+  "version": "7.56.0-step10bl-market-source-reconnect-fix",
   "type": "module",
   "scripts": {
     "dev": "vite",
