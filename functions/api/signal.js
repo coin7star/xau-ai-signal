@@ -322,7 +322,7 @@ function buildMainM1EmaCrossDirectEntrySignal(market = {}, m1Candles = []) {
       tp: 0,
       tp1: 0,
       tp2: 0,
-      rr: "TP1 50% → BE · TP Max 1:1",
+      rr: "TP1 50% → BE · TP Max 1:1.25",
       dataReady: false,
       timeframe: "M1",
       sourceTimeframe: "MT5_VPS_M1",
@@ -390,10 +390,10 @@ function buildMainM1EmaCrossDirectEntrySignal(market = {}, m1Candles = []) {
     direction = "BUY";
     label = "BUY Aktif";
     entry = close;
-    sl = Number(structure.swingLow) - atrValue * 0.1;
+    sl = Number(structure.swingLow) - atrValue * 0.2;
     const risk = Math.abs(entry - sl);
-    tp1 = entry + risk * 0.5;
-    tp2 = entry + risk;
+    tp2 = entry + risk * 1.25;
+    tp1 = entry + (tp2 - entry) * 0.5;
     tp = tp2;
     score = bullishClose ? 90 : 86;
     blocker = "";
@@ -402,10 +402,10 @@ function buildMainM1EmaCrossDirectEntrySignal(market = {}, m1Candles = []) {
     direction = "SELL";
     label = "SELL Aktif";
     entry = close;
-    sl = Number(structure.swingHigh) + atrValue * 0.1;
+    sl = Number(structure.swingHigh) + atrValue * 0.2;
     const risk = Math.abs(sl - entry);
-    tp1 = entry - risk * 0.5;
-    tp2 = entry - risk;
+    tp2 = entry - risk * 1.25;
+    tp1 = entry - (entry - tp2) * 0.5;
     tp = tp2;
     score = bearishClose ? 90 : 86;
     blocker = "";
@@ -447,7 +447,7 @@ function buildMainM1EmaCrossDirectEntrySignal(market = {}, m1Candles = []) {
     tp: round(tp),
     tp1: round(tp1),
     tp2: round(tp2 || tp),
-    rr: "TP1 50% → BE · TP Max 1:1",
+    rr: "TP1 50% → BE · TP Max 1:1.25",
     dataReady: true,
     timeframe: "M1",
     sourceTimeframe: "MT5_VPS_M1",
@@ -475,14 +475,14 @@ function buildMainM1EmaCrossDirectEntrySignal(market = {}, m1Candles = []) {
     correction: { touchedEma9: closeAboveBoth || closeBelowBoth, touchedEmaZone: closeAboveBoth || closeBelowBoth, candleTime: last.time || null },
     structure,
     entryMethod: "OPEN_MARKET_AFTER_M1_EMA9_CROSS_EMA20_AND_CANDLE_CLOSE_FILTER",
-    tpMethod: "TP1_HALF_RISK_THEN_TP_MAX_RR_1_1",
-    slMethod: direction === "BUY" ? "BELOW_NEAREST_M1_SWING_LOW_MINUS_0_1_ATR" : direction === "SELL" ? "ABOVE_NEAREST_M1_SWING_HIGH_PLUS_0_1_ATR" : "WAIT",
+    tpMethod: "TP1_HALF_TO_TARGET_THEN_TP_MAX_RR_1_25",
+    slMethod: direction === "BUY" ? "BELOW_NEAREST_M1_SWING_LOW_MINUS_0_2_ATR" : direction === "SELL" ? "ABOVE_NEAREST_M1_SWING_HIGH_PLUS_0_2_ATR" : "WAIT",
     partialTp: {
       enabled: true,
       tp1: round(tp1),
       tp2: round(tp2 || tp),
       tp1Note: "TP1 = setengah jarak menuju TP Max. Setelah TP1 kena, SL pindah ke BE.",
-      tp2Note: "TP Max = RR 1:1 dari jarak Entry ke SL.",
+      tp2Note: "TP Max = RR 1:1.25 dari jarak Entry ke SL.",
       afterTp1: "MOVE_SL_TO_BE"
     },
     maxPending: 0,
@@ -497,9 +497,9 @@ function buildMainM1EmaCrossDirectEntrySignal(market = {}, m1Candles = []) {
       { name: "BUY filter", status: buyValid ? "PASS" : "WAIT" },
       { name: "SELL filter", status: sellValid ? "PASS" : "WAIT" },
       { name: "Entry langsung setelah close", status: entry > 0 ? "PASS" : "WAIT" },
-      { name: "SL swing ± 0.1 ATR", status: sl > 0 ? "PASS" : "WAIT" },
+      { name: "SL swing ± 0.2 ATR", status: sl > 0 ? "PASS" : "WAIT" },
       { name: "TP1 / BE", status: tp1 > 0 ? "PASS" : "WAIT" },
-      { name: "TP Max 1:1", status: tp2 > 0 ? "PASS" : "WAIT" }
+      { name: "TP Max 1:1.25", status: tp2 > 0 ? "PASS" : "WAIT" }
     ]
   };
 }
@@ -671,10 +671,10 @@ function getM5PullbackStructure(candles = [], crossIndex = -1) {
 function buildMainM1CrossDirectReason(data = {}) {
   const { action, direction, entry, sl, tp1, tp2, blocker } = data;
   if (action === "BUY_OPEN") {
-    return `BUY aktif. EMA9 sudah cross ke atas EMA20 dan candle M1 close di atas EMA9/EMA20. Harga masuk ${round(entry)}, SL ${round(sl)}, TP1 ${round(tp1)} lalu BE, TP Max ${round(tp2)} RR 1:1.`;
+    return `BUY aktif. EMA9 sudah cross ke atas EMA20 dan candle M1 close di atas EMA9/EMA20. Harga masuk ${round(entry)}, SL ${round(sl)}, TP1 ${round(tp1)} lalu BE, TP Max ${round(tp2)} RR 1:1.25.`;
   }
   if (action === "SELL_OPEN") {
-    return `SELL aktif. EMA9 sudah cross ke bawah EMA20 dan candle M1 close di bawah EMA9/EMA20. Harga masuk ${round(entry)}, SL ${round(sl)}, TP1 ${round(tp1)} lalu BE, TP Max ${round(tp2)} RR 1:1.`;
+    return `SELL aktif. EMA9 sudah cross ke bawah EMA20 dan candle M1 close di bawah EMA9/EMA20. Harga masuk ${round(entry)}, SL ${round(sl)}, TP1 ${round(tp1)} lalu BE, TP Max ${round(tp2)} RR 1:1.25.`;
   }
   if (action === "READY_BUY") return blocker || "EMA9 dekat EMA20. Menunggu cross bullish dan candle close di atas EMA9/EMA20.";
   if (action === "READY_SELL") return blocker || "EMA9 dekat EMA20. Menunggu cross bearish dan candle close di bawah EMA9/EMA20.";
@@ -695,7 +695,7 @@ function buildMainM1CrossDirectHumanReason(ctx = {}) {
     version: "10AT-main-m1-ema-cross-direct-entry",
     title,
     summary,
-    action: isCall ? "Sinyal aktif setelah candle M1 close. Pantau TP1 untuk amankan BE, lalu target max RR 1:1." : "Tunggu EMA9 cross EMA20 di M1 dan candle close yang valid.",
+    action: isCall ? "Sinyal aktif setelah candle M1 close. Pantau TP1 untuk amankan BE, lalu target max RR 1:1.25." : "Tunggu EMA9 cross EMA20 di M1 dan candle close yang valid.",
     direction: m.direction || "WAIT",
     checklist: m.checklist || [],
     blockers: m.blocker ? [m.blocker] : [],
@@ -1337,8 +1337,8 @@ function buildM5EngulfingLimitReason(data) {
   const buy = Math.round(data.buyScore);
   const sell = Math.round(data.sellScore);
   const confirmations = data.checklist.length ? data.checklist.slice(0, 7).join(" • ") : "setup belum lengkap";
-  if (data.action === "SCALP_BUY") return `🚀 M5 BUY LIMIT siap. Bullish engulfing muncul di swing low, close di atas EMA 9/20. Entry limit di open engulfing, SL struktur M5 sebelumnya + 1.5 ATR, TP RR 1:1. Strength ${buy}/100. ${confirmations}.`;
-  if (data.action === "SCALP_SELL") return `🔻 M5 SELL LIMIT siap. Bearish engulfing muncul di swing high, close di bawah EMA 9/20. Entry limit di open engulfing, SL struktur M5 sebelumnya + 1.5 ATR, TP RR 1:1. Strength ${sell}/100. ${confirmations}.`;
+  if (data.action === "SCALP_BUY") return `🚀 M5 BUY LIMIT siap. Bullish engulfing muncul di swing low, close di atas EMA 9/20. Entry limit di open engulfing, SL struktur M5 sebelumnya + 1.5 ATR, TP RR 1:1.25. Strength ${buy}/100. ${confirmations}.`;
+  if (data.action === "SCALP_SELL") return `🔻 M5 SELL LIMIT siap. Bearish engulfing muncul di swing high, close di bawah EMA 9/20. Entry limit di open engulfing, SL struktur M5 sebelumnya + 1.5 ATR, TP RR 1:1.25. Strength ${sell}/100. ${confirmations}.`;
   if (data.bullishEngulfing && !data.atSwingLow) return "Bullish engulfing M5 terdeteksi, tapi belum berada di area swing low.";
   if (data.bearishEngulfing && !data.atSwingHigh) return "Bearish engulfing M5 terdeteksi, tapi belum berada di area swing high.";
   if (data.atSwingLow && !data.bullishEngulfing) return "Harga berada di area swing low M5, tapi belum ada bullish engulfing valid.";

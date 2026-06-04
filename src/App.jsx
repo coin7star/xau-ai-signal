@@ -990,7 +990,7 @@ function AppInner() {
       value: hasEntryPlan ? `TP1 ${mainM5.tp1 || "-"} · Target Max ${mainM5.tp2 || mainM5.tp} · SL ${mainM5.sl}` : "Belum tersedia",
       status: hasEntryPlan ? "Siap dipantau" : "Menunggu entry",
       note: hasEntryPlan ? "TP1 berada di tengah target. Jika TP1 tersentuh, posisi diamankan ke BE." : "Target dan batas risiko baru muncul setelah sinyal entry aktif.",
-      detail: "Target Max memakai RR 1:1 dari jarak entry ke SL. SL memakai swing M1 terdekat dengan buffer 0.1 ATR."
+      detail: "Target Max memakai RR 1:1.25 dari jarak entry ke SL. SL memakai swing M1 terdekat dengan buffer 0.2 ATR."
     },
     {
       id: "probability",
@@ -4293,7 +4293,7 @@ function LandingPage({ onLogin }) {
           <div className="heroSignalGrid">
             <div><small>Rule</small><b>EMA 9/20 M1</b></div>
             <div><small>Validasi</small><b>Close Candle</b></div>
-            <div><small>Risk Plan</small><b>TP1 · BE · RR 1:1</b></div>
+            <div><small>Risk Plan</small><b>TP1 · BE · RR 1:1.25</b></div>
             <div><small>Alert</small><b>Telegram</b></div>
           </div>
         </div>
@@ -4302,7 +4302,7 @@ function LandingPage({ onLogin }) {
       <section className="landingStats">
         <div><b>SINYAL UTAMA</b><span>Fokus EMA Cross M1</span></div>
         <div><b>DIRECT ENTRY</b><span>Masuk setelah candle M1 valid</span></div>
-        <div><b>RISK PLAN</b><span>TP1, BE, dan RR 1:1</span></div>
+        <div><b>RISK PLAN</b><span>TP1, BE, dan RR 1:1.25</span></div>
         <div><b>RIWAYAT</b><span>Winrate & hasil transparan</span></div>
       </section>
 
@@ -4315,7 +4315,7 @@ function LandingPage({ onLogin }) {
 
         <div className="landingFeatureGrid">
           <LandingFeature title="Alert Sinyal Utama" text="Notifikasi BUY/SELL saat kondisi utama sudah valid." />
-          <LandingFeature title="Main Signal M1" text="Fokus pada satu strategi utama: EMA9 cross EMA20 M1 dengan close filter dan risk RR 1:1." />
+          <LandingFeature title="Main Signal M1" text="Fokus pada satu strategi utama: EMA9 cross EMA20 M1 dengan close filter dan target RR 1:1.25." />
           <LandingFeature title="Risk Plan Jelas" text="TP1, break-even, target max, dan batas risiko tampil jelas di dashboard." />
           <LandingFeature title="Notifikasi Telegram" text="User premium bisa connect Telegram untuk menerima alert langsung." />
           <LandingFeature title="Grafik Live" text="Chart M1, EMA 9/20, garis entry, target, risiko, dan status market." />

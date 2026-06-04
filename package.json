@@ -1,6 +1,6 @@
 {
   "name": "xau-ai-signal-step10az-main-direct-history-no-auto-expire",
-  "version": "7.44.0-step10az-main-direct-history-no-auto-expire",
+  "version": "7.45.0-step10ba-main-rr-1-25-atr-0-2",
   "type": "module",
   "scripts": {
     "dev": "vite",
