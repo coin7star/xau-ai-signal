@@ -1,6 +1,6 @@
 {
   "name": "xau-ai-signal-step10bs-aggressive-plus-pullback-limit",
-  "version": "7.63.0-step10bs-aggressive-plus-pullback-limit",
+  "version": "7.64.0-step10bt-result-tracker-range-after-entry-fix",
   "type": "module",
   "scripts": {
     "dev": "vite",

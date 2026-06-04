@@ -478,7 +478,7 @@ function evaluateItem(item, marketContext) {
   const range = getRangeForItem(marketContext, item);
   const highSinceEntry = Number.isFinite(range.high) ? range.high : livePrice;
   const lowSinceEntry = Number.isFinite(range.low) ? range.low : livePrice;
-  const rangeNote = range.source === "CANDLE_RANGE" ? " berdasarkan range candle M1 sejak sinyal aktif" : " berdasarkan harga live";
+  const rangeNote = String(range.source || "") .startsWith("CANDLE_RANGE") ? " berdasarkan range candle M1 setelah entry aktif" : " berdasarkan harga live";
 
   if (!Number.isFinite(livePrice) || livePrice <= 0) {
     return { result: null, note: "Harga live belum tersedia." };
@@ -667,21 +667,34 @@ function buildMarketRange(market, livePrice) {
 
 function getRangeForItem(marketContext = {}, item = {}) {
   const livePrice = Number(marketContext.livePrice || 0);
-  const startedAt = firstValidTimeMs(
-    item.triggeredAt,
-    item.createdAt,
-    item.candleTime,
-    item.serverTime,
-    item.marketTime
-  );
+
+  // Step 10BT:
+  // Result checker boleh pakai high/low candle untuk menangkap wick TP1/TP/SL,
+  // tapi candle pembentuk sinyal tidak boleh ikut dihitung.
+  // Contoh SELL: candle cross valid mungkin punya high besar sebelum entry close.
+  // Kalau candle itu ikut range, posisi bisa salah ditutup LOSS padahal setelah sinyal muncul harga belum pernah sentuh SL.
+  const createdAtMs = firstValidTimeMs(item.resultTrackingStartAt, item.triggeredAt, item.createdAt);
+  const entryCandleMs = firstValidTimeMs(item.entryCandleTime, item.candleTime);
+  const candleMs = entryCandleMs ? entryCandleMs + 60000 : 0;
+  const startedAt = Math.max(createdAtMs || 0, candleMs || 0);
 
   let high = Number.isFinite(livePrice) && livePrice > 0 ? livePrice : NaN;
   let low = Number.isFinite(livePrice) && livePrice > 0 ? livePrice : NaN;
   let usedCandle = false;
 
+  if (!startedAt) {
+    return { high, low, source: "LIVE_PRICE", skippedReason: "NO_VALID_RESULT_START" };
+  }
+
   for (const candle of marketContext.candles || []) {
     const t = parseAnyTimeMs(candle?.time || candle?.datetime || candle?.timestamp || candle?.timeUnix);
-    if (startedAt && t && t + 60000 < startedAt - 1000) continue;
+    if (!t) continue;
+
+    // Candle time di MT5 biasanya open time. Untuk result setelah close entry,
+    // hanya candle yang mulai setelah result start yang boleh dipakai.
+    // Ini mencegah high/low sebelum entry memicu LOSS/WIN palsu.
+    if (t < startedAt - 1000) continue;
+
     const cHigh = toNumber(candle?.high ?? candle?.h);
     const cLow = toNumber(candle?.low ?? candle?.l);
     if (Number.isFinite(cHigh)) {
@@ -694,10 +707,9 @@ function getRangeForItem(marketContext = {}, item = {}) {
     }
   }
 
-  if (Number.isFinite(marketContext.latestHigh)) high = Number.isFinite(high) ? Math.max(high, marketContext.latestHigh) : marketContext.latestHigh;
-  if (Number.isFinite(marketContext.latestLow)) low = Number.isFinite(low) ? Math.min(low, marketContext.latestLow) : marketContext.latestLow;
-
-  return { high, low, source: usedCandle ? "CANDLE_RANGE" : "LIVE_PRICE" };
+  // Jangan pakai latestHigh/latestLow global dari market untuk result.
+  // Field itu bisa berasal dari candle yang bukan periode setelah entry dan dapat membuat result palsu.
+  return { high, low, source: usedCandle ? "CANDLE_RANGE_AFTER_ENTRY" : "LIVE_PRICE", startedAt };
 }
 
 function getMarketCandles(market = {}) {

@@ -1,36 +1,23 @@
-# Step 10BS — Aggressive Entry + EMA Pullback Limit
+# Step 10BT — Result Tracker Range After Entry Fix
 
-## Update
-Strategi utama tetap M1 EMA Cross Direct Entry, tetapi sekarang signal plan punya dua opsi entry untuk user manual:
+Fix false LOSS/WIN pada auto result saat tracker membaca high/low candle pembentuk sinyal.
 
-1. **Entry agresif**: mengikuti EMA cross valid setelah candle M1 close.
-2. **Limit pullback EMA**: opsi entry kedua di area pullback EMA9/EMA20 dengan buffer kecil supaya user tidak perlu mengejar harga jika sinyal sudah bergerak cepat.
+## Perubahan
 
-## Rule tetap sama
-- Timeframe utama: M1 closed candle dari MT5.
-- BUY: EMA9 cross ke atas EMA20 dan candle close di atas kedua EMA.
-- SELL: EMA9 cross ke bawah EMA20 dan candle close di bawah kedua EMA.
-- SL: smart swing anchor ± 0.2 ATR.
-- TP Max: RR 1:1.25 dari plan utama.
-- TP1: 50% menuju TP Max, lalu BE aktif.
+- Result tracker tetap bisa membaca range candle M1 untuk TP1 / TP Max / SL / BE.
+- Candle pembentuk sinyal tidak ikut dihitung sebagai range result.
+- Range candle dimulai setelah entry aktif / setelah candle sinyal selesai.
+- Field `latestHigh` dan `latestLow` global tidak lagi dipakai untuk menutup result karena bisa berasal dari candle sebelum entry.
+- Signal history baru menyimpan `entryCandleTime` dan `resultTrackingStartAt`.
 
-## Chart
-Chart M1 sekarang menampilkan garis:
-- Entry agresif / OPEN
-- Limit pullback EMA
-- SL
-- TP1 / BE
-- TP Max
+## Tujuan
 
-## Telegram
-Notif CALL sekarang menampilkan:
-- Entry agresif
-- Limit pullback
-- Zona limit
-- SL awal
-- TP1
-- TP Max
-- BE
+Mencegah kasus posisi SELL/BUY tiba-tiba menjadi Kalah padahal setelah sinyal muncul harga belum pernah menyentuh SL.
 
-## Catatan
-Limit pullback adalah opsi untuk manual user agar tidak mengejar harga saat M1 bergerak cepat. History dan result tracker tetap memakai plan utama sinyal.
+## Strategi tetap
+
+- M1 EMA Cross Direct Entry.
+- Entry agresif + opsi limit pullback EMA.
+- Smart swing SL + 0.2 ATR.
+- TP Max RR 1:1.25.
+- TP1 mengaktifkan BE.
