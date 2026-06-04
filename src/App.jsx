@@ -2,6 +2,11 @@ import { verifyPasswordResetCode, confirmPasswordReset, applyActionCode } from "
 const ADMIN_CONTACT_URL = "https://t.me/xauai_signal_bot";
 const ADMIN_CONTACT_LABEL = "Hubungi Support";
 const PRODUCT_NAME = "XAU AI Signal";
+const DASHBOARD_LIVE_REFRESH_MS = 3000;
+const DASHBOARD_STALE_REFRESH_MS = 30000;
+const CHART_REFRESH_MS = 30000;
+const HISTORY_REFRESH_MS = 60000;
+const CRON_HEALTH_REFRESH_MS = 30000;
 
 const PAYMENT_QRIS_URL = "";
 const PAYMENT_DANA = "08xxxxxxxxxx";
@@ -606,17 +611,17 @@ function AppInner() {
     loadTelegramConnectStatus();
 
     // Hemat RTDB:
-    // Lite refresh tetap jalan lebih lambat untuk cek apakah MT5 hidup lagi.
+    // Live refresh utama jalan tiap 3 detik saat feed sehat. Kalau MT5/VPS stale, refresh diperlambat supaya RTDB aman.
     // Chart/history/scalp history dipause saat data MT5 stale.
-    const liteInterval = setInterval(loadLiteData, shouldPauseHeavyRefresh ? 60000 : 12000);
+    const liteInterval = setInterval(loadLiteData, shouldPauseHeavyRefresh ? DASHBOARD_STALE_REFRESH_MS : DASHBOARD_LIVE_REFRESH_MS);
 
     let chartInterval = null;
     let historyInterval = null;
     let scalpHistoryInterval = null;
 
     if (!shouldPauseHeavyRefresh) {
-      chartInterval = setInterval(loadChartData, 45000);
-      historyInterval = setInterval(loadHistoryData, 60000);
+      chartInterval = setInterval(loadChartData, CHART_REFRESH_MS);
+      historyInterval = setInterval(loadHistoryData, HISTORY_REFRESH_MS);
       scalpHistoryInterval = setInterval(loadScalpHistoryData, 90000);
     }
 
@@ -644,7 +649,7 @@ function AppInner() {
     if (!authUser || !isPremiumProfile(authProfile)) return;
 
     loadCronHealth();
-    const interval = setInterval(loadCronHealth, 60000);
+    const interval = setInterval(loadCronHealth, CRON_HEALTH_REFRESH_MS);
 
     return () => clearInterval(interval);
   }, [authUser, authProfile?.role, authProfile?.premiumUntil]);
@@ -1131,7 +1136,7 @@ function AppInner() {
           ))}
         </div>
         <button onClick={() => loadData({ includeChart: true, includeHistory: true, includeScalpHistory: true })} disabled={loading} className="dashboardRefreshBtn">
-          <RefreshCcw size={15} /> {loading ? "Memuat..." : "Refresh"}
+          <RefreshCcw size={15} /> {loading ? "Memuat..." : "Refresh Manual"}
         </button>
       </section>
 
@@ -1141,6 +1146,7 @@ function AppInner() {
           <span><Activity size={14} /> Grafik M1: <b>{candlesM1.length || market?.m1Count || 0} candle</b></span>
           <span>{isSell ? <TrendingDown size={14} /> : <TrendingUp size={14} />} Harga Sekarang: <b>{lastCandle?.close || "-"}</b></span>
           <span><Radio size={14} /> Status Data: <b>{marketSession.feedLabel}</b></span>
+          <span><RefreshCcw size={14} /> Auto Refresh: <b>{shouldPauseHeavyRefresh ? "30 detik" : "3 detik"}</b></span>
         </div>
       </div>
 
@@ -1656,7 +1662,7 @@ function getMarketSessionStatus({ market, mt5Status, m1Count = 0, m15Count = 0 }
     feedLabel: "Reconnecting",
     pill: "SINKRON MARKET TERJEDA",
     title: "Sinkronisasi market menunggu koneksi stabil",
-    description: `Data market terakhir masuk ${lastText}. Grafik dan riwayat dijeda sementara agar dashboard tidak menampilkan data lama sebagai data terbaru. Sistem akan mencoba tersambung kembali otomatis setiap 60 detik.`,
+    description: `Data market terakhir masuk ${lastText}. Grafik dan riwayat dijeda sementara agar dashboard tidak menampilkan data lama sebagai data terbaru. Sistem akan mencoba tersambung kembali otomatis setiap 30 detik.`,
     buttonLabel: "Cek Ulang Sekarang",
     chartStatusText: "Koneksi market tersambung ulang",
     chartNotice: hasStoredCandles
@@ -3261,7 +3267,7 @@ function ResultTrackerPrepPanel({ callHistory, scalpHistory, market, signal, isA
 
       <div className="trackerLiteNotice autoEngineNotice">
         <b>Auto Result aktif</b>
-        <span>Sistem memantau sinyal aktif. Saat TP1 tersentuh, batas risiko otomatis pindah ke BE. Hasil akhir tetap menunggu Target Max, SL, BE, atau batas waktu.</span>
+        <span>Sistem memantau sinyal aktif. Dashboard membaca data live tiap 3 detik saat feed sehat. Saat TP1 tersentuh, batas risiko otomatis pindah ke BE. Hasil akhir tetap menunggu Target Max, SL, BE, atau batas waktu.</span>
       </div>
 
       {isAdmin && (
@@ -3327,7 +3333,7 @@ function CronHealthMonitor({ cronHealth, onRefresh }) {
         <div>
           <span className="pill mini">AUTO RESULT</span>
           <h4>Status Auto Result</h4>
-          <p>Memantau pembaruan hasil otomatis agar riwayat sinyal tetap akurat.</p>
+          <p>Memantau pembaruan hasil otomatis. Status panel ini diperbarui tiap 30 detik, sedangkan eksekusi hasil tetap mengikuti jadwal cron.</p>
         </div>
         <div className={`cronHealthBadge ${tone}`}>{statusLabel}</div>
       </div>

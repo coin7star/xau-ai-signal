@@ -1,6 +1,6 @@
 {
-  "name": "xau-ai-signal-step10bd-tp1-be-label-telegram-alert",
-  "version": "7.48.0-step10bd-tp1-be-label-telegram-alert",
+  "name": "xau-ai-signal-step10be-dashboard-refresh-3s",
+  "version": "7.49.0-step10be-dashboard-refresh-3s",
   "type": "module",
   "scripts": {
     "dev": "vite",
