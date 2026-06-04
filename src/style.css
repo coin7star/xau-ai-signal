@@ -5844,3 +5844,18 @@ canvas {
     grid-template-columns: repeat(2, 1fr);
   }
 }
+
+/* Step 10BN - RTDB Lite Mode */
+.liteModeNotice {
+  margin: 10px 0 16px;
+  padding: 12px 16px;
+  border: 1px solid rgba(44, 224, 191, 0.24);
+  border-radius: 16px;
+  background: rgba(11, 31, 45, 0.62);
+  color: #cbd7f3;
+  font-weight: 700;
+  line-height: 1.45;
+}
+.liteModeNotice b {
+  color: #b8fff0;
+}

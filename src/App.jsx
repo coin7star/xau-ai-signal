@@ -2,11 +2,11 @@ import { verifyPasswordResetCode, confirmPasswordReset, applyActionCode } from "
 const ADMIN_CONTACT_URL = "https://t.me/xauai_signal_bot";
 const ADMIN_CONTACT_LABEL = "Hubungi Support";
 const PRODUCT_NAME = "XAU AI Signal";
-const DASHBOARD_LIVE_REFRESH_MS = 3000;
+const DASHBOARD_LIVE_REFRESH_MS = 5000;
 const DASHBOARD_STALE_REFRESH_MS = 30000;
-const CHART_REFRESH_MS = 30000;
+const CHART_REFRESH_MS = 60000;
 const HISTORY_REFRESH_MS = 60000;
-const CRON_HEALTH_REFRESH_MS = 30000;
+const CRON_HEALTH_REFRESH_MS = 60000;
 
 const PAYMENT_QRIS_URL = "";
 const PAYMENT_DANA = "08xxxxxxxxxx";
@@ -298,7 +298,7 @@ function AppInner() {
     try {
       setLoading(true);
 
-      const marketPromise = fetch(`/api/market?mode=${includeChart ? "chart&m1=90&m15=60" : "lite"}&ts=${Date.now()}`, { cache: "no-store" }).then((r) => r.json());
+      const marketPromise = fetch(`/api/market?mode=${includeChart ? "chart&m1=60&m15=0" : "lite"}&ts=${Date.now()}`, { cache: "no-store" }).then((r) => r.json());
       const signalPromise = fetch(`/api/signal?ts=${Date.now()}`, { cache: "no-store" }).then((r) => r.json());
       const aiPromise = fetch(`/api/ai-analysis?ts=${Date.now()}`, { cache: "no-store" }).then((r) => r.json());
       const historyPromise = includeHistory
@@ -610,9 +610,9 @@ function AppInner() {
     loadData({ includeChart: true, includeHistory: true, includeScalpHistory: true });
     loadTelegramConnectStatus();
 
-    // Hemat RTDB:
-    // Live refresh utama jalan tiap 3 detik saat feed sehat. Kalau MT5/VPS stale, refresh diperlambat supaya RTDB aman.
-    // Chart/history/scalp history dipause saat data MT5 stale.
+    // RTDB Lite Mode:
+    // Live refresh utama jalan tiap 5 detik saat feed sehat. Kalau MT5/VPS stale, refresh diperlambat supaya RTDB aman.
+    // Chart hanya refresh 60 detik dan history 60 detik agar download Firebase tidak cepat habis.
     const liteInterval = setInterval(loadLiteData, shouldPauseHeavyRefresh ? DASHBOARD_STALE_REFRESH_MS : DASHBOARD_LIVE_REFRESH_MS);
 
     let chartInterval = null;
@@ -1146,8 +1146,12 @@ function AppInner() {
           <span><Activity size={14} /> Grafik M1: <b>{candlesM1.length || market?.m1Count || 0} candle</b></span>
           <span>{isSell ? <TrendingDown size={14} /> : <TrendingUp size={14} />} Harga Sekarang: <b>{lastCandle?.close || "-"}</b></span>
           <span><Radio size={14} /> Status Data: <b>{marketSession.feedLabel}</b></span>
-          <span><RefreshCcw size={14} /> Auto Refresh: <b>{shouldPauseHeavyRefresh ? "30 detik" : "3 detik"}</b></span>
+          <span><RefreshCcw size={14} /> Mode Hemat RTDB: <b>{shouldPauseHeavyRefresh ? "30 detik" : "5 detik"}</b></span>
         </div>
+      </div>
+
+      <div className="liteModeNotice">
+        <b>Mode Hemat RTDB aktif</b> · Harga & sinyal refresh 5 detik, chart 60 detik, history 60 detik. Auto result tetap membaca harga live/latest price dari MT5/VPS.
       </div>
 
       {activeDashboardTab === "signal" && (

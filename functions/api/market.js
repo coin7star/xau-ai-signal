@@ -28,8 +28,8 @@ export async function onRequest({ request, env }) {
       return j(toMarketLite(rawData), 200, cacheHeaders(6));
     }
 
-    const m1Limit = clampNumber(url.searchParams.get("m1"), 80, 40, 180);
-    const m15Limit = clampNumber(url.searchParams.get("m15"), 60, 30, 140);
+    const m1Limit = clampNumber(url.searchParams.get("m1"), 60, 30, 120);
+    const m15Limit = clampNumber(url.searchParams.get("m15"), 0, 0, 0);
 
     return j(toMarketChart(rawData, m1Limit, m15Limit), 200, cacheHeaders(20));
   }
@@ -45,7 +45,7 @@ export async function onRequest({ request, env }) {
     if (mt5Token !== envToken) return j({ ok: false, error: "Unauthorized: token MT5 salah" }, 401);
 
     const symbol = body.symbol || "XAUUSD";
-    const candles = Array.isArray(body.candles) ? body.candles.slice(-500) : [];
+    const candles = Array.isArray(body.candles) ? body.candles.slice(-180) : [];
     // Step 10AQ: M15 chart/OB disembunyikan agar payload RTDB lebih ringan.
     const candlesM15 = [];
 
@@ -68,7 +68,7 @@ export async function onRequest({ request, env }) {
 
     return j({
       ok: true,
-      message: "Market data saved to Firebase",
+      message: "Market data saved to Firebase (RTDB Lite Mode)",
       symbol,
       candleCount: candles.length,
       candleM15Count: 0,

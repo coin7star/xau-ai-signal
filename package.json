@@ -1,6 +1,6 @@
 {
-  "name": "xau-ai-signal-step10bm-tp1-be-performance-analytics",
-  "version": "7.57.0-step10bm-tp1-be-performance-analytics",
+  "name": "xau-ai-signal-step10bn-rtdb-lite-mode",
+  "version": "7.58.0-step10bn-rtdb-lite-mode",
   "type": "module",
   "scripts": {
     "dev": "vite",
