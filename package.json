@@ -1,6 +1,6 @@
 {
-  "name": "xau-ai-signal-step10bl-market-source-reconnect-fix",
-  "version": "7.56.0-step10bl-market-source-reconnect-fix",
+  "name": "xau-ai-signal-step10bm-tp1-be-performance-analytics",
+  "version": "7.57.0-step10bm-tp1-be-performance-analytics",
   "type": "module",
   "scripts": {
     "dev": "vite",

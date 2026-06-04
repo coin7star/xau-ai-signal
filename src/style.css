@@ -5704,3 +5704,143 @@ canvas {
     width: 100%;
   }
 }
+
+/* Step 10BM TP1 & BE Analytics */
+.tp1AnalyticsBox {
+  margin-top: 14px;
+  padding: 16px;
+  border-radius: 20px;
+  background: rgba(13, 148, 136, .10);
+  border: 1px solid rgba(45, 212, 191, .18);
+}
+
+.tp1AnalyticsHead {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 14px;
+  margin-bottom: 14px;
+}
+
+.tp1AnalyticsHead b,
+.tp1AnalyticsHead span {
+  display: block;
+}
+
+.tp1AnalyticsHead b {
+  color: #f8fbff;
+  margin-bottom: 6px;
+}
+
+.tp1AnalyticsHead span {
+  color: #b9f3ff;
+  line-height: 1.5;
+  font-weight: 800;
+}
+
+.tp1AnalyticsHead em {
+  flex: 0 0 auto;
+  font-style: normal;
+  padding: 10px 14px;
+  border-radius: 999px;
+  background: rgba(0,0,0,.22);
+  color: #ffe879;
+  border: 1px solid rgba(255,255,255,.08);
+  font-weight: 1000;
+}
+
+.tp1AnalyticsGrid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.tp1AnalyticsCard {
+  padding: 14px;
+  border-radius: 18px;
+  background: rgba(0,0,0,.22);
+  border: 1px solid rgba(255,255,255,.08);
+}
+
+.tp1AnalyticsTop {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.tp1AnalyticsTop span {
+  color: #9fb0d6;
+  font-size: 12px;
+  font-weight: 1000;
+}
+
+.tp1AnalyticsTop strong {
+  color: #a6ffd8;
+  font-size: 26px;
+}
+
+.tp1AnalyticsCard > small {
+  display: block;
+  margin-top: 4px;
+  color: #b9f3ff;
+  font-weight: 900;
+}
+
+.tp1MiniGrid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+  margin: 14px 0;
+}
+
+.tp1MiniGrid div {
+  padding: 10px;
+  border-radius: 14px;
+  background: rgba(255,255,255,.06);
+}
+
+.tp1MiniGrid span,
+.tp1MiniGrid b {
+  display: block;
+}
+
+.tp1MiniGrid span {
+  color: #9fb0d6;
+  font-size: 11px;
+  margin-bottom: 4px;
+  font-weight: 900;
+}
+
+.tp1MiniGrid b {
+  color: #f8fbff;
+}
+
+.tp1AnalyticsCard p {
+  margin: 0;
+  color: #b9f3ff;
+  line-height: 1.5;
+  font-weight: 800;
+}
+
+@media(max-width: 900px) {
+  .tp1AnalyticsHead,
+  .tp1AnalyticsGrid {
+    grid-template-columns: 1fr;
+  }
+
+  .tp1AnalyticsHead {
+    display: block;
+  }
+
+  .tp1AnalyticsHead em {
+    display: inline-block;
+    margin-top: 12px;
+  }
+}
+
+@media(max-width: 560px) {
+  .tp1MiniGrid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}

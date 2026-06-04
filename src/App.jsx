@@ -3445,12 +3445,60 @@ function PerformanceAnalyticsPanel({ callHistory, scalpHistory, isAdmin }) {
         </div>
       </div>
 
+      <Tp1BeAnalytics items={callItems} />
+
       {isAdmin && (
         <div className="performanceAdminNote">
           Analisis otomatis mengikuti hasil terbaru. Pastikan pembaruan hasil tetap aktif agar performa selalu akurat.
         </div>
       )}
     </section>
+  );
+}
+
+
+function Tp1BeAnalytics({ items }) {
+  const stats7 = buildTp1BeStats(items, 7);
+  const stats30 = buildTp1BeStats(items, 30);
+
+  return (
+    <div className="tp1AnalyticsBox">
+      <div className="tp1AnalyticsHead">
+        <div>
+          <b>Analisis TP1 & BE</b>
+          <span>Membaca apakah sinyal sering minimal menyentuh TP1 sebelum lanjut TP Max, balik BE, atau kena SL duluan.</span>
+        </div>
+        <em>{stats7.tp1HitRate}% TP1 Rate 7D</em>
+      </div>
+
+      <div className="tp1AnalyticsGrid">
+        <Tp1BeCard title="7 Hari" stats={stats7} />
+        <Tp1BeCard title="30 Hari" stats={stats30} />
+      </div>
+    </div>
+  );
+}
+
+function Tp1BeCard({ title, stats }) {
+  return (
+    <div className="tp1AnalyticsCard">
+      <div className="tp1AnalyticsTop">
+        <span>{title}</span>
+        <strong>{stats.tp1HitRate}%</strong>
+      </div>
+      <small>TP1 Hit Rate</small>
+
+      <div className="tp1MiniGrid">
+        <div><span>Total</span><b>{stats.total}</b></div>
+        <div><span>TP1 kena</span><b>{stats.tp1Touched}</b></div>
+        <div><span>TP Max</span><b>{stats.afterTp1Win}</b></div>
+        <div><span>Balik BE</span><b>{stats.afterTp1Be}</b></div>
+        <div><span>SL duluan</span><b>{stats.directLoss}</b></div>
+        <div><span>BE aktif</span><b>{stats.openProtected}</b></div>
+      </div>
+
+      <p>{buildTp1BeNote(stats)}</p>
+    </div>
   );
 }
 
@@ -3612,6 +3660,73 @@ function buildPerformanceStats(items, days) {
     cleanWinRate,
     totalWinRate
   };
+}
+
+
+function buildTp1BeStats(items, days) {
+  const now = Date.now();
+  const from = now - days * 24 * 60 * 60 * 1000;
+  const filtered = (items || []).filter((item) => {
+    const t = parseHistoryTimeMs(item.createdAt || item.candleTime || item.time || item.timestamp || item.closedAt || item.resultAt);
+    if (!t) return true;
+    return t >= from;
+  });
+
+  let tp1Touched = 0;
+  let afterTp1Win = 0;
+  let afterTp1Be = 0;
+  let directLoss = 0;
+  let expired = 0;
+  let openProtected = 0;
+  let openPlain = 0;
+
+  filtered.forEach((item) => {
+    const result = formatResultStatus(item);
+    const raw = String(item?.result || item?.status || "OPEN").toUpperCase();
+    const protectedByBe = isTp1BreakEvenActive(item);
+    const win = result === "Menang" || raw === "WIN";
+    const be = result === "BE" || raw === "BE" || raw === "BREAKEVEN";
+    const loss = result === "Kalah" || raw === "LOSS";
+    const exp = result === "Kedaluwarsa" || raw === "EXPIRED";
+    const open = isOpenResult(item);
+    const touched = protectedByBe || win || be;
+
+    if (touched) tp1Touched += 1;
+    if (win) afterTp1Win += 1;
+    if (be) afterTp1Be += 1;
+    if (loss && !protectedByBe) directLoss += 1;
+    if (exp) expired += 1;
+    if (open && protectedByBe) openProtected += 1;
+    if (open && !protectedByBe) openPlain += 1;
+  });
+
+  const total = filtered.length;
+  const tp1HitRate = total > 0 ? Math.round((tp1Touched / total) * 100) : 0;
+  const directLossRate = total > 0 ? Math.round((directLoss / total) * 100) : 0;
+  const beAfterTp1Rate = tp1Touched > 0 ? Math.round((afterTp1Be / tp1Touched) * 100) : 0;
+  const tpMaxAfterTp1Rate = tp1Touched > 0 ? Math.round((afterTp1Win / tp1Touched) * 100) : 0;
+
+  return {
+    days,
+    total,
+    tp1Touched,
+    tp1HitRate,
+    afterTp1Win,
+    afterTp1Be,
+    directLoss,
+    directLossRate,
+    beAfterTp1Rate,
+    tpMaxAfterTp1Rate,
+    openProtected,
+    openPlain,
+    expired
+  };
+}
+
+function buildTp1BeNote(stats) {
+  if (!stats.total) return "Menunggu sample sinyal baru.";
+  if (stats.tp1Touched === 0) return `Belum ada sinyal ${stats.days} hari yang menyentuh TP1. Pantau apakah SL terlalu dekat atau entry terlalu cepat.`;
+  return `Dari ${stats.total} sinyal, ${stats.tp1Touched} sudah menyentuh TP1. ${stats.afterTp1Win} lanjut TP Max, ${stats.afterTp1Be} balik BE, ${stats.directLoss} kena SL sebelum TP1.`;
 }
 
 function parseHistoryTimeMs(value) {
