@@ -57,22 +57,25 @@ export async function buildTrackerSummary(dbUrl, env, shouldUpdate) {
 
   const callItems = Object.values(callRaw || {}).filter(Boolean);
 
-  const allOpen = [
+  const trackableItems = [
     ...callItems.map((item) => ({ ...item, trackerType: "MAIN_CALL", path: "/xauusd/callHistory", expireHours: mainExpireHours, telegramResultAlert: controls.mainSignalResultAlert !== false }))
-  ]
-    .filter(isOpen)
+  ];
+
+  const allOpen = trackableItems
+    .filter((item) => isOpen(item) || shouldTrackPullbackLimitBacktest(item))
     .sort((a, b) => String(a.createdAt || "").localeCompare(String(b.createdAt || "")))
     .slice(0, maxItems);
 
-  const totalOpenCount = [
-    ...callItems.map((item) => ({ ...item, trackerType: "MAIN_CALL", path: "/xauusd/callHistory", expireHours: mainExpireHours, telegramResultAlert: controls.mainSignalResultAlert !== false }))
-  ].filter(isOpen).length;
+  const totalOpenCount = trackableItems.filter(isOpen).length;
+  const totalLimitBacktestCount = trackableItems.filter(shouldTrackPullbackLimitBacktest).length;
 
   const checked = [];
   const updated = [];
 
   for (const item of allOpen) {
-    const result = evaluateItem(item, marketRange);
+    const result = isOpen(item)
+      ? evaluateItem(item, marketRange)
+      : evaluateLimitBacktestItem(item, marketRange);
     checked.push({
       id: item.id,
       type: item.trackerType,
@@ -84,16 +87,17 @@ export async function buildTrackerSummary(dbUrl, env, shouldUpdate) {
       reason: result.note
     });
 
-    if (shouldUpdate && (result.result || result.status) && item.id) {
+    if (shouldUpdate && (result.result || result.status || result.patch) && item.id) {
       const closedAt = new Date().toISOString();
+      const metaOnly = result.metaOnly === true || (!!result.patch && !result.result && !result.status);
       const payload = {
         ...item,
         ...(result.patch || {}),
-        status: result.status || "CLOSED",
-        result: result.result,
-        closedAt: result.result ? closedAt : null,
-        resultPrice: result.resultPrice || livePrice,
-        resultSource: "AUTO_RESULT_ENGINE",
+        status: metaOnly ? (item.status || "CLOSED") : (result.status || "CLOSED"),
+        result: metaOnly ? (item.result ?? null) : result.result,
+        closedAt: metaOnly ? (item.closedAt || null) : (result.result ? closedAt : null),
+        resultPrice: metaOnly ? (item.resultPrice || null) : (result.resultPrice || livePrice),
+        resultSource: metaOnly ? (item.resultSource || "AUTO_RESULT_ENGINE") : "AUTO_RESULT_ENGINE",
         resultCheckedAt: closedAt,
         triggeredAt: result.triggeredAt || item.triggeredAt || null,
         note: result.note
@@ -103,9 +107,9 @@ export async function buildTrackerSummary(dbUrl, env, shouldUpdate) {
       delete payload.expireHours;
       delete payload.trackerType;
 
-      const isTp1BreakEvenUpdate = !result.result && result.patch?.tp1Hit === true;
+      const isTp1BreakEvenUpdate = !metaOnly && !result.result && result.patch?.tp1Hit === true;
 
-      const alertResult = result.result && item.telegramResultAlert
+      const alertResult = !metaOnly && result.result && item.telegramResultAlert
         ? await maybeSendResultAlert(env, item, payload, result.result, result.resultPrice || livePrice, result.note)
         : { sent: false, skippedReason: result.result ? "RESULT_ALERT_DISABLED_FOR_TRACKER" : "PENDING_TRIGGER_ONLY" };
 
@@ -162,6 +166,7 @@ export async function buildTrackerSummary(dbUrl, env, shouldUpdate) {
     livePrice,
     scanned: allOpen.length,
     totalOpenCount,
+    totalLimitBacktestCount,
     maxItems,
     updatedCount: updated.length,
     resultAlertSentCount: updated.filter((item) => item.resultAlertSent).length,
@@ -524,42 +529,43 @@ function evaluateItem(item, marketContext) {
     };
   }
 
+  const limitUpdateEarly = evaluatePullbackLimitPlan(item, signal, highSinceEntry, lowSinceEntry, livePrice);
+
   if (signal === "BUY") {
     // Step 10BR: jangan hanya lihat last price. Jika candle M1 sempat wick ke TP1/TP/SL, cron tetap harus bisa membaca range high/low.
     if (highSinceEntry >= tp) {
-      return { result: "WIN", resultPrice: Math.max(livePrice, tp), note: `TP Max tersentuh${rangeNote} di area ${formatPrice(Math.max(highSinceEntry, livePrice))}.` };
+      return mergeLimitPatch({ result: "WIN", resultPrice: Math.max(livePrice, tp), note: `TP Max tersentuh${rangeNote} di area ${formatPrice(Math.max(highSinceEntry, livePrice))}.` }, limitUpdateEarly);
     }
     if (breakEvenActive && Number.isFinite(entry) && lowSinceEntry <= entry) {
-      return { result: "BE", resultPrice: entry, note: `Harga kembali ke BE ${formatPrice(entry)} setelah TP1.` };
+      return mergeLimitPatch({ result: "BE", resultPrice: entry, note: `Harga kembali ke BE ${formatPrice(entry)} setelah TP1.` }, limitUpdateEarly);
     }
     if (lowSinceEntry <= sl) {
-      return { result: "LOSS", resultPrice: Math.min(livePrice, sl), note: `SL tersentuh${rangeNote} di area ${formatPrice(Math.min(lowSinceEntry, livePrice))}.` };
+      return mergeLimitPatch({ result: "LOSS", resultPrice: Math.min(livePrice, sl), note: `SL tersentuh${rangeNote} di area ${formatPrice(Math.min(lowSinceEntry, livePrice))}.` }, limitUpdateEarly);
     }
 
     if (Number.isFinite(tp1) && Number.isFinite(entry) && !item.tp1Hit && highSinceEntry >= tp1) {
-      return buildBreakEvenPatch(item, entry, sl, Math.max(livePrice, tp1), tp1, rangeNote);
+      return mergeLimitPatch(buildBreakEvenPatch(item, entry, sl, Math.max(livePrice, tp1), tp1, rangeNote), limitUpdateEarly);
     }
   }
 
   if (signal === "SELL") {
     // Step 10BR: SELL juga memakai low/high candle supaya TP1/TP/SL yang tersentuh wick tidak kelewat saat cron berikutnya.
     if (lowSinceEntry <= tp) {
-      return { result: "WIN", resultPrice: Math.min(livePrice, tp), note: `TP Max tersentuh${rangeNote} di area ${formatPrice(Math.min(lowSinceEntry, livePrice))}.` };
+      return mergeLimitPatch({ result: "WIN", resultPrice: Math.min(livePrice, tp), note: `TP Max tersentuh${rangeNote} di area ${formatPrice(Math.min(lowSinceEntry, livePrice))}.` }, limitUpdateEarly);
     }
     if (breakEvenActive && Number.isFinite(entry) && highSinceEntry >= entry) {
-      return { result: "BE", resultPrice: entry, note: `Harga kembali ke BE ${formatPrice(entry)} setelah TP1.` };
+      return mergeLimitPatch({ result: "BE", resultPrice: entry, note: `Harga kembali ke BE ${formatPrice(entry)} setelah TP1.` }, limitUpdateEarly);
     }
     if (highSinceEntry >= sl) {
-      return { result: "LOSS", resultPrice: Math.max(livePrice, sl), note: `SL tersentuh${rangeNote} di area ${formatPrice(Math.max(highSinceEntry, livePrice))}.` };
+      return mergeLimitPatch({ result: "LOSS", resultPrice: Math.max(livePrice, sl), note: `SL tersentuh${rangeNote} di area ${formatPrice(Math.max(highSinceEntry, livePrice))}.` }, limitUpdateEarly);
     }
 
     if (Number.isFinite(tp1) && Number.isFinite(entry) && !item.tp1Hit && lowSinceEntry <= tp1) {
-      return buildBreakEvenPatch(item, entry, sl, Math.min(livePrice, tp1), tp1, rangeNote);
+      return mergeLimitPatch(buildBreakEvenPatch(item, entry, sl, Math.min(livePrice, tp1), tp1, rangeNote), limitUpdateEarly);
     }
   }
 
-  const limitUpdate = evaluatePullbackLimitPlan(item, signal, highSinceEntry, lowSinceEntry, livePrice);
-  if (limitUpdate) return limitUpdate;
+  if (limitUpdateEarly) return limitUpdateEarly;
 
   const ageHours = getAgeHours(item.createdAt || item.candleTime || item.serverTime);
   const expireHours = Number(item.expireHours || 24);
@@ -570,6 +576,42 @@ function evaluateItem(item, marketContext) {
   return { result: null, note: "Masih berjalan. Belum menyentuh TP/SL/BE." };
 }
 
+function mergeLimitPatch(result, limitUpdate) {
+  if (!limitUpdate?.patch) return result;
+  return {
+    ...result,
+    patch: { ...(result.patch || {}), ...limitUpdate.patch },
+    note: [result.note, limitUpdate.note].filter(Boolean).join(" | ")
+  };
+}
+
+function shouldTrackPullbackLimitBacktest(item = {}) {
+  if (isOpen(item)) return false;
+  if (item.pullbackLimitResult) return false;
+  const plan = item.pullbackLimitPlan || item.strategySnapshot?.mainM5?.pullbackLimitPlan || null;
+  if (!plan?.limitEntry) return false;
+  const t = new Date(item.createdAt || item.candleTime || item.time || item.timestamp || item.closedAt || item.resultAt || 0).getTime();
+  if (!Number.isFinite(t) || t <= 0) return true;
+  return Date.now() - t <= 30 * 24 * 60 * 60 * 1000;
+}
+
+function evaluateLimitBacktestItem(item, marketContext) {
+  const signal = String(item.signal || "").toUpperCase();
+  const livePrice = Number(marketContext?.livePrice || 0);
+  if (!Number.isFinite(livePrice) || livePrice <= 0) return { result: null, note: "Harga live belum tersedia untuk backtest limit." };
+  const range = getRangeForItem(marketContext, item);
+  const highSinceEntry = Number.isFinite(range.high) ? range.high : livePrice;
+  const lowSinceEntry = Number.isFinite(range.low) ? range.low : livePrice;
+  const limitUpdate = evaluatePullbackLimitPlan(item, signal, highSinceEntry, lowSinceEntry, livePrice);
+  if (!limitUpdate?.patch) return { result: null, note: "Limit pullback belum tersentuh." };
+  return {
+    ...limitUpdate,
+    metaOnly: true,
+    status: item.status || "CLOSED",
+    result: item.result || null,
+    note: `${limitUpdate.note} Data ini hanya update analytics limit; hasil entry agresif tetap ${item.result || item.status || "tersimpan"}.`
+  };
+}
 
 function evaluatePullbackLimitPlan(item, signal, highSinceEntry, lowSinceEntry, livePrice) {
   const plan = item.pullbackLimitPlan || item.strategySnapshot?.mainM5?.pullbackLimitPlan || null;

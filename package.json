@@ -1,6 +1,6 @@
 {
-  "name": "xau-ai-signal-step10bw-limit-pullback-rr-1-analytics",
-  "version": "7.67.0-step10bw-limit-pullback-rr-1-analytics",
+  "name": "xau-ai-signal-step10bx-limit-analytics-touch-sync-fix",
+  "version": "7.68.0-step10bx-limit-analytics-touch-sync-fix",
   "type": "module",
   "scripts": {
     "dev": "vite",
