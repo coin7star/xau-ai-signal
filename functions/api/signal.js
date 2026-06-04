@@ -2403,7 +2403,6 @@ function maskChatId(value) {
 
 function buildTelegramMessage(signal, market) {
   const s = signal.strategy || {};
-  const c = s.confirmation || {};
   const signalCode = String(signal.signal || "WAIT").toUpperCase();
   const isBuy = signalCode.includes("BUY");
   const isSell = signalCode.includes("SELL");
@@ -2412,59 +2411,81 @@ function buildTelegramMessage(signal, market) {
   const direction = isBuy ? "BUY" : isSell ? "SELL" : "WAIT";
   const pair = market?.symbol || signal.pair || "XAUUSD";
   const confidence = Number(signal.confidence || 0);
-
-  const rawBullOb = s.orderBlock?.bullish;
-  const rawBearOb = s.orderBlock?.bearish;
-  const obBull = getFreshObForDisplay(rawBullOb);
-  const obBear = getFreshObForDisplay(rawBearOb);
-  const obText = isBuy
-    ? formatOb(obBull)
-    : isSell
-      ? formatOb(obBear)
-      : `Bull ${formatOb(obBull)} | Bear ${formatOb(obBear)}`;
-
   const header = buildTelegramSignalHeader({ isCall, isReady, direction });
   const action = buildTelegramAction({ isCall, isReady, direction });
-  const reasonLines = buildTelegramReasonLines(signal, s, c, obText);
   const quality = buildTelegramQuality(confidence, signal.callStage);
-  const entry = formatPrice(signal.entry);
-  const sl = formatPrice(signal.sl);
-  const tp = formatPrice(signal.tp);
+  const mainPlan = s.mainM5 || {};
+  const entry = formatPrice(signal.entry || mainPlan.entry);
+  const sl = formatPrice(signal.sl || mainPlan.sl);
+  const tp1 = formatPrice(signal.tp1 || mainPlan.tp1);
+  const tpMax = formatPrice(signal.tp || mainPlan.tp2 || mainPlan.tpMax);
+  const bePrice = entry;
+  const rrText = mainPlan.rr || "1:1.25";
   const lastPrice = formatPrice(market?.bid || market?.lastPrice || market?.close || signal.entry);
   const candleTime = signal.candleTime || market?.serverTime || market?.receivedAt || "-";
   const dashboardUrl = "https://www.xauaisignal.online";
+  const ema9 = formatIndicator(mainPlan.ema9 || s.ema9);
+  const ema20 = formatIndicator(mainPlan.ema20 || s.ema20);
+  const crossType = mainPlan.cross?.type || s.emaCross || "EMA Cross M1";
+  const closeFilter = mainPlan.candleBreak?.closeAboveBoth || mainPlan.candleBreak?.closeBelowBoth
+    ? "Valid"
+    : "Menunggu";
 
-  const setupSnapshot = s.mainM5?.mode === "M1_EMA_CROSS_DIRECT_ENTRY_MAIN"
-    ? [
-        `EMA 9/20 M1 ${formatIndicator(s.mainM5.ema9)} / ${formatIndicator(s.mainM5.ema20)}`,
-        `Plan: ${escapeHtml(s.mainM5.label || signal.signalLabel || "WAIT")} · RR ${escapeHtml(s.mainM5.rr || "1:1")}`,
-        `Source: ${escapeHtml(s.mainM5.sourceTimeframe || "MT5_VPS_M1")}`
-      ]
-    : [
-        `RSI ${formatIndicator(s.rsi)} · MFI ${formatIndicator(s.mfi)}`,
-        `EMA 9/20 ${formatIndicator(s.ema9)} / ${formatIndicator(s.ema20)}`,
-        `OB M15: ${escapeHtml(obText)}`
-      ];
+  if (!isCall) {
+    return [
+      `${header.emoji} <b>${header.title}</b>`,
+      `<i>${header.subtitle}</i>`,
+      "",
+      `📌 <b>Status Market</b>`,
+      `<b>Pair:</b> ${escapeHtml(pair)}`,
+      `<b>Arah Pantauan:</b> ${escapeHtml(direction)}`,
+      `<b>Kualitas:</b> ${confidence}% · ${escapeHtml(quality)}`,
+      `<b>Harga Live:</b> ${escapeHtml(lastPrice)}`,
+      "",
+      `✅ <b>Konfirmasi</b>`,
+      `• EMA 9/20 M1: ${escapeHtml(ema9)} / ${escapeHtml(ema20)}`,
+      `• Cross: ${escapeHtml(crossType)}`,
+      `• Close filter: ${escapeHtml(closeFilter)}`,
+      "",
+      `🎯 <b>Action</b>`,
+      escapeHtml(action),
+      "",
+      `🕒 <b>Market Time:</b> ${escapeHtml(candleTime)}`,
+      `🚀 <b>Dashboard:</b> ${escapeHtml(dashboardUrl)}`,
+      "",
+      `<i>Bukan financial advice. Demo first, risk management wajib.</i>`
+    ].join("\n");
+  }
 
   return [
     `${header.emoji} <b>${header.title}</b>`,
     `<i>${header.subtitle}</i>`,
     "",
-    `<b>Signal:</b> ${escapeHtml(direction)}`,
+    `📌 <b>Ringkasan Sinyal</b>`,
     `<b>Pair:</b> ${escapeHtml(pair)}`,
-    `<b>Kekuatan Setup:</b> ${confidence}% · ${escapeHtml(quality)}`,
-    `<b>Last Price:</b> ${escapeHtml(lastPrice)}`,
+    `<b>Arah:</b> ${escapeHtml(direction)}`,
+    `<b>Kualitas:</b> ${confidence}% · ${escapeHtml(quality)}`,
+    `<b>Harga Live:</b> ${escapeHtml(lastPrice)}`,
     "",
-    `📍 <b>Trade Plan</b>`,
-    `<b>Entry Area:</b> ${escapeHtml(entry)}`,
-    `<b>Stop Loss:</b> ${escapeHtml(sl)}`,
-    `<b>Take Profit:</b> ${escapeHtml(tp)}`,
+    `🎯 <b>Rencana Entry</b>`,
+    `<b>Entry:</b> ${escapeHtml(entry)}`,
+    `<b>SL Awal:</b> ${escapeHtml(sl)}`,
+    `<b>TP1:</b> ${escapeHtml(tp1)} <i>(aktifkan BE)</i>`,
+    `<b>TP Max:</b> ${escapeHtml(tpMax)} <i>(target menang)</i>`,
+    `<b>BE:</b> ${escapeHtml(bePrice)} <i>(SL pindah ke entry setelah TP1)</i>`,
+    `<b>RR:</b> ${escapeHtml(rrText)}`,
     "",
-    `🧠 <b>Market Reason</b>`,
-    ...reasonLines,
+    `🛡️ <b>Alur Result Otomatis</b>`,
+    `• Jika TP1 tersentuh → SL otomatis naik ke BE ${escapeHtml(bePrice)}.`,
+    `• Jika lanjut ke TP Max → hasil <b>Menang</b>.`,
+    `• Jika balik ke BE setelah TP1 → hasil <b>BE</b>.`,
+    `• Jika kena SL sebelum TP1 → hasil <b>Kalah</b>.`,
     "",
-    `✅ <b>Setup Snapshot</b>`,
-    ...setupSnapshot,
+    `✅ <b>Konfirmasi Setup</b>`,
+    `• EMA 9/20 M1: ${escapeHtml(ema9)} / ${escapeHtml(ema20)}`,
+    `• Cross: ${escapeHtml(crossType)}`,
+    `• Close filter: ${escapeHtml(closeFilter)}`,
+    `• Source: ${escapeHtml(mainPlan.sourceTimeframe || "MT5_VPS_M1")}`,
     "",
     `🎯 <b>Action</b>`,
     escapeHtml(action),
