@@ -1268,7 +1268,13 @@ function AppInner() {
               </div>
             )}
 
-            <div className="historyTable">
+            {(callHistory?.history || []).length > 8 && (
+              <div className="historyScrollNote">
+                Semua riwayat sinyal ditampilkan. Scroll daftar ini supaya halaman tetap rapi dan tidak terlalu panjang.
+              </div>
+            )}
+
+            <div className="historyTable mainHistoryScrollTable">
               <div className={`historyHead ${isAdmin ? "adminMode" : "viewerMode"}`}>
                 <span>Waktu</span>
                 <span>Sinyal</span>
@@ -1387,7 +1393,7 @@ function AppInner() {
                 {isAdmin && <span>Aksi</span>}
               </div>
 
-              {(callHistory?.history || []).slice(0, 12).map((item) => (
+              {(callHistory?.history || []).map((item) => (
                 <div className={`historyRow ${isAdmin ? "adminMode" : "viewerMode"}`} key={item.id}>
                   <span>{formatHistoryTime(item.createdAt || item.candleTime)}</span>
                   <strong className={String(item.signal || "").toLowerCase()}>{item.signal}</strong>
