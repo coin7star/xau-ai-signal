@@ -585,8 +585,16 @@ function AppShell({ user, profile, refreshProfile, profileError }) {
   const [paymentRefreshKey,setPaymentRefreshKey]=useState(0);
   const [adminToken,setAdminToken]=useState(()=>localStorage.getItem(ADMIN_TOKEN_KEY)||"");
   const [busyResultId,setBusyResultId]=useState("");
+  const [tab,setTab]=useState("signal");
   const premium=isPremiumProfile(profile);
   const admin=profile?.role==="admin";
+
+  const TABS=[
+    {id:"signal",label:"Sinyal",icon:Activity},
+    {id:"premium",label:"Premium",icon:Crown},
+    {id:"telegram",label:"Telegram",icon:Zap},
+    ...(admin?[{id:"admin",label:"Admin",icon:Shield}]:[])
+  ];
 
   async function loadSignals(silent=false){
     if(!silent)setLoading(true);
@@ -633,7 +641,7 @@ function AppShell({ user, profile, refreshProfile, profileError }) {
   return <div className="app">
     <header className="topbar">
       <div className="brand"><div className="brandLogo">X</div><div><b>XAU AI SIGNAL</b><span>Manual signal desk</span></div></div>
-      <nav><button className="navBtn active">Signals</button><button className="navBtn" onClick={enableNotif}><Bell size={16}/> Alerts</button>{admin&&<a className="navBtn" href="#admin">Admin</a>}<button className="navBtn ghost" onClick={logout}><LogOut size={16}/></button></nav>
+      <nav><button className="navBtn" onClick={enableNotif}><Bell size={16}/> Alerts</button><button className="navBtn ghost" onClick={logout}><LogOut size={16}/></button></nav>
     </header>
 
     <main className="container">
@@ -645,20 +653,28 @@ function AppShell({ user, profile, refreshProfile, profileError }) {
       {toast && <div className="toast"><Bell size={17}/>{toast}<button onClick={()=>setToast("")}><X size={15}/></button></div>}
       {profileError && <div className="notice error profileNotice">Akses akun belum terbaca. Silakan refresh halaman.</div>}
 
-      {loading ? <div className="loadingCard newCard"><RefreshCw className="spin"/><span>Memuat signal feed...</span></div> : <SignalCard signal={latest} premium={premium}/>}
+      <div className="mainTabs">
+        {TABS.map(t=>{const Icon=t.icon;return <button key={t.id} type="button" className={tab===t.id?"active":""} onClick={()=>setTab(t.id)}><Icon size={16}/> {t.label}</button>})}
+      </div>
 
-      <PremiumBox profile={profile} user={user} refresh={refreshProfile} onOrderCreated={()=>setPaymentRefreshKey(k=>k+1)}/>
-      <PaymentHistory user={user} refreshKey={paymentRefreshKey}/>
-      <TelegramPanel user={user} profile={profile} premium={premium} refresh={refreshProfile}/>
+      {tab==="signal" && <>
+        {loading ? <div className="loadingCard newCard"><RefreshCw className="spin"/><span>Memuat signal feed...</span></div> : <SignalCard signal={latest} premium={premium}/>}
+        <Feed history={history} onRefresh={()=>loadSignals()} admin={admin} onSetResult={setSignalResult} busyResultId={busyResultId}/>
+        <AiPanel signal={latest}/>
+      </>}
 
-      <Feed history={history} onRefresh={()=>loadSignals()} admin={admin} onSetResult={setSignalResult} busyResultId={busyResultId}/>
-      <AiPanel signal={latest}/>
+      {tab==="premium" && <>
+        <PremiumBox profile={profile} user={user} refresh={refreshProfile} onOrderCreated={()=>setPaymentRefreshKey(k=>k+1)}/>
+        <PaymentHistory user={user} refreshKey={paymentRefreshKey}/>
+      </>}
 
-      {admin && <div id="admin">
+      {tab==="telegram" && <TelegramPanel user={user} profile={profile} premium={premium} refresh={refreshProfile}/>}
+
+      {tab==="admin" && admin && <>
         <WinrateCard stats={stats}/>
         <AdminPanel latest={latest} history={history} onPublished={()=>loadSignals()} token={adminToken} setToken={setAdminToken} onSetResult={setSignalResult} busyResultId={busyResultId}/>
         <AdminOrders token={adminToken}/>
-      </div>}
+      </>}
 
       <footer><span>{APP_NAME}</span> • Signal information & AI assistance • Trading dengan risk management.</footer>
     </main>
