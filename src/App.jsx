@@ -39,6 +39,8 @@ function fmtDate(v) {
 }
 function isBuy(s) { return String(s || "").toUpperCase().includes("BUY"); }
 function isSell(s) { return String(s || "").toUpperCase().includes("SELL"); }
+function resultBadgeClass(r) { const v=String(r||"").toUpperCase(); return v==="WIN"?"resultBadge win":v==="LOSS"?"resultBadge loss":v==="BE"?"resultBadge be":""; }
+function resultLabel(r) { const v=String(r||"").toUpperCase(); return v==="WIN"?"✅ WIN":v==="LOSS"?"❌ LOSS":v==="BE"?"➖ BE":""; }
 
 function AuthScreen({ onDone, onBack }) {
   const [mode,setMode] = useState("login");
@@ -144,6 +146,7 @@ function SignalCard({ signal, premium }) {
     </div>
     <div className="signalMeta">
       <span>{signal.pair || "XAUUSD"}</span><span>{signal.timeframe || "M15"}</span><span>{signal.status || "OPEN"}</span>
+      {signal.result && <span className={resultBadgeClass(signal.result)}>{resultLabel(signal.result)}</span>}
     </div>
     <div className="priceGrid">
       <div><small>ENTRY</small><strong>{money(signal.entry)}</strong></div>
@@ -159,7 +162,7 @@ function SignalCard({ signal, premium }) {
   </section>;
 }
 
-function Feed({ history, onRefresh }) {
+function Feed({ history, onRefresh, admin, onSetResult, busyResultId }) {
   return <section className="section">
     <div className="sectionHeader"><div><span className="eyebrow">SIGNAL FEED</span><h3>Riwayat call</h3></div><button className="iconBtn" onClick={onRefresh}><RefreshCw size={17}/></button></div>
     <div className="feedList">
@@ -167,9 +170,32 @@ function Feed({ history, onRefresh }) {
         <div className={`dir ${isBuy(s.direction)?"buy":isSell(s.direction)?"sell":""}`}>{s.direction || "WAIT"}</div>
         <div className="feedMain"><b>{s.title || `${s.pair || "XAUUSD"} ${s.timeframe || "M15"}`}</b><span>{s.note || s.reason || "Manual setup"}</span></div>
         <div className="feedNums"><b>{money(s.entry)}</b><span>SL {money(s.sl)} • TP {money(s.tp)}</span></div>
+        <div className="feedResultCol">
+          {s.result && <span className={resultBadgeClass(s.result)}>{resultLabel(s.result)}</span>}
+          {admin && s.id && <div className="feedResultActions">
+            <button type="button" title="Tandai TP / WIN" disabled={busyResultId===s.id} className="miniBtn win" onClick={()=>onSetResult(s.id,"WIN")}><CheckCircle2 size={13}/></button>
+            <button type="button" title="Tandai SL / LOSS" disabled={busyResultId===s.id} className="miniBtn loss" onClick={()=>onSetResult(s.id,"LOSS")}><X size={13}/></button>
+            <button type="button" title="Tandai Break Even" disabled={busyResultId===s.id} className="miniBtn be" onClick={()=>onSetResult(s.id,"BE")}><Target size={13}/></button>
+          </div>}
+        </div>
         <time>{fmtDate(s.publishedAt || s.createdAt)}</time>
       </article>) : <div className="emptyBox">Belum ada riwayat sinyal.</div>}
     </div>
+  </section>;
+}
+
+function WinrateCard({ stats }) {
+  if (!stats) return null;
+  return <section className="adminSection newCard winrateCard">
+    <div className="sectionHeader"><div><span className="eyebrow">PERFORMANCE</span><h3>Winrate Signal Manual</h3></div><Target size={20}/></div>
+    <div className="winrateGrid">
+      <div className="winrateBig"><b>{stats.winratePercent}%</b><span>Winrate</span></div>
+      <div className="winrateStat win"><b>{stats.wins}</b><span>WIN</span></div>
+      <div className="winrateStat loss"><b>{stats.losses}</b><span>LOSS</span></div>
+      <div className="winrateStat be"><b>{stats.be}</b><span>BE</span></div>
+      <div className="winrateStat total"><b>{stats.total}</b><span>Total Call</span></div>
+    </div>
+    <p className="muted" style={{marginTop:10,fontSize:13}}>Winrate dihitung dari WIN / (WIN + LOSS), tidak termasuk BE. Update tiap kali admin menandai hasil di panel atau feed.</p>
   </section>;
 }
 
@@ -349,7 +375,7 @@ function TelegramPanel({ user, profile, premium, refresh }) {
   </section>;
 }
 
-function AdminPanel({ latest, history, onPublished, token, setToken }) {
+function AdminPanel({ latest, history, onPublished, token, setToken, onSetResult, busyResultId }) {
   const [direction,setDirection]=useState("BUY");
   const [timeframe,setTimeframe]=useState("M15");
   const [entry,setEntry]=useState("");
@@ -401,6 +427,16 @@ function AdminPanel({ latest, history, onPublished, token, setToken }) {
       <div className="adminActions"><button className="primaryBtn" disabled={busy||!token}><Send size={17}/> {busy?"Mengirim...":"Publish & Notify Premium"}</button><button type="button" className="dangerBtn" disabled={busy||!latest} onClick={closeSignal}>Tutup Signal</button></div>
       {result && <div className="notice">{result}</div>}
     </form>
+
+    {latest?.id && <div className="resultTagBox">
+      <div className="sectionHeader" style={{marginBottom:8}}><div><span className="eyebrow">HASIL CALL TERBARU</span><h4 style={{margin:0}}>{latest.direction} {latest.pair||"XAUUSD"} • {latest.id}</h4></div>{latest.result && <span className={resultBadgeClass(latest.result)}>{resultLabel(latest.result)}</span>}</div>
+      <p className="muted" style={{fontSize:13,marginBottom:10}}>Tandai hasil call ini (TP/SL/BE) — otomatis update winrate dan kirim notif Telegram ke premium.</p>
+      <div className="adminActions">
+        <button type="button" disabled={!token||busyResultId===latest.id} className="okBtn" onClick={()=>onSetResult(latest.id,"WIN")}><CheckCircle2 size={16}/> Tandai TP / WIN</button>
+        <button type="button" disabled={!token||busyResultId===latest.id} className="dangerBtn" onClick={()=>onSetResult(latest.id,"LOSS")}><X size={16}/> Tandai SL / LOSS</button>
+        <button type="button" disabled={!token||busyResultId===latest.id} className="textBtn" onClick={()=>onSetResult(latest.id,"BE")}><Target size={16}/> Tandai Break Even</button>
+      </div>
+    </div>}
   </section>;
 }
 
@@ -543,10 +579,12 @@ function AdminOrderRow({ order, meta, pending, canRemind, remindCooldownLeft, bu
 function AppShell({ user, profile, refreshProfile, profileError }) {
   const [latest,setLatest]=useState(null);
   const [history,setHistory]=useState([]);
+  const [stats,setStats]=useState(null);
   const [loading,setLoading]=useState(true);
   const [toast,setToast]=useState("");
   const [paymentRefreshKey,setPaymentRefreshKey]=useState(0);
   const [adminToken,setAdminToken]=useState(()=>localStorage.getItem(ADMIN_TOKEN_KEY)||"");
+  const [busyResultId,setBusyResultId]=useState("");
   const premium=isPremiumProfile(profile);
   const admin=profile?.role==="admin";
 
@@ -555,9 +593,22 @@ function AppShell({ user, profile, refreshProfile, profileError }) {
     try{
       const res=await fetch("/api/admin-signal");
       const data=await res.json();
-      if(data.ok){setLatest(data.latest||null);setHistory(data.history||[]);}
+      if(data.ok){setLatest(data.latest||null);setHistory(data.history||[]);setStats(data.stats||null);}
     }catch(e){ if(!silent) setToast("Signal feed gagal dimuat.");}
     finally{if(!silent)setLoading(false)}
+  }
+
+  async function setSignalResult(id,result){
+    if(!adminToken){ setToast("Isi & simpan ADMIN_ACTION_TOKEN dulu di panel admin."); return; }
+    setBusyResultId(id);
+    try{
+      const res=await fetch("/api/admin-signal",{method:"POST",headers:{"Content-Type":"application/json",Authorization:`Bearer ${adminToken}`},body:JSON.stringify({action:"result",id,result})});
+      const data=await res.json();
+      if(!res.ok||!data.ok) throw new Error(data.error||"Gagal menandai hasil.");
+      setToast(`Hasil ${result} tersimpan & notif Telegram terkirim ke ${data.notifications?.successCount||0} premium.`);
+      await loadSignals();
+    }catch(e){ setToast(`❌ ${e.message}`); }
+    finally{ setBusyResultId(""); }
   }
 
   useEffect(()=>{loadSignals(); const id=setInterval(()=>loadSignals(true),15000); return()=>clearInterval(id)},[]);
@@ -600,11 +651,12 @@ function AppShell({ user, profile, refreshProfile, profileError }) {
       <PaymentHistory user={user} refreshKey={paymentRefreshKey}/>
       <TelegramPanel user={user} profile={profile} premium={premium} refresh={refreshProfile}/>
 
-      <Feed history={history} onRefresh={()=>loadSignals()}/>
+      <Feed history={history} onRefresh={()=>loadSignals()} admin={admin} onSetResult={setSignalResult} busyResultId={busyResultId}/>
       <AiPanel signal={latest}/>
 
       {admin && <div id="admin">
-        <AdminPanel latest={latest} history={history} onPublished={()=>loadSignals()} token={adminToken} setToken={setAdminToken}/>
+        <WinrateCard stats={stats}/>
+        <AdminPanel latest={latest} history={history} onPublished={()=>loadSignals()} token={adminToken} setToken={setAdminToken} onSetResult={setSignalResult} busyResultId={busyResultId}/>
         <AdminOrders token={adminToken}/>
       </div>}
 
