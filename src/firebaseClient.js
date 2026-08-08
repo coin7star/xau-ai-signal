@@ -319,18 +319,22 @@ export async function createPaymentOrder({ user, profile, packageCode, packageLa
 
 
 export async function getUserPaymentOrders(uid) {
-  if (!db) throw new Error("Firebase client ENV belum lengkap.");
   if (!uid) throw new Error("UID user tidak ditemukan.");
+  const user = auth.currentUser;
+  if (!user) throw new Error("Kamu harus login dulu.");
 
-  const snapshot = await get(ref(db, "paymentOrders"));
-  const allOrders = snapshot.exists() ? snapshot.val() || {} : {};
-
-  return Object.values(allOrders)
-    .filter((order) => order && order.uid === uid)
-    .map((order) => {
-      const { adminNote, adminNoteUpdatedAt, ...safeOrder } = order || {};
-      return safeOrder;
-    })
-    .sort((a, b) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime())
-    .slice(0, 20);
+  // Catatan: sengaja TIDAK baca /paymentOrders langsung lewat client SDK.
+  // Firebase rules cuma kasih .read di level paymentOrders/$orderId, jadi
+  // baca root "paymentOrders" langsung selalu kena PERMISSION_DENIED.
+  // Endpoint ini pakai service account di server buat ambil & filter data
+  // yang jadi milik user, tanpa perlu melonggarkan rules.
+  const idToken = await user.getIdToken();
+  const res = await fetch("/api/user-payment-orders", {
+    headers: { Authorization: `Bearer ${idToken}` }
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok || !data.ok) {
+    throw new Error(data?.error || "Gagal mengambil riwayat pembayaran.");
+  }
+  return data.orders || [];
 }
