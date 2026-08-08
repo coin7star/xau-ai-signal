@@ -205,6 +205,79 @@ function PremiumBox({ profile, user, refresh }) {
   </section>;
 }
 
+function TelegramPanel({ user, profile, premium, refresh }) {
+  const [code,setCode]=useState(profile?.telegramConnectCode||"");
+  const [expiresAt,setExpiresAt]=useState(profile?.telegramConnectExpiresAt||"");
+  const [busy,setBusy]=useState(false);
+  const [msg,setMsg]=useState("");
+  const [now,setNow]=useState(Date.now());
+
+  useEffect(()=>{
+    if(!expiresAt) return;
+    const id=setInterval(()=>setNow(Date.now()),1000);
+    return ()=>clearInterval(id);
+  },[expiresAt]);
+
+  useEffect(()=>{ if(!msg)return; const id=setTimeout(()=>setMsg(""),4000); return()=>clearTimeout(id); },[msg]);
+
+  async function generateCode(){
+    setBusy(true);setMsg("");
+    try{
+      const idToken=await user.getIdToken();
+      const res=await fetch("/api/telegram-connect-code",{method:"POST",headers:{"Content-Type":"application/json","Authorization":`Bearer ${idToken}`},body:JSON.stringify({})});
+      const data=await res.json();
+      if(!res.ok||!data.ok) throw new Error(data.error||"Gagal membuat kode.");
+      setCode(data.code);setExpiresAt(data.expiresAt);
+    }catch(e){setMsg(`❌ ${e.message}`)}
+    finally{setBusy(false)}
+  }
+
+  async function copyCommand(){
+    try{await navigator.clipboard.writeText(`/connect ${code}`);setMsg("✅ Command disalin. Paste ke bot Telegram kamu.")}
+    catch{setMsg(`Salin manual: /connect ${code}`)}
+  }
+
+  async function disconnect(){
+    if(!confirm("Putuskan koneksi Telegram dari akun ini?")) return;
+    setBusy(true);setMsg("");
+    try{
+      const idToken=await user.getIdToken();
+      const res=await fetch("/api/telegram-disconnect",{method:"POST",headers:{"Content-Type":"application/json","Authorization":`Bearer ${idToken}`},body:JSON.stringify({})});
+      const data=await res.json();
+      if(!res.ok||!data.ok) throw new Error(data.error||"Gagal disconnect.");
+      setCode("");setExpiresAt("");setMsg("Telegram berhasil diputus.");
+      await refresh();
+    }catch(e){setMsg(`❌ ${e.message}`)}
+    finally{setBusy(false)}
+  }
+
+  async function refreshStatus(){setBusy(true);await refresh();setBusy(false)}
+
+  const secondsLeft=expiresAt?Math.max(0,Math.floor((new Date(expiresAt).getTime()-now)/1000)):0;
+  const expired=Boolean(expiresAt)&&secondsLeft<=0;
+
+  if(!premium) return <section className="section newCard adminSection">
+    <div className="sectionHeader"><div><span className="eyebrow">TELEGRAM PREMIUM</span><h3>Connect Telegram</h3></div></div>
+    <div className="notice">Upgrade ke premium dulu untuk connect akun Telegram dan menerima alert sinyal langsung.</div>
+  </section>;
+
+  return <section className="section newCard adminSection">
+    <div className="sectionHeader"><div><span className="eyebrow">TELEGRAM PREMIUM</span><h3>Connect Telegram</h3></div><button className="iconBtn" disabled={busy} onClick={refreshStatus}><RefreshCw size={16}/></button></div>
+
+    {profile?.telegramConnected ? <>
+      <div className="notice ok"><CheckCircle2 size={15}/> Telegram sudah terhubung{profile.telegramUsername?` (@${profile.telegramUsername})`:""}.</div>
+      <div className="adminActions"><button className="dangerBtn" disabled={busy} onClick={disconnect}>Disconnect</button></div>
+    </> : <>
+      <p className="muted">Generate kode koneksi, lalu kirim ke bot Telegram kamu untuk menghubungkan akun ini.</p>
+      {(!code||expired) ? <button className="primaryBtn" disabled={busy} onClick={generateCode}>{busy?"Membuat kode...":"Generate Connect Code"}</button> : <>
+        <div className="adminToken"><input readOnly value={`/connect ${code}`}/><button type="button" className="textBtn" onClick={copyCommand}><Copy size={15}/> Copy Command</button></div>
+        <div className="notice">Kirim command di atas ke bot Telegram kamu. Kode berlaku {secondsLeft>0?`${Math.floor(secondsLeft/60)}m ${secondsLeft%60}d lagi`:"sudah habis, generate ulang"}.</div>
+      </>}
+    </>}
+    {msg && <div className="notice">{msg}</div>}
+  </section>;
+}
+
 function AdminPanel({ latest, history, onPublished }) {
   const [token,setToken]=useState(()=>localStorage.getItem(ADMIN_TOKEN_KEY)||"");
   const [direction,setDirection]=useState("BUY");
@@ -316,6 +389,7 @@ function AppShell({ user, profile, refreshProfile, profileError }) {
       {loading ? <div className="loadingCard newCard"><RefreshCw className="spin"/><span>Memuat signal feed...</span></div> : <SignalCard signal={latest} premium={premium}/>}
 
       <PremiumBox profile={profile} user={user} refresh={refreshProfile}/>
+      <TelegramPanel user={user} profile={profile} premium={premium} refresh={refreshProfile}/>
 
       <Feed history={history} onRefresh={()=>loadSignals()}/>
       <AiPanel signal={latest}/>
