@@ -33,6 +33,18 @@ export async function onRequest({ request, env }) {
     return json({ ok: true, skipped: "no-chat-id" });
   }
 
+  // Ambil Service Account access token supaya request ke Firebase RTDB
+  // lolos security rules (sama pola dengan telegram-connect-code.js).
+  // Tanpa ini, fbGet/fbPatch di bawah selalu ditolak rules -> bot selalu
+  // bilang "kode tidak ditemukan" walau kodenya valid.
+  let accessToken = null;
+  try {
+    const service = readServiceAccount(env);
+    if (service) accessToken = await getGoogleAccessToken(service);
+  } catch (err) {
+    console.error("telegram-webhook service-account error", err);
+  }
+
   const text = String(message?.text || "").trim();
   const [commandRaw, ...args] = text.split(/\s+/);
   const command = String(commandRaw || "").toLowerCase();
@@ -43,13 +55,13 @@ export async function onRequest({ request, env }) {
   if (command === "/start") {
     replyText = buildStartMessage();
   } else if (command === "/connect") {
-    replyText = await handleConnect(env, message, args);
+    replyText = await handleConnect(env, message, args, accessToken);
   } else if (command === "/disconnect") {
-    replyText = await handleDisconnect(env, message);
+    replyText = await handleDisconnect(env, message, accessToken);
   } else if (command === "/me") {
-    replyText = await handleMe(env, message);
+    replyText = await handleMe(env, message, accessToken);
   } else if (command === "/status") {
-    replyText = await buildStatusMessage(env);
+    replyText = await buildStatusMessage(env, accessToken);
   } else if (command === "/help") {
     replyText = buildHelpMessage();
   } else if (["/signal", "/history", "/scalp_history", "/scalphistory"].includes(command)) {
@@ -67,7 +79,7 @@ export async function onRequest({ request, env }) {
   });
 }
 
-async function handleConnect(env, message, args) {
+async function handleConnect(env, message, args, accessToken) {
   const dbUrl = (env.FIREBASE_DATABASE_URL || "").replace(/\/$/, "");
   if (!dbUrl) return "❌ Live Data Engine belum aktif. Silakan cek konfigurasi server.";
 
@@ -87,7 +99,7 @@ async function handleConnect(env, message, args) {
     ].join("\n");
   }
 
-  const record = await fbGet(dbUrl, `/telegramConnectCodes/${code}`);
+  const record = await fbGet(dbUrl, `/telegramConnectCodes/${code}`, accessToken);
 
   if (!record || record.used) {
     return "❌ Kode tidak ditemukan atau sudah dipakai. Generate kode baru dari dashboard.";
@@ -97,7 +109,7 @@ async function handleConnect(env, message, args) {
     return "⏰ Kode sudah expired. Generate kode baru dari dashboard.";
   }
 
-  const user = await fbGet(dbUrl, `/users/${record.uid}`);
+  const user = await fbGet(dbUrl, `/users/${record.uid}`, accessToken);
 
   if (!user) {
     return "❌ User tidak ditemukan.";
@@ -120,13 +132,13 @@ async function handleConnect(env, message, args) {
     telegramConnectCode: null,
     telegramConnectExpiresAt: null,
     updatedAt: now
-  });
+  }, accessToken);
 
   await fbPatch(dbUrl, `/telegramConnectCodes/${code}`, {
     used: true,
     usedAt: now,
     chatId: String(chat.id)
-  });
+  }, accessToken);
 
   return [
     "✅ <b>Telegram Connected</b>",
@@ -139,12 +151,12 @@ async function handleConnect(env, message, args) {
   ].join("\n");
 }
 
-async function handleDisconnect(env, message) {
+async function handleDisconnect(env, message, accessToken) {
   const dbUrl = (env.FIREBASE_DATABASE_URL || "").replace(/\/$/, "");
   if (!dbUrl) return "❌ Live Data Engine belum aktif. Silakan cek konfigurasi server.";
 
   const chatId = String(message.chat?.id || "");
-  const usersRaw = await fbGet(dbUrl, "/users");
+  const usersRaw = await fbGet(dbUrl, "/users", accessToken);
   const users = Object.values(usersRaw || {});
   const user = users.find((item) => String(item.telegramChatId || "") === chatId);
 
@@ -159,17 +171,17 @@ async function handleDisconnect(env, message) {
     telegramFirstName: null,
     telegramConnectedAt: null,
     updatedAt: new Date().toISOString()
-  });
+  }, accessToken);
 
   return "✅ Telegram berhasil disconnect dari akun XAU AI.";
 }
 
-async function handleMe(env, message) {
+async function handleMe(env, message, accessToken) {
   const dbUrl = (env.FIREBASE_DATABASE_URL || "").replace(/\/$/, "");
   if (!dbUrl) return "❌ Live Data Engine belum aktif. Silakan cek konfigurasi server.";
 
   const chatId = String(message.chat?.id || "");
-  const usersRaw = await fbGet(dbUrl, "/users");
+  const usersRaw = await fbGet(dbUrl, "/users", accessToken);
   const users = Object.values(usersRaw || {});
   const user = users.find((item) => String(item.telegramChatId || "") === chatId);
 
@@ -251,7 +263,7 @@ function buildMovedToDashboardMessage(command) {
   ].join("\n");
 }
 
-async function buildStatusMessage(env) {
+async function buildStatusMessage(env, accessToken) {
   const dbUrl = (env.FIREBASE_DATABASE_URL || "").replace(/\/$/, "");
   const hasTelegram = Boolean(env.TELEGRAM_BOT_TOKEN);
   const dashboardUrl = env.DASHBOARD_URL || "https://xau-ai-signal.pages.dev";
@@ -260,7 +272,7 @@ async function buildStatusMessage(env) {
 
   if (dbUrl) {
     try {
-      const raw = await fbGet(dbUrl, "/xauusd/latest");
+      const raw = await fbGet(dbUrl, "/xauusd/latest", accessToken);
       liveEngineStatus = raw ? "Online" : "Waiting Market Feed";
     } catch {
       liveEngineStatus = "Temporary Check Failed";
@@ -324,22 +336,101 @@ async function sendTelegramMessage(env, chatId, text, replyMarkup = null) {
   });
 }
 
-async function fbGet(dbUrl, path) {
-  const res = await fetch(`${dbUrl}${path}.json?ts=${Date.now()}`, {
-    headers: { "Cache-Control": "no-cache" }
-  });
+async function fbGet(dbUrl, path, accessToken) {
+  const url = new URL(`${dbUrl}${path}.json`);
+  url.searchParams.set("ts", String(Date.now()));
+  if (accessToken) url.searchParams.set("access_token", accessToken);
+  const res = await fetch(url.toString(), { headers: { "Cache-Control": "no-cache" } });
   if (!res.ok) return null;
   return await res.json();
 }
 
-async function fbPatch(dbUrl, path, data) {
-  const res = await fetch(`${dbUrl}${path}.json`, {
+async function fbPatch(dbUrl, path, data, accessToken) {
+  const url = new URL(`${dbUrl}${path}.json`);
+  if (accessToken) url.searchParams.set("access_token", accessToken);
+  const res = await fetch(url.toString(), {
     method: "PATCH",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(data)
   });
   if (!res.ok) throw new Error(await res.text());
   return await res.json();
+}
+
+// ---- Firebase service-account OAuth (sama pola dengan telegram-connect-code.js) ----
+function readServiceAccount(env) {
+  const jsonRaw = env.FIREBASE_SERVICE_ACCOUNT_JSON || env.FIREBASE_SERVICE_ACCOUNT || env.FIREBASE_ADMIN_SERVICE_ACCOUNT || "";
+  if (jsonRaw) {
+    try {
+      const parsed = JSON.parse(jsonRaw);
+      return normalizeServiceAccount({
+        projectId: parsed.project_id || parsed.projectId,
+        clientEmail: parsed.client_email || parsed.clientEmail,
+        privateKey: parsed.private_key || parsed.privateKey
+      });
+    } catch {
+      throw new Error("FIREBASE_SERVICE_ACCOUNT_JSON tidak valid.");
+    }
+  }
+  const projectId = env.FIREBASE_PROJECT_ID || env.FIREBASE_SERVICE_ACCOUNT_PROJECT_ID || env.FIREBASE_ADMIN_PROJECT_ID || env.VITE_FIREBASE_PROJECT_ID || "";
+  const clientEmail = env.FIREBASE_SERVICE_ACCOUNT_CLIENT_EMAIL || env.FIREBASE_CLIENT_EMAIL || env.FIREBASE_ADMIN_CLIENT_EMAIL || "";
+  const privateKey = env.FIREBASE_SERVICE_ACCOUNT_PRIVATE_KEY || env.FIREBASE_PRIVATE_KEY || env.FIREBASE_ADMIN_PRIVATE_KEY || "";
+  if (!projectId || !clientEmail || !privateKey) return null;
+  return normalizeServiceAccount({ projectId, clientEmail, privateKey });
+}
+function normalizeServiceAccount({ projectId, clientEmail, privateKey }) {
+  const cleanProjectId = String(projectId || "").trim();
+  const cleanClientEmail = String(clientEmail || "").trim();
+  const cleanPrivateKey = String(privateKey || "").replace(/\\n/g, "\n").trim();
+  if (!cleanProjectId || !cleanClientEmail || !cleanPrivateKey) return null;
+  return { projectId: cleanProjectId, clientEmail: cleanClientEmail, privateKey: cleanPrivateKey };
+}
+async function getGoogleAccessToken(service) {
+  const now = Math.floor(Date.now() / 1000);
+  const header = { alg: "RS256", typ: "JWT" };
+  const payload = {
+    iss: service.clientEmail,
+    scope: "https://www.googleapis.com/auth/firebase.database https://www.googleapis.com/auth/userinfo.email",
+    aud: "https://oauth2.googleapis.com/token",
+    iat: now,
+    exp: now + 3600
+  };
+  const unsigned = `${base64UrlJson(header)}.${base64UrlJson(payload)}`;
+  const signature = await signRs256(unsigned, service.privateKey);
+  const assertion = `${unsigned}.${signature}`;
+  const res = await fetch("https://oauth2.googleapis.com/token", {
+    method: "POST",
+    headers: { "Content-Type": "application/x-www-form-urlencoded" },
+    body: new URLSearchParams({ grant_type: "urn:ietf:params:oauth:grant-type:jwt-bearer", assertion })
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok || !data.access_token) {
+    throw new Error(data?.error_description || data?.error || "Gagal mengambil Firebase service-account access token.");
+  }
+  return data.access_token;
+}
+async function signRs256(input, privateKeyPem) {
+  const keyData = pemToArrayBuffer(privateKeyPem);
+  const key = await crypto.subtle.importKey("pkcs8", keyData, { name: "RSASSA-PKCS1-v1_5", hash: "SHA-256" }, false, ["sign"]);
+  const signature = await crypto.subtle.sign("RSASSA-PKCS1-v1_5", key, new TextEncoder().encode(input));
+  return arrayBufferToBase64Url(signature);
+}
+function pemToArrayBuffer(pem) {
+  const clean = String(pem || "").replace(/-----BEGIN PRIVATE KEY-----/g, "").replace(/-----END PRIVATE KEY-----/g, "").replace(/\s/g, "");
+  const binary = atob(clean);
+  const bytes = new Uint8Array(binary.length);
+  for (let i = 0; i < binary.length; i += 1) bytes[i] = binary.charCodeAt(i);
+  return bytes.buffer;
+}
+function base64UrlJson(value) {
+  return arrayBufferToBase64Url(new TextEncoder().encode(JSON.stringify(value)).buffer);
+}
+function arrayBufferToBase64Url(buffer) {
+  const bytes = new Uint8Array(buffer);
+  let binary = "";
+  const chunkSize = 0x8000;
+  for (let i = 0; i < bytes.length; i += chunkSize) binary += String.fromCharCode(...bytes.subarray(i, i + chunkSize));
+  return btoa(binary).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/g, "");
 }
 
 function escapeHtml(value) {
