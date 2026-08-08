@@ -117,10 +117,6 @@ async function handleConnect(env, message, args) {
     telegramUsername: from.username || chat.username || "",
     telegramFirstName: from.first_name || chat.first_name || "",
     telegramConnectedAt: now,
-    telegramAlertEnabled: true,
-    telegramAlertMainSignal: true,
-    telegramAlertResult: true,
-    telegramAlertUpdatedAt: now,
     telegramConnectCode: null,
     telegramConnectExpiresAt: null,
     updatedAt: now
@@ -139,9 +135,7 @@ async function handleConnect(env, message, args) {
     `Role: <b>${escapeHtml(user.role || "-")}</b>`,
     "",
     "Mulai sekarang akun ini sudah terhubung ke Telegram.",
-    "Main Signal Alert: ON otomatis.",
-    "Result Alert: ON otomatis.",
-    "Kalau ingin berhenti menerima sinyal/result, matikan dari dashboard Telegram panel."
+    "Premium alert siap dipakai untuk sinyal berikutnya."
   ].join("\n");
 }
 
@@ -164,10 +158,6 @@ async function handleDisconnect(env, message) {
     telegramUsername: null,
     telegramFirstName: null,
     telegramConnectedAt: null,
-    telegramAlertEnabled: false,
-    telegramAlertMainSignal: false,
-    telegramAlertResult: false,
-    telegramAlertUpdatedAt: new Date().toISOString(),
     updatedAt: new Date().toISOString()
   });
 

@@ -9,116 +9,25 @@ export async function onRequest({ env }) {
     if (res.ok) market = await res.json();
   }
 
-  const candles = getClosedM1Candles(market);
-  const candlesM15 = []; // Step 10AT: Strategi utama fokus M1 EMA Cross Direct Entry. M5/M15/OB tidak dipakai untuk call utama.
+  const candles = Array.isArray(market?.candles) ? market.candles : [];
+  const candlesM15 = Array.isArray(market?.candlesM15) ? market.candlesM15 : [];
   const signal = buildSignal(candles, candlesM15, market);
 
-  // Step 10AX: simpan history dulu, baru kirim Telegram.
-  // Tujuannya agar sinyal yang sama tidak bisa mengirim alert 2x saat /api/signal dipanggil cepat/bersamaan.
+  const telegram = await maybeSendTelegramAlert(env, dbUrl, signal, market);
   const callHistory = await maybeSaveCallHistory(env, dbUrl, signal, market);
-  const telegram = await maybeSendTelegramAlert(env, dbUrl, signal, market, callHistory);
-  const scalpHistory = { ok: false, skipped: "disabled-focus-main-strategy-only" };
-  const strategyBHistory = { ok: false, skipped: "disabled-focus-main-strategy-only" };
+  const scalpHistory = await maybeSaveScalpHistory(env, dbUrl, signal, market);
 
   return json({
     ...signal,
     telegram,
     callHistory,
-    scalpHistory,
-    strategyBHistory
+    scalpHistory
   });
-}
-
-
-function getClosedM1Candles(market = {}) {
-  const raw = Array.isArray(market?.candles) ? market.candles : [];
-  const explicitClosed = market?.lastClosedCandle || market?.closedCandle || market?.m1ClosedCandle || null;
-  const referenceTime = market?.serverTime || market?.receivedAt || market?.tickUpdatedAt || Date.now();
-  const candles = raw.map(normalizeM1Candle).filter(Boolean);
-  const closed = normalizeM1Candle(explicitClosed);
-  if (closed) {
-    const idx = candles.findIndex((c) => String(c.time || "") === String(closed.time || ""));
-    if (idx >= 0) candles[idx] = { ...candles[idx], ...closed };
-    else candles.push(closed);
-  }
-  candles.sort((a, b) => parseMarketTimeMs(a.time) - parseMarketTimeMs(b.time));
-  const refMs = parseMarketTimeMs(referenceTime) || Date.now();
-  const out = [];
-  for (const c of candles) {
-    const t = parseMarketTimeMs(c.time);
-    if (t && refMs && refMs < t + 60000) continue;
-    const prev = out[out.length - 1];
-    if (prev && String(prev.time || "") === String(c.time || "")) out[out.length - 1] = c;
-    else out.push(c);
-  }
-  return out.slice(-240);
-}
-
-function normalizeM1Candle(c) {
-  if (!c || typeof c !== "object") return null;
-  const open = Number(c.open);
-  const high = Number(c.high);
-  const low = Number(c.low);
-  const close = Number(c.close);
-  if (![open, high, low, close].every(Number.isFinite)) return null;
-  return {
-    ...c,
-    time: c.time || c.datetime || c.timestamp || null,
-    open,
-    high,
-    low,
-    close,
-    volume: Number(c.volume || c.tick_volume || c.tickVolume || 0)
-  };
-}
-
-function getCandleSyncStatus(market = {}, m1 = []) {
-  const last = m1[m1.length - 1] || market?.lastClosedCandle || null;
-  const nowMs = Date.now();
-  const tickMs = parseMarketTimeMs(market?.tickUpdatedAt || market?.receivedAt || market?.serverTime || market?.updatedAt || null);
-  const candleMs = parseMarketTimeMs(last?.time || market?.lastClosedCandleTime || null);
-  const liveFeedAgeSec = tickMs ? Math.max(0, Math.round((nowMs - tickMs) / 1000)) : null;
-  const closedCandleAgeSec = candleMs ? Math.max(0, Math.round((nowMs - (candleMs + 60000)) / 1000)) : null;
-  const status = !last
-    ? "WAITING_CANDLE"
-    : closedCandleAgeSec != null && closedCandleAgeSec <= 15
-      ? "SYNCED"
-      : closedCandleAgeSec != null && closedCandleAgeSec <= 95
-        ? "VALID"
-        : "STALE_CANDLE";
-  return {
-    status,
-    lastClosedCandleTime: last?.time || market?.lastClosedCandleTime || null,
-    closedCandleAgeSec,
-    liveFeedAgeSec,
-    usingClosedCandle: true,
-    source: "MT5_M1_SHIFT_1_CLOSED_CANDLE",
-    message: status === "SYNCED"
-      ? "Candle M1 close baru sudah sinkron."
-      : status === "VALID"
-        ? "Candle M1 close masih valid untuk dibaca."
-        : status === "STALE_CANDLE"
-          ? "Candle M1 close telat. Sinyal baru ditahan agar tidak terlambat."
-          : "Menunggu candle M1 close dari MT5."
-  };
-}
-
-function parseMarketTimeMs(value) {
-  if (value == null || value === "") return 0;
-  if (typeof value === "number") return value > 1000000000000 ? value : value * 1000;
-  const raw = String(value).trim();
-  if (!raw) return 0;
-  const n = Number(raw);
-  if (Number.isFinite(n)) return n > 1000000000000 ? n : n * 1000;
-  const normalized = raw.includes("T") ? raw : raw.replace(" ", "T");
-  const parsed = Date.parse(normalized);
-  return Number.isFinite(parsed) ? parsed : 0;
 }
 
 export function buildSignal(candles, candlesM15, market) {
   const m1 = clean(candles);
   const m15 = clean(candlesM15);
-  const candleSync = getCandleSyncStatus(market, m1);
   const closes = m1.map((c) => c.close);
   const last = m1[m1.length - 1];
 
@@ -134,9 +43,8 @@ export function buildSignal(candles, candlesM15, market) {
       sl: 0,
       tp: 0,
       confidence: 50,
-      reason: "Menunggu minimal 30 candle M1 closed dari MT5 untuk membaca EMA 9/20 cross direct entry.",
+      reason: "Menunggu minimal 50 candle M1. Strategi butuh RSI + MFI + EMA 9/20 + OB M15.",
       mode: market ? "firebase-mt5-data" : "waiting-mt5",
-      candleSync,
       strategy: emptyStrategy()
     };
   }
@@ -153,7 +61,7 @@ export function buildSignal(candles, candlesM15, market) {
   const atr14 = atr(m1, 14);
   const close = last.close;
 
-  const smc = null;
+  const smc = m15.length >= 50 ? detectSmcOrderBlockV2(m15) : null;
   const bullOb = smc?.bullish || null;
   const bearOb = smc?.bearish || null;
 
@@ -188,63 +96,115 @@ export function buildSignal(candles, candlesM15, market) {
   else if (ema9 > ema20) emaCross = "BULLISH_TREND";
   else if (ema9 < ema20) emaCross = "BEARISH_TREND";
 
-  const mainM5 = buildMainM1EmaCrossDirectEntrySignal(market, m1, candleSync);
+  let buyScore = 0;
+  let sellScore = 0;
+  const reasons = [];
 
-  let buyScore = mainM5.direction === "BUY" ? mainM5.score : 0;
-  let sellScore = mainM5.direction === "SELL" ? mainM5.score : 0;
-  const reasons = [mainM5.reason].filter(Boolean);
+  if (bullishCrossNow) { buyScore += 34; reasons.push("EMA 9 sudah cross ke atas EMA 20."); }
+  if (bearishCrossNow) { sellScore += 34; reasons.push("EMA 9 sudah cross ke bawah EMA 20."); }
+
+  if (readyBuy) { buyScore += 18; reasons.push("EMA 9 mendekati bullish cross. Siap-siap BUY, tunggu cross."); }
+  if (readySell) { sellScore += 18; reasons.push("EMA 9 mendekati bearish cross. Siap-siap SELL, tunggu cross."); }
+
+  if (rsiBuyOk) { buyScore += 16; reasons.push(`RSI ${round(rsi14)} cocok untuk BUY.`); }
+  if (rsiSellOk) { sellScore += 16; reasons.push(`RSI ${round(rsi14)} cocok untuk SELL.`); }
+
+  if (mfiBuyOk) { buyScore += 16; reasons.push(`MFI ${round(mfi14)} mendukung arus beli.`); }
+  if (mfiSellOk) { sellScore += 16; reasons.push(`MFI ${round(mfi14)} mendukung arus jual.`); }
+
+  if (obBuyOk) { buyScore += 18; reasons.push(`Harga dekat Bullish OB M15 (${bullOb.status}).`); }
+  if (obSellOk) { sellScore += 18; reasons.push(`Harga dekat Bearish OB M15 (${bearOb.status}).`); }
+
+  if (smc?.lastBos?.type === "BULLISH_BOS") buyScore += 8;
+  if (smc?.lastBos?.type === "BEARISH_BOS") sellScore += 8;
 
   let finalSignal = "WAIT";
   let callStage = "WAIT";
   let signalLabel = "WAIT";
 
-  const buyAllMatch = mainM5.action === "BUY_OPEN";
-  const sellAllMatch = mainM5.action === "SELL_OPEN";
-  const readyBuyAllMatch = mainM5.action === "READY_BUY";
-  const readySellAllMatch = mainM5.action === "READY_SELL";
+  const buyAllMatch = bullishCrossNow && rsiBuyOk && mfiBuyOk && obBuyOk;
+  const sellAllMatch = bearishCrossNow && rsiSellOk && mfiSellOk && obSellOk;
+  const readyBuyAllMatch = readyBuy && rsiBuyOk && mfiBuyOk && obBuyOk;
+  const readySellAllMatch = readySell && rsiSellOk && mfiSellOk && obSellOk;
 
   if (readyBuyAllMatch) {
     finalSignal = "READY_BUY";
     callStage = "READY";
-    signalLabel = "SIAP BUY";
+    signalLabel = "SIAP-SIAP BUY";
   } else if (readySellAllMatch) {
     finalSignal = "READY_SELL";
     callStage = "READY";
-    signalLabel = "SIAP SELL";
+    signalLabel = "SIAP-SIAP SELL";
   }
 
   if (buyAllMatch) {
     finalSignal = "BUY";
     callStage = "CALL";
-    signalLabel = "BUY Aktif";
+    signalLabel = "BUY";
   } else if (sellAllMatch) {
     finalSignal = "SELL";
     callStage = "CALL";
-    signalLabel = "SELL Aktif";
+    signalLabel = "SELL";
   }
 
   if (finalSignal === "WAIT") {
-    reasons.push(mainM5.blocker || "Menunggu EMA9 cross EMA20 dan candle M1 close di sisi EMA yang valid.");
+    reasons.push("Belum call karena RSI + MFI + EMA 9/20 + area OB M15 belum cocok semua.");
   }
 
   const score = Math.max(buyScore, sellScore);
-  let sl = Number(mainM5.sl || 0);
-  let tp = Number(mainM5.tp || 0);
-  const mainEntry = Number(mainM5.entry || close || 0);
+  let sl = 0;
+  let tp = 0;
+
+  if (finalSignal === "BUY") {
+    sl = bullOb ? Math.min(bullOb.low, close - atr14 * 1.1) : close - atr14 * 1.4;
+    tp = close + Math.abs(close - sl) * 1.7;
+  } else if (finalSignal === "SELL") {
+    sl = bearOb ? Math.max(bearOb.high, close + atr14 * 1.1) : close + atr14 * 1.4;
+    tp = close - Math.abs(sl - close) * 1.7;
+  }
 
   const confidence = callStage === "READY"
-    ? Math.min(82, Math.max(58, Math.round(mainM5.confidence || score)))
+    ? Math.min(82, Math.max(58, Math.round(score)))
     : callStage === "CALL"
-      ? Math.min(95, Math.max(68, Math.round(mainM5.confidence || score)))
-      : Math.min(60, Math.max(45, Math.round(mainM5.confidence || score)));
+      ? Math.min(95, Math.max(68, Math.round(score)))
+      : Math.min(60, Math.max(45, Math.round(score)));
 
-  const finalQualityGuard = buildSignalQualityGuardV2({
-    market,
-    m1,
-    m15,
-    close,
+  const trendBias = ema9 > ema20 ? "Bullish" : ema9 < ema20 ? "Bearish" : "Netral";
+  const scalping = buildM1ScalpingStrategy(m1, closes, {
+    ema9,
+    ema20,
+    rsi14,
+    mfi14,
     atr14,
+    close
+  });
+
+  if (m15.length < 50) {
+    reasons.push("OB M15 belum aktif karena data M15 belum cukup. Pastikan EA terbaru sudah dipasang.");
+  }
+
+  const humanReason = buildHumanSignalReason({
+    finalSignal,
+    signalLabel,
+    callStage,
     confidence,
+    close,
+    ema9,
+    ema20,
+    gap,
+    gapThreshold,
+    gapClosing,
+    emaCross,
+    rsi14,
+    mfi14,
+    atr14,
+    bullOb,
+    bearOb,
+    bullObStatus: bullOb?.status || "none",
+    bearObStatus: bearOb?.status || "none",
+    m15Ready: m15.length >= 50,
+    buyScore,
+    sellScore,
     buyAllMatch,
     sellAllMatch,
     readyBuyAllMatch,
@@ -259,53 +219,6 @@ export function buildSignal(candles, candlesM15, market) {
     bearishCrossNow,
     readyBuy,
     readySell,
-    m15Ready: m15.length >= 50,
-    mainM5
-  });
-
-  if (callStage === "CALL" && !finalQualityGuard.allowCall) {
-    finalSignal = "WAIT";
-    callStage = "WAIT";
-    signalLabel = "WAIT";
-    reasons.push(`Quality Check menahan sinyal: ${finalQualityGuard.blockers[0] || "market belum ideal"}.`);
-  }
-
-  const trendBias = ema9 > ema20 ? "Bullish" : ema9 < ema20 ? "Bearish" : "Netral";
-  const scalping = {
-    mode: "DISABLED_FOCUS_MAIN_STRATEGY",
-    action: "DISABLED",
-    label: "Nonaktif",
-    confidence: 0,
-    entry: 0,
-    sl: 0,
-    tp: 0,
-    reason: "Mode scalp disembunyikan agar dashboard fokus ke Sinyal Utama M1."
-  };
-
-  const strategyB = {
-    name: "SMC AI",
-    mode: "DISABLED_FOCUS_MAIN_STRATEGY",
-    action: "DISABLED",
-    label: "Nonaktif",
-    direction: "WAIT",
-    confidence: 0,
-    entry: 0,
-    sl: 0,
-    tp: 0,
-    reason: "SMC AI disembunyikan agar dashboard fokus ke Sinyal Utama M1."
-  };
-
-  const humanReason = buildMainM1CrossDirectHumanReason({
-    mainM5,
-    finalSignal,
-    signalLabel,
-    callStage,
-    confidence,
-    qualityGuard: finalQualityGuard,
-    rsi14,
-    mfi14,
-    ema9,
-    ema20,
     legacyReasons: reasons
   });
 
@@ -316,26 +229,15 @@ export function buildSignal(candles, candlesM15, market) {
     signalLabel,
     callStage,
     candleTime: last.time || null,
-    entry: round(mainEntry),
+    entry: round(close),
     sl: round(sl),
     tp: round(tp),
-    tp1: round(mainM5.tp1 || 0),
-    tp2: round(mainM5.tp2 || tp || 0),
-    aggressiveEntry: round(mainM5.aggressiveEntry || mainEntry),
-    pullbackLimitPlan: mainM5.pullbackLimitPlan || null,
-    limitEntry: mainM5.limitEntry || 0,
-    entryPlanMode: mainM5.entryPlanMode || null,
     confidence,
     reason: humanReason.summary,
     reasonDetails: humanReason,
-    candleSync,
-    qualityGuard: finalQualityGuard,
-    strategyB,
     mode: "firebase-mt5-data",
     strategy: {
       trendBias,
-      mainMode: "M1_EMA_CROSS_DIRECT_ENTRY",
-      mainM5,
       rsi: round(rsi14),
       rsiMethod: "Wilder RSI 14 seperti MT5 iRSI",
       mfi: round(mfi14),
@@ -366,15 +268,13 @@ export function buildSignal(candles, candlesM15, market) {
         bullishCrossNow,
         bearishCrossNow
       },
-      obTimeframe: "DISABLED_MAIN_M1_ONLY",
+      obTimeframe: "M15",
       smc,
       orderBlock: { bullish: bullOb, bearish: bearOb },
       buyScore: round(buyScore),
       sellScore: round(sellScore),
       score: round(score),
       scalping,
-      strategyB,
-      qualityGuard: finalQualityGuard,
       probability: buildProbability(signalLabel, callStage, buyScore, sellScore, {
         rsiBuyOk,
         rsiSellOk,
@@ -394,1003 +294,6 @@ export function buildSignal(candles, candlesM15, market) {
 
 
 
-
-
-
-function buildMainM1EmaCrossDirectEntrySignal(market = {}, m1Candles = [], candleSync = null) {
-  const m1 = clean(m1Candles).slice(-240);
-  const last = m1[m1.length - 1];
-  const prev = m1[m1.length - 2];
-
-  if (!last || !prev || m1.length < 30) {
-    return {
-      mode: "M1_EMA_CROSS_DIRECT_ENTRY_MAIN",
-      action: "WAIT",
-      label: "Menunggu Sinyal Premium",
-      direction: "WAIT",
-      score: 0,
-      confidence: 45,
-      entry: 0,
-      sl: 0,
-      tp: 0,
-      tp1: 0,
-      tp2: 0,
-      rr: "TP1 50% → BE · TP Max 1:1.25",
-      dataReady: false,
-      timeframe: "M1",
-      sourceTimeframe: "MT5_VPS_M1_CLOSED_CANDLE",
-      candleSync,
-      reason: "Menunggu data M1 closed candle cukup agar sinyal premium bisa dibaca dengan akurat.",
-      blocker: "Data market M1 closed candle belum cukup."
-    };
-  }
-
-  const signalCandleAgeSec = Number(candleSync?.closedCandleAgeSec ?? 0);
-  const candleTooOldForNewCall = Number.isFinite(signalCandleAgeSec) && signalCandleAgeSec > 95;
-
-  const closes = m1.map((c) => Number(c.close));
-  const ema9Series = emaSeries(closes, 9);
-  const ema20Series = emaSeries(closes, 20);
-  const ema9Now = Number(ema9Series[ema9Series.length - 1] || 0);
-  const ema20Now = Number(ema20Series[ema20Series.length - 1] || 0);
-  const prevEma9 = Number(ema9Series[ema9Series.length - 2] || ema9Now);
-  const prevEma20 = Number(ema20Series[ema20Series.length - 2] || ema20Now);
-  const open = Number(last.open);
-  const high = Number(last.high);
-  const low = Number(last.low);
-  const close = Number(last.close);
-  const atrValue = Number(atr(m1, 14) || Math.max(Math.abs(high - low), 0.5));
-  const structure = getM1DirectEntrySwingStructure(m1, close, atrValue);
-  const upperEma = Math.max(ema9Now, ema20Now);
-  const lowerEma = Math.min(ema9Now, ema20Now);
-
-  const bullishCrossNow = prevEma9 <= prevEma20 && ema9Now > ema20Now;
-  const bearishCrossNow = prevEma9 >= prevEma20 && ema9Now < ema20Now;
-  const closeAboveBoth = close > ema9Now && close > ema20Now;
-  const closeBelowBoth = close < ema9Now && close < ema20Now;
-  const bullishClose = close >= open;
-  const bearishClose = close <= open;
-
-  const buyValid = bullishCrossNow && closeAboveBoth;
-  const sellValid = bearishCrossNow && closeBelowBoth;
-  const buyReady = !buyValid && ema9Now <= ema20Now && Math.abs(ema9Now - ema20Now) <= Math.max(atrValue * 0.18, close * 0.00012);
-  const sellReady = !sellValid && ema9Now >= ema20Now && Math.abs(ema9Now - ema20Now) <= Math.max(atrValue * 0.18, close * 0.00012);
-
-  let action = "WAIT";
-  let direction = "WAIT";
-  let label = "Menunggu Sinyal Premium";
-  let entry = 0;
-  let sl = 0;
-  let tp = 0;
-  let tp1 = 0;
-  let tp2 = 0;
-  let score = 0;
-  let blocker = "Menunggu EMA9 cross EMA20 setelah candle M1 close.";
-
-  if (buyReady) {
-    action = "READY_BUY";
-    direction = "BUY";
-    label = "BUY mulai siap";
-    score = 62;
-    blocker = "BUY belum dikirim. Tunggu EMA9 cross ke atas EMA20 dan candle close di atas kedua EMA.";
-  } else if (sellReady) {
-    action = "READY_SELL";
-    direction = "SELL";
-    label = "SELL mulai siap";
-    score = 62;
-    blocker = "SELL belum dikirim. Tunggu EMA9 cross ke bawah EMA20 dan candle close di bawah kedua EMA.";
-  }
-
-  if (buyValid) {
-    action = "BUY_OPEN";
-    direction = "BUY";
-    label = "BUY Aktif";
-    entry = close;
-    sl = Number(structure.swingLow) - atrValue * 0.2;
-    const risk = Math.abs(entry - sl);
-    tp2 = entry + risk * 1.25;
-    tp1 = entry + (tp2 - entry) * 0.5;
-    tp = tp2;
-    score = bullishClose ? 90 : 86;
-    blocker = "";
-  } else if (sellValid) {
-    action = "SELL_OPEN";
-    direction = "SELL";
-    label = "SELL Aktif";
-    entry = close;
-    sl = Number(structure.swingHigh) + atrValue * 0.2;
-    const risk = Math.abs(sl - entry);
-    tp2 = entry - risk * 1.25;
-    tp1 = entry - (entry - tp2) * 0.5;
-    tp = tp2;
-    score = bearishClose ? 90 : 86;
-    blocker = "";
-  }
-
-  let pullbackLimitPlan = action.includes("OPEN")
-    ? buildPullbackLimitPlan({ direction, entry, ema9: ema9Now, ema20: ema20Now, atrValue, sl, tp1, tp2 })
-    : buildPullbackLimitPlan({ direction, entry: 0, ema9: ema9Now, ema20: ema20Now, atrValue, sl: 0, tp1: 0, tp2: 0 });
-
-  if (action.includes("OPEN") && candleTooOldForNewCall) {
-    action = "WAIT";
-    direction = "WAIT";
-    label = "Menunggu Sinyal Premium";
-    entry = 0;
-    sl = 0;
-    tp = 0;
-    tp1 = 0;
-    tp2 = 0;
-    score = 55;
-    blocker = `Candle M1 close terakhir sudah ${signalCandleAgeSec} detik. Sistem menahan alert agar tidak mengirim sinyal dari candle lama.`;
-  }
-
-  if ((action === "BUY_OPEN" && !(sl < entry && tp1 > entry && tp2 > tp1)) ||
-      (action === "SELL_OPEN" && !(sl > entry && tp1 < entry && tp2 < tp1))) {
-    action = "WAIT";
-    direction = "WAIT";
-    label = "Menunggu Sinyal Premium";
-    entry = 0;
-    sl = 0;
-    tp = 0;
-    tp1 = 0;
-    tp2 = 0;
-    score = 55;
-    blocker = "Rencana risiko belum ideal dari harga masuk ke swing terdekat.";
-  }
-
-  pullbackLimitPlan = action.includes("OPEN")
-    ? buildPullbackLimitPlan({ direction, entry, ema9: ema9Now, ema20: ema20Now, atrValue, sl, tp1, tp2 })
-    : buildPullbackLimitPlan({ direction, entry: 0, ema9: ema9Now, ema20: ema20Now, atrValue, sl: 0, tp1: 0, tp2: 0 });
-
-  const confidence = action.includes("OPEN") ? score : action.includes("READY") ? 64 : Math.max(45, score);
-  const cross = {
-    type: buyValid ? "M1_BULLISH_EMA_CROSS_DIRECT" : sellValid ? "M1_BEARISH_EMA_CROSS_DIRECT" : bullishCrossNow ? "BULLISH_CROSS_NO_CLOSE_FILTER" : bearishCrossNow ? "BEARISH_CROSS_NO_CLOSE_FILTER" : ema9Now > ema20Now ? "BULLISH_TREND" : ema9Now < ema20Now ? "BEARISH_TREND" : "WAIT",
-    bullishCrossNow,
-    bearishCrossNow,
-    index: m1.length - 1,
-    time: last.time || null
-  };
-  const reason = buildMainM1CrossDirectReason({ action, direction, entry, sl, tp, tp1, tp2, cross, closeAboveBoth, closeBelowBoth, ema9Now, ema20Now, structure, blocker });
-
-  return {
-    mode: "M1_EMA_CROSS_DIRECT_ENTRY_MAIN",
-    action,
-    label,
-    direction,
-    score,
-    confidence,
-    entry: round(entry),
-    sl: round(sl),
-    tp: round(tp),
-    tp1: round(tp1),
-    tp2: round(tp2 || tp),
-    rr: "Agresif RR 1:1.25 · Limit RR 1:1",
-    aggressiveEntry: round(entry),
-    pullbackLimitPlan,
-    limitEntry: pullbackLimitPlan?.limitEntry || 0,
-    entryPlanMode: action.includes("OPEN") ? "AGGRESSIVE_OPEN_PLUS_PULLBACK_LIMIT" : "WAIT",
-    dataReady: true,
-    timeframe: "M1",
-    sourceTimeframe: "MT5_VPS_M1_CLOSED_CANDLE",
-    candleSync,
-    ema9: round(ema9Now),
-    ema20: round(ema20Now),
-    emaDirectionLock: ema9Now > ema20Now ? "BUY_ONLY" : ema9Now < ema20Now ? "SELL_ONLY" : "WAIT",
-    focusDirection: ema9Now > ema20Now ? "BUY_ONLY" : ema9Now < ema20Now ? "SELL_ONLY" : "WAIT",
-    atr: round(atrValue),
-    candleBreak: {
-      required: false,
-      directCrossEntry: true,
-      bullish: buyValid,
-      bearish: sellValid,
-      closeAboveBoth,
-      closeBelowBoth,
-      time: last.time || null,
-      open: round(open),
-      high: round(high),
-      low: round(low),
-      close: round(close),
-      upperEma: round(upperEma),
-      lowerEma: round(lowerEma)
-    },
-    cross,
-    correction: { touchedEma9: closeAboveBoth || closeBelowBoth, touchedEmaZone: closeAboveBoth || closeBelowBoth, candleTime: last.time || null },
-    structure,
-    entryMethod: "AGGRESSIVE_OPEN_AFTER_M1_CLOSE_PLUS_OPTIONAL_EMA_PULLBACK_LIMIT",
-    tpMethod: "AGGRESSIVE_TP1_HALF_RR_1_25_AND_LIMIT_TP1_HALF_RR_1_1",
-    slMethod: direction === "BUY" ? "BELOW_SMART_M1_SWING_LOW_ANCHOR_MINUS_0_2_ATR" : direction === "SELL" ? "ABOVE_SMART_M1_SWING_HIGH_ANCHOR_PLUS_0_2_ATR" : "WAIT",
-    partialTp: {
-      enabled: true,
-      tp1: round(tp1),
-      tp2: round(tp2 || tp),
-      tp1Note: "TP1 = setengah jarak menuju TP Max. Setelah TP1 kena, SL pindah ke BE.",
-      tp2Note: "Entry agresif: TP Max RR 1:1.25. Limit pullback: TP Max RR 1:1 dari jarak Limit ke SL.",
-      afterTp1: "MOVE_SL_TO_BE"
-    },
-    maxPending: 0,
-    maxBuyPending: 0,
-    maxSellPending: 0,
-    replaceOldOnNewStructure: false,
-    reason,
-    blocker,
-    checklist: [
-      { name: "Candle M1 closed sinkron", status: !candleTooOldForNewCall ? "PASS" : "WAIT" },
-      { name: "EMA9 cross EMA20 M1", status: bullishCrossNow || bearishCrossNow ? "PASS" : "WAIT" },
-      { name: "Close di sisi EMA valid", status: closeAboveBoth || closeBelowBoth ? "PASS" : "WAIT" },
-      { name: "BUY filter", status: buyValid ? "PASS" : "WAIT" },
-      { name: "SELL filter", status: sellValid ? "PASS" : "WAIT" },
-      { name: "Entry agresif setelah close", status: entry > 0 ? "PASS" : "WAIT" },
-      { name: "Limit pullback EMA", status: pullbackLimitPlan?.enabled ? "PASS" : "WAIT" },
-      { name: "SL swing ± 0.2 ATR", status: sl > 0 ? "PASS" : "WAIT" },
-      { name: "TP1 / BE", status: tp1 > 0 ? "PASS" : "WAIT" },
-      { name: "TP Max 1:1.25", status: tp2 > 0 ? "PASS" : "WAIT" }
-    ]
-  };
-}
-
-function getM1DirectEntrySwingStructure(candles = [], entryPrice = 0, atrValue = 0) {
-  const valid = clean(candles)
-    .map((c, idx) => ({
-      ...c,
-      _idx: idx,
-      high: Number(c.high),
-      low: Number(c.low),
-      open: Number(c.open),
-      close: Number(c.close)
-    }))
-    .filter((c) => [c.high, c.low, c.open, c.close].every(Number.isFinite));
-
-  const entry = Number(entryPrice || valid[valid.length - 1]?.close || 0);
-  const atrSafe = Number(atrValue || 0);
-  const softMaxDistance = atrSafe > 0 ? atrSafe * 2.5 : Infinity;
-  const hardMaxDistance = atrSafe > 0 ? atrSafe * 4.0 : Infinity;
-
-  // Exclude candle entry/current. Untuk direct entry M1, SL harus pakai struktur sebelum entry.
-  // Step 10BQ: smart anchor tidak langsung mengambil swing paling dekat saja.
-  // SELL lebih cocok memakai swing high pullback terakhir sebelum breakdown/cross.
-  // BUY lebih cocok memakai swing low pullback terakhir sebelum breakout/cross.
-  const anchorWindow = valid.slice(-16, -1); // 15 candle sebelum candle entry
-  const recentWindow = valid.slice(-9, -1);  // fallback 8 candle terdekat
-  const pivotLows = [];
-  const pivotHighs = [];
-
-  for (let i = 1; i < anchorWindow.length - 1; i++) {
-    const prev = anchorWindow[i - 1];
-    const curr = anchorWindow[i];
-    const next = anchorWindow[i + 1];
-    if (curr.low <= prev.low && curr.low <= next.low) {
-      pivotLows.push({
-        price: curr.low,
-        time: curr.time || null,
-        index: curr._idx,
-        distance: Math.abs(entry - curr.low),
-        candle: curr
-      });
-    }
-    if (curr.high >= prev.high && curr.high >= next.high) {
-      pivotHighs.push({
-        price: curr.high,
-        time: curr.time || null,
-        index: curr._idx,
-        distance: Math.abs(curr.high - entry),
-        candle: curr
-      });
-    }
-  }
-
-  const lowPivotsBelowEntry = pivotLows
-    .filter((x) => entry > 0 ? x.price < entry : true)
-    .sort((a, b) => b.index - a.index);
-  const highPivotsAboveEntry = pivotHighs
-    .filter((x) => entry > 0 ? x.price > entry : true)
-    .sort((a, b) => b.index - a.index);
-
-  const recentLows = recentWindow
-    .map((c) => ({ price: c.low, time: c.time || null, index: c._idx, distance: Math.abs(entry - c.low), candle: c }))
-    .filter((x) => entry > 0 ? x.price < entry : true)
-    .sort((a, b) => a.distance - b.distance || b.index - a.index);
-  const recentHighs = recentWindow
-    .map((c) => ({ price: c.high, time: c.time || null, index: c._idx, distance: Math.abs(c.high - entry), candle: c }))
-    .filter((x) => entry > 0 ? x.price > entry : true)
-    .sort((a, b) => a.distance - b.distance || b.index - a.index);
-
-  const windowLowest = anchorWindow.length
-    ? anchorWindow.reduce((best, c) => c.low < best.low ? c : best, anchorWindow[0])
-    : null;
-  const windowHighest = anchorWindow.length
-    ? anchorWindow.reduce((best, c) => c.high > best.high ? c : best, anchorWindow[0])
-    : null;
-
-  const lowAnchorFromWindow = windowLowest && (!entry || windowLowest.low < entry)
-    ? { price: windowLowest.low, time: windowLowest.time || null, index: windowLowest._idx, distance: Math.abs(entry - windowLowest.low), candle: windowLowest }
-    : null;
-  const highAnchorFromWindow = windowHighest && (!entry || windowHighest.high > entry)
-    ? { price: windowHighest.high, time: windowHighest.time || null, index: windowHighest._idx, distance: Math.abs(windowHighest.high - entry), candle: windowHighest }
-    : null;
-
-  const chooseSmartLow = () => {
-    const newestConfirmedSoft = lowPivotsBelowEntry.find((x) => x.distance <= softMaxDistance);
-    if (newestConfirmedSoft) return { ...newestConfirmedSoft, source: "SMART_CONFIRMED_SWING_LOW_SOFT_2_5_ATR" };
-
-    // Kalau swing valid sedikit lebih jauh tapi masih struktur pullback terakhir, tetap lebih baik daripada SL terlalu dekat noise.
-    const newestConfirmedHard = lowPivotsBelowEntry.find((x) => x.distance <= hardMaxDistance);
-    if (newestConfirmedHard) return { ...newestConfirmedHard, source: "SMART_CONFIRMED_SWING_LOW_HARD_4_ATR" };
-
-    const recentLow = recentLows.find((x) => x.distance <= hardMaxDistance) || recentLows[0];
-    if (recentLow) return { ...recentLow, source: "RECENT_LOW_FALLBACK" };
-
-    if (lowAnchorFromWindow) return { ...lowAnchorFromWindow, source: "WINDOW_LOW_ANCHOR" };
-
-    return { price: Number(valid[valid.length - 2]?.low || valid[valid.length - 1]?.low || 0), time: null, index: 0, distance: 0, source: "LAST_LOW_FALLBACK" };
-  };
-
-  const chooseSmartHigh = () => {
-    const newestConfirmedSoft = highPivotsAboveEntry.find((x) => x.distance <= softMaxDistance);
-    if (newestConfirmedSoft) return { ...newestConfirmedSoft, source: "SMART_CONFIRMED_SWING_HIGH_SOFT_2_5_ATR" };
-
-    // Step 10BQ: jangan langsung skip swing high visual yang valid hanya karena sedikit lewat 2.5 ATR.
-    // Pakai hard cap 4 ATR agar SL masih masuk akal, tapi tetap mengikuti struktur terakhir.
-    const newestConfirmedHard = highPivotsAboveEntry.find((x) => x.distance <= hardMaxDistance);
-    if (newestConfirmedHard) return { ...newestConfirmedHard, source: "SMART_CONFIRMED_SWING_HIGH_HARD_4_ATR" };
-
-    const recentHigh = recentHighs.find((x) => x.distance <= hardMaxDistance) || recentHighs[0];
-    if (recentHigh) return { ...recentHigh, source: "RECENT_HIGH_FALLBACK" };
-
-    if (highAnchorFromWindow) return { ...highAnchorFromWindow, source: "WINDOW_HIGH_ANCHOR" };
-
-    return { price: Number(valid[valid.length - 2]?.high || valid[valid.length - 1]?.high || 0), time: null, index: 0, distance: 0, source: "LAST_HIGH_FALLBACK" };
-  };
-
-  const selectedLow = chooseSmartLow();
-  const selectedHigh = chooseSmartHigh();
-
-  return {
-    swingLow: round(selectedLow.price),
-    swingHigh: round(selectedHigh.price),
-    swingLowDistance: round(selectedLow.distance),
-    swingHighDistance: round(selectedHigh.distance),
-    maxSwingDistance: Number.isFinite(softMaxDistance) ? round(softMaxDistance) : null,
-    hardMaxSwingDistance: Number.isFinite(hardMaxDistance) ? round(hardMaxDistance) : null,
-    swingLowSource: selectedLow.source,
-    swingHighSource: selectedHigh.source,
-    swingLowTime: selectedLow.time || null,
-    swingHighTime: selectedHigh.time || null,
-    swingLowIndex: selectedLow.index ?? null,
-    swingHighIndex: selectedHigh.index ?? null,
-    method: "M1_SMART_SWING_ANCHOR_LOOKBACK_15_SOFT_2_5_ATR_HARD_4_ATR",
-    candleCount: anchorWindow.length,
-    recentFallbackCount: recentWindow.length
-  };
-}
-
-function getM5EmaStructureBreak(candles = []) {
-  const valid = candles
-    .map((c, idx) => ({ ...c, _idx: idx, high: Number(c.high), low: Number(c.low), open: Number(c.open), close: Number(c.close) }))
-    .filter((c) => [c.high, c.low, c.open, c.close].every(Number.isFinite));
-  const lastIndex = valid.length - 1;
-  const lookback = valid.slice(Math.max(0, valid.length - 22), Math.max(0, valid.length - 1));
-  const previous = lookback.length ? lookback : valid.slice(Math.max(0, valid.length - 14), Math.max(0, valid.length - 1));
-  const prevHighCandle = previous.length ? previous.reduce((best, c) => c.high > best.high ? c : best, previous[0]) : null;
-  const prevLowCandle = previous.length ? previous.reduce((best, c) => c.low < best.low ? c : best, previous[0]) : null;
-  const last = valid[lastIndex] || null;
-  const breakHigh = Boolean(last && prevHighCandle && (last.close > prevHighCandle.high || last.high > prevHighCandle.high));
-  const breakLow = Boolean(last && prevLowCandle && (last.close < prevLowCandle.low || last.low < prevLowCandle.low));
-  const bosType = breakHigh ? "BULLISH_BOS" : breakLow ? "BEARISH_BOS" : "NO_BOS";
-  const bosKey = [
-    bosType,
-    last?.time || last?._idx || "na",
-    round(prevHighCandle?.high || 0),
-    round(prevLowCandle?.low || 0)
-  ].join("_").replaceAll(" ", "_").replaceAll(":", "-").replaceAll(".", "-").replaceAll("/", "-");
-  return {
-    breakHigh,
-    breakLow,
-    bosType,
-    bosKey,
-    breakIndex: last?._idx ?? -1,
-    breakTime: last?.time || null,
-    previousSwingHigh: round(prevHighCandle?.high || 0),
-    previousSwingLow: round(prevLowCandle?.low || 0),
-    targetHighBody: round(prevHighCandle ? Math.max(prevHighCandle.open, prevHighCandle.close) : 0),
-    targetLowBody: round(prevLowCandle ? Math.min(prevLowCandle.open, prevLowCandle.close) : 0),
-    method: "M5_BREAK_PREVIOUS_SWING_THEN_DYNAMIC_EMA_LIMIT"
-  };
-}
-
-function countM5EngulfingsInCurrentEmaWave(candles = [], ema9Values = [], ema20Values = [], focusDirection = "WAIT", atrValue = 0) {
-  const valid = candles
-    .map((c, idx) => ({ ...c, _idx: idx, high: Number(c.high), low: Number(c.low), open: Number(c.open), close: Number(c.close), time: c.time || null }))
-    .filter((c) => [c.high, c.low, c.open, c.close].every(Number.isFinite));
-
-  if (valid.length < 2 || !Array.isArray(ema9Values) || !Array.isArray(ema20Values)) {
-    return { direction: focusDirection, count: 0, max: 2, crossIndex: -1, crossTime: null, isFull: false, items: [] };
-  }
-
-  const direction = focusDirection === "BUY_ONLY" ? "BUY" : focusDirection === "SELL_ONLY" ? "SELL" : "WAIT";
-  if (direction === "WAIT") return { direction, count: 0, max: 2, crossIndex: -1, crossTime: null, isFull: false, items: [] };
-
-  let crossIndex = 1;
-  for (let i = Math.min(valid.length - 1, ema9Values.length - 1, ema20Values.length - 1); i >= 1; i--) {
-    const p9 = Number(ema9Values[i - 1]);
-    const p20 = Number(ema20Values[i - 1]);
-    const e9 = Number(ema9Values[i]);
-    const e20 = Number(ema20Values[i]);
-    if (direction === "BUY" && p9 <= p20 && e9 > e20) { crossIndex = i; break; }
-    if (direction === "SELL" && p9 >= p20 && e9 < e20) { crossIndex = i; break; }
-  }
-
-  const items = [];
-  for (let i = Math.max(1, crossIndex); i < valid.length; i++) {
-    const prev = valid[i - 1];
-    const curr = valid[i];
-    const ema9 = Number(ema9Values[i] || 0);
-    const ema20 = Number(ema20Values[i] || 0);
-    const localAtr = Number(atrValue || Math.max(Math.abs(curr.high - curr.low), 1));
-    const buffer = Math.max(localAtr * 0.25, Number(curr.close) * 0.00008);
-    const touchedEmaZone = curr.low <= Math.max(ema9, ema20) + buffer && curr.high >= Math.min(ema9, ema20) - buffer;
-    const closeHoldsBuy = curr.close >= Math.min(ema9, ema20) - buffer;
-    const closeHoldsSell = curr.close <= Math.max(ema9, ema20) + buffer;
-    const bullish = direction === "BUY" && isBullishEngulfing(prev, curr) && touchedEmaZone && closeHoldsBuy && ema9 > ema20;
-    const bearish = direction === "SELL" && isBearishEngulfing(prev, curr) && touchedEmaZone && closeHoldsSell && ema9 < ema20;
-    if (bullish || bearish) {
-      items.push({ index: i, time: curr.time || null, open: round(curr.open), type: bullish ? "BULLISH_ENGULFING" : "BEARISH_ENGULFING" });
-    }
-  }
-
-  return {
-    direction,
-    count: items.length,
-    max: 2,
-    remaining: Math.max(0, 2 - items.length),
-    crossIndex,
-    crossTime: valid[crossIndex]?.time || null,
-    isFull: items.length >= 2,
-    items: items.slice(-2)
-  };
-}
-
-function getMainM5Candles(market = {}, m1Candles = []) {
-  const native = Array.isArray(market?.candlesM5) ? clean(market.candlesM5) : [];
-  if (native.length >= 20) return native.slice(-180);
-  return aggregateCandlesToM5(m1Candles);
-}
-
-function getPreferredM5Candles(market = {}, m1Candles = []) {
-  const native = Array.isArray(market?.candlesM5) ? clean(market.candlesM5) : [];
-  if (native.length >= 20) return native.slice(-180);
-  return aggregateCandlesToM5(m1Candles);
-}
-
-function emaSeries(values = [], period = 9) {
-  const nums = values.map(Number).filter(Number.isFinite);
-  if (!nums.length) return [];
-  const k = 2 / (period + 1);
-  const out = [];
-  let prev = nums[0];
-  for (let i = 0; i < nums.length; i++) {
-    prev = i === 0 ? nums[i] : nums[i] * k + prev * (1 - k);
-    out.push(prev);
-  }
-  return out;
-}
-
-function findRecentM5EmaCross(candles = [], ema9Values = [], ema20Values = [], lookback = 18) {
-  const start = Math.max(1, ema9Values.length - lookback);
-  for (let i = ema9Values.length - 1; i >= start; i--) {
-    const p9 = Number(ema9Values[i - 1]);
-    const p20 = Number(ema20Values[i - 1]);
-    const e9 = Number(ema9Values[i]);
-    const e20 = Number(ema20Values[i]);
-    if (p9 <= p20 && e9 > e20) return { type: "BULLISH", index: i, time: candles[i]?.time || null };
-    if (p9 >= p20 && e9 < e20) return { type: "BEARISH", index: i, time: candles[i]?.time || null };
-  }
-  return { type: "NONE", index: -1, time: null };
-}
-
-function getM5PullbackStructure(candles = [], crossIndex = -1) {
-  const end = candles.length;
-  const start = crossIndex >= 0 ? Math.max(0, crossIndex) : Math.max(0, end - 18);
-  const segment = candles.slice(start, end);
-  const fallback = candles.slice(-14);
-  const use = segment.length >= 4 ? segment : fallback;
-  const valid = use
-    .map((c, idx) => ({ ...c, _idx: idx, high: Number(c.high), low: Number(c.low), open: Number(c.open), close: Number(c.close) }))
-    .filter((c) => [c.high, c.low, c.open, c.close].every(Number.isFinite));
-  const highCandle = valid.length ? valid.reduce((best, c) => c.high > best.high ? c : best, valid[0]) : null;
-  const lowCandle = valid.length ? valid.reduce((best, c) => c.low < best.low ? c : best, valid[0]) : null;
-  const swingHighWick = highCandle ? highCandle.high : 0;
-  const swingLowWick = lowCandle ? lowCandle.low : 0;
-  const swingHighBody = highCandle ? Math.max(highCandle.open, highCandle.close) : 0;
-  const swingLowBody = lowCandle ? Math.min(lowCandle.open, lowCandle.close) : 0;
-  return {
-    swingHigh: round(swingHighWick),
-    swingLow: round(swingLowWick),
-    swingHighBody: round(swingHighBody),
-    swingLowBody: round(swingLowBody),
-    tpSource: "BODY_OPEN_CLOSE_SWING",
-    method: "M5_AFTER_EMA_BREAK_STRUCTURE_BODY_TP",
-    fromIndex: start,
-    candleCount: use.length
-  };
-}
-
-
-function buildPullbackLimitPlan({ direction, entry, ema9, ema20, atrValue, sl, tp1, tp2 }) {
-  const side = String(direction || "WAIT").toUpperCase();
-  const e = Number(entry || 0);
-  const emaFast = Number(ema9 || 0);
-  const emaSlow = Number(ema20 || 0);
-  const atrNum = Number(atrValue || 0);
-  const stop = Number(sl || 0);
-  const target1 = Number(tp1 || 0);
-  const target2 = Number(tp2 || 0);
-
-  if (!e || !emaFast || !emaSlow || !atrNum || !stop || !target2 || !["BUY", "SELL"].includes(side)) {
-    return {
-      enabled: false,
-      status: "WAIT",
-      type: "WAIT",
-      limitEntry: 0,
-      zoneLow: 0,
-      zoneHigh: 0,
-      buffer: 0,
-      note: "Limit pullback belum tersedia."
-    };
-  }
-
-  const upperEma = Math.max(emaFast, emaSlow);
-  const lowerEma = Math.min(emaFast, emaSlow);
-
-  // Step 10CC:
-  // Pullback limit dibuat lebih mudah tersentuh untuk user manual.
-  // BUY limit dinaikkan ke area EMA atas + touch buffer agar pullback tipis tidak sering miss.
-  // SELL limit dibuat lebih dekat ke area EMA bawah - touch buffer agar retest kecil lebih mudah kena.
-  const buffer = Math.max(atrNum * 0.10, e * 0.00004);
-  const extraTouchBuffer = Math.max(atrNum * 0.08, e * 0.000025);
-  const buyTouchBoost = Math.max(atrNum * 0.16, Math.abs(e - stop) * 0.08, e * 0.000035);
-  const sellTouchBoost = Math.max(atrNum * 0.16, Math.abs(e - stop) * 0.08, e * 0.000035);
-  const minGapFromAggressive = Math.max(atrNum * 0.012, e * 0.000004);
-  const zoneLow = lowerEma - buffer;
-  const zoneHigh = upperEma + buffer;
-
-  // Step 10CA:
-  // Limit pullback harus tetap enak disentuh, tapi tidak boleh terlalu mepet ke SL.
-  // Kalau limit terlalu dekat SL, TP RR 1:1 jadi sangat pendek dan tidak layak untuk user manual.
-  const aggressiveRisk = Math.abs(e - stop);
-  const minLimitRisk = Math.max(atrNum * 0.45, aggressiveRisk * 0.45, e * 0.00008);
-
-  let limitEntry = 0;
-  let type = "WAIT";
-  let status = "READY";
-  let note = "";
-
-  if (side === "BUY") {
-    type = "BUY_LIMIT_PULLBACK_EMA";
-    // BUY limit dipasang lebih tinggi, dekat EMA atas + touch boost.
-    // Tujuannya supaya pullback kecil/tipis tetap berpeluang kena untuk user manual.
-    const preferredBuyLimit = upperEma + buyTouchBoost;
-    // Cap tetap di bawah entry agresif, tapi dibuat tipis supaya tidak miss 1-2 pip.
-    const buyCap = e - minGapFromAggressive;
-    limitEntry = Math.min(buyCap, Math.max(zoneLow, preferredBuyLimit));
-    // Jangan biarkan BUY limit terlalu dekat dengan SL, karena TP RR 1:1 akan terlalu pendek.
-    limitEntry = Math.max(limitEntry, stop + minLimitRisk);
-    limitEntry = Math.min(limitEntry, buyCap);
-    if (!(limitEntry > stop && limitEntry < e && target2 > limitEntry)) status = "INFO_ONLY";
-    note = "Entry agresif mengikuti cross. Jika harga sudah jalan, opsi kedua adalah BUY limit di area pullback EMA atas dengan touch boost agar pullback tipis tidak mudah miss. Limit tetap dijaga tidak terlalu dekat dengan SL agar RR 1:1 masuk akal.";
-  }
-
-  if (side === "SELL") {
-    type = "SELL_LIMIT_PULLBACK_EMA";
-    // SELL limit dipasang lebih mudah tersentuh, dekat EMA bawah dengan touch boost.
-    // Jika harga retest kecil saja, user manual tetap punya peluang entry limit.
-    const preferredSellLimit = lowerEma - sellTouchBoost;
-    // Floor tetap di atas entry agresif, tapi jangan terlalu jauh supaya pullback kecil masih bisa menyentuh.
-    const sellFloor = e + minGapFromAggressive;
-    limitEntry = Math.max(sellFloor, Math.min(zoneHigh, preferredSellLimit));
-    // Jangan biarkan SELL limit terlalu dekat dengan SL, karena TP RR 1:1 akan terlalu pendek.
-    limitEntry = Math.min(limitEntry, stop - minLimitRisk);
-    limitEntry = Math.max(limitEntry, sellFloor);
-    if (!(limitEntry < stop && limitEntry > e && target2 < limitEntry)) status = "INFO_ONLY";
-    note = "Entry agresif mengikuti cross. Jika harga sudah jalan, opsi kedua adalah SELL limit di area pullback EMA dengan touch boost agar retest tipis tidak mudah miss. Limit tetap dijaga tidak terlalu dekat dengan SL agar RR 1:1 masuk akal.";
-  }
-
-  const limitRisk = side === "BUY" ? Math.abs(limitEntry - stop) : Math.abs(stop - limitEntry);
-  const aggressiveReward = side === "BUY" ? Math.abs(target2 - e) : Math.abs(e - target2);
-  const limitTp2 = side === "BUY" ? limitEntry + limitRisk : limitEntry - limitRisk;
-  const limitTp1 = side === "BUY" ? limitEntry + (limitTp2 - limitEntry) * 0.5 : limitEntry - (limitEntry - limitTp2) * 0.5;
-  const limitReward = side === "BUY" ? Math.abs(limitTp2 - limitEntry) : Math.abs(limitEntry - limitTp2);
-  const rrFromLimit = limitRisk > 0 ? limitReward / limitRisk : 0;
-  const aggressiveRrFromLimitEntry = limitRisk > 0 ? aggressiveReward / limitRisk : 0;
-
-  return {
-    enabled: true,
-    status,
-    type,
-    direction: side,
-    aggressiveEntry: round(e),
-    limitEntry: round(limitEntry),
-    zoneLow: round(zoneLow),
-    zoneHigh: round(zoneHigh),
-    ema9: round(emaFast),
-    ema20: round(emaSlow),
-    buffer: round(buffer),
-    extraTouchBuffer: round(extraTouchBuffer),
-    buyTouchBoost: round(buyTouchBoost),
-    sellTouchBoost: round(sellTouchBoost),
-    minLimitRisk: round(minLimitRisk),
-    sl: round(stop),
-    aggressiveTp1: round(target1),
-    aggressiveTp2: round(target2),
-    tp1: round(limitTp1),
-    tp2: round(limitTp2),
-    limitTp1: round(limitTp1),
-    limitTp2: round(limitTp2),
-    limitRr: "1:1",
-    rrFromLimit: round(rrFromLimit),
-    aggressiveRrFromLimitEntry: round(aggressiveRrFromLimitEntry),
-    note: note + " Limit pullback memakai TP Max RR 1:1 dari jarak limit ke SL, TP1 setengah target lalu SL naik ke BE."
-  };
-}
-
-function buildMainM1CrossDirectReason(data = {}) {
-  const { action, direction, entry, sl, tp1, tp2, blocker } = data;
-  if (action === "BUY_OPEN") {
-    return `BUY aktif. EMA9 sudah cross ke atas EMA20 dan candle M1 close di atas EMA9/EMA20. Entry agresif ${round(entry)}, limit pullback ${data?.pullbackLimitPlan?.limitEntry || "-"}, SL ${round(sl)}, TP agresif ${round(tp2)} RR 1:1.25, limit TP Max ${data?.pullbackLimitPlan?.limitTp2 || "-"} RR 1:1, TP1 lalu BE.`;
-  }
-  if (action === "SELL_OPEN") {
-    return `SELL aktif. EMA9 sudah cross ke bawah EMA20 dan candle M1 close di bawah EMA9/EMA20. Entry agresif ${round(entry)}, limit pullback ${data?.pullbackLimitPlan?.limitEntry || "-"}, SL ${round(sl)}, TP agresif ${round(tp2)} RR 1:1.25, limit TP Max ${data?.pullbackLimitPlan?.limitTp2 || "-"} RR 1:1, TP1 lalu BE.`;
-  }
-  if (action === "READY_BUY") return blocker || "EMA9 dekat EMA20. Menunggu cross bullish dan candle close di atas EMA9/EMA20.";
-  if (action === "READY_SELL") return blocker || "EMA9 dekat EMA20. Menunggu cross bearish dan candle close di bawah EMA9/EMA20.";
-  return blocker || "Menunggu EMA9 cross EMA20 di M1 dan candle close di sisi EMA yang valid.";
-}
-
-function buildMainM1CrossDirectHumanReason(ctx = {}) {
-  const m = ctx.mainM5 || {};
-  const isCall = ctx.callStage === "CALL";
-  const isReady = ctx.callStage === "READY";
-  const title = isCall ? `${ctx.signalLabel} aktif.` : isReady ? `${ctx.signalLabel} mulai siap.` : "Belum ada sinyal premium yang valid.";
-  const summary = [
-    title,
-    m.reason || "Menunggu EMA9 cross EMA20 M1 dan candle close di sisi EMA yang valid.",
-    ctx.qualityGuard?.message ? `Safety: ${ctx.qualityGuard.message}` : ""
-  ].filter(Boolean).join(" ");
-  return {
-    version: "10BW-limit-plan-rr-1-analytics",
-    title,
-    summary,
-    action: isCall ? "Sinyal aktif setelah candle M1 close. Agresif tetap cepat, limit pullback lebih aman untuk manual dengan target RR 1:1." : "Tunggu EMA9 cross EMA20 di M1 dan candle close yang valid.",
-    direction: m.direction || "WAIT",
-    checklist: m.checklist || [],
-    blockers: m.blocker ? [m.blocker] : [],
-    score: { buy: ctx.finalSignal === "BUY" ? ctx.confidence : 0, sell: ctx.finalSignal === "SELL" ? ctx.confidence : 0, confidence: ctx.confidence },
-    raw: ctx.legacyReasons || []
-  };
-}
-
-function buildStrategyBSmcAI(m1 = [], m15 = [], ctx = {}) {
-  const close = Number(ctx.close || 0);
-  const atr14 = Number(ctx.atr14 || 0);
-  const ema9 = Number(ctx.ema9 || 0);
-  const ema20 = Number(ctx.ema20 || 0);
-  const prevEma9 = Number(ctx.prevEma9 || 0);
-  const prevEma20 = Number(ctx.prevEma20 || 0);
-  const rsi14 = Number(ctx.rsi14 || 0);
-  const mfi14 = Number(ctx.mfi14 || 0);
-  const bullOb = normalizeStrategyBOb(ctx.bullOb, "BUY");
-  const bearOb = normalizeStrategyBOb(ctx.bearOb, "SELL");
-
-  const bullishObValid = isStrategyBObValid(bullOb, close, atr14, "BUY");
-  const bearishObValid = isStrategyBObValid(bearOb, close, atr14, "SELL");
-  const inBullOb = bullishObValid && close >= bullOb.low && close <= bullOb.high;
-  const inBearOb = bearishObValid && close >= bearOb.low && close <= bearOb.high;
-
-  const sweepLow = detectStrategyBLiquiditySweep(m1, "LOW");
-  const sweepHigh = detectStrategyBLiquiditySweep(m1, "HIGH");
-  const chochBull = detectStrategyBChoch(m1, "BULLISH");
-  const chochBear = detectStrategyBChoch(m1, "BEARISH");
-  const emaBullish = (prevEma9 <= prevEma20 && ema9 > ema20) || (ema9 > ema20 && ema9 > prevEma9 && ema20 >= prevEma20 * 0.9995);
-  const emaBearish = (prevEma9 >= prevEma20 && ema9 < ema20) || (ema9 < ema20 && ema9 < prevEma9 && ema20 <= prevEma20 * 1.0005);
-
-  const buySteps = {
-    freshOb: bullishObValid,
-    priceInOb: inBullOb,
-    sweep: Boolean(inBullOb && sweepLow.valid),
-    choch: Boolean(inBullOb && sweepLow.valid && chochBull.valid),
-    ema: Boolean(inBullOb && sweepLow.valid && chochBull.valid && emaBullish)
-  };
-  const sellSteps = {
-    freshOb: bearishObValid,
-    priceInOb: inBearOb,
-    sweep: Boolean(inBearOb && sweepHigh.valid),
-    choch: Boolean(inBearOb && sweepHigh.valid && chochBear.valid),
-    ema: Boolean(inBearOb && sweepHigh.valid && chochBear.valid && emaBearish)
-  };
-
-  const buyScore = strategyBScore(buySteps, rsi14 > 50, mfi14 > 50);
-  const sellScore = strategyBScore(sellSteps, rsi14 < 50, mfi14 < 50);
-  const direction = buyScore >= sellScore ? "BUY" : "SELL";
-  const activeSteps = direction === "BUY" ? buySteps : sellSteps;
-  const activeOb = direction === "BUY" ? bullOb : bearOb;
-  const activeSweep = direction === "BUY" ? sweepLow : sweepHigh;
-  const activeChoch = direction === "BUY" ? chochBull : chochBear;
-  const activeEma = direction === "BUY" ? emaBullish : emaBearish;
-
-  let action = "WAIT";
-  let label = "SMC AI WAIT";
-  if (buySteps.freshOb && buySteps.priceInOb && buySteps.sweep && buySteps.choch && buySteps.ema) {
-    action = "CALL_BUY";
-    label = "SMC AI BUY";
-  } else if (sellSteps.freshOb && sellSteps.priceInOb && sellSteps.sweep && sellSteps.choch && sellSteps.ema) {
-    action = "CALL_SELL";
-    label = "SMC AI SELL";
-  } else if ((buySteps.freshOb && buySteps.priceInOb && buySteps.sweep) || (sellSteps.freshOb && sellSteps.priceInOb && sellSteps.sweep)) {
-    action = direction === "BUY" ? "READY_BUY" : "READY_SELL";
-    label = direction === "BUY" ? "SMC AI READY BUY" : "SMC AI READY SELL";
-  }
-
-  const entry = close;
-  let sl = 0;
-  let tp = 0;
-  const rr = 2;
-  if ((action === "CALL_BUY" || action === "READY_BUY") && sweepLow.price && atr14) {
-    sl = sweepLow.price - (1.5 * atr14);
-    tp = entry + Math.abs(entry - sl) * rr;
-  } else if ((action === "CALL_SELL" || action === "READY_SELL") && sweepHigh.price && atr14) {
-    sl = sweepHigh.price + (1.5 * atr14);
-    tp = entry - Math.abs(sl - entry) * rr;
-  }
-
-  const checklist = [
-    { name: "Fresh OB M15", buy: buySteps.freshOb, sell: sellSteps.freshOb },
-    { name: "Harga di area OB", buy: buySteps.priceInOb, sell: sellSteps.priceInOb },
-    { name: "Liquidity Sweep M1", buy: buySteps.sweep, sell: sellSteps.sweep },
-    { name: "CHOCH M1", buy: buySteps.choch, sell: sellSteps.choch },
-    { name: "EMA 9/20 M1", buy: buySteps.ema, sell: sellSteps.ema }
-  ];
-
-  const blockers = buildStrategyBBlockers(activeSteps, direction);
-  const confidence = Math.min(100, Math.max(0, direction === "BUY" ? buyScore : sellScore));
-
-  return {
-    id: "strategyB",
-    name: "SMC AI",
-    mode: "LIVE_BACKTEST_ONLY",
-    action,
-    label,
-    direction,
-    confidence,
-    entry: round(entry),
-    sl: round(sl),
-    tp: round(tp),
-    rr: "1:2",
-    reason: buildStrategyBReason(action, direction, blockers),
-    checklist,
-    blockers,
-    buy: {
-      steps: buySteps,
-      score: Math.min(100, buyScore),
-      ob: bullOb,
-      sweep: sweepLow,
-      choch: chochBull,
-      ema: emaBullish,
-      rsiBooster: rsi14 > 50,
-      mfiBooster: mfi14 > 50
-    },
-    sell: {
-      steps: sellSteps,
-      score: Math.min(100, sellScore),
-      ob: bearOb,
-      sweep: sweepHigh,
-      choch: chochBear,
-      ema: emaBearish,
-      rsiBooster: rsi14 < 50,
-      mfiBooster: mfi14 < 50
-    },
-    active: {
-      ob: activeOb,
-      sweep: activeSweep,
-      choch: activeChoch,
-      ema: activeEma
-    },
-    indicators: {
-      rsi: round(rsi14),
-      mfi: round(mfi14),
-      atr: round(atr14),
-      ema9: round(ema9),
-      ema20: round(ema20)
-    },
-    note: "Strategy B berjalan paralel sebagai eksperimen/live-backtest. Strategy A tidak diganti."
-  };
-}
-
-function normalizeStrategyBOb(ob, side) {
-  if (!ob) return null;
-  return {
-    ...ob,
-    side,
-    low: Number(ob.low || 0),
-    high: Number(ob.high || 0),
-    status: ob.status || "fresh"
-  };
-}
-
-function isStrategyBObValid(ob, close, atr14, side) {
-  if (!ob || !ob.low || !ob.high) return false;
-  if (ob.status === "invalid" || ob.expired) return false;
-  const buffer = Math.max(atr14 * 0.15, close * 0.00008);
-  if (side === "BUY") return close >= ob.low - buffer;
-  return close <= ob.high + buffer;
-}
-
-function strategyBScore(steps, rsiBoost, mfiBoost) {
-  let score = 0;
-  if (steps.freshOb) score += 30;
-  if (steps.sweep) score += 25;
-  if (steps.choch) score += 25;
-  if (steps.ema) score += 20;
-  if (rsiBoost) score += 5;
-  if (mfiBoost) score += 5;
-  return Math.min(100, score);
-}
-
-function detectStrategyBLiquiditySweep(candles = [], type = "LOW") {
-  const data = candles.slice(-22);
-  const last = data[data.length - 1];
-  if (!last || data.length < 8) return { valid: false, price: 0, level: 0, candleTime: null };
-  const prev = data.slice(0, -1);
-  const lookback = prev.slice(-12);
-  if (type === "LOW") {
-    const level = Math.min(...lookback.map((c) => Number(c.low || 0)).filter(Boolean));
-    const valid = level && Number(last.low) < level && Number(last.close) > level;
-    return { valid: Boolean(valid), price: valid ? Number(last.low) : 0, level: round(level), candleTime: last.time || null };
-  }
-  const level = Math.max(...lookback.map((c) => Number(c.high || 0)).filter(Boolean));
-  const valid = level && Number(last.high) > level && Number(last.close) < level;
-  return { valid: Boolean(valid), price: valid ? Number(last.high) : 0, level: round(level), candleTime: last.time || null };
-}
-
-function detectStrategyBChoch(candles = [], direction = "BULLISH") {
-  const data = candles.slice(-28);
-  if (data.length < 14) return { valid: false, level: 0, candleTime: null };
-  const last = data[data.length - 1];
-  const left = data.slice(0, -1);
-  const recent = left.slice(-10);
-  const prior = left.slice(-22, -10);
-  const recentHigh = Math.max(...recent.map((c) => Number(c.high || 0)));
-  const recentLow = Math.min(...recent.map((c) => Number(c.low || 0)));
-  const priorHigh = Math.max(...prior.map((c) => Number(c.high || 0)));
-  const priorLow = Math.min(...prior.map((c) => Number(c.low || 0)));
-  if (direction === "BULLISH") {
-    const level = Math.max(recentHigh, priorHigh);
-    const valid = Number(last.close) > level || (recentLow > priorLow && Number(last.close) > recentHigh);
-    return { valid: Boolean(valid), level: round(level), candleTime: last.time || null };
-  }
-  const level = Math.min(recentLow, priorLow);
-  const valid = Number(last.close) < level || (recentHigh < priorHigh && Number(last.close) < recentLow);
-  return { valid: Boolean(valid), level: round(level), candleTime: last.time || null };
-}
-
-function buildStrategyBBlockers(steps, direction) {
-  if (!steps.freshOb) return [`Menunggu Fresh ${direction === "BUY" ? "Bullish" : "Bearish"} OB M15 valid.`];
-  if (!steps.priceInOb) return ["Harga belum kembali masuk ke area OB M15."];
-  if (!steps.sweep) return [`Menunggu Liquidity Sweep ${direction === "BUY" ? "Low" : "High"} M1.`];
-  if (!steps.choch) return [`Menunggu CHOCH ${direction === "BUY" ? "Bullish" : "Bearish"} M1.`];
-  if (!steps.ema) return [`Menunggu konfirmasi EMA 9/20 M1 ${direction === "BUY" ? "bullish" : "bearish"}.`];
-  return [];
-}
-
-function buildStrategyBReason(action, direction, blockers) {
-  if (action === "CALL_BUY") return "SMC AI BUY valid: OB M15, Sweep Low M1, CHOCH Bullish, dan EMA M1 sudah konfirmasi.";
-  if (action === "CALL_SELL") return "SMC AI SELL valid: OB M15, Sweep High M1, CHOCH Bearish, dan EMA M1 sudah konfirmasi.";
-  if (action.includes("READY")) return `SMC AI ${direction} mulai terbentuk. ${blockers[0] || "Menunggu konfirmasi final."}`;
-  return `SMC AI WAIT. ${blockers[0] || "Rangkaian OB → Sweep → CHOCH → EMA belum lengkap."}`;
-}
-
-function buildSignalQualityGuardV2(ctx = {}) {
-  const market = ctx.market || {};
-  const checks = [];
-  const blockers = [];
-  const warnings = [];
-  const bid = Number(market.bid || 0);
-  const ask = Number(market.ask || 0);
-  const spread = bid > 0 && ask > 0 ? Math.abs(ask - bid) : null;
-  const close = Number(ctx.close || 0);
-  const atr14 = Number(ctx.atr14 || 0);
-  const candleCount = Array.isArray(ctx.m1) ? ctx.m1.length : 0;
-  const m15Count = Array.isArray(ctx.m15) ? ctx.m15.length : 0;
-  const confidence = Number(ctx.confidence || 0);
-  const feedInfo = getSignalFeedFreshness(market);
-
-  const maxSpread = close > 0 ? Math.max(0.8, close * 0.00045) : 2;
-  const candleRange = getLastCandleRange(ctx.m1);
-  const atrRiskLimit = close > 0 ? close * 0.0014 : 999;
-  const candleRiskLimit = atr14 > 0 ? atr14 * 2.8 : 999;
-
-  const feedPassed = feedInfo.ageSec === null || feedInfo.ageSec <= 1800;
-  const spreadPassed = spread === null || spread <= maxSpread;
-  const isMainM5 = Boolean(ctx.mainM5);
-  const isMainM1Direct = ctx.mainM5?.mode === "M1_EMA_CROSS_DIRECT_ENTRY_MAIN";
-  const dataPassed = isMainM5 ? Boolean(ctx.mainM5?.dataReady) : (candleCount >= 50 && m15Count >= 50);
-  const volatilityPassed = atr14 <= atrRiskLimit && candleRange <= candleRiskLimit;
-  const confidencePassed = confidence >= 68;
-  const setupPassed = Boolean(ctx.buyAllMatch || ctx.sellAllMatch || ctx.readyBuyAllMatch || ctx.readySellAllMatch);
-  const obPassed = isMainM5 ? setupPassed : Boolean(ctx.obBuyOk || ctx.obSellOk || ctx.readyBuyAllMatch || ctx.readySellAllMatch || ctx.buyAllMatch || ctx.sellAllMatch);
-
-  checks.push(makeGuardCheck("Data Live", feedPassed ? "PASS" : "WAIT", feedPassed ? "Data market masih layak dipakai." : "Data market belum fresh."));
-  checks.push(makeGuardCheck("Spread", spreadPassed ? "PASS" : "WAIT", spread === null ? "Spread belum terbaca, guard tetap hati-hati." : `Spread ${round(spread)} / batas ${round(maxSpread)}.`));
-  checks.push(makeGuardCheck("Data", dataPassed ? "PASS" : "WAIT", dataPassed ? "Data market cukup untuk membaca sinyal." : "Data market belum cukup untuk membaca sinyal."));
-  checks.push(makeGuardCheck("Volatilitas", volatilityPassed ? "PASS" : "WAIT", atr14 ? `ATR ${round(atr14)} masih dalam batas aman.` : "ATR belum terbaca."));
-  checks.push(makeGuardCheck("Kekuatan Setup", confidencePassed ? "PASS" : "WAIT", `Kekuatan Setup ${confidence || 0}% · minimal 68% untuk CALL.`));
-  checks.push(makeGuardCheck("Setup", setupPassed ? "PASS" : "WAIT", setupPassed ? (isMainM5 ? "Setup EMA Cross M1 mulai valid." : "Setup utama mulai cocok.") : "Setup utama belum lengkap."));
-  checks.push(makeGuardCheck(isMainM5 ? "Direct Entry Plan" : "OB M15", obPassed ? "PASS" : "WAIT", obPassed ? (isMainM5 ? "Harga masuk, target, dan batas risiko sudah terbentuk." : "Filter OB M15 mendukung setup.") : (isMainM5 ? "Menunggu EMA9 cross EMA20 dan candle close valid." : "Harga belum dekat OB M15 valid.")));
-
-  if (!feedPassed) blockers.push("koneksi market belum fresh");
-  if (!spreadPassed) blockers.push("spread belum aman");
-  if (!dataPassed) blockers.push(isMainM5 ? "data candle M1 belum cukup" : "data candle M1/M15 belum cukup");
-  if (!volatilityPassed && !isMainM1Direct) blockers.push("volatilitas candle/ATR terlalu tinggi");
-  if (!confidencePassed && !isMainM1Direct) blockers.push("kekuatan setup belum cukup");
-  if (!setupPassed) blockers.push(isMainM5 ? "EMA9/EMA20 M1 cross dan close filter belum lengkap" : "setup utama belum lengkap");
-  if (!obPassed) blockers.push(isMainM5 ? "rencana direct entry belum lengkap" : "OB M15 belum mendukung");
-
-  if (spread === null) warnings.push("Spread belum terbaca dari bid/ask.");
-  if (feedInfo.ageSec !== null && feedInfo.ageSec > 900) warnings.push("Feed mulai tua, hati-hati sebelum entry.");
-
-  const allowCall = isMainM1Direct
-    ? feedPassed && spreadPassed && dataPassed && setupPassed && obPassed
-    : feedPassed && spreadPassed && dataPassed && volatilityPassed && confidencePassed && setupPassed && obPassed;
-  const passedCount = checks.filter((c) => c.status === "PASS").length;
-  const score = Math.round((passedCount / Math.max(checks.length, 1)) * 100);
-
-  const status = allowCall ? "SAFE" : score >= 70 ? "CAUTION" : "WAIT";
-  const label = allowCall ? "Market Aman" : score >= 70 ? "Market Hati-hati" : "Menunggu Market";
-  const decision = allowCall ? "CALL_ALLOWED" : "CALL_BLOCKED";
-  const message = allowCall
-    ? "Quality Check lolos. Market cukup layak untuk sinyal premium jika setup utama valid."
-    : `Quality Check menahan sinyal: ${blockers.slice(0, 2).join(" dan ") || "market belum ideal"}.`;
-
-  return {
-    version: isMainM1Direct ? "10AT-main-m1-direct-guard" : "10X-signal-quality-guard-v2",
-    status,
-    label,
-    decision,
-    allowCall,
-    score,
-    passedCount,
-    totalChecks: checks.length,
-    blockers,
-    warnings,
-    checks,
-    metrics: {
-      spread: spread === null ? null : round(spread),
-      maxSpread: round(maxSpread),
-      atr14: round(atr14),
-      candleRange: round(candleRange),
-      feedAgeSec: feedInfo.ageSec,
-      feedTime: feedInfo.timeText || null,
-      confidence
-    },
-    message
-  };
-}
-
-function makeGuardCheck(name, status, note) {
-  return { name, status, note };
-}
-
-function getLastCandleRange(candles = []) {
-  const last = Array.isArray(candles) ? candles[candles.length - 1] : null;
-  if (!last) return 0;
-  return Math.abs(Number(last.high || 0) - Number(last.low || 0));
-}
-
-function getSignalFeedFreshness(market = {}) {
-  const timeValue = market.receivedAt || market.lastCandleTime || market.serverTime || market.updatedAt || market.time || null;
-  const ms = new Date(timeValue || 0).getTime();
-  if (!timeValue || Number.isNaN(ms) || ms <= 0) return { ageSec: null, timeText: timeValue || null };
-  return { ageSec: Math.max(0, Math.round((Date.now() - ms) / 1000)), timeText: timeValue };
-}
-
 function buildHumanSignalReason(ctx = {}) {
   const direction = ctx.finalSignal?.includes("BUY") ? "BUY" : ctx.finalSignal?.includes("SELL") ? "SELL" : "WAIT";
   const isCall = ctx.callStage === "CALL";
@@ -1408,17 +311,13 @@ function buildHumanSignalReason(ctx = {}) {
   const mfiLine = buildMfiLine(ctx, direction);
   const obLine = buildObLine(ctx, direction);
   const riskLine = buildRiskLine(ctx);
-  const guardLine = ctx.qualityGuard?.allowCall
-    ? "Quality Check: market lolos safety check."
-    : ctx.qualityGuard?.message || "Quality Check: menunggu market lebih aman.";
 
   const checklist = [
     emaLine,
     rsiLine,
     mfiLine,
     obLine,
-    riskLine,
-    guardLine
+    riskLine
   ].filter(Boolean);
 
   const blockers = buildSignalBlockers(ctx, direction);
@@ -1554,164 +453,204 @@ function buildSignalBlockers(ctx = {}, direction = "WAIT") {
 }
 
 function buildM1ScalpingStrategy(candles, closes, context = {}) {
-  return buildM5EngulfingLimitScalp(candles, context);
+  const structure = buildM1StructureEngulfingEmaScalp(candles, closes, context);
+
+  return {
+    ...structure,
+    activeRule: "M1_SR_ENGULFING_EMA_9_20_FILTER",
+    mode: "M1_SCALPING_SR_ENGULFING_EMA_FILTER"
+  };
 }
 
-function buildM5EngulfingLimitScalp(m5Candles = [], context = {}) {
-  const m5 = clean(m5Candles);
-  const last = m5[m5.length - 1];
-  const prev = m5[m5.length - 2];
+function buildM1StructureEngulfingEmaScalp(candles, closes, context = {}) {
+  const last = candles[candles.length - 1];
+  const prev = candles[candles.length - 2];
 
-  if (!last || !prev || m5.length < 20) {
+  if (!last || !prev || candles.length < 40) {
     return {
-      mode: "M5_ENGULFING_LIMIT_SCALP",
-      activeRule: "M5_SWING_ENGULFING_EMA_9_20_LIMIT",
+      mode: "M1_SR_ENGULFING_EMA_FILTER",
+      activeRule: "M1_SR_ENGULFING_EMA_9_20_FILTER",
       action: "WAIT",
-      label: "M5 SCALP WAIT",
-      orderType: "WAIT",
-      score: 0, confidence: 0, entry: 0, sl: 0, tp: 0,
-      support: 0, resistance: 0, ema9: 0, ema20: 0, emaTrend: "WAIT",
-      zone: "WAIT", pattern: "NONE", atr: 0, timeframe: "M5",
-      sourceTimeframe: context.sourceTimeframe || "M1_AGGREGATED_TO_M5", maxPending: 4, maxBuyPending: 2, maxSellPending: 2,
-      reason: "Menunggu minimal 20 candle M5 untuk membaca struktur, swing, EMA 9/20, dan limit setup.",
+      label: "SCALP WAIT",
+      score: 0,
+      confidence: 0,
+      entry: 0,
+      sl: 0,
+      tp: 0,
+      support: 0,
+      resistance: 0,
+      ema9: 0,
+      ema20: 0,
+      emaTrend: "WAIT",
+      zone: "WAIT",
+      pattern: "NONE",
+      reason: "Menunggu minimal 40 candle M1 untuk baca struktur, engulfing, dan EMA 9/20.",
       checklist: []
     };
   }
 
-  const closes = m5.map((c) => Number(c.close));
-  const ema9Value = Number(ema(closes, 9));
-  const ema20Value = Number(ema(closes, 20));
-  const atrValue = Number(atr(m5, 14) || Math.max(Math.abs(last.high - last.low), 1));
-  const structure = detectM5StructureForEngulfing(m5, atrValue);
+  const atrValue = Number(context.atr14 || atr(candles, 14) || 1);
+  const close = Number(context.close || last.close);
+  const recent = candles.slice(-35, -1);
+  const structure = detectM1StructureZones(recent, atrValue);
+  const support = structure.support;
+  const resistance = structure.resistance;
+  const zoneBuffer = Math.max(atrValue * 0.35, close * 0.00008);
+
+  const supportTouchCandle = findLastTouchCandle(candles, support, "support", zoneBuffer);
+  const resistanceTouchCandle = findLastTouchCandle(candles, resistance, "resistance", zoneBuffer);
+
+  const nearSupport =
+    Number.isFinite(support) &&
+    last.low <= support + zoneBuffer &&
+    last.close >= support - zoneBuffer;
+
+  const nearResistance =
+    Number.isFinite(resistance) &&
+    last.high >= resistance - zoneBuffer &&
+    last.close <= resistance + zoneBuffer;
+
   const bullishEngulfing = isBullishEngulfing(prev, last);
   const bearishEngulfing = isBearishEngulfing(prev, last);
-  const closeAboveEma = Number(last.close) > ema9Value && Number(last.close) > ema20Value;
-  const closeBelowEma = Number(last.close) < ema9Value && Number(last.close) < ema20Value;
-  const swingBuffer = Math.max(atrValue * 0.45, Number(last.close) * 0.0001);
-  const atSwingLow = Number(last.low) <= Number(structure.previousSwingLow) + swingBuffer;
-  const atSwingHigh = Number(last.high) >= Number(structure.previousSwingHigh) - swingBuffer;
+
+  const ema9Value = Number(context.ema9 || ema(closes, 9));
+  const ema20Value = Number(context.ema20 || ema(closes, 20));
+  const emaBullish = ema9Value > ema20Value;
+  const emaBearish = ema9Value < ema20Value;
+  const emaTrend = emaBullish ? "EMA_BULLISH" : emaBearish ? "EMA_BEARISH" : "EMA_FLAT";
+
+  const rsi = Number(context.rsi14 || rsiWilder(closes, 14));
+  const mfiValue = Number(context.mfi14 || mfi(candles, 14));
+
+  const rsiBuyOk = rsi >= 42 && rsi <= 72;
+  const rsiSellOk = rsi <= 58 && rsi >= 28;
+  const mfiBuyOk = mfiValue >= 38 && mfiValue <= 82;
+  const mfiSellOk = mfiValue <= 62 && mfiValue >= 18;
 
   let buyScore = 0;
   let sellScore = 0;
   const checklist = [];
-  if (bullishEngulfing) { buyScore += 30; checklist.push("Bullish engulfing M5 valid"); }
-  if (bearishEngulfing) { sellScore += 30; checklist.push("Bearish engulfing M5 valid"); }
-  if (atSwingLow) { buyScore += 25; checklist.push("Engulfing berada di area swing low M5"); }
-  if (atSwingHigh) { sellScore += 25; checklist.push("Engulfing berada di area swing high M5"); }
-  if (closeAboveEma) { buyScore += 25; checklist.push("Close candle di atas EMA 9/20"); }
-  if (closeBelowEma) { sellScore += 25; checklist.push("Close candle di bawah EMA 9/20"); }
 
-  const rsi = Number(context.rsi14 || rsiWilder(closes, 14));
-  const mfiValue = Number(context.mfi14 || mfi(m5, 14));
-  if (rsi > 50) { buyScore += 5; checklist.push("RSI booster BUY"); }
-  if (rsi < 50) { sellScore += 5; checklist.push("RSI booster SELL"); }
-  if (mfiValue > 50) { buyScore += 5; checklist.push("MFI booster BUY"); }
-  if (mfiValue < 50) { sellScore += 5; checklist.push("MFI booster SELL"); }
+  if (emaBullish) {
+    buyScore += 30;
+    checklist.push("EMA 9 di atas EMA 20, hanya cari BUY");
+  }
 
-  const buyValid = bullishEngulfing && atSwingLow && closeAboveEma;
-  const sellValid = bearishEngulfing && atSwingHigh && closeBelowEma;
-  let action = "WAIT", label = "M5 SCALP WAIT", orderType = "WAIT", entry = 0, sl = 0, tp = 0, zone = "WAIT";
-  let pattern = bullishEngulfing ? "BULLISH_ENGULFING" : bearishEngulfing ? "BEARISH_ENGULFING" : "NONE";
+  if (emaBearish) {
+    sellScore += 30;
+    checklist.push("EMA 9 di bawah EMA 20, hanya cari SELL");
+  }
+
+  if (nearSupport) { buyScore += 24; checklist.push("Harga di area support M1"); }
+  if (nearResistance) { sellScore += 24; checklist.push("Harga di area resistance M1"); }
+
+  if (bullishEngulfing) { buyScore += 28; checklist.push("Bullish engulfing valid"); }
+  if (bearishEngulfing) { sellScore += 28; checklist.push("Bearish engulfing valid"); }
+
+  if (rsiBuyOk) { buyScore += 8; checklist.push("RSI aman untuk BUY"); }
+  if (rsiSellOk) { sellScore += 8; checklist.push("RSI aman untuk SELL"); }
+
+  if (mfiBuyOk) { buyScore += 8; checklist.push("MFI aman untuk BUY"); }
+  if (mfiSellOk) { sellScore += 8; checklist.push("MFI aman untuk SELL"); }
+
+  const buyValid = emaBullish && nearSupport && bullishEngulfing && buyScore >= 70;
+  const sellValid = emaBearish && nearResistance && bearishEngulfing && sellScore >= 70;
+
+  let action = "WAIT";
+  let label = "SCALP WAIT";
   let score = Math.max(buyScore, sellScore);
+  let sl = 0;
+  let tp = 0;
+  let zone = "WAIT";
+  let pattern = "NONE";
 
   if (buyValid) {
-    action = "SCALP_BUY"; label = "M5 BUY LIMIT"; orderType = "BUY_LIMIT"; zone = "SWING_LOW"; pattern = "BULLISH_ENGULFING";
-    entry = Number(last.open);
-    sl = Number(structure.previousSwingLow) - atrValue * 1.5;
-    const risk = Math.abs(entry - sl);
-    tp = entry + risk;
+    action = "SCALP_BUY";
+    label = "SCALP BUY";
+    zone = "SUPPORT";
+    pattern = "BULLISH_ENGULFING";
+
+    // SL M1 scalping:
+    // di bawah low candle yang menyentuh support + buffer 1.5 ATR
+    const touchLow = Number(supportTouchCandle?.low || support);
+    sl = touchLow - atrValue * 1.5;
+    const risk = Math.abs(close - sl);
+    tp = close + risk * 1.25;
   } else if (sellValid) {
-    action = "SCALP_SELL"; label = "M5 SELL LIMIT"; orderType = "SELL_LIMIT"; zone = "SWING_HIGH"; pattern = "BEARISH_ENGULFING";
-    entry = Number(last.open);
-    sl = Number(structure.previousSwingHigh) + atrValue * 1.5;
-    const risk = Math.abs(sl - entry);
-    tp = entry - risk;
+    action = "SCALP_SELL";
+    label = "SCALP SELL";
+    zone = "RESISTANCE";
+    pattern = "BEARISH_ENGULFING";
+
+    // SL M1 scalping:
+    // di atas high candle yang menyentuh resistance + buffer 1.5 ATR
+    const touchHigh = Number(resistanceTouchCandle?.high || resistance);
+    sl = touchHigh + atrValue * 1.5;
+    const risk = Math.abs(sl - close);
+    tp = close - risk * 1.25;
   } else {
-    if (atSwingLow) zone = "NEAR_SWING_LOW";
-    else if (atSwingHigh) zone = "NEAR_SWING_HIGH";
+    if (nearSupport) zone = "NEAR_SUPPORT";
+    else if (nearResistance) zone = "NEAR_RESISTANCE";
+
+    if (bullishEngulfing) pattern = "BULLISH_ENGULFING";
+    else if (bearishEngulfing) pattern = "BEARISH_ENGULFING";
   }
 
   return {
-    mode: "M5_ENGULFING_LIMIT_SCALP",
-    activeRule: "M5_SWING_ENGULFING_EMA_9_20_LIMIT",
-    action, label, orderType,
+    mode: "M1_SR_ENGULFING_EMA_FILTER",
+    activeRule: "M1_SR_ENGULFING_EMA_9_20_FILTER",
+    action,
+    label,
     score: Math.min(100, Math.round(score)),
-    confidence: Math.min(94, Math.max(40, Math.round(score))),
-    entry: round(entry), sl: round(sl), tp: round(tp),
-    support: round(structure.previousSwingLow), resistance: round(structure.previousSwingHigh),
-    previousSwingLow: round(structure.previousSwingLow), previousSwingHigh: round(structure.previousSwingHigh),
-    ema9: round(ema9Value), ema20: round(ema20Value),
-    emaTrend: closeAboveEma ? "PRICE_ABOVE_EMA_9_20" : closeBelowEma ? "PRICE_BELOW_EMA_9_20" : "PRICE_BETWEEN_EMA",
-    zone, pattern, atr: round(atrValue), timeframe: "M5", sourceTimeframe: context.sourceTimeframe || "M1_AGGREGATED_TO_M5",
-    maxPending: 4, maxBuyPending: 2, maxSellPending: 2, rr: "1:1", tpMethod: "RR_1_1",
-    slMethod: "previous_m5_structure_plus_1_5_atr",
-    engulfingCandle: { time: last.time, open: round(last.open), high: round(last.high), low: round(last.low), close: round(last.close) },
-    nearSupport: atSwingLow, nearResistance: atSwingHigh, bullishEngulfing, bearishEngulfing, emaBullish: closeAboveEma, emaBearish: closeBelowEma,
-    reason: buildM5EngulfingLimitReason({ action, buyScore, sellScore, bullishEngulfing, bearishEngulfing, atSwingLow, atSwingHigh, closeAboveEma, closeBelowEma, checklist }),
-    checklist: checklist.slice(0, 9)
+    confidence: Math.min(92, Math.max(45, Math.round(score))),
+    entry: round(close),
+    sl: round(sl),
+    tp: round(tp),
+    support: round(support),
+    resistance: round(resistance),
+    ema9: round(ema9Value),
+    ema20: round(ema20Value),
+    emaTrend,
+    zone,
+    pattern,
+    atr: round(atrValue),
+    zoneBuffer: round(zoneBuffer),
+    nearSupport,
+    nearResistance,
+    bullishEngulfing,
+    bearishEngulfing,
+    emaBullish,
+    emaBearish,
+    supportTouchCandle: supportTouchCandle ? {
+      time: supportTouchCandle.time,
+      low: round(supportTouchCandle.low),
+      high: round(supportTouchCandle.high)
+    } : null,
+    resistanceTouchCandle: resistanceTouchCandle ? {
+      time: resistanceTouchCandle.time,
+      low: round(resistanceTouchCandle.low),
+      high: round(resistanceTouchCandle.high)
+    } : null,
+    slMethod: "touch_candle_plus_1_5_atr",
+    tpMethod: "RR_1_1_25",
+    reason: buildSrEngulfingEmaReason({
+      action,
+      buyScore,
+      sellScore,
+      support,
+      resistance,
+      nearSupport,
+      nearResistance,
+      bullishEngulfing,
+      bearishEngulfing,
+      emaBullish,
+      emaBearish,
+      emaTrend,
+      checklist
+    }),
+    checklist: checklist.slice(0, 8)
   };
 }
-
-function aggregateCandlesToM5(candles) {
-  const cleanCandles = clean(candles);
-  if (cleanCandles.length < 5) return [];
-  const groups = [];
-  let current = null;
-  for (let i = 0; i < cleanCandles.length; i++) {
-    const c = cleanCandles[i];
-    const t = Date.parse(c.time || c.datetime || c.timestamp || "");
-    let key;
-    if (Number.isFinite(t)) {
-      const d = new Date(t);
-      d.setUTCSeconds(0, 0);
-      d.setUTCMinutes(Math.floor(d.getUTCMinutes() / 5) * 5);
-      key = d.toISOString();
-    } else {
-      key = `idx_${Math.floor(i / 5)}`;
-    }
-    if (!current || current.key !== key) {
-      if (current) groups.push(current);
-      current = { key, time: key.startsWith("idx_") ? c.time : key, open: Number(c.open), high: Number(c.high), low: Number(c.low), close: Number(c.close), volume: Number(c.volume || c.tick_volume || 0), sourceCount: 1 };
-    } else {
-      current.high = Math.max(current.high, Number(c.high));
-      current.low = Math.min(current.low, Number(c.low));
-      current.close = Number(c.close);
-      current.volume += Number(c.volume || c.tick_volume || 0);
-      current.sourceCount += 1;
-      current.time = key.startsWith("idx_") ? c.time : key;
-    }
-  }
-  if (current) groups.push(current);
-  return groups.filter((g) => Number.isFinite(g.open) && Number.isFinite(g.high) && Number.isFinite(g.low) && Number.isFinite(g.close)).slice(-160);
-}
-
-function detectM5StructureForEngulfing(candles, atrValue) {
-  const before = candles.slice(-14, -1);
-  const lows = before.map((c) => Number(c.low)).filter(Number.isFinite);
-  const highs = before.map((c) => Number(c.high)).filter(Number.isFinite);
-  return {
-    previousSwingLow: lows.length ? Math.min(...lows) : Number(candles[candles.length - 2]?.low || candles[candles.length - 1]?.low || 0),
-    previousSwingHigh: highs.length ? Math.max(...highs) : Number(candles[candles.length - 2]?.high || candles[candles.length - 1]?.high || 0),
-    method: "LOWEST_HIGH_LOW_LAST_13_M5",
-    atr: atrValue
-  };
-}
-
-function buildM5EngulfingLimitReason(data) {
-  const buy = Math.round(data.buyScore);
-  const sell = Math.round(data.sellScore);
-  const confirmations = data.checklist.length ? data.checklist.slice(0, 7).join(" • ") : "setup belum lengkap";
-  if (data.action === "SCALP_BUY") return `🚀 M5 BUY LIMIT siap. Bullish engulfing muncul di swing low, close di atas EMA 9/20. Entry limit di open engulfing, SL struktur M5 sebelumnya + 1.5 ATR, TP RR 1:1.25. Strength ${buy}/100. ${confirmations}.`;
-  if (data.action === "SCALP_SELL") return `🔻 M5 SELL LIMIT siap. Bearish engulfing muncul di swing high, close di bawah EMA 9/20. Entry limit di open engulfing, SL struktur M5 sebelumnya + 1.5 ATR, TP RR 1:1.25. Strength ${sell}/100. ${confirmations}.`;
-  if (data.bullishEngulfing && !data.atSwingLow) return "Bullish engulfing M5 terdeteksi, tapi belum berada di area swing low.";
-  if (data.bearishEngulfing && !data.atSwingHigh) return "Bearish engulfing M5 terdeteksi, tapi belum berada di area swing high.";
-  if (data.atSwingLow && !data.bullishEngulfing) return "Harga berada di area swing low M5, tapi belum ada bullish engulfing valid.";
-  if (data.atSwingHigh && !data.bearishEngulfing) return "Harga berada di area swing high M5, tapi belum ada bearish engulfing valid.";
-  if (data.bullishEngulfing && !data.closeAboveEma) return "Bullish engulfing M5 ada, tapi close belum di atas EMA 9/20.";
-  if (data.bearishEngulfing && !data.closeBelowEma) return "Bearish engulfing M5 ada, tapi close belum di bawah EMA 9/20.";
-  return `M5 Scalp menunggu setup lengkap: engulfing di swing low/high, close di sisi EMA 9/20 yang benar, lalu entry limit di open candle engulfing. BUY ${buy}/100 vs SELL ${sell}/100.`;
-}
-
 
 function findLastTouchCandle(candles, level, side, zoneBuffer) {
   const price = Number(level);
@@ -1887,9 +826,9 @@ async function maybeSaveScalpHistory(env, dbUrl, signal, market) {
 
   const scalpId = [
     market?.symbol || signal.pair || "XAUUSD",
-    "SCALP_M5_LIMIT",
+    "SCALP",
     scalpSignal,
-    scalp?.engulfingCandle?.time || candleKey
+    candleKey
   ]
     .join("_")
     .replaceAll(" ", "_")
@@ -1905,7 +844,7 @@ async function maybeSaveScalpHistory(env, dbUrl, signal, market) {
 
   const payload = {
     id: scalpId,
-    type: "SCALP_M5_LIMIT",
+    type: "SCALP_M1",
     pair: market?.symbol || signal.pair || "XAUUSD",
     signal: scalpSignal,
     action: scalp.action,
@@ -1917,409 +856,26 @@ async function maybeSaveScalpHistory(env, dbUrl, signal, market) {
     confidence: scalp.confidence,
     support: scalp.support ?? null,
     resistance: scalp.resistance ?? null,
-    previousSwingLow: scalp.previousSwingLow ?? null,
-    previousSwingHigh: scalp.previousSwingHigh ?? null,
-    orderType: scalp.orderType || null,
-    timeframe: "M5",
-    sourceTimeframe: scalp.sourceTimeframe || "M1_AGGREGATED_TO_M5",
-    rr: scalp.rr || "1:1",
     pattern: scalp.pattern ?? null,
     zone: scalp.zone ?? null,
     atr: scalp.atr ?? null,
-    slMethod: scalp.slMethod || "previous_m5_structure_plus_1_5_atr",
+    slMethod: scalp.slMethod || "touch_candle_plus_1_5_atr",
     supportTouchCandle: scalp.supportTouchCandle || null,
     resistanceTouchCandle: scalp.resistanceTouchCandle || null,
-    engulfingCandle: scalp.engulfingCandle || null,
     reason: scalp.reason || "",
     candleTime: signal.candleTime || null,
     serverTime: market?.serverTime || null,
     createdAt: new Date().toISOString(),
     status: "OPEN",
-    entryTriggered: true,
-    triggeredAt: new Date().toISOString(),
     result: null,
     closedAt: null,
     note: ""
   };
 
-  await expireOldM5PendingSlots(dbUrl, scalpSignal, scalpId);
   await fbPut(dbUrl, `/xauusd/scalpHistory/${scalpId}`, payload);
-  await trimFirebaseList(dbUrl, "/xauusd/scalpHistory", 80);
+  await trimFirebaseList(dbUrl, "/xauusd/scalpHistory", 50);
 
   return { ok: true, scalpId };
-}
-
-async function expireOldM5PendingSlots(dbUrl, signal, newId) {
-  const raw = await fbGet(dbUrl, "/xauusd/scalpHistory");
-  const items = Object.values(raw || {})
-    .filter(Boolean)
-    .filter((item) => String(item.type || "").includes("SCALP_M5") || String(item.mode || "").includes("M5"))
-    .filter((item) => String(item.signal || "").toUpperCase() === String(signal || "").toUpperCase())
-    .filter((item) => ["PENDING", "OPEN", "RUNNING"].includes(String(item.status || "PENDING").toUpperCase()))
-    .filter((item) => !["WIN", "LOSS", "BE", "EXPIRED"].includes(String(item.result || "").toUpperCase()))
-    .sort((a, b) => String(a.createdAt || "").localeCompare(String(b.createdAt || "")));
-
-  while (items.length >= 2) {
-    const oldest = items.shift();
-    if (!oldest?.id || oldest.id === newId) continue;
-    await fbPut(dbUrl, `/xauusd/scalpHistory/${oldest.id}`, {
-      ...oldest,
-      status: "CLOSED",
-      result: "EXPIRED",
-      closedAt: new Date().toISOString(),
-      note: "Expired otomatis karena muncul setup M5 engulfing limit baru dan slot pending sudah penuh."
-    });
-  }
-}
-
-
-async function maybeSaveStrategyBHistory(env, dbUrl, signal, market) {
-  if (!dbUrl) return { ok: false, skipped: "firebase-env-missing" };
-  const controls = await getStrategyControls(dbUrl);
-  if (controls.strategyBLiveBacktest === false) return { ok: false, skipped: "strategy-b-live-backtest-master-off" };
-
-  const strategyB = signal.strategyB || signal.strategy?.strategyB || null;
-  const isValid = strategyB?.action === "CALL_BUY" || strategyB?.action === "CALL_SELL";
-  if (!isValid) return { ok: false, skipped: "strategy-b-not-call" };
-
-  const direction = strategyB.action === "CALL_BUY" ? "BUY" : "SELL";
-  const entry = Number(strategyB.entry || signal.entry || market?.bid || 0);
-  const candleKey = signal.candleTime || market?.serverTime || market?.receivedAt || new Date().toISOString();
-  const baseId = [
-    market?.symbol || signal.pair || "XAUUSD",
-    "STRATEGY_B_SMC_AI",
-    direction,
-    candleKey
-  ]
-    .join("_")
-    .replaceAll(" ", "_")
-    .replaceAll(":", "-")
-    .replaceAll(".", "-")
-    .replaceAll("/", "-");
-
-  const existing = await fbGet(dbUrl, `/xauusd/strategyB/history/${baseId}`);
-  if (existing?.id === baseId) return { ok: true, skipped: "duplicate-strategy-b", strategyBId: baseId };
-
-  const raw = await fbGet(dbUrl, "/xauusd/strategyB/history");
-  const recent = Object.values(raw || {})
-    .filter(Boolean)
-    .sort((a, b) => String(b.createdAt || "").localeCompare(String(a.createdAt || "")))
-    .slice(0, 20);
-
-  const duplicateWindowMs = 15 * 60 * 1000;
-  const now = Date.now();
-  const nearDuplicate = recent.find((item) => {
-    const itemTime = new Date(item.createdAt || item.candleTime || 0).getTime();
-    const sameDirection = item.signal === direction || item.direction === direction;
-    const entryDistance = Math.abs(Number(item.entry || 0) - entry);
-    return sameDirection && Number.isFinite(itemTime) && (now - itemTime) <= duplicateWindowMs && entryDistance <= 0.8;
-  });
-
-  if (nearDuplicate?.id) {
-    return { ok: true, skipped: "near-duplicate-strategy-b", strategyBId: nearDuplicate.id };
-  }
-
-  const payload = {
-    id: baseId,
-    type: "STRATEGY_B_SMC_AI",
-    strategyKey: "strategyB",
-    strategyName: "SMC AI",
-    mode: "LIVE_BACKTEST_ONLY",
-    pair: market?.symbol || signal.pair || "XAUUSD",
-    signal: direction,
-    direction,
-    action: strategyB.action,
-    label: strategyB.label || `SMC AI ${direction}`,
-    entry: round(entry),
-    sl: round(strategyB.sl || 0),
-    tp: round(strategyB.tp || 0),
-    rr: strategyB.rr || "1:2",
-    confidence: strategyB.confidence || 0,
-    score: strategyB.confidence || 0,
-    reason: strategyB.reason || "",
-    candleTime: signal.candleTime || null,
-    entryCandleTime: signal.candleTime || null,
-    serverTime: market?.serverTime || null,
-    createdAt: new Date().toISOString(),
-    resultTrackingStartAt: new Date().toISOString(),
-    status: "PENDING",
-    result: null,
-    closedAt: null,
-    note: "Strategy B live-backtest only. Tidak mempengaruhi Strategy A.",
-    smcSnapshot: {
-      checklist: strategyB.checklist || [],
-      blockers: strategyB.blockers || [],
-      active: strategyB.active || null,
-      buy: strategyB.buy || null,
-      sell: strategyB.sell || null,
-      indicators: strategyB.indicators || null
-    },
-    statsSnapshot: {
-      freshOb: Boolean(strategyB.active?.ob),
-      sweep: Boolean(strategyB.active?.sweep?.valid),
-      choch: Boolean(strategyB.active?.choch?.valid),
-      ema: Boolean(strategyB.active?.ema),
-      rsi: strategyB.indicators?.rsi ?? null,
-      mfi: strategyB.indicators?.mfi ?? null,
-      atr: strategyB.indicators?.atr ?? null
-    }
-  };
-
-  await fbPut(dbUrl, `/xauusd/strategyB/history/${baseId}`, payload);
-
-  const autoAdminAlert = await maybeSendStrategyBAutoAdminAlert(env, dbUrl, payload);
-  const premiumUserAlert = await maybeSendStrategyBPremiumUserAlert(env, dbUrl, payload);
-
-  if (autoAdminAlert?.ok || autoAdminAlert?.skipped || autoAdminAlert?.error || premiumUserAlert?.ok || premiumUserAlert?.skipped || premiumUserAlert?.error) {
-    await fbPut(dbUrl, `/xauusd/strategyB/history/${baseId}`, {
-      ...payload,
-      strategyBAlertSent: Boolean(autoAdminAlert.ok),
-      strategyBAlertSentAt: autoAdminAlert.sentAt || null,
-      strategyBAlertMode: autoAdminAlert.mode || "ADMIN_MONITORING_ONLY",
-      strategyBAlertStatus: autoAdminAlert.ok ? "SENT" : "SKIPPED",
-      strategyBAlertSkipped: autoAdminAlert.skipped || null,
-      strategyBAlertError: autoAdminAlert.error || null,
-      strategyBPremiumAlertSent: Boolean(premiumUserAlert.ok),
-      strategyBPremiumAlertSentAt: premiumUserAlert.sentAt || null,
-      strategyBPremiumAlertMode: premiumUserAlert.mode || "PREMIUM_USER_ALERT",
-      strategyBPremiumAlertStatus: premiumUserAlert.ok ? "SENT" : "SKIPPED",
-      strategyBPremiumAlertSkipped: premiumUserAlert.skipped || null,
-      strategyBPremiumAlertRecipients: premiumUserAlert.successCount || 0,
-      strategyBPremiumAlertTotalRecipients: premiumUserAlert.totalRecipients || 0,
-      strategyBPremiumAlertError: premiumUserAlert.error || null
-    });
-  }
-
-  await trimFirebaseList(dbUrl, "/xauusd/strategyB/history", 80);
-
-  return { ok: true, strategyBId: baseId, autoAdminAlert };
-}
-
-
-async function maybeSendStrategyBAutoAdminAlert(env, dbUrl, item) {
-  const enabled = String(env.STRATEGY_B_AUTO_ADMIN_ALERT_ENABLED ?? "true").toLowerCase() !== "false";
-  const controls = await getStrategyControls(dbUrl);
-  if (!enabled) return { ok: false, skipped: "strategy-b-auto-admin-alert-disabled" };
-  if (controls.strategyBAdminAlert === false) return { ok: false, skipped: "strategy-b-admin-alert-master-off" };
-  if (!env.TELEGRAM_BOT_TOKEN) return { ok: false, skipped: "telegram-bot-token-missing" };
-  if (!env.TELEGRAM_CHAT_ID) return { ok: false, skipped: "telegram-admin-chat-id-missing" };
-  if (!dbUrl) return { ok: false, skipped: "firebase-env-missing" };
-
-  const alertKey = item?.id || [item?.pair || "XAUUSD", "STRATEGY_B", item?.direction || item?.signal || "CALL", item?.candleTime || item?.createdAt || Date.now()].join("|");
-  const safeAlertKey = safeKey(alertKey);
-  const existingAlert = await fbGet(dbUrl, `/xauusd/strategyB/telegramAlerts/${safeAlertKey}`);
-  if (existingAlert?.ok) {
-    return { ok: true, skipped: "duplicate-strategy-b-admin-alert", alertKey };
-  }
-
-  const dashboardUrl = env.PUBLIC_DASHBOARD_URL || env.DASHBOARD_URL || "https://www.xauaisignal.online";
-  const message = buildStrategyBAutoAdminTelegramMessage(item, dashboardUrl);
-  const sent = await sendTelegram(env.TELEGRAM_BOT_TOKEN, env.TELEGRAM_CHAT_ID, message, dashboardUrl);
-  const sentAt = new Date().toISOString();
-
-  await fbPut(dbUrl, `/xauusd/strategyB/telegramAlerts/${safeAlertKey}`, {
-    alertKey,
-    strategyId: item?.id || null,
-    type: "STRATEGY_B_AUTO_ADMIN_ALERT",
-    mode: "ADMIN_MONITORING_ONLY",
-    direction: item?.direction || item?.signal || null,
-    pair: item?.pair || "XAUUSD",
-    ok: Boolean(sent.ok),
-    status: sent.status || null,
-    response: sent.response || null,
-    sentAt
-  });
-
-  return {
-    ok: Boolean(sent.ok),
-    alertKey,
-    mode: "ADMIN_MONITORING_ONLY",
-    status: sent.status || null,
-    sentAt,
-    error: sent.ok ? null : "telegram-send-failed"
-  };
-}
-
-
-async function maybeSendStrategyBPremiumUserAlert(env, dbUrl, item) {
-  const enabled = String(env.STRATEGY_B_PREMIUM_USER_ALERT_ENABLED ?? "true").toLowerCase() !== "false";
-  const controls = await getStrategyControls(dbUrl);
-
-  if (!enabled) return { ok: false, skipped: "strategy-b-premium-user-alert-env-disabled" };
-  if (controls.strategyBPremiumUserAlert !== true) return { ok: false, skipped: "strategy-b-premium-user-alert-master-off" };
-  if (!env.TELEGRAM_BOT_TOKEN) return { ok: false, skipped: "telegram-bot-token-missing" };
-  if (!dbUrl) return { ok: false, skipped: "firebase-env-missing" };
-
-  const alertKey = item?.id || [item?.pair || "XAUUSD", "STRATEGY_B_PREMIUM", item?.direction || item?.signal || "CALL", item?.candleTime || item?.createdAt || Date.now()].join("|");
-  const safeAlertKey = safeKey(alertKey);
-  const existingSummary = await fbGet(dbUrl, `/xauusd/strategyB/premiumAlerts/${safeAlertKey}/summary`);
-  if (existingSummary?.sent === true || existingSummary?.successCount > 0) {
-    return { ok: true, skipped: "duplicate-strategy-b-premium-user-alert", alertKey, totalRecipients: existingSummary.totalRecipients || 0, successCount: existingSummary.successCount || 0 };
-  }
-
-  const usersRaw = await fbGet(dbUrl, "/users");
-  const users = Object.values(usersRaw || {}).filter(Boolean);
-  const seen = new Set();
-  if (env.TELEGRAM_CHAT_ID) seen.add(String(env.TELEGRAM_CHAT_ID)); // admin/global sudah dapat admin alert, jangan dobel lewat jalur premium.
-
-  const recipients = [];
-  const skipped = [];
-
-  for (const user of users) {
-    const decision = evaluateStrategyBPremiumReceiver(user, seen);
-    const base = {
-      uid: user?.uid || null,
-      email: user?.email || null,
-      role: user?.role || "free",
-      chatId: maskChatId(user?.telegramChatId || ""),
-      reason: decision.reason
-    };
-
-    if (decision.ok) {
-      recipients.push({
-        ...base,
-        chatIdRaw: String(user.telegramChatId),
-        status: "READY"
-      });
-      seen.add(String(user.telegramChatId));
-    } else {
-      skipped.push({ ...base, status: "SKIPPED" });
-    }
-  }
-
-  if (!recipients.length) {
-    await fbPut(dbUrl, `/xauusd/strategyB/premiumAlerts/${safeAlertKey}/summary`, {
-      alertKey,
-      strategyId: item?.id || null,
-      type: "STRATEGY_B_PREMIUM_USER_ALERT",
-      sent: false,
-      ok: false,
-      skipped: "no-eligible-premium-recipients",
-      skippedPreview: skipped.slice(0, 20),
-      totalRecipients: 0,
-      successCount: 0,
-      failedCount: 0,
-      createdAt: new Date().toISOString()
-    });
-    return { ok: false, skipped: "no-eligible-premium-recipients", alertKey, totalRecipients: 0, successCount: 0 };
-  }
-
-  const dashboardUrl = env.PUBLIC_DASHBOARD_URL || env.DASHBOARD_URL || "https://www.xauaisignal.online";
-  const message = buildStrategyBPremiumTelegramMessage(item, dashboardUrl);
-  const results = [];
-
-  for (const recipient of recipients) {
-    const sent = await sendTelegram(env.TELEGRAM_BOT_TOKEN, recipient.chatIdRaw, message, dashboardUrl);
-    const log = {
-      alertKey,
-      strategyId: item?.id || null,
-      uid: recipient.uid || null,
-      email: recipient.email || null,
-      role: recipient.role || null,
-      chatId: maskChatId(recipient.chatIdRaw),
-      ok: Boolean(sent.ok),
-      status: sent.status || null,
-      response: sent.response || null,
-      sentAt: new Date().toISOString()
-    };
-    results.push(log);
-    await fbPut(dbUrl, `/xauusd/strategyB/premiumAlerts/${safeAlertKey}/deliveries/${safeKey(recipient.chatIdRaw)}`, log);
-  }
-
-  const successCount = results.filter((item) => item.ok).length;
-  const failedCount = results.length - successCount;
-  const sentAt = new Date().toISOString();
-
-  await fbPut(dbUrl, `/xauusd/strategyB/premiumAlerts/${safeAlertKey}/summary`, {
-    alertKey,
-    strategyId: item?.id || null,
-    type: "STRATEGY_B_PREMIUM_USER_ALERT",
-    mode: "PREMIUM_USER_ALERT_LIVE",
-    sent: successCount > 0,
-    ok: successCount > 0,
-    totalRecipients: results.length,
-    successCount,
-    failedCount,
-    skippedCount: skipped.length,
-    skippedPreview: skipped.slice(0, 20),
-    sentAt
-  });
-
-  return {
-    ok: successCount > 0,
-    alertKey,
-    mode: "PREMIUM_USER_ALERT_LIVE",
-    totalRecipients: results.length,
-    successCount,
-    failedCount,
-    sentAt,
-    error: successCount > 0 ? null : "all-premium-telegram-send-failed"
-  };
-}
-
-function evaluateStrategyBPremiumReceiver(user, seenChatIds) {
-  if (!user) return { ok: false, reason: "User data kosong" };
-  if (user.status && user.status !== "active") return { ok: false, reason: "Akun tidak aktif" };
-  if (!isActivePremiumForTelegram(user)) return { ok: false, reason: "Bukan premium/admin aktif" };
-  if (!user.telegramConnected || !user.telegramChatId) return { ok: false, reason: "Telegram belum terhubung" };
-
-  const chatId = String(user.telegramChatId || "");
-  if (seenChatIds.has(chatId)) return { ok: false, reason: "Chat ID duplikat / sudah menerima jalur admin" };
-
-  if (user.telegramAlertEnabled === false) return { ok: false, reason: "Alert dimatikan user" };
-  if (user.telegramAlertMainSignal === false) return { ok: false, reason: "Main Signal Alert OFF" };
-
-  return { ok: true, reason: "Premium/admin aktif, Telegram connected, alert ON" };
-}
-
-function buildStrategyBPremiumTelegramMessage(item, dashboardUrl) {
-  return buildStrategyBAutoAdminTelegramMessage(item, dashboardUrl)
-    .replace("Strategy B · Admin Monitoring Only", "Strategy B · Premium User Alert")
-    .replace("Alert ini hanya untuk admin/global monitoring. Belum dikirim ke user premium dan belum menggantikan Strategy A.", "SMC AI premium alert aktif untuk akun yang Telegram connected dan alert ON. Strategy B masih live-backtest, gunakan risk management.");
-}
-
-function buildStrategyBAutoAdminTelegramMessage(item, dashboardUrl) {
-  const direction = String(item?.direction || item?.signal || "BUY").toUpperCase();
-  const isBuy = direction === "BUY";
-  const title = isBuy ? "🟢 SMC AI BUY · LIVE BACKTEST" : "🔴 SMC AI SELL · LIVE BACKTEST";
-  const stats = item?.statsSnapshot || {};
-  const snapshot = item?.smcSnapshot || {};
-  const active = snapshot.active || {};
-  const obValid = stats.freshOb || Boolean(active.ob) ? "VALID" : "WAIT";
-  const sweepValid = stats.sweep || Boolean(active.sweep?.valid) ? "YES" : "WAIT";
-  const chochValid = stats.choch || Boolean(active.choch?.valid) ? "YES" : "WAIT";
-  const emaValid = stats.ema || Boolean(active.ema) ? "YES" : "WAIT";
-
-  return [
-    `<b>${title}</b>`,
-    `<i>Strategy B · Admin Monitoring Only</i>`,
-    "",
-    "SMC AI mendeteksi setup valid dari live-backtest engine.",
-    "",
-    `<b>Pair:</b> ${escapeHtml(item?.pair || "XAUUSD")}`,
-    `<b>Entry:</b> ${formatPrice(item?.entry)}`,
-    `<b>Stop Loss:</b> ${formatPrice(item?.sl)}`,
-    `<b>Take Profit:</b> ${formatPrice(item?.tp)}`,
-    `<b>RR:</b> ${escapeHtml(item?.rr || "1:2")}`,
-    "",
-    "🧠 <b>SMC Checklist</b>",
-    `<b>OB M15:</b> ${escapeHtml(obValid)}`,
-    `<b>Sweep M1:</b> ${escapeHtml(sweepValid)}`,
-    `<b>CHOCH M1:</b> ${escapeHtml(chochValid)}`,
-    `<b>EMA M1:</b> ${escapeHtml(emaValid)}`,
-    "",
-    `<b>Kekuatan Setup:</b> ${Number(item?.confidence || item?.score || 0)}%`,
-    `<b>RSI:</b> ${formatIndicator(stats.rsi)} · <b>MFI:</b> ${formatIndicator(stats.mfi)}`,
-    `<b>ATR M1:</b> ${formatIndicator(stats.atr)}`,
-    "",
-    "📌 <b>Reason</b>",
-    escapeHtml(item?.reason || "OB → Sweep → CHOCH → EMA sudah lengkap untuk Strategy B."),
-    "",
-    "⚠️ <b>Mode</b>",
-    "Alert ini hanya untuk admin/global monitoring. Belum dikirim ke user premium dan belum menggantikan Strategy A.",
-    "",
-    `🚀 <b>Dashboard:</b> ${escapeHtml(dashboardUrl)}`
-  ].join("\n");
 }
 
 async function trimFirebaseList(dbUrl, path, maxItems = 50) {
@@ -2366,40 +922,25 @@ async function maybeSaveCallHistory(env, dbUrl, signal, market) {
 
   const existing = await fbGet(dbUrl, `/xauusd/callHistory/${callId}`);
   if (existing?.id === callId) {
-    return { ok: true, skipped: "duplicate-call", callId, created: false };
+    return { ok: true, skipped: "duplicate-call", callId };
   }
 
   const payload = {
     id: callId,
-    type: "MAIN_M1_EMA_CROSS_DIRECT_ENTRY",
-    timeframe: "M1",
-    mode: "M1_EMA_CROSS_DIRECT_ENTRY_MAIN",
-    action: signal.action || (signal.signal === "BUY" ? "BUY_OPEN" : "SELL_OPEN"),
-    entryMethod: "AGGRESSIVE_OPEN_PLUS_OPTIONAL_EMA_PULLBACK_LIMIT",
     pair: market?.symbol || signal.pair || "XAUUSD",
     signal: signal.signal,
     signalLabel: signal.signalLabel || signal.signal,
     callStage: signal.callStage,
     entry: signal.entry,
     sl: signal.sl,
-    originalSl: signal.sl,
     tp: signal.tp,
-    tp1: signal.tp1 ?? signal.strategy?.mainM5?.tp1 ?? null,
-    tp2: signal.tp2 ?? signal.strategy?.mainM5?.tp2 ?? signal.tp ?? null,
-    partialTp: signal.strategy?.mainM5?.partialTp ?? null,
-    aggressiveEntry: signal.aggressiveEntry ?? signal.entry ?? null,
-    pullbackLimitPlan: signal.pullbackLimitPlan ?? signal.strategy?.mainM5?.pullbackLimitPlan ?? null,
-    limitEntry: signal.limitEntry ?? signal.strategy?.mainM5?.limitEntry ?? null,
-    entryPlanMode: signal.entryPlanMode ?? signal.strategy?.mainM5?.entryPlanMode ?? null,
     confidence: signal.confidence,
     probability: signal.strategy?.probability || null,
     reason: signal.reason || "",
     candleTime: signal.candleTime || null,
-    entryCandleTime: signal.candleTime || null,
     serverTime: market?.serverTime || null,
     createdAt: new Date().toISOString(),
-    resultTrackingStartAt: new Date().toISOString(),
-    status: "PENDING",
+    status: "OPEN",
     result: null,
     closedAt: null,
     note: "",
@@ -2409,112 +950,16 @@ async function maybeSaveCallHistory(env, dbUrl, signal, market) {
       ema9: signal.strategy?.ema9 ?? null,
       ema20: signal.strategy?.ema20 ?? null,
       emaCross: signal.strategy?.emaCross ?? null,
-      mainM5: signal.strategy?.mainM5 ?? null,
       orderBlock: signal.strategy?.orderBlock ?? null,
       confirmation: signal.strategy?.confirmation ?? null,
       buyScore: signal.strategy?.buyScore ?? null,
       sellScore: signal.strategy?.sellScore ?? null
-    },
-    maxPending: 0,
-    maxBuyPending: 0,
-    maxSellPending: 0,
-    pendingPolicy: "DIRECT_ENTRY_KEEP_ACTIVE_UNTIL_TP_SL_BE_OR_TIME_EXPIRE",
-    bosKey: null,
-    bosDirection: null,
-    planKey: ["M1_DIRECT", signal.signal, signal.candleTime || market?.serverTime || callId, signal.entry, signal.sl, signal.tp].join("_"),
-    lifecyclePolicy: "KEEP_RUNNING_SIGNALS_DO_NOT_EXPIRE_ON_NEW_SIGNAL"
+    }
   };
 
-  const slotCheck = {
-    allow: true,
-    skipped: "direct-entry-no-slot-expire",
-    note: "Sinyal direct entry tidak menutup sinyal lama. Sinyal lama tetap dipantau sampai TP/SL/BE atau expire waktu."
-  };
+  await fbPut(dbUrl, `/xauusd/callHistory/${callId}`, payload);
 
-  const created = await fbCreateIfAbsent(dbUrl, `/xauusd/callHistory/${callId}`, payload);
-  if (!created.created) {
-    return {
-      ok: true,
-      skipped: created.reason || "duplicate-call-race",
-      callId,
-      created: false,
-      slotCheck
-    };
-  }
-
-  return { ok: true, callId, slotCheck, created: true };
-}
-
-async function expireOldMainPendingSlots(dbUrl, signalSide, newId, newPayload = {}) {
-  const side = String(signalSide || "").toUpperCase();
-  const readActive = async () => {
-    const raw = await fbGet(dbUrl, "/xauusd/callHistory");
-    return Object.values(raw || {})
-      .filter(Boolean)
-      .filter((item) => String(item.signal || "").toUpperCase() === side)
-      .filter((item) => ["PENDING", "OPEN", "RUNNING"].includes(String(item.status || "PENDING").toUpperCase()))
-      .filter((item) => !["WIN", "LOSS", "BE", "EXPIRED"].includes(String(item.result || "").toUpperCase()))
-      .sort((a, b) => String(a.createdAt || "").localeCompare(String(b.createdAt || "")));
-  };
-
-  const items = await readActive();
-
-  for (const item of items) {
-    if (!item?.id || item.id === newId) continue;
-    const status = String(item.status || "PENDING").toUpperCase();
-
-    // Yang sudah tersentuh entry / sedang running tidak boleh dihapus otomatis.
-    if (status !== "PENDING") continue;
-
-    const oldBosKey = String(item.bosKey || item.strategySnapshot?.mainM5?.bosKey || "");
-    const newBosKey = String(newPayload.bosKey || newPayload.strategySnapshot?.mainM5?.bosKey || "");
-    const oldPlan = [Number(item.entry || 0), Number(item.sl || 0), Number(item.tp || 0)];
-    const newPlan = [Number(newPayload.entry || 0), Number(newPayload.sl || 0), Number(newPayload.tp || 0)];
-    const changedBos = Boolean(oldBosKey && newBosKey && oldBosKey !== newBosKey);
-    const changedPlanClearly = oldPlan.some((value, index) => Math.abs(value - newPlan[index]) > 0.8);
-    const changedStructure = changedBos || changedPlanClearly;
-
-    if (!changedStructure) continue;
-
-    await fbPut(dbUrl, `/xauusd/callHistory/${item.id}`, {
-      ...item,
-      status: "CLOSED",
-      result: "EXPIRED",
-      closedAt: new Date().toISOString(),
-      note: changedBos
-        ? "Expired otomatis karena muncul BOS / struktur M5 baru sebelum pending sebelumnya tersentuh."
-        : "Expired otomatis karena rencana limit M5 baru sudah lebih relevan dari pending sebelumnya."
-    });
-  }
-
-  let active = await readActive();
-  const pending = active.filter((item) => String(item.status || "PENDING").toUpperCase() === "PENDING");
-
-  // Maksimal 2 plan aktif per arah trend. Jika slot penuh, hapus pending tertua saja.
-  while (active.length >= 2 && pending.length > 0) {
-    const oldestPending = pending.shift();
-    if (!oldestPending?.id || oldestPending.id === newId) continue;
-    await fbPut(dbUrl, `/xauusd/callHistory/${oldestPending.id}`, {
-      ...oldestPending,
-      status: "CLOSED",
-      result: "EXPIRED",
-      closedAt: new Date().toISOString(),
-      note: "Expired otomatis karena slot trend sudah penuh. Maksimal 2 plan aktif per arah EMA."
-    });
-    active = await readActive();
-  }
-
-  active = await readActive();
-  if (active.length >= 2) {
-    return {
-      allow: false,
-      reason: "max-2-active-main-trend-slots",
-      activeCount: active.length,
-      note: "Sinyal baru ditahan karena sudah ada 2 posisi/plan aktif pada arah EMA yang sama."
-    };
-  }
-
-  return { allow: true, activeCount: active.length };
+  return { ok: true, callId };
 }
 
 function buildProbability(signalLabel, callStage, buyScore, sellScore, flags = {}) {
@@ -2542,30 +987,11 @@ function buildProbability(signalLabel, callStage, buyScore, sellScore, flags = {
 }
 
 
-
-async function getStrategyControls(dbUrl) {
-  const defaults = {
-    mainSignalAlert: true,
-    mainSignalResultAlert: true,
-    m1ScalpTracking: true,
-    m1ScalpResultTracking: true,
-    strategyBLiveBacktest: true,
-    strategyBAdminAlert: true,
-    strategyBResultAdminAlert: true,
-    strategyBPremiumUserAlert: false
-  };
-  if (!dbUrl) return defaults;
-  const raw = await fbGet(dbUrl, "/xauusd/settings/strategyControls");
-  return { ...defaults, ...(raw || {}) };
-}
-
-async function maybeSendTelegramAlert(env, dbUrl, signal, market, callHistory = null) {
+async function maybeSendTelegramAlert(env, dbUrl, signal, market) {
   const enabled = String(env.TELEGRAM_ALERT_ENABLED || "true").toLowerCase() !== "false";
   const readyEnabled = String(env.TELEGRAM_READY_ALERT_ENABLED || "false").toLowerCase() === "true";
-  const controls = await getStrategyControls(dbUrl);
 
   if (!enabled) return { ok: false, skipped: "telegram-disabled" };
-  if (controls.mainSignalAlert === false) return { ok: false, skipped: "main-signal-alert-master-off" };
   if (!env.TELEGRAM_BOT_TOKEN) return { ok: false, skipped: "telegram-bot-token-missing" };
   if (!dbUrl) return { ok: false, skipped: "firebase-env-missing" };
 
@@ -2574,16 +1000,6 @@ async function maybeSendTelegramAlert(env, dbUrl, signal, market, callHistory = 
 
   if (!isCall && !isReady) return { ok: false, skipped: "not-call-signal" };
 
-  // Main CALL wajib punya history baru. Kalau history sudah ada/duplicate, Telegram ikut skip.
-  // Ini memutus sumber dobel dari refresh dashboard, cron health check, atau request paralel.
-  if (isCall && callHistory?.created !== true) {
-    return {
-      ok: true,
-      skipped: callHistory?.skipped || "main-call-history-not-created",
-      callId: callHistory?.callId || null
-    };
-  }
-
   const alertKey = [
     signal.pair || "XAUUSD",
     signal.signal,
@@ -2591,34 +1007,10 @@ async function maybeSendTelegramAlert(env, dbUrl, signal, market, callHistory = 
     signal.candleTime || market?.serverTime || market?.receivedAt || "no-time"
   ].join("|");
 
-  const duplicateKey = buildMainSignalDuplicateKey(signal, market);
-  const duplicateLockPath = `/xauusd/telegram/alertLocks/${safeKey(duplicateKey)}`;
-  const duplicateWindowMs = Number(env.TELEGRAM_ALERT_DEDUP_WINDOW_SEC || 900) * 1000;
-  const nowMs = Date.now();
-
   const lastAlert = await fbGet(dbUrl, "/xauusd/telegram/lastAlert");
 
   if (lastAlert?.alertKey === alertKey) {
-    return { ok: true, skipped: "duplicate-alert", alertKey, duplicateKey };
-  }
-
-  // Atomic lock: hanya request pertama yang boleh lanjut kirim Telegram.
-  // Request kedua dengan sinyal sama akan kena duplicate-main-signal-lock/race.
-  const lockResult = await acquireTelegramAlertLock(dbUrl, duplicateLockPath, {
-    duplicateKey,
-    alertKey,
-    signal: signal.signal,
-    callStage: signal.callStage,
-    entry: signal.entry ?? null,
-    sl: signal.sl ?? null,
-    tp: signal.tp ?? null,
-    sentAtMs: nowMs,
-    lockedAt: new Date(nowMs).toISOString(),
-    ttlSec: Math.round(duplicateWindowMs / 1000)
-  }, duplicateWindowMs, nowMs);
-
-  if (!lockResult.acquired) {
-    return { ok: true, skipped: lockResult.reason || "duplicate-main-signal-lock", alertKey, duplicateKey };
+    return { ok: true, skipped: "duplicate-alert", alertKey };
   }
 
   const message = buildTelegramMessage(signal, market);
@@ -2634,7 +1026,7 @@ async function maybeSendTelegramAlert(env, dbUrl, signal, market, callHistory = 
   }
 
   for (const recipient of recipients) {
-    const sent = await sendTelegram(env.TELEGRAM_BOT_TOKEN, recipient.chatId, message, env.DASHBOARD_URL);
+    const sent = await sendTelegram(env.TELEGRAM_BOT_TOKEN, recipient.chatId, message);
 
     results.push({
       uid: recipient.uid || null,
@@ -2685,21 +1077,6 @@ async function maybeSendTelegramAlert(env, dbUrl, signal, market, callHistory = 
     failedCount,
     recipients: results
   };
-}
-
-function buildMainSignalDuplicateKey(signal, market) {
-  const pair = String(signal?.pair || market?.symbol || "XAUUSD").toUpperCase();
-  const direction = String(signal?.signal || "WAIT").toUpperCase();
-  const entry = roundForAlertKey(signal?.entry ?? market?.bid ?? market?.lastClose ?? 0);
-  const sl = roundForAlertKey(signal?.sl ?? 0);
-  const tp = roundForAlertKey(signal?.tp ?? 0);
-  return ["MAIN_SIGNAL", pair, direction, entry, sl, tp].join("|");
-}
-
-function roundForAlertKey(value) {
-  const n = Number(value);
-  if (!Number.isFinite(n)) return "NA";
-  return (Math.round(n * 10) / 10).toFixed(1);
 }
 
 async function getTelegramAlertRecipients(env, dbUrl) {
@@ -2775,218 +1152,49 @@ function maskChatId(value) {
 
 function buildTelegramMessage(signal, market) {
   const s = signal.strategy || {};
-  const signalCode = String(signal.signal || "WAIT").toUpperCase();
-  const isBuy = signalCode.includes("BUY");
-  const isSell = signalCode.includes("SELL");
-  const isCall = signal.callStage === "CALL";
-  const isReady = signal.callStage === "READY";
-  const direction = isBuy ? "BUY" : isSell ? "SELL" : "WAIT";
-  const pair = market?.symbol || signal.pair || "XAUUSD";
-  const confidence = Number(signal.confidence || 0);
-  const header = buildTelegramSignalHeader({ isCall, isReady, direction });
-  const action = buildTelegramAction({ isCall, isReady, direction });
-  const quality = buildTelegramQuality(confidence, signal.callStage);
-  const mainPlan = s.mainM5 || {};
-  const pullbackPlan = signal.pullbackLimitPlan || mainPlan.pullbackLimitPlan || {};
-  const aggressiveEntry = formatPrice(signal.aggressiveEntry || signal.entry || mainPlan.entry);
-  const limitEntry = formatPrice(pullbackPlan.limitEntry || signal.limitEntry || mainPlan.limitEntry);
-  const limitZone = pullbackPlan.zoneLow && pullbackPlan.zoneHigh
-    ? `${formatPrice(pullbackPlan.zoneLow)} - ${formatPrice(pullbackPlan.zoneHigh)}`
-    : "-";
-  const entry = formatPrice(signal.entry || mainPlan.entry);
-  const sl = formatPrice(signal.sl || mainPlan.sl);
-  const tp1 = formatPrice(signal.tp1 || mainPlan.tp1);
-  const tpMax = formatPrice(signal.tp || mainPlan.tp2 || mainPlan.tpMax);
-  const limitTp1 = formatPrice(pullbackPlan.limitTp1 || pullbackPlan.tp1);
-  const limitTpMax = formatPrice(pullbackPlan.limitTp2 || pullbackPlan.tp2);
-  const bePrice = entry;
-  const rrText = mainPlan.rr || "1:1.25";
-  const lastPrice = formatPrice(market?.bid || market?.lastPrice || market?.close || signal.entry);
-  const candleTime = signal.candleTime || market?.serverTime || market?.receivedAt || "-";
-  const dashboardUrl = "https://www.xauaisignal.online";
-  const ema9 = formatIndicator(mainPlan.ema9 || s.ema9);
-  const ema20 = formatIndicator(mainPlan.ema20 || s.ema20);
-  const crossType = mainPlan.cross?.type || s.emaCross || "EMA Cross M1";
-  const closeFilter = mainPlan.candleBreak?.closeAboveBoth || mainPlan.candleBreak?.closeBelowBoth
-    ? "Valid"
-    : "Menunggu";
+  const c = s.confirmation || {};
+  const rawBullOb = s.orderBlock?.bullish;
+  const rawBearOb = s.orderBlock?.bearish;
+  const obBull = getFreshObForDisplay(rawBullOb);
+  const obBear = getFreshObForDisplay(rawBearOb);
 
-  if (!isCall) {
-    return [
-      `${header.emoji} <b>${header.title}</b>`,
-      `<i>${header.subtitle}</i>`,
-      "",
-      `📌 <b>Status Market</b>`,
-      `<b>Pair:</b> ${escapeHtml(pair)}`,
-      `<b>Arah Pantauan:</b> ${escapeHtml(direction)}`,
-      `<b>Kualitas:</b> ${confidence}% · ${escapeHtml(quality)}`,
-      `<b>Harga Live:</b> ${escapeHtml(lastPrice)}`,
-      "",
-      `✅ <b>Konfirmasi</b>`,
-      `• EMA 9/20 M1: ${escapeHtml(ema9)} / ${escapeHtml(ema20)}`,
-      `• Cross: ${escapeHtml(crossType)}`,
-      `• Close filter: ${escapeHtml(closeFilter)}`,
-      "",
-      `🎯 <b>Action</b>`,
-      escapeHtml(action),
-      "",
-      `🕒 <b>Market Time:</b> ${escapeHtml(candleTime)}`,
-      `🚀 <b>Dashboard:</b> ${escapeHtml(dashboardUrl)}`,
-      "",
-      `<i>Bukan financial advice. Demo first, risk management wajib.</i>`
-    ].join("\n");
-  }
+  const emoji = signal.signal === "BUY" ? "🟢" : signal.signal === "SELL" ? "🔴" : "🟡";
+  const title = signal.callStage === "CALL" ? "CALL SIGNAL VALID" : "READY ALERT";
+
+  const obText = signal.signal.includes("BUY")
+    ? formatOb(obBull)
+    : signal.signal.includes("SELL")
+      ? formatOb(obBear)
+      : `Bull ${formatOb(obBull)} | Bear ${formatOb(obBear)}`;
 
   return [
-    `${header.emoji} <b>${header.title}</b>`,
-    `<i>${header.subtitle}</i>`,
-    "",
-    `📌 <b>Ringkasan Sinyal</b>`,
-    `<b>Pair:</b> ${escapeHtml(pair)}`,
-    `<b>Arah:</b> ${escapeHtml(direction)}`,
-    `<b>Kualitas:</b> ${confidence}% · ${escapeHtml(quality)}`,
-    `<b>Harga Live:</b> ${escapeHtml(lastPrice)}`,
-    "",
-    `🎯 <b>Rencana Entry</b>`,
-    `<b>Entry agresif:</b> ${escapeHtml(aggressiveEntry)} <i>(langsung setelah cross valid)</i>`,
-    `<b>Limit pullback:</b> ${escapeHtml(limitEntry)} <i>(area EMA + buffer)</i>`,
-    `<b>Zona limit:</b> ${escapeHtml(limitZone)}`,
-    `<b>SL Awal:</b> ${escapeHtml(sl)}`,
-    `<b>TP agresif:</b> TP1 ${escapeHtml(tp1)} / Max ${escapeHtml(tpMax)} <i>(RR 1:1.25)</i>`,
-    `<b>TP limit:</b> TP1 ${escapeHtml(limitTp1)} / Max ${escapeHtml(limitTpMax)} <i>(RR 1:1)</i>`,
-    `<b>BE:</b> ${escapeHtml(bePrice)} <i>(SL pindah ke entry setelah TP1)</i>`,
-    `<b>RR:</b> Agresif 1:1.25 · Limit 1:1`,
-    "",
-    `🛡️ <b>Alur Result Otomatis</b>`,
-    `• Entry agresif untuk yang siap cepat. Jika harga sudah jalan, tunggu limit pullback dan jangan kejar harga.`,
-    `• Entry agresif dipantau seperti biasa. Limit pullback dipakai untuk plan manual yang lebih aman. Jika TP1 tersentuh → SL otomatis naik ke BE.`,
-    `• Jika lanjut ke TP Max → hasil <b>Menang</b>.`,
-    `• Jika balik ke BE setelah TP1 → hasil <b>BE</b>.`,
-    `• Jika kena SL sebelum TP1 → hasil <b>Kalah</b>.`,
-    "",
-    `✅ <b>Konfirmasi Setup</b>`,
-    `• EMA 9/20 M1: ${escapeHtml(ema9)} / ${escapeHtml(ema20)}`,
-    `• Cross: ${escapeHtml(crossType)}`,
-    `• Close filter: ${escapeHtml(closeFilter)}`,
-    `• Source: ${escapeHtml(mainPlan.sourceTimeframe || "MT5_VPS_M1")}`,
-    "",
-    `🎯 <b>Action</b>`,
-    escapeHtml(action),
-    "",
-    `🕒 <b>Market Time:</b> ${escapeHtml(candleTime)}`,
-    `🚀 <b>Dashboard:</b> ${escapeHtml(dashboardUrl)}`,
-    "",
+    `${emoji} <b>${title} - ${escapeHtml(signal.signalLabel || signal.signal)}</b>`,
+    ``,
+    `<b>Pair:</b> ${escapeHtml(market?.symbol || signal.pair || "XAUUSD")}`,
+    `<b>TF Signal:</b> ${escapeHtml(market?.timeframe || "M1")}`,
+    `<b>TF OB:</b> M15`,
+    `<b>Main Confidence:</b> ${signal.confidence}%`,
+    ``,
+    `<b>Area Entry:</b> ${signal.entry}`,
+    `<b>Safety SL:</b> ${signal.sl || "-"}`,
+    `<b>Target TP:</b> ${signal.tp || "-"}`,
+    ``,
+    `<b>RSI:</b> ${s.rsi} | <b>MFI:</b> ${s.mfi}`,
+    `<b>EMA9/20:</b> ${s.ema9} / ${s.ema20}`,
+    `<b>EMA Status:</b> ${escapeHtml(humanize(s.emaCross))}`,
+    `<b>OB M15:</b> ${escapeHtml(obText)}`,
+    ``,
+    `✅ <b>Checklist Setup:</b>`,
+    `RSI BUY ${c.rsiBuyOk ? "✅" : "❌"} | MFI BUY ${c.mfiBuyOk ? "✅" : "❌"} | OB BUY ${c.obBuyOk ? "✅" : "❌"}`,
+    `RSI SELL ${c.rsiSellOk ? "✅" : "❌"} | MFI SELL ${c.mfiSellOk ? "✅" : "❌"} | OB SELL ${c.obSellOk ? "✅" : "❌"}`,
+    ``,
+    `🧠 <b>Main AI Note:</b> ${escapeHtml(signal.reason || "-")}`,
+    ``,
     `<i>Bukan financial advice. Demo first, risk management wajib.</i>`
   ].join("\n");
 }
 
-function buildTelegramSignalHeader({ isCall, isReady, direction }) {
-  if (isCall && direction === "BUY") {
-    return {
-      emoji: "🟢",
-      title: "XAU AI CALL · BUY",
-      subtitle: "Setup utama sudah valid berdasarkan engine premium."
-    };
-  }
-
-  if (isCall && direction === "SELL") {
-    return {
-      emoji: "🔴",
-      title: "XAU AI CALL · SELL",
-      subtitle: "Setup utama sudah valid berdasarkan engine premium."
-    };
-  }
-
-  if (isReady) {
-    return {
-      emoji: "🟡",
-      title: `XAU AI READY · ${direction}`,
-      subtitle: "Setup mulai terbentuk, tunggu konfirmasi final."
-    };
-  }
-
-  return {
-    emoji: "⚪",
-    title: "XAU AI MONITOR",
-    subtitle: "Belum ada setup utama yang valid."
-  };
-}
-
-function buildTelegramAction({ isCall, isReady, direction }) {
-  if (isCall) {
-    return `${direction} valid. Tetap pakai risk management, lot kecil dulu, dan pastikan spread aman sebelum entry.`;
-  }
-
-  if (isReady) {
-    return `Setup ${direction} mulai siap. Tunggu candle konfirmasi sebelum entry.`;
-  }
-
-  return "Tunggu setup berikutnya. Jangan entry saat konfirmasi belum lengkap.";
-}
-
-function buildTelegramQuality(confidence, callStage) {
-  if (callStage === "CALL" && confidence >= 80) return "Premium High Conviction";
-  if (callStage === "CALL") return "Premium Valid Setup";
-  if (callStage === "READY") return "Setup Forming";
-  if (confidence >= 65) return "Watchlist";
-  return "Monitoring";
-}
-
-function buildTelegramReasonLines(signal, s, c, obText) {
-  const lines = [];
-  const m = s.mainM5 || null;
-  if (m?.mode === "M1_EMA_CROSS_DIRECT_ENTRY_MAIN") {
-    lines.push(`• Strategi utama: EMA9 cross EMA20 M1 + close filter.`);
-    lines.push(`• Rencana: ${escapeHtml(m.label || signal.signalLabel || "WAIT")}.`);
-    if (m.cross?.type && m.cross.type !== "NONE") lines.push(`• EMA cross: ${escapeHtml(m.cross.type)} pada M1.`);
-    if (m.candleBreak?.closeAboveBoth || m.candleBreak?.closeBelowBoth) lines.push(`• Close filter valid: candle close di sisi EMA9/EMA20.`);
-    if (signal.reason) lines.push(`• Catatan AI: ${escapeHtml(String(signal.reason).replace(/\s+/g, " ").trim())}`);
-    return lines.slice(0, 5);
-  }
-
-  const emaStatus = humanize(s.emaCross || "WAIT");
-
-  if (s.emaCross) lines.push(`• EMA membaca: ${escapeHtml(emaStatus)}.`);
-
-  if (c.rsiBuyOk || c.rsiSellOk) {
-    lines.push(`• RSI ${formatIndicator(s.rsi)} sudah mendukung arah setup.`);
-  } else {
-    lines.push(`• RSI ${formatIndicator(s.rsi)} belum jadi konfirmasi utama.`);
-  }
-
-  if (c.mfiBuyOk || c.mfiSellOk) {
-    lines.push(`• MFI ${formatIndicator(s.mfi)} menunjukkan aliran market mulai searah.`);
-  } else {
-    lines.push(`• MFI ${formatIndicator(s.mfi)} masih perlu konfirmasi tambahan.`);
-  }
-
-  if (c.obBuyOk || c.obSellOk) {
-    lines.push(`• Area OB M15 masih relevan: ${escapeHtml(obText)}.`);
-  } else {
-    lines.push("• Area OB M15 belum menjadi area eksekusi utama.");
-  }
-
-  if (signal.reason) {
-    const cleanReason = String(signal.reason).replace(/\s+/g, " ").trim();
-    if (cleanReason) lines.push(`• Catatan AI: ${escapeHtml(cleanReason)}`);
-  }
-
-  return lines.slice(0, 5);
-}
-
-function formatPrice(value) {
-  const n = Number(value);
-  if (!Number.isFinite(n) || n <= 0) return "-";
-  return n.toFixed(2);
-}
-
-function formatIndicator(value) {
-  const n = Number(value);
-  if (!Number.isFinite(n)) return "-";
-  return n.toFixed(2);
-}
-
-async function sendTelegram(botToken, chatId, text, dashboardUrl = "") {
+async function sendTelegram(botToken, chatId, text) {
   const url = `https://api.telegram.org/bot${botToken}/sendMessage`;
 
   const res = await fetch(url, {
@@ -2996,12 +1204,7 @@ async function sendTelegram(botToken, chatId, text, dashboardUrl = "") {
       chat_id: chatId,
       text,
       parse_mode: "HTML",
-      disable_web_page_preview: true,
-      reply_markup: dashboardUrl ? {
-        inline_keyboard: [[
-          { text: "🚀 Open Premium Dashboard", web_app: { url: dashboardUrl } }
-        ]]
-      } : undefined
+      disable_web_page_preview: true
     })
   });
 
@@ -3009,96 +1212,6 @@ async function sendTelegram(botToken, chatId, text, dashboardUrl = "") {
   try { response = await res.json(); } catch { response = await res.text(); }
 
   return { ok: res.ok, status: res.status, response };
-}
-
-
-async function fbCreateIfAbsent(dbUrl, path, data) {
-  const current = await fbGetWithEtag(dbUrl, path);
-
-  if (current.ok && current.data) {
-    return { created: false, reason: "already-exists", data: current.data };
-  }
-
-  if (!current.ok || !current.etag) {
-    const existing = await fbGet(dbUrl, path);
-    if (existing) return { created: false, reason: "already-exists", data: existing };
-    return { created: false, reason: "etag-unavailable" };
-  }
-
-  const res = await fetch(`${dbUrl}${path}.json`, {
-    method: "PUT",
-    headers: {
-      "Content-Type": "application/json",
-      "if-match": current.etag
-    },
-    body: JSON.stringify(data)
-  });
-
-  if (res.status === 412) {
-    return { created: false, reason: "duplicate-race" };
-  }
-
-  if (!res.ok) {
-    return { created: false, reason: `firebase-put-failed-${res.status}` };
-  }
-
-  let saved = null;
-  try { saved = await res.json(); } catch { saved = data; }
-  return { created: true, data: saved };
-}
-
-async function acquireTelegramAlertLock(dbUrl, path, data, duplicateWindowMs, nowMs = Date.now()) {
-  const current = await fbGetWithEtag(dbUrl, path);
-
-  if (current.ok && current.data?.sentAtMs && nowMs - Number(current.data.sentAtMs) <= duplicateWindowMs) {
-    return { acquired: false, reason: "duplicate-main-signal-lock" };
-  }
-
-  if (!current.ok || !current.etag) {
-    return { acquired: false, reason: "telegram-lock-etag-unavailable" };
-  }
-
-  const res = await fetch(`${dbUrl}${path}.json`, {
-    method: "PUT",
-    headers: {
-      "Content-Type": "application/json",
-      "if-match": current.etag
-    },
-    body: JSON.stringify(data)
-  });
-
-  if (res.status === 412) {
-    return { acquired: false, reason: "duplicate-main-signal-race" };
-  }
-
-  if (!res.ok) {
-    return { acquired: false, reason: `telegram-lock-failed-${res.status}` };
-  }
-
-  return { acquired: true };
-}
-
-async function fbGetWithEtag(dbUrl, path) {
-  const res = await fetch(`${dbUrl}${path}.json?ts=${Date.now()}`, {
-    headers: {
-      "Cache-Control": "no-cache",
-      "X-Firebase-ETag": "true"
-    }
-  });
-
-  if (!res.ok) {
-    return { ok: false, status: res.status, etag: null, data: null };
-  }
-
-  let data = null;
-  try { data = await res.json(); } catch { data = null; }
-
-  return {
-    ok: true,
-    status: res.status,
-    etag: res.headers.get("ETag") || res.headers.get("etag"),
-    data
-  };
 }
 
 async function fbGet(dbUrl, path) {
@@ -3137,7 +1250,7 @@ function emptyStrategy() {
       bullishCrossNow: false,
       bearishCrossNow: false
     },
-    obTimeframe: "DISABLED_MAIN_M1_ONLY",
+    obTimeframe: "M15",
     smc: null,
     orderBlock: { bullish: null, bearish: null },
     buyScore: 0,
@@ -3147,11 +1260,11 @@ function emptyStrategy() {
 }
 
 function buildCrossMessage(signal, emaCross) {
-  if (signal === "BUY") return "BUY LIMIT aktif: bullish engulfing M5 sudah close di area EMA 9/20, entry di open engulfing.";
-  if (signal === "SELL") return "SELL LIMIT aktif: bearish engulfing M5 sudah close di area EMA 9/20, entry di open engulfing.";
-  if (signal === "READY_BUY") return "EMA 9 M5 sudah di atas EMA 20. Menunggu bullish engulfing close di area EMA 9/20 untuk BUY LIMIT.";
-  if (signal === "READY_SELL") return "EMA 9 M5 sudah di bawah EMA 20. Menunggu bearish engulfing close di area EMA 9/20 untuk SELL LIMIT.";
-  return `Belum ada limit utama valid. Status EMA: ${emaCross}`;
+  if (signal === "BUY") return "RSI + MFI + EMA cross bullish + OB M15 cocok. CALL BUY aktif.";
+  if (signal === "SELL") return "RSI + MFI + EMA cross bearish + OB M15 cocok. CALL SELL aktif.";
+  if (signal === "READY_BUY") return "Semua konfirmasi mendukung. EMA mendekati bullish cross, siap-siap BUY.";
+  if (signal === "READY_SELL") return "Semua konfirmasi mendukung. EMA mendekati bearish cross, siap-siap SELL.";
+  return `Belum call. Status EMA: ${emaCross}`;
 }
 
 function clean(candles) {
@@ -3428,33 +1541,27 @@ function buildObZone(data, bos, origin, direction, atr14, method = "SMC_BOS") {
 
 function updateObStatus(data, ob, direction, atr14) {
   let status = "active";
-  let touched = false;
+  let mitigated = false;
   let invalidated = false;
-  let touchedTime = null;
+  let mitigatedTime = null;
   let invalidatedTime = null;
 
   const low = Number(ob.low);
   const high = Number(ob.high);
-  const zoneSize = Math.max(0.01, high - low);
   const mid = (low + high) / 2;
-
-  // Step 10AM4: OB M15 tidak hilang hanya karena sekali disentuh.
-  // OB tetap tampil sebagai valid zone sampai benar-benar dibreak jauh.
-  const invalidBreakBuffer = Math.max(atr14 * 0.35, zoneSize * 0.25);
 
   const afterBos = data.filter((c) => timeToNum(c.time) > timeToNum(ob.bosTime));
 
   for (const c of afterBos) {
     if (direction === "bullish") {
-      const touchedOb = c.low <= high && c.high >= low;
       const retracedToHalfOb = c.low <= mid;
 
-      if (touchedOb || retracedToHalfOb) {
-        touched = true;
-        touchedTime = touchedTime || c.time;
+      if (retracedToHalfOb) {
+        mitigated = true;
+        mitigatedTime = mitigatedTime || c.time;
       }
 
-      if (c.close < low - invalidBreakBuffer) {
+      if (c.close < low - atr14 * 0.1) {
         invalidated = true;
         invalidatedTime = c.time;
         break;
@@ -3462,15 +1569,14 @@ function updateObStatus(data, ob, direction, atr14) {
     }
 
     if (direction === "bearish") {
-      const touchedOb = c.high >= low && c.low <= high;
       const retracedToHalfOb = c.high >= mid;
 
-      if (touchedOb || retracedToHalfOb) {
-        touched = true;
-        touchedTime = touchedTime || c.time;
+      if (retracedToHalfOb) {
+        mitigated = true;
+        mitigatedTime = mitigatedTime || c.time;
       }
 
-      if (c.close > high + invalidBreakBuffer) {
+      if (c.close > high + atr14 * 0.1) {
         invalidated = true;
         invalidatedTime = c.time;
         break;
@@ -3479,21 +1585,18 @@ function updateObStatus(data, ob, direction, atr14) {
   }
 
   if (invalidated) status = "invalid";
+  else if (mitigated) status = "mitigated";
   else status = "active";
 
   return {
     ...ob,
     status,
-    touched,
-    touchedTime,
-    // Backward-compatible fields: existing UI may still read mitigated.
-    mitigated: touched,
-    mitigatedTime: touchedTime,
+    mitigated,
     invalidated,
+    mitigatedTime,
     invalidatedTime,
-    fresh: !invalidated,
-    invalidBreakBuffer: round(invalidBreakBuffer),
-    mitigationRule: "persistent_ob_until_deep_break"
+    fresh: status === "active",
+    mitigationRule: "50pct_ob_retrace_after_bos"
   };
 }
 
@@ -3586,10 +1689,8 @@ function humanize(value) {
 
 function getFreshObForDisplay(ob) {
   if (!ob) return null;
-  if (ob.invalidated || ob.status === "invalid") return null;
-  // Step 10AM4: OB M15 tetap ditampilkan walaupun sudah pernah disentuh.
-  // Hilang hanya saat invalid/deep break atau ketika engine menemukan OB baru yang lebih relevan.
-  if (ob.status && ob.status !== "active" && ob.status !== "mitigated") return null;
+  if (ob.status !== "active") return null;
+  if (ob.mitigated || ob.invalidated) return null;
   return ob;
 }
 
