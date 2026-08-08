@@ -68,7 +68,9 @@ export function listenAuth(callback) {
 
 export async function loginWithEmail(email, password) {
   if (!auth) throw new Error("Firebase client ENV belum lengkap.");
-  return await signInWithEmailAndPassword(auth, email, password);
+  const credential = await signInWithEmailAndPassword(auth, email, password);
+  await ensureUserProfile(credential.user);
+  return credential;
 }
 
 export async function resetPasswordEmail(email) {
