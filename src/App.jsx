@@ -5,6 +5,7 @@ import {
   LogOut, Menu, RefreshCw, Send, Shield, Sparkles, Target, TrendingDown,
   TrendingUp, User, X, Zap
 } from "lucide-react";
+import Landing from "./Landing";
 import {
   auth,
   createPaymentOrder,
@@ -327,6 +328,7 @@ function AppShell({ user, profile, refreshProfile, profileError }) {
 
 export default function App(){
   const [user,setUser]=useState(undefined);
+  const [showAuth,setShowAuth]=useState(false);
   const [profile,setProfile]=useState(null);
   const [profileLoading,setProfileLoading]=useState(false);
   const [profileError,setProfileError]=useState("");
@@ -363,7 +365,7 @@ export default function App(){
 
   if(window.location.pathname==="/auth-action") return <AuthActionPage/>;
   if(user===undefined) return <main className="loadingScreen"><RefreshCw className="spin"/><span>Menyiapkan Signal Desk...</span></main>;
-  if(!user) return <AuthScreen onDone={()=>{}}/>;
+  if(!user) return showAuth ? <AuthScreen onDone={()=>{}}/> : <Landing onGetStarted={()=>setShowAuth(true)}/>;
 
   // Wajibkan verifikasi email untuk akun email/password.
   // Akun Google sudah terverifikasi otomatis oleh Firebase, jadi dilewati.
