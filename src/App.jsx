@@ -315,7 +315,19 @@ export default function App(){
   if(!user) return <AuthScreen onDone={()=>{}}/>;
   if(profileLoading && !profile) return <main className="loadingScreen"><RefreshCw className="spin"/><span>Membaca akses akun...</span></main>;
 
-  return <AppShell user={user} profile={profile||{email:user.email,role:"free"}} refreshProfile={refreshProfile} profileError={profileError}/>;
+  // Never silently downgrade an existing account to FREE when the legacy
+  // profile cannot be read. That could hide admin/premium/Telegram access.
+  if(!profile) return <main className="loadingScreen accessErrorScreen">
+    <Shield size={34}/>
+    <strong>Akses akun belum terbaca</strong>
+    <span>{profileError || "Data role dan Telegram belum berhasil dimuat."}</span>
+    <div className="accessErrorActions">
+      <button className="primaryBtn" onClick={()=>window.location.reload()}>Coba lagi</button>
+      <button className="textBtn" onClick={logout}>Keluar</button>
+    </div>
+  </main>;
+
+  return <AppShell user={user} profile={profile} refreshProfile={refreshProfile} profileError={profileError}/>;
 }
 
 function AuthActionPage(){

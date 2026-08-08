@@ -197,21 +197,37 @@ export async function ensureUserProfile(user) {
 export async function getUserProfile(uid) {
   if (!auth?.currentUser || !uid) return null;
 
-  // Read the legacy user profile through the Cloudflare API so the new UI
-  // keeps using the exact same /users/{uid} database record as the old app.
-  // This also avoids depending on client-side RTDB read rules.
-  const idToken = await auth.currentUser.getIdToken();
-  const response = await fetch(`/api/user-profile?uid=${encodeURIComponent(uid)}`, {
-    headers: { Authorization: `Bearer ${idToken}` },
-    cache: "no-store"
-  });
+  const idToken = await auth.currentUser.getIdToken(true);
+  let apiError = null;
 
-  const data = await response.json().catch(() => ({}));
-  if (!response.ok || !data?.ok) {
-    throw new Error(data?.error || "Gagal membaca profile user.");
+  // Primary path: Cloudflare API reads the exact legacy /users/{uid} record.
+  try {
+    const response = await fetch(`/api/user-profile?uid=${encodeURIComponent(uid)}`, {
+      headers: { Authorization: `Bearer ${idToken}` },
+      cache: "no-store"
+    });
+    const data = await response.json().catch(() => ({}));
+    if (response.ok && data?.ok && data.profile) return data.profile;
+    apiError = new Error(data?.error || `Profile API gagal (${response.status})`);
+  } catch (error) {
+    apiError = error;
   }
 
-  return data.profile || null;
+  // Safety fallback: use the same Firebase RTDB record directly. This keeps
+  // the new UI compatible with the old app even if a Cloudflare Function/env
+  // is temporarily unavailable. Firebase Security Rules still apply here.
+  try {
+    if (db) {
+      const snapshot = await get(ref(db, `users/${uid}`));
+      if (snapshot.exists()) return snapshot.val() || null;
+    }
+  } catch (fallbackError) {
+    throw new Error(
+      apiError?.message || fallbackError?.message || "Gagal membaca profile user."
+    );
+  }
+
+  throw apiError || new Error("Profile user tidak ditemukan.");
 }
 
 export function isPremiumProfile(profile) {
