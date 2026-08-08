@@ -27,7 +27,8 @@ export async function onRequest({request,env}) {
       const history=Object.values(raw||{}).filter(Boolean)
         .sort((a,b)=>new Date(b.publishedAt||b.createdAt||0)-new Date(a.publishedAt||a.createdAt||0))
         .slice(0,30);
-      return json({ok:true,latest:latest||null,history});
+      const stats=await fbGet(dbUrl,"/manualSignals/stats",accessToken);
+      return json({ok:true,latest:latest||null,history,stats:normalizeStats(stats)});
     }
 
     if(request.method!=="POST") return json({ok:false,error:"Method not allowed"},405);
@@ -47,6 +48,55 @@ export async function onRequest({request,env}) {
       await fbPut(dbUrl,"/manualSignals/latest",closed,accessToken);
       await fbPatch(dbUrl,`/manualSignals/history/${safeKey(latest.id)}`,{status:"CLOSED",closedAt:closed.closedAt,updatedAt:closed.updatedAt},accessToken);
       return json({ok:true,signal:closed});
+    }
+
+    if(action==="result"){
+      const id=String(body.id||"").trim();
+      const result=String(body.result||"").toUpperCase();
+      if(!id) return json({ok:false,error:"id signal wajib diisi"},400);
+      if(!["WIN","LOSS","BE"].includes(result)) return json({ok:false,error:"result harus WIN, LOSS, atau BE"},400);
+
+      const key=safeKey(id);
+      const existing=await fbGet(dbUrl,`/manualSignals/history/${key}`,accessToken);
+      if(!existing) return json({ok:false,error:"Signal tidak ditemukan di riwayat"},404);
+
+      const now=new Date().toISOString();
+      const previousResult=existing.result?String(existing.result).toUpperCase():null;
+
+      const rawStats=await fbGet(dbUrl,"/manualSignals/stats",accessToken);
+      const stats=normalizeStats(rawStats);
+      if(previousResult && stats[previousResult.toLowerCase()]>0){
+        stats[previousResult.toLowerCase()]-=1;
+        stats.total-=1;
+      }
+      stats[result.toLowerCase()]+=1;
+      stats.total+=1;
+      stats.winratePercent=computeWinrate(stats);
+
+      const patch={
+        result,
+        resultAt:now,
+        resultNote:safeText(body.note||""),
+        status:"CLOSED",
+        closedAt:existing.closedAt||now,
+        updatedAt:now
+      };
+
+      const updated={...existing,...patch};
+      await fbPatch(dbUrl,`/manualSignals/history/${key}`,patch,accessToken);
+      await fbPut(dbUrl,"/manualSignals/stats",stats,accessToken);
+
+      const latest=await fbGet(dbUrl,"/manualSignals/latest",accessToken);
+      if(latest?.id===id){
+        await fbPatch(dbUrl,"/manualSignals/latest",patch,accessToken);
+      }
+
+      let notifications=null;
+      if(body.notify!==false){
+        notifications=await notifyResultTelegram(env,dbUrl,updated,stats,accessToken);
+      }
+
+      return json({ok:true,signal:updated,stats,notifications});
     }
 
     const direction=String(body.direction||"").toUpperCase();
@@ -114,6 +164,51 @@ async function notifyPremiumTelegram(env,dbUrl,signal,accessToken){
     }catch{failedCount++}
   }
   return {ok:failedCount===0,totalRecipients:recipients.length,successCount,failedCount};
+}
+
+async function notifyResultTelegram(env,dbUrl,signal,stats,accessToken){
+  const token=env.TELEGRAM_BOT_TOKEN||"";
+  if(!token) return {ok:false,skipped:true,reason:"TELEGRAM_BOT_TOKEN missing",totalRecipients:0,successCount:0,failedCount:0};
+  const raw=await fbGet(dbUrl,"/users",accessToken);
+  const users=Object.values(raw||{}).filter(isPremiumConnected);
+  const seen=new Set();
+  const recipients=users.filter(u=>{const id=String(u.telegramChatId);if(!id||seen.has(id))return false;seen.add(id);return true});
+
+  const emoji=signal.result==="WIN"?"✅":signal.result==="LOSS"?"❌":"➖";
+  const label=signal.result==="WIN"?"TAKE PROFIT (WIN)":signal.result==="LOSS"?"STOP LOSS (LOSS)":"BREAK EVEN";
+  const text=[
+    `${emoji} <b>HASIL SIGNAL — ${escapeHtml(label)}</b>`,"",
+    `<b>${escapeHtml(signal.direction)} ${escapeHtml(signal.pair||"XAUUSD")}</b>`,
+    `Timeframe: <b>${escapeHtml(signal.timeframe||"-")}</b>`,
+    `Entry: <b>${signal.entry}</b> • SL: <b>${signal.sl}</b> • TP: <b>${signal.tp}</b>`,
+    signal.resultNote?escapeHtml(signal.resultNote):"","",
+    `📊 Winrate: <b>${stats.winratePercent}%</b> (${stats.wins}W / ${stats.losses}L / ${stats.be}BE dari ${stats.total} call)`,
+    "",
+    "👑 Premium Alert • XAU AI Signal"
+  ].filter(Boolean).join("\n");
+
+  let successCount=0,failedCount=0;
+  for(const u of recipients){
+    try{
+      const res=await fetch(`https://api.telegram.org/bot${token}/sendMessage`,{
+        method:"POST",headers:{"Content-Type":"application/json"},
+        body:JSON.stringify({chat_id:String(u.telegramChatId),text,parse_mode:"HTML",disable_web_page_preview:true})
+      });
+      if(res.ok) successCount++; else failedCount++;
+    }catch{failedCount++}
+  }
+  return {ok:failedCount===0,totalRecipients:recipients.length,successCount,failedCount};
+}
+
+function normalizeStats(raw){
+  const s={wins:Number(raw?.wins||0),losses:Number(raw?.losses||0),be:Number(raw?.be||0),total:Number(raw?.total||0)};
+  s.winratePercent=computeWinrate(s);
+  return s;
+}
+function computeWinrate(s){
+  const decisive=s.wins+s.losses;
+  if(!decisive) return 0;
+  return Math.round((s.wins/decisive)*100);
 }
 
 function isPremiumConnected(u){
