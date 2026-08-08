@@ -9,6 +9,7 @@ import Landing from "./Landing";
 import {
   auth,
   createPaymentOrder,
+  getUserPaymentOrders,
   getUserProfile,
   hasFirebaseClientConfig,
   isPremiumProfile,
@@ -185,12 +186,16 @@ function AiPanel({ signal }) {
   </section>;
 }
 
-function PremiumBox({ profile, user, refresh }) {
+function PremiumBox({ profile, user, refresh, onOrderCreated }) {
   const premium=isPremiumProfile(profile);
   const [busy,setBusy]=useState(false);
   async function buy(code,label,price) {
     setBusy(true);
-    try { await createPaymentOrder({user,profile,packageCode:code,packageLabel:label,price}); alert("Order dibuat. Silakan ikuti instruksi pembayaran/admin."); }
+    try {
+      await createPaymentOrder({user,profile,packageCode:code,packageLabel:label,price});
+      alert("Order dibuat. Silakan ikuti instruksi pembayaran/admin.");
+      onOrderCreated?.();
+    }
     catch(e){ alert(e?.message||"Gagal membuat order."); }
     finally { setBusy(false); refresh(); }
   }
@@ -204,6 +209,72 @@ function PremiumBox({ profile, user, refresh }) {
     {!premium && <div className="premiumActions"><button disabled={busy} onClick={()=>buy("7D","7 Day","Rp10K")}>7 Hari • Rp10K</button><button disabled={busy} onClick={()=>buy("30D","30 Day","Rp30K")}>30 Hari • Rp30K</button></div>}
   </section>;
 }
+
+function paymentStatusMeta(status) {
+  const s = String(status || "pending").toLowerCase();
+  if (s === "paid" || s === "approved" || s === "success") return { label: "Lunas", cls: "paid" };
+  if (s === "rejected" || s === "failed" || s === "declined") return { label: "Ditolak", cls: "rejected" };
+  if (s === "expired") return { label: "Kedaluwarsa", cls: "expired" };
+  return { label: "Menunggu konfirmasi", cls: "pending" };
+}
+
+function PaymentHistory({ user, refreshKey }) {
+  const [orders,setOrders]=useState([]);
+  const [loading,setLoading]=useState(true);
+  const [error,setError]=useState("");
+
+  async function load(){
+    setLoading(true);setError("");
+    try{
+      const list = await getUserPaymentOrders(user.uid);
+      setOrders(list);
+    }catch(e){
+      setError(e?.message||"Gagal memuat riwayat pembayaran.");
+    }finally{
+      setLoading(false);
+    }
+  }
+
+  useEffect(()=>{ load(); },[user?.uid, refreshKey]);
+
+  async function copyOrderId(orderId){
+    try{ await navigator.clipboard.writeText(orderId); }catch{}
+  }
+
+  return <section className="section">
+    <div className="sectionHeader">
+      <div><span className="eyebrow">RIWAYAT PEMBAYARAN</span><h3>Order premium kamu</h3></div>
+      <button className="iconBtn" disabled={loading} onClick={load}><RefreshCw size={17} className={loading?"spin":""}/></button>
+    </div>
+
+    {error && <div className="notice error">{error}</div>}
+
+    {!error && !loading && !orders.length && <div className="emptyBox">Belum ada order pembayaran. Order baru akan muncul di sini setelah kamu klik paket premium di atas.</div>}
+
+    {!error && orders.length > 0 && <div className="paymentList">
+      {orders.map((order)=> {
+        const meta = paymentStatusMeta(order.status);
+        return <article className="paymentItem" key={order.orderId}>
+          <div className="paymentMain">
+            <b>{order.packageLabel || order.packageCode || "Premium"}</b>
+            <span className="paymentOrderId">
+              ID: {order.orderId}
+              <button type="button" className="copyMini" onClick={()=>copyOrderId(order.orderId)} title="Salin Order ID"><Copy size={12}/></button>
+            </span>
+          </div>
+          <div className="paymentSide">
+            <span className={`statusPill ${meta.cls}`}>{meta.label}</span>
+            <b>{order.price || "-"}</b>
+            <time>{fmtDate(order.createdAt)}</time>
+          </div>
+        </article>;
+      })}
+    </div>}
+
+    {!error && orders.some(o => String(o.status||"pending").toLowerCase()==="pending") && <div className="notice">Order berstatus "Menunggu konfirmasi" perlu bukti transfer dikirim ke admin agar segera diverifikasi. Simpan Order ID di atas sebagai referensi.</div>}
+  </section>;
+}
+
 
 function TelegramPanel({ user, profile, premium, refresh }) {
   const [code,setCode]=useState(profile?.telegramConnectCode||"");
@@ -339,6 +410,7 @@ function AppShell({ user, profile, refreshProfile, profileError }) {
   const [history,setHistory]=useState([]);
   const [loading,setLoading]=useState(true);
   const [toast,setToast]=useState("");
+  const [paymentRefreshKey,setPaymentRefreshKey]=useState(0);
   const premium=isPremiumProfile(profile);
   const admin=profile?.role==="admin";
 
@@ -388,7 +460,8 @@ function AppShell({ user, profile, refreshProfile, profileError }) {
 
       {loading ? <div className="loadingCard newCard"><RefreshCw className="spin"/><span>Memuat signal feed...</span></div> : <SignalCard signal={latest} premium={premium}/>}
 
-      <PremiumBox profile={profile} user={user} refresh={refreshProfile}/>
+      <PremiumBox profile={profile} user={user} refresh={refreshProfile} onOrderCreated={()=>setPaymentRefreshKey(k=>k+1)}/>
+      <PaymentHistory user={user} refreshKey={paymentRefreshKey}/>
       <TelegramPanel user={user} profile={profile} premium={premium} refresh={refreshProfile}/>
 
       <Feed history={history} onRefresh={()=>loadSignals()}/>
