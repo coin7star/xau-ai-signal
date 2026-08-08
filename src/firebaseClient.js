@@ -207,7 +207,10 @@ export async function getUserProfile(uid) {
       cache: "no-store"
     });
     const data = await response.json().catch(() => ({}));
-    if (response.ok && data?.ok && data.profile) return data.profile;
+    if (response.ok && data?.ok && data.profile) {
+      if (!data.profile.role) throw new Error("Profile terbaca tetapi field role tidak ada.");
+      return data.profile;
+    }
     apiError = new Error(data?.error || `Profile API gagal (${response.status})`);
   } catch (error) {
     apiError = error;
@@ -219,7 +222,11 @@ export async function getUserProfile(uid) {
   try {
     if (db) {
       const snapshot = await get(ref(db, `users/${uid}`));
-      if (snapshot.exists()) return snapshot.val() || null;
+      if (snapshot.exists()) {
+        const directProfile = snapshot.val() || null;
+        if (directProfile && !directProfile.role) throw new Error("Profile terbaca tetapi field role tidak ada.");
+        return directProfile;
+      }
     }
   } catch (fallbackError) {
     throw new Error(
