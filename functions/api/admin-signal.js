@@ -27,8 +27,8 @@ export async function onRequest({request,env}) {
       const history=Object.values(raw||{}).filter(Boolean)
         .sort((a,b)=>new Date(b.publishedAt||b.createdAt||0)-new Date(a.publishedAt||a.createdAt||0))
         .slice(0,30);
-      const stats=await fbGet(dbUrl,"/manualSignals/stats",accessToken);
-      return json({ok:true,latest:latest||null,history,stats:normalizeStats(stats)});
+      const stats=computeStatsFromHistory(raw);
+      return json({ok:true,latest:latest||null,history,stats});
     }
 
     if(request.method!=="POST") return json({ok:false,error:"Method not allowed"},405);
@@ -61,18 +61,6 @@ export async function onRequest({request,env}) {
       if(!existing) return json({ok:false,error:"Signal tidak ditemukan di riwayat"},404);
 
       const now=new Date().toISOString();
-      const previousResult=existing.result?String(existing.result).toUpperCase():null;
-
-      const rawStats=await fbGet(dbUrl,"/manualSignals/stats",accessToken);
-      const stats=normalizeStats(rawStats);
-      if(previousResult && stats[previousResult.toLowerCase()]>0){
-        stats[previousResult.toLowerCase()]-=1;
-        stats.total-=1;
-      }
-      stats[result.toLowerCase()]+=1;
-      stats.total+=1;
-      stats.winratePercent=computeWinrate(stats);
-
       const patch={
         result,
         resultAt:now,
@@ -84,12 +72,18 @@ export async function onRequest({request,env}) {
 
       const updated={...existing,...patch};
       await fbPatch(dbUrl,`/manualSignals/history/${key}`,patch,accessToken);
-      await fbPut(dbUrl,"/manualSignals/stats",stats,accessToken);
 
       const latest=await fbGet(dbUrl,"/manualSignals/latest",accessToken);
       if(latest?.id===id){
         await fbPatch(dbUrl,"/manualSignals/latest",patch,accessToken);
       }
+
+      // Hitung ulang stats dari SELURUH riwayat (bukan counter manual yang bisa drift).
+      // Data hasil PATCH di atas digabung manual ke object riwayat lama supaya nggak
+      // kena delay konsistensi baca-setelah-tulis di Firebase REST.
+      const rawHistory=await fbGet(dbUrl,"/manualSignals/history",accessToken);
+      const mergedHistory={...(rawHistory||{}),[key]:updated};
+      const stats=computeStatsFromHistory(mergedHistory);
 
       let notifications=null;
       if(body.notify!==false){
@@ -200,10 +194,17 @@ async function notifyResultTelegram(env,dbUrl,signal,stats,accessToken){
   return {ok:failedCount===0,totalRecipients:recipients.length,successCount,failedCount};
 }
 
-function normalizeStats(raw){
-  const s={wins:Number(raw?.wins||0),losses:Number(raw?.losses||0),be:Number(raw?.be||0),total:Number(raw?.total||0)};
-  s.winratePercent=computeWinrate(s);
-  return s;
+function computeStatsFromHistory(historyObj){
+  const list=Object.values(historyObj||{}).filter(Boolean);
+  let wins=0,losses=0,be=0;
+  for(const item of list){
+    const r=String(item?.result||"").toUpperCase();
+    if(r==="WIN") wins+=1;
+    else if(r==="LOSS") losses+=1;
+    else if(r==="BE") be+=1;
+  }
+  const total=wins+losses+be;
+  return {wins,losses,be,total,winratePercent:computeWinrate({wins,losses})};
 }
 function computeWinrate(s){
   const decisive=s.wins+s.losses;
