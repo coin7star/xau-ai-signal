@@ -455,6 +455,48 @@ function AdminPanel({ latest, history, onPublished, token, setToken, onSetResult
   </section>;
 }
 
+function AdminStatusPanel({ token, status, onUpdated }) {
+  const [message,setMessage]=useState(status?.message||"");
+  const [broadcast,setBroadcast]=useState(true);
+  const [busy,setBusy]=useState(false);
+  const [result,setResult]=useState("");
+
+  async function setOnline(online){
+    if(!token){ setResult("❌ Isi & simpan ADMIN_ACTION_TOKEN dulu."); return; }
+    setBusy(true);setResult("");
+    try{
+      const res=await fetch("/api/admin-status",{method:"POST",headers:{"Content-Type":"application/json","Authorization":`Bearer ${token}`},body:JSON.stringify({online,message,broadcastTelegram:broadcast})});
+      const data=await res.json();
+      if(!res.ok||!data.ok) throw new Error(data.error||"Gagal update status.");
+      const notif=data.notifications;
+      setResult(online
+        ? `🟢 Status Online tersimpan.${notif && !notif.skipped ? ` ${notif.successCount||0} premium Telegram dapat notif.` : ""}`
+        : "⚪ Status diset Offline.");
+      onUpdated();
+    }catch(e){setResult(`❌ ${e.message}`)}
+    finally{setBusy(false)}
+  }
+
+  return <section className="adminSection newCard">
+    <div className="sectionHeader"><div><span className="eyebrow">ADMIN CONTROL</span><h3>Status & Sapaan</h3></div><Bell size={20}/></div>
+    <p className="muted" style={{fontSize:13,marginBottom:14}}>Nyalain status "Online" biar user langsung lihat banner + (opsional) dapat notif Telegram, misalnya "Mimin on gess, tunggu sinyal premium ya!"</p>
+    <div className="signalForm" style={{gap:12}}>
+      <div className="statusNow">
+        <span className={status?.online?"onlineDot on":"onlineDot"}/>
+        <b>{status?.online?"Sedang Online":"Sedang Offline"}</b>
+        {status?.message && <span className="muted"> — "{status.message}"</span>}
+      </div>
+      <label>Pesan sapaan / custom notif<textarea value={message} onChange={e=>setMessage(e.target.value)} rows="2" placeholder='Contoh: Mimin on gess, tunggu sinyal premium nya ya 🔥'/></label>
+      <label className="checkRow"><input type="checkbox" checked={broadcast} onChange={e=>setBroadcast(e.target.checked)}/> Kirim juga ke Telegram premium</label>
+      <div className="adminActions">
+        <button type="button" className="okBtn" disabled={busy} onClick={()=>setOnline(true)}>🟢 Set Online & Kirim</button>
+        <button type="button" className="ghostBtn" disabled={busy} onClick={()=>setOnline(false)}>⚪ Set Offline</button>
+      </div>
+      {result && <div className="notice">{result}</div>}
+    </div>
+  </section>;
+}
+
 const REMIND_COOLDOWN_MS = 30 * 60 * 1000; // samain dengan backend (admin-orders.js)
 
 function AdminOrders({ token }) {
@@ -634,7 +676,17 @@ function AppShell({ user, profile, refreshProfile, profileError }) {
     finally{ setBusyResultId(""); }
   }
 
+  const [adminStatus,setAdminStatus]=useState(null);
+  async function loadAdminStatus(){
+    try{
+      const res=await fetch("/api/admin-status");
+      const data=await res.json();
+      if(data.ok) setAdminStatus(data);
+    }catch(e){/* diamkan, banner cuma bonus, bukan fitur kritis */}
+  }
+
   useEffect(()=>{loadSignals(); const id=setInterval(()=>loadSignals(true),15000); return()=>clearInterval(id)},[]);
+  useEffect(()=>{loadAdminStatus(); const id=setInterval(loadAdminStatus,20000); return()=>clearInterval(id)},[]);
   useEffect(()=>{ if(!toast)return; const id=setTimeout(()=>setToast(""),3500);return()=>clearTimeout(id)},[toast]);
 
   useEffect(()=>{
@@ -665,6 +717,8 @@ function AppShell({ user, profile, refreshProfile, profileError }) {
         <div className="miniPanel"><div className="miniTop"><span>ACCOUNT</span><span className={premium?"status premium":"status"}>{premium?"PREMIUM":"FREE"}</span></div><b>{user.email||"User"}</b><small>{profile?.telegramConnected?"Telegram connected":"Telegram not connected"}</small></div>
       </section>
 
+      {adminStatus?.online && <div className="adminOnlineBanner"><span className="onlineDot on"/><b>Mimin Online</b>{adminStatus.message && <span> — {adminStatus.message}</span>}</div>}
+
       {toast && <div className="toast"><Bell size={17}/>{toast}<button onClick={()=>setToast("")}><X size={15}/></button></div>}
       {profileError && <div className="notice error profileNotice">Akses akun belum terbaca. Silakan refresh halaman.</div>}
 
@@ -687,6 +741,7 @@ function AppShell({ user, profile, refreshProfile, profileError }) {
 
       {tab==="admin" && admin && <>
         <WinrateCard stats={stats}/>
+        <AdminStatusPanel token={adminToken} status={adminStatus} onUpdated={loadAdminStatus}/>
         <AdminPanel latest={latest} history={history} onPublished={()=>loadSignals()} token={adminToken} setToken={setAdminToken} onSetResult={setSignalResult} busyResultId={busyResultId}/>
         <AdminOrders token={adminToken}/>
       </>}
