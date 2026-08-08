@@ -15,8 +15,10 @@ import {
   loginWithEmail,
   loginWithGoogle,
   logout,
+  refreshCurrentUser,
   registerWithEmail,
-  resetPasswordEmail
+  resetPasswordEmail,
+  sendVerificationEmail
 } from "./firebaseClient";
 
 const APP_NAME = "XAU AI SIGNAL";
@@ -76,6 +78,55 @@ function AuthScreen({ onDone }) {
         <button onClick={()=>setMode("reset")}>Lupa password?</button>
       </div>
       {hasFirebaseClientConfig && mode==="login" && <button className="googleBtn" onClick={async()=>{try{await loginWithGoogle();onDone()}catch(e){setError(e?.message||"Google login gagal.")}}}><LogIn size={17}/> Lanjut dengan Google</button>}
+    </section>
+  </main>;
+}
+
+function EmailVerifyScreen({ user, onVerified }) {
+  const [busy, setBusy] = useState(false);
+  const [message, setMessage] = useState("Cek inbox (atau folder spam) di " + (user?.email || "email kamu") + " dan klik link verifikasi yang sudah dikirim.");
+  const [isError, setIsError] = useState(false);
+
+  async function checkAgain() {
+    setBusy(true); setIsError(false);
+    try {
+      const refreshed = await refreshCurrentUser();
+      if (refreshed?.emailVerified) {
+        onVerified();
+      } else {
+        setMessage("Email belum terverifikasi. Buka link di email kamu dulu, baru klik \"Saya sudah verifikasi\" lagi.");
+        setIsError(true);
+      }
+    } catch (err) {
+      setMessage(err?.message || "Gagal mengecek status verifikasi.");
+      setIsError(true);
+    } finally { setBusy(false); }
+  }
+
+  async function resend() {
+    setBusy(true); setIsError(false);
+    try {
+      await sendVerificationEmail(user);
+      setMessage("Email verifikasi baru sudah dikirim. Cek inbox kamu.");
+    } catch (err) {
+      setMessage(err?.message || "Gagal mengirim ulang email verifikasi.");
+      setIsError(true);
+    } finally { setBusy(false); }
+  }
+
+  return <main className="authShell">
+    <div className="authGlow" />
+    <section className="authCard newCard">
+      <div className="brandMark">X</div>
+      <div className="eyebrow">VERIFIKASI EMAIL</div>
+      <h1>Satu langkah lagi.<br/><span>Verifikasi email kamu.</span></h1>
+      <p className="muted">{message}</p>
+      {isError && <div className="notice error">{message}</div>}
+      <button className="primaryBtn" disabled={busy} onClick={checkAgain}>{busy ? "Mengecek..." : "Saya sudah verifikasi"}</button>
+      <div className="authLinks">
+        <button disabled={busy} onClick={resend}>Kirim ulang email verifikasi</button>
+        <button onClick={logout}>Ganti akun / Keluar</button>
+      </div>
     </section>
   </main>;
 }
@@ -313,6 +364,14 @@ export default function App(){
   if(window.location.pathname==="/auth-action") return <AuthActionPage/>;
   if(user===undefined) return <main className="loadingScreen"><RefreshCw className="spin"/><span>Menyiapkan Signal Desk...</span></main>;
   if(!user) return <AuthScreen onDone={()=>{}}/>;
+
+  // Wajibkan verifikasi email untuk akun email/password.
+  // Akun Google sudah terverifikasi otomatis oleh Firebase, jadi dilewati.
+  const isGoogleAccount = user.providerData?.some(p => p.providerId === "google.com");
+  if (!user.emailVerified && !isGoogleAccount) {
+    return <EmailVerifyScreen user={user} onVerified={()=>setUser({...auth.currentUser})}/>;
+  }
+
   if(profileLoading && !profile) return <main className="loadingScreen"><RefreshCw className="spin"/><span>Membaca akses akun...</span></main>;
 
   // Never silently downgrade an existing account to FREE when the legacy
