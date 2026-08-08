@@ -41,6 +41,8 @@ function isBuy(s) { return String(s || "").toUpperCase().includes("BUY"); }
 function isSell(s) { return String(s || "").toUpperCase().includes("SELL"); }
 function resultBadgeClass(r) { const v=String(r||"").toUpperCase(); return v==="WIN"?"resultBadge win":v==="LOSS"?"resultBadge loss":v==="BE"?"resultBadge be":""; }
 function resultLabel(r) { const v=String(r||"").toUpperCase(); return v==="WIN"?"✅ WIN":v==="LOSS"?"❌ LOSS":v==="BE"?"➖ BE":""; }
+function statusBadgeClass(s) { const v=String(s||"").toUpperCase(); return v==="CANCELLED"?"resultBadge cancelled":v==="CLOSED"?"resultBadge closed":""; }
+function statusLabel(s) { const v=String(s||"").toUpperCase(); return v==="CANCELLED"?"🚫 CANCELLED":v==="CLOSED"?"⏹ CLOSED":""; }
 
 function AuthScreen({ onDone, onBack }) {
   const [mode,setMode] = useState("login");
@@ -146,7 +148,7 @@ function SignalCard({ signal, premium }) {
     </div>
     <div className="signalMeta">
       <span>{signal.pair || "XAUUSD"}</span><span>{signal.timeframe || "M15"}</span><span>{signal.status || "OPEN"}</span>
-      {signal.result && <span className={resultBadgeClass(signal.result)}>{resultLabel(signal.result)}</span>}
+      {signal.result ? <span className={resultBadgeClass(signal.result)}>{resultLabel(signal.result)}</span> : (signal.status==="CLOSED"||signal.status==="CANCELLED") && <span className={statusBadgeClass(signal.status)}>{statusLabel(signal.status)}</span>}
     </div>
     <div className="priceGrid">
       <div><small>ENTRY</small><strong>{money(signal.entry)}</strong></div>
@@ -155,6 +157,7 @@ function SignalCard({ signal, premium }) {
       <div><small>CONFIDENCE</small><strong>{signal.confidence ? `${signal.confidence}%` : "-"}</strong></div>
     </div>
     <div className="signalNote">{signal.note || signal.reason || "Setup sudah dianalisa manual oleh admin."}</div>
+    {signal.closeReason && <div className="closeReasonNote"><b>{signal.status==="CANCELLED"?"Alasan dibatalkan:":"Alasan ditutup:"}</b> {signal.closeReason}</div>}
     <div className="signalFooter">
       <span>Dipublish {fmtDate(signal.publishedAt || signal.createdAt)}</span>
       {premium ? <span className="premiumMini"><Crown size={13}/> Premium Alert ON</span> : <span>Premium untuk alert Telegram</span>}
@@ -168,10 +171,10 @@ function Feed({ history, onRefresh, admin, onSetResult, busyResultId }) {
     <div className="feedList">
       {history.length ? history.map((s,i)=><article className="feedItem" key={s.id || i}>
         <div className={`dir ${isBuy(s.direction)?"buy":isSell(s.direction)?"sell":""}`}>{s.direction || "WAIT"}</div>
-        <div className="feedMain"><b>{s.title || `${s.pair || "XAUUSD"} ${s.timeframe || "M15"}`}</b><span>{s.note || s.reason || "Manual setup"}</span></div>
+        <div className="feedMain"><b>{s.title || `${s.pair || "XAUUSD"} ${s.timeframe || "M15"}`}</b><span>{s.note || s.reason || "Manual setup"}</span>{s.closeReason && <span className="feedCloseReason">{s.status==="CANCELLED"?"🚫":"⏹"} {s.closeReason}</span>}</div>
         <div className="feedNums"><b>{money(s.entry)}</b><span>SL {money(s.sl)} • TP {money(s.tp)}</span></div>
         <div className="feedResultCol">
-          {s.result && <span className={resultBadgeClass(s.result)}>{resultLabel(s.result)}</span>}
+          {s.result ? <span className={resultBadgeClass(s.result)}>{resultLabel(s.result)}</span> : (s.status==="CLOSED"||s.status==="CANCELLED") && <span className={statusBadgeClass(s.status)}>{statusLabel(s.status)}</span>}
           {admin && s.id && <div className="feedResultActions">
             <button type="button" title="Tandai TP / WIN" disabled={busyResultId===s.id} className="miniBtn win" onClick={()=>onSetResult(s.id,"WIN")}><CheckCircle2 size={13}/></button>
             <button type="button" title="Tandai SL / LOSS" disabled={busyResultId===s.id} className="miniBtn loss" onClick={()=>onSetResult(s.id,"LOSS")}><X size={13}/></button>
@@ -386,6 +389,7 @@ function AdminPanel({ latest, history, onPublished, token, setToken, onSetResult
   const [note,setNote]=useState("");
   const [busy,setBusy]=useState(false);
   const [result,setResult]=useState("");
+  const [closeNote,setCloseNote]=useState("");
 
   function saveToken(){localStorage.setItem(ADMIN_TOKEN_KEY,token.trim());setResult("Admin token disimpan.");}
   async function publish(e){
@@ -400,14 +404,16 @@ function AdminPanel({ latest, history, onPublished, token, setToken, onSetResult
     }catch(e){setResult(`❌ ${e.message}`)}
     finally{setBusy(false)}
   }
-  async function closeSignal(){
+  async function closeSignal(cancelled){
     if(!latest?.id) return;
-    if(!confirm("Tutup sinyal terbaru?")) return;
+    if(!confirm(cancelled?"Batalkan entry ini? User premium akan dikasih tau alasannya.":"Tutup sinyal terbaru? User premium akan dikasih tau alasannya.")) return;
     setBusy(true);
     try{
-      const res=await fetch("/api/admin-signal",{method:"POST",headers:{"Content-Type":"application/json","Authorization":`Bearer ${token}`},body:JSON.stringify({action:"close",id:latest.id})});
+      const res=await fetch("/api/admin-signal",{method:"POST",headers:{"Content-Type":"application/json","Authorization":`Bearer ${token}`},body:JSON.stringify({action:"close",id:latest.id,note:closeNote,cancelled})});
       const data=await res.json(); if(!res.ok||!data.ok) throw new Error(data.error||"Gagal menutup.");
-      setResult("Sinyal ditutup.");onPublished();
+      setResult(cancelled?"🚫 Entry dibatalkan & user premium sudah dikasih tau alasannya.":"⏹ Sinyal ditutup & user premium sudah dikasih tau alasannya.");
+      setCloseNote("");
+      onPublished();
     }catch(e){setResult(`❌ ${e.message}`)}finally{setBusy(false)}
   }
   return <section className="adminSection newCard">
@@ -424,11 +430,20 @@ function AdminPanel({ latest, history, onPublished, token, setToken, onSetResult
         <label>Judul<input value={title} onChange={e=>setTitle(e.target.value)} placeholder="Gold bullish continuation"/></label>
       </div>
       <label>Catatan analisa<textarea value={note} onChange={e=>setNote(e.target.value)} placeholder="Contoh: break structure + retest area demand, tunggu confirmation candle." rows="4"/></label>
-      <div className="adminActions"><button className="primaryBtn" disabled={busy||!token}><Send size={17}/> {busy?"Mengirim...":"Publish & Notify Premium"}</button><button type="button" className="dangerBtn" disabled={busy||!latest} onClick={closeSignal}>Tutup Signal</button></div>
+      <div className="adminActions"><button className="primaryBtn" disabled={busy||!token}><Send size={17}/> {busy?"Mengirim...":"Publish & Notify Premium"}</button></div>
       {result && <div className="notice">{result}</div>}
     </form>
 
-    {latest?.id && <div className="resultTagBox">
+    {latest?.id && (latest.status||"OPEN")==="OPEN" && <div className="closeBox">
+      <div className="sectionHeader" style={{marginBottom:8}}><div><span className="eyebrow">TUTUP / BATALKAN CALL AKTIF</span><h4 style={{margin:0}}>{latest.direction} {latest.pair||"XAUUSD"} • {latest.id}</h4></div></div>
+      <label>Alasan tutup / cancel <span className="muted">(dikirim ke user premium via Telegram)</span><textarea value={closeNote} onChange={e=>setCloseNote(e.target.value)} rows="2" placeholder="Contoh: Struktur berubah, entry tidak valid lagi. Tunggu setup berikutnya."/></label>
+      <div className="adminActions">
+        <button type="button" className="dangerBtn" disabled={busy} onClick={()=>closeSignal(false)}>Tutup Signal</button>
+        <button type="button" className="ghostBtn" disabled={busy} onClick={()=>closeSignal(true)}>Batalkan Entry (Cancel)</button>
+      </div>
+    </div>}
+
+    {latest?.id && latest.status!=="CANCELLED" && <div className="resultTagBox">
       <div className="sectionHeader" style={{marginBottom:8}}><div><span className="eyebrow">HASIL CALL TERBARU</span><h4 style={{margin:0}}>{latest.direction} {latest.pair||"XAUUSD"} • {latest.id}</h4></div>{latest.result && <span className={resultBadgeClass(latest.result)}>{resultLabel(latest.result)}</span>}</div>
       <p className="muted" style={{fontSize:13,marginBottom:10}}>Tandai hasil call ini (TP/SL/BE) — otomatis update winrate dan kirim notif Telegram ke premium.</p>
       <div className="adminActions">
