@@ -7,70 +7,86 @@ const H = {
 
 export async function onRequest({request,env}) {
   if(request.method==="OPTIONS") return new Response(null,{status:204,headers:H});
-  const dbUrl=(env.FIREBASE_DATABASE_URL||"").replace(/\/$/,"");
+  const dbUrl=(env.FIREBASE_DATABASE_URL||env.VITE_FIREBASE_DATABASE_URL||"").replace(/\/$/,"");
   if(!dbUrl) return json({ok:false,error:"FIREBASE_DATABASE_URL belum diset"},500);
 
-  if(request.method==="GET"){
-    const latest=await fbGet(dbUrl,"/manualSignals/latest");
-    const raw=await fbGet(dbUrl,"/manualSignals/history");
-    const history=Object.values(raw||{}).filter(Boolean)
-      .sort((a,b)=>new Date(b.publishedAt||b.createdAt||0)-new Date(a.publishedAt||a.createdAt||0))
-      .slice(0,30);
-    return json({ok:true,latest:latest||null,history});
+  // Pakai service account (sama seperti user-profile.js) supaya request ke
+  // Firebase RTDB dianggap "admin" dan tidak diblokir oleh security rules.
+  let accessToken=null;
+  try{
+    const service=readServiceAccount(env);
+    if(service) accessToken=await getGoogleAccessToken(service);
+  }catch(e){
+    return json({ok:false,error:`Gagal ambil Firebase service-account token: ${e?.message||e}`},500);
   }
 
-  if(request.method!=="POST") return json({ok:false,error:"Method not allowed"},405);
+  try{
+    if(request.method==="GET"){
+      const latest=await fbGet(dbUrl,"/manualSignals/latest",accessToken);
+      const raw=await fbGet(dbUrl,"/manualSignals/history",accessToken);
+      const history=Object.values(raw||{}).filter(Boolean)
+        .sort((a,b)=>new Date(b.publishedAt||b.createdAt||0)-new Date(a.publishedAt||a.createdAt||0))
+        .slice(0,30);
+      return json({ok:true,latest:latest||null,history});
+    }
 
-  const adminToken=env.ADMIN_ACTION_TOKEN||env.VITE_ADMIN_ACTION_TOKEN||"";
-  const token=request.headers.get("authorization")?.replace(/^Bearer\s+/i,"")||"";
-  if(!adminToken || token!==adminToken) return json({ok:false,error:"Unauthorized admin token"},401);
+    if(request.method!=="POST") return json({ok:false,error:"Method not allowed"},405);
 
-  let body={};
-  try{body=await request.json()}catch{return json({ok:false,error:"Body JSON tidak valid"},400)}
-  const action=String(body.action||"publish").toLowerCase();
+    const adminToken=env.ADMIN_ACTION_TOKEN||env.VITE_ADMIN_ACTION_TOKEN||"";
+    const token=request.headers.get("authorization")?.replace(/^Bearer\s+/i,"")||"";
+    if(!adminToken || token!==adminToken) return json({ok:false,error:"Unauthorized admin token"},401);
 
-  if(action==="close"){
-    const latest=await fbGet(dbUrl,"/manualSignals/latest");
-    if(!latest?.id) return json({ok:false,error:"Belum ada signal aktif"},404);
-    const closed={...latest,status:"CLOSED",closedAt:new Date().toISOString(),updatedAt:new Date().toISOString()};
-    await fbPut(dbUrl,"/manualSignals/latest",closed);
-    await fbPatch(dbUrl,`/manualSignals/history/${safeKey(latest.id)}`,{status:"CLOSED",closedAt:closed.closedAt,updatedAt:closed.updatedAt});
-    return json({ok:true,signal:closed});
+    let body={};
+    try{body=await request.json()}catch{return json({ok:false,error:"Body JSON tidak valid"},400)}
+    const action=String(body.action||"publish").toLowerCase();
+
+    if(action==="close"){
+      const latest=await fbGet(dbUrl,"/manualSignals/latest",accessToken);
+      if(!latest?.id) return json({ok:false,error:"Belum ada signal aktif"},404);
+      const closed={...latest,status:"CLOSED",closedAt:new Date().toISOString(),updatedAt:new Date().toISOString()};
+      await fbPut(dbUrl,"/manualSignals/latest",closed,accessToken);
+      await fbPatch(dbUrl,`/manualSignals/history/${safeKey(latest.id)}`,{status:"CLOSED",closedAt:closed.closedAt,updatedAt:closed.updatedAt},accessToken);
+      return json({ok:true,signal:closed});
+    }
+
+    const direction=String(body.direction||"").toUpperCase();
+    if(!["BUY","SELL"].includes(direction)) return json({ok:false,error:"direction harus BUY atau SELL"},400);
+
+    const entry=cleanNumber(body.entry), sl=cleanNumber(body.sl), tp=cleanNumber(body.tp);
+    if(!Number.isFinite(entry)||!Number.isFinite(sl)||!Number.isFinite(tp)) return json({ok:false,error:"Entry, SL, TP wajib berupa angka"},400);
+
+    const now=new Date().toISOString();
+    const id=`SIG-${Date.now()}`;
+    const signal={
+      id,pair:"XAUUSD",direction,
+      timeframe:String(body.timeframe||"M15"),
+      entry,sl,tp,
+      confidence:Math.max(1,Math.min(100,Number(body.confidence||80))),
+      title:safeText(body.title||`${direction} XAUUSD`),
+      note:safeText(body.note||"Manual setup oleh admin"),
+      status:"OPEN",
+      publishedAt:now,
+      createdAt:now,
+      source:"manual-admin"
+    };
+
+    await fbPut(dbUrl,"/manualSignals/latest",signal,accessToken);
+    await fbPut(dbUrl,`/manualSignals/history/${safeKey(id)}`,signal,accessToken);
+
+    const notifications=await notifyPremiumTelegram(env,dbUrl,signal,accessToken);
+
+    return json({ok:true,signal,notifications});
+  }catch(e){
+    // Jangan biarkan exception mentah bikin Cloudflare balikin halaman HTML.
+    console.error("admin-signal error",e);
+    return json({ok:false,error:e?.message||"Terjadi kesalahan tak terduga di server."},500);
   }
-
-  const direction=String(body.direction||"").toUpperCase();
-  if(!["BUY","SELL"].includes(direction)) return json({ok:false,error:"direction harus BUY atau SELL"},400);
-
-  const entry=cleanNumber(body.entry), sl=cleanNumber(body.sl), tp=cleanNumber(body.tp);
-  if(!Number.isFinite(entry)||!Number.isFinite(sl)||!Number.isFinite(tp)) return json({ok:false,error:"Entry, SL, TP wajib berupa angka"},400);
-
-  const now=new Date().toISOString();
-  const id=`SIG-${Date.now()}`;
-  const signal={
-    id,pair:"XAUUSD",direction,
-    timeframe:String(body.timeframe||"M15"),
-    entry,sl,tp,
-    confidence:Math.max(1,Math.min(100,Number(body.confidence||80))),
-    title:safeText(body.title||`${direction} XAUUSD`),
-    note:safeText(body.note||"Manual setup oleh admin"),
-    status:"OPEN",
-    publishedAt:now,
-    createdAt:now,
-    source:"manual-admin"
-  };
-
-  await fbPut(dbUrl,"/manualSignals/latest",signal);
-  await fbPut(dbUrl,`/manualSignals/history/${safeKey(id)}`,signal);
-
-  const notifications=await notifyPremiumTelegram(env,dbUrl,signal);
-
-  return json({ok:true,signal,notifications});
 }
 
-async function notifyPremiumTelegram(env,dbUrl,signal){
+async function notifyPremiumTelegram(env,dbUrl,signal,accessToken){
   const token=env.TELEGRAM_BOT_TOKEN||"";
   if(!token) return {ok:false,skipped:true,reason:"TELEGRAM_BOT_TOKEN missing",totalRecipients:0,successCount:0,failedCount:0};
-  const raw=await fbGet(dbUrl,"/users");
+  const raw=await fbGet(dbUrl,"/users",accessToken);
   const users=Object.values(raw||{}).filter(isPremiumConnected);
   const seen=new Set();
   const recipients=users.filter(u=>{const id=String(u.telegramChatId);if(!id||seen.has(id))return false;seen.add(id);return true});
@@ -112,7 +128,113 @@ function cleanNumber(v){const n=Number(String(v??"").replace(/,/g,""));return n}
 function safeText(v){return String(v??"").trim().slice(0,1000)}
 function safeKey(v){return String(v).replace(/[.#$[\]/:]/g,"_")}
 function escapeHtml(v){return String(v??"").replaceAll("&","&amp;").replaceAll("<","&lt;").replaceAll(">","&gt;").replaceAll('"',"&quot;")}
-async function fbGet(dbUrl,path){const r=await fetch(`${dbUrl}${path}.json?ts=${Date.now()}`,{headers:{"Cache-Control":"no-cache"}});if(!r.ok)return null;return await r.json()}
-async function fbPut(dbUrl,path,data){const r=await fetch(`${dbUrl}${path}.json`,{method:"PUT",headers:{"Content-Type":"application/json"},body:JSON.stringify(data)});if(!r.ok)throw new Error(await r.text());return await r.json()}
-async function fbPatch(dbUrl,path,data){const r=await fetch(`${dbUrl}${path}.json`,{method:"PATCH",headers:{"Content-Type":"application/json"},body:JSON.stringify(data)});if(!r.ok)throw new Error(await r.text());return await r.json()}
+
+// ---- Firebase RTDB REST helpers (with optional service-account access token) ----
+async function fbGet(dbUrl,path,accessToken){
+  const url=new URL(`${dbUrl}${path}.json`);
+  url.searchParams.set("ts",String(Date.now()));
+  if(accessToken) url.searchParams.set("access_token",accessToken);
+  const r=await fetch(url.toString(),{headers:{"Cache-Control":"no-cache"}});
+  if(!r.ok){
+    const body=await r.text().catch(()=> "");
+    throw new Error(`Firebase GET ${path} gagal (${r.status}): ${body.slice(0,180)}`);
+  }
+  return await r.json();
+}
+async function fbPut(dbUrl,path,data,accessToken){
+  const url=new URL(`${dbUrl}${path}.json`);
+  if(accessToken) url.searchParams.set("access_token",accessToken);
+  const r=await fetch(url.toString(),{method:"PUT",headers:{"Content-Type":"application/json"},body:JSON.stringify(data)});
+  if(!r.ok){
+    const body=await r.text().catch(()=> "");
+    throw new Error(`Firebase PUT ${path} gagal (${r.status}): ${body.slice(0,180)}`);
+  }
+  return await r.json();
+}
+async function fbPatch(dbUrl,path,data,accessToken){
+  const url=new URL(`${dbUrl}${path}.json`);
+  if(accessToken) url.searchParams.set("access_token",accessToken);
+  const r=await fetch(url.toString(),{method:"PATCH",headers:{"Content-Type":"application/json"},body:JSON.stringify(data)});
+  if(!r.ok){
+    const body=await r.text().catch(()=> "");
+    throw new Error(`Firebase PATCH ${path} gagal (${r.status}): ${body.slice(0,180)}`);
+  }
+  return await r.json();
+}
 function json(payload,status=200){return new Response(JSON.stringify(payload,null,2),{status,headers:{...H,"Cache-Control":"no-store"}})}
+
+// ---- Firebase service-account OAuth (sama pola dengan user-profile.js) ----
+function readServiceAccount(env){
+  const jsonRaw=env.FIREBASE_SERVICE_ACCOUNT_JSON||env.FIREBASE_SERVICE_ACCOUNT||env.FIREBASE_ADMIN_SERVICE_ACCOUNT||"";
+  if(jsonRaw){
+    try{
+      const parsed=JSON.parse(jsonRaw);
+      return normalizeServiceAccount({
+        projectId:parsed.project_id||parsed.projectId,
+        clientEmail:parsed.client_email||parsed.clientEmail,
+        privateKey:parsed.private_key||parsed.privateKey
+      });
+    }catch{
+      throw new Error("FIREBASE_SERVICE_ACCOUNT_JSON tidak valid.");
+    }
+  }
+  const projectId=env.FIREBASE_PROJECT_ID||env.FIREBASE_SERVICE_ACCOUNT_PROJECT_ID||env.FIREBASE_ADMIN_PROJECT_ID||env.VITE_FIREBASE_PROJECT_ID||"";
+  const clientEmail=env.FIREBASE_SERVICE_ACCOUNT_CLIENT_EMAIL||env.FIREBASE_CLIENT_EMAIL||env.FIREBASE_ADMIN_CLIENT_EMAIL||"";
+  const privateKey=env.FIREBASE_SERVICE_ACCOUNT_PRIVATE_KEY||env.FIREBASE_PRIVATE_KEY||env.FIREBASE_ADMIN_PRIVATE_KEY||"";
+  if(!projectId||!clientEmail||!privateKey) return null;
+  return normalizeServiceAccount({projectId,clientEmail,privateKey});
+}
+function normalizeServiceAccount({projectId,clientEmail,privateKey}){
+  const cleanProjectId=String(projectId||"").trim();
+  const cleanClientEmail=String(clientEmail||"").trim();
+  const cleanPrivateKey=String(privateKey||"").replace(/\\n/g,"\n").trim();
+  if(!cleanProjectId||!cleanClientEmail||!cleanPrivateKey) return null;
+  return {projectId:cleanProjectId,clientEmail:cleanClientEmail,privateKey:cleanPrivateKey};
+}
+async function getGoogleAccessToken(service){
+  const now=Math.floor(Date.now()/1000);
+  const header={alg:"RS256",typ:"JWT"};
+  const payload={
+    iss:service.clientEmail,
+    scope:"https://www.googleapis.com/auth/firebase.database https://www.googleapis.com/auth/userinfo.email",
+    aud:"https://oauth2.googleapis.com/token",
+    iat:now,
+    exp:now+3600
+  };
+  const unsigned=`${base64UrlJson(header)}.${base64UrlJson(payload)}`;
+  const signature=await signRs256(unsigned,service.privateKey);
+  const assertion=`${unsigned}.${signature}`;
+  const res=await fetch("https://oauth2.googleapis.com/token",{
+    method:"POST",
+    headers:{"Content-Type":"application/x-www-form-urlencoded"},
+    body:new URLSearchParams({grant_type:"urn:ietf:params:oauth:grant-type:jwt-bearer",assertion})
+  });
+  const data=await res.json().catch(()=>({}));
+  if(!res.ok||!data.access_token){
+    throw new Error(data?.error_description||data?.error||"Gagal mengambil Firebase service-account access token.");
+  }
+  return data.access_token;
+}
+async function signRs256(input,privateKeyPem){
+  const keyData=pemToArrayBuffer(privateKeyPem);
+  const key=await crypto.subtle.importKey("pkcs8",keyData,{name:"RSASSA-PKCS1-v1_5",hash:"SHA-256"},false,["sign"]);
+  const signature=await crypto.subtle.sign("RSASSA-PKCS1-v1_5",key,new TextEncoder().encode(input));
+  return arrayBufferToBase64Url(signature);
+}
+function pemToArrayBuffer(pem){
+  const clean=String(pem||"").replace(/-----BEGIN PRIVATE KEY-----/g,"").replace(/-----END PRIVATE KEY-----/g,"").replace(/\s/g,"");
+  const binary=atob(clean);
+  const bytes=new Uint8Array(binary.length);
+  for(let i=0;i<binary.length;i+=1) bytes[i]=binary.charCodeAt(i);
+  return bytes.buffer;
+}
+function base64UrlJson(value){
+  return arrayBufferToBase64Url(new TextEncoder().encode(JSON.stringify(value)).buffer);
+}
+function arrayBufferToBase64Url(buffer){
+  const bytes=new Uint8Array(buffer);
+  let binary="";
+  const chunkSize=0x8000;
+  for(let i=0;i<bytes.length;i+=chunkSize) binary+=String.fromCharCode(...bytes.subarray(i,i+chunkSize));
+  return btoa(binary).replace(/\+/g,"-").replace(/\//g,"_").replace(/=+$/g,"");
+}
