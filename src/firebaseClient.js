@@ -195,13 +195,23 @@ export async function ensureUserProfile(user) {
 }
 
 export async function getUserProfile(uid) {
-  if (!db || !uid) return null;
+  if (!auth?.currentUser || !uid) return null;
 
-  const snapshot = await get(ref(db, `users/${uid}`));
+  // Read the legacy user profile through the Cloudflare API so the new UI
+  // keeps using the exact same /users/{uid} database record as the old app.
+  // This also avoids depending on client-side RTDB read rules.
+  const idToken = await auth.currentUser.getIdToken();
+  const response = await fetch(`/api/user-profile?uid=${encodeURIComponent(uid)}`, {
+    headers: { Authorization: `Bearer ${idToken}` },
+    cache: "no-store"
+  });
 
-  if (!snapshot.exists()) return null;
+  const data = await response.json().catch(() => ({}));
+  if (!response.ok || !data?.ok) {
+    throw new Error(data?.error || "Gagal membaca profile user.");
+  }
 
-  return snapshot.val();
+  return data.profile || null;
 }
 
 export function isPremiumProfile(profile) {

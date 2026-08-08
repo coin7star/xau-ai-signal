@@ -208,7 +208,7 @@ function AdminPanel({ latest, history, onPublished }) {
   </section>;
 }
 
-function AppShell({ user, profile, refreshProfile }) {
+function AppShell({ user, profile, refreshProfile, profileError }) {
   const [latest,setLatest]=useState(null);
   const [history,setHistory]=useState([]);
   const [loading,setLoading]=useState(true);
@@ -258,6 +258,7 @@ function AppShell({ user, profile, refreshProfile }) {
       </section>
 
       {toast && <div className="toast"><Bell size={17}/>{toast}<button onClick={()=>setToast("")}><X size={15}/></button></div>}
+      {profileError && <div className="notice error profileNotice">Akses akun belum terbaca. Silakan refresh halaman.</div>}
 
       {loading ? <div className="loadingCard newCard"><RefreshCw className="spin"/><span>Memuat signal feed...</span></div> : <SignalCard signal={latest} premium={premium}/>}
 
@@ -276,19 +277,45 @@ function AppShell({ user, profile, refreshProfile }) {
 export default function App(){
   const [user,setUser]=useState(undefined);
   const [profile,setProfile]=useState(null);
+  const [profileLoading,setProfileLoading]=useState(false);
+  const [profileError,setProfileError]=useState("");
 
-  useEffect(()=>listenAuth(async u=>{setUser(u||null);if(u){try{setProfile(await getUserProfile(u.uid))}catch{setProfile(null)}}else setProfile(null)}),[]);
+  useEffect(()=>listenAuth(async u=>{
+    setUser(u||null);
+    if(!u){
+      setProfile(null);
+      setProfileError("");
+      return;
+    }
+    setProfileLoading(true);
+    setProfileError("");
+    try{
+      const loaded=await getUserProfile(u.uid);
+      setProfile(loaded);
+      if(!loaded) setProfileError("Profile user belum terbaca.");
+    }catch(error){
+      setProfile(null);
+      setProfileError(error?.message||"Profile user belum terbaca.");
+    }finally{setProfileLoading(false);}
+  }),[]);
 
   async function refreshProfile(){
     if(!user)return;
-    try{setProfile(await getUserProfile(user.uid))}catch{}
+    try{
+      setProfileLoading(true);
+      setProfileError("");
+      setProfile(await getUserProfile(user.uid));
+    }catch(error){
+      setProfileError(error?.message||"Profile user belum terbaca.");
+    }finally{setProfileLoading(false);}
   }
 
   if(window.location.pathname==="/auth-action") return <AuthActionPage/>;
   if(user===undefined) return <main className="loadingScreen"><RefreshCw className="spin"/><span>Menyiapkan Signal Desk...</span></main>;
   if(!user) return <AuthScreen onDone={()=>{}}/>;
+  if(profileLoading && !profile) return <main className="loadingScreen"><RefreshCw className="spin"/><span>Membaca akses akun...</span></main>;
 
-  return <AppShell user={user} profile={profile||{email:user.email,role:"free"}} refreshProfile={refreshProfile}/>;
+  return <AppShell user={user} profile={profile||{email:user.email,role:"free"}} refreshProfile={refreshProfile} profileError={profileError}/>;
 }
 
 function AuthActionPage(){
