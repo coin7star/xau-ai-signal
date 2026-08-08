@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { verifyPasswordResetCode, confirmPasswordReset, applyActionCode } from "firebase/auth";
 import {
-  Activity, Bell, Bot, CheckCircle2, Clock3, Copy, Crown, LogIn,
+  Activity, Bell, Bot, ArrowLeft, CheckCircle2, Clock3, Copy, Crown, LogIn,
   LogOut, Menu, RefreshCw, Send, Shield, Sparkles, Target, TrendingDown,
   TrendingUp, User, X, Zap
 } from "lucide-react";
@@ -39,7 +39,7 @@ function fmtDate(v) {
 function isBuy(s) { return String(s || "").toUpperCase().includes("BUY"); }
 function isSell(s) { return String(s || "").toUpperCase().includes("SELL"); }
 
-function AuthScreen({ onDone }) {
+function AuthScreen({ onDone, onBack }) {
   const [mode,setMode] = useState("login");
   const [email,setEmail] = useState("");
   const [password,setPassword] = useState("");
@@ -63,6 +63,7 @@ function AuthScreen({ onDone }) {
 
   return <main className="authShell">
     <div className="authGlow" />
+    {onBack && <button className="backToLanding" onClick={onBack}><ArrowLeft size={15}/> Kembali ke Beranda</button>}
     <section className="authCard newCard">
       <div className="brandMark">X</div>
       <div className="eyebrow">XAUUSD • SIGNAL DESK</div>
@@ -365,7 +366,7 @@ export default function App(){
 
   if(window.location.pathname==="/auth-action") return <AuthActionPage/>;
   if(user===undefined) return <main className="loadingScreen"><RefreshCw className="spin"/><span>Menyiapkan Signal Desk...</span></main>;
-  if(!user) return showAuth ? <AuthScreen onDone={()=>{}}/> : <Landing onGetStarted={()=>setShowAuth(true)}/>;
+  if(!user) return showAuth ? <AuthScreen onDone={()=>{}} onBack={()=>setShowAuth(false)}/> : <Landing onGetStarted={()=>setShowAuth(true)}/>;
 
   // Wajibkan verifikasi email untuk akun email/password.
   // Akun Google sudah terverifikasi otomatis oleh Firebase, jadi dilewati.
