@@ -44,10 +44,14 @@ export async function onRequest({request,env}) {
     if(action==="close"){
       const latest=await fbGet(dbUrl,"/manualSignals/latest",accessToken);
       if(!latest?.id) return json({ok:false,error:"Belum ada signal aktif"},404);
-      const closed={...latest,status:"CLOSED",closedAt:new Date().toISOString(),updatedAt:new Date().toISOString()};
+      const cancelled=Boolean(body.cancelled);
+      const closeReason=safeText(body.note||"");
+      const now=new Date().toISOString();
+      const closed={...latest,status:cancelled?"CANCELLED":"CLOSED",closeReason,closedAt:now,updatedAt:now};
       await fbPut(dbUrl,"/manualSignals/latest",closed,accessToken);
-      await fbPatch(dbUrl,`/manualSignals/history/${safeKey(latest.id)}`,{status:"CLOSED",closedAt:closed.closedAt,updatedAt:closed.updatedAt},accessToken);
-      return json({ok:true,signal:closed});
+      await fbPatch(dbUrl,`/manualSignals/history/${safeKey(latest.id)}`,{status:closed.status,closeReason,closedAt:now,updatedAt:now},accessToken);
+      const notifications=await notifyCloseTelegram(env,dbUrl,closed,accessToken);
+      return json({ok:true,signal:closed,notifications});
     }
 
     if(action==="result"){
@@ -210,6 +214,41 @@ function computeWinrate(s){
   const decisive=s.wins+s.losses;
   if(!decisive) return 0;
   return Math.round((s.wins/decisive)*100);
+}
+
+async function notifyCloseTelegram(env,dbUrl,signal,accessToken){
+  const token=env.TELEGRAM_BOT_TOKEN||"";
+  if(!token) return {ok:false,skipped:true,reason:"TELEGRAM_BOT_TOKEN missing",totalRecipients:0,successCount:0,failedCount:0};
+  const raw=await fbGet(dbUrl,"/users",accessToken);
+  const users=Object.values(raw||{}).filter(isPremiumConnected);
+  const seen=new Set();
+  const recipients=users.filter(u=>{const id=String(u.telegramChatId);if(!id||seen.has(id))return false;seen.add(id);return true});
+
+  const cancelled=signal.status==="CANCELLED";
+  const emoji=cancelled?"🚫":"⏹";
+  const label=cancelled?"ENTRY DIBATALKAN":"SIGNAL DITUTUP";
+  const text=[
+    `${emoji} <b>${escapeHtml(label)}</b>`,"",
+    `<b>${escapeHtml(signal.direction)} ${escapeHtml(signal.pair||"XAUUSD")}</b>`,
+    `Timeframe: <b>${escapeHtml(signal.timeframe||"-")}</b>`,
+    `Entry: <b>${signal.entry}</b> • SL: <b>${signal.sl}</b> • TP: <b>${signal.tp}</b>`,
+    "",
+    signal.closeReason?`<b>Alasan:</b> ${escapeHtml(signal.closeReason)}`:"Tidak ada catatan alasan dari admin.",
+    "",
+    "👑 Premium Alert • XAU AI Signal"
+  ].filter(Boolean).join("\n");
+
+  let successCount=0,failedCount=0;
+  for(const u of recipients){
+    try{
+      const res=await fetch(`https://api.telegram.org/bot${token}/sendMessage`,{
+        method:"POST",headers:{"Content-Type":"application/json"},
+        body:JSON.stringify({chat_id:String(u.telegramChatId),text,parse_mode:"HTML",disable_web_page_preview:true})
+      });
+      if(res.ok) successCount++; else failedCount++;
+    }catch{failedCount++}
+  }
+  return {ok:failedCount===0,totalRecipients:recipients.length,successCount,failedCount};
 }
 
 function isPremiumConnected(u){
