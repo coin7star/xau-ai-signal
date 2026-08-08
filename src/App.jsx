@@ -349,8 +349,7 @@ function TelegramPanel({ user, profile, premium, refresh }) {
   </section>;
 }
 
-function AdminPanel({ latest, history, onPublished }) {
-  const [token,setToken]=useState(()=>localStorage.getItem(ADMIN_TOKEN_KEY)||"");
+function AdminPanel({ latest, history, onPublished, token, setToken }) {
   const [direction,setDirection]=useState("BUY");
   const [timeframe,setTimeframe]=useState("M15");
   const [entry,setEntry]=useState("");
@@ -405,12 +404,149 @@ function AdminPanel({ latest, history, onPublished }) {
   </section>;
 }
 
+const REMIND_COOLDOWN_MS = 30 * 60 * 1000; // samain dengan backend (admin-orders.js)
+
+function AdminOrders({ token }) {
+  const [orders,setOrders]=useState([]);
+  const [loading,setLoading]=useState(false);
+  const [error,setError]=useState("");
+  const [tab,setTab]=useState("pending");
+  const [busyId,setBusyId]=useState("");
+  const [now,setNow]=useState(Date.now());
+
+  useEffect(()=>{ const id=setInterval(()=>setNow(Date.now()),30000); return()=>clearInterval(id); },[]);
+
+  async function load(){
+    if(!token){ setError("Isi & simpan ADMIN_ACTION_TOKEN dulu di atas."); return; }
+    setLoading(true);setError("");
+    try{
+      const res=await fetch("/api/admin-orders",{headers:{Authorization:`Bearer ${token}`}});
+      const data=await res.json();
+      if(!res.ok||!data.ok) throw new Error(data.error||"Gagal memuat orders.");
+      setOrders(data.orders||[]);
+    }catch(e){ setError(e?.message||"Gagal memuat orders."); }
+    finally{ setLoading(false); }
+  }
+
+  useEffect(()=>{ load(); },[token]);
+
+  async function act(order,action,extra={}){
+    setBusyId(order.orderId+action);
+    try{
+      const res=await fetch("/api/admin-orders",{method:"POST",headers:{"Content-Type":"application/json",Authorization:`Bearer ${token}`},body:JSON.stringify({orderId:order.orderId,action,...extra})});
+      const data=await res.json();
+      if(!res.ok||!data.ok) throw new Error(data.error||"Aksi gagal.");
+      await load();
+    }catch(e){ alert(e?.message||"Aksi gagal."); }
+    finally{ setBusyId(""); }
+  }
+
+  function approve(order){
+    const defaultDays = String(order.packageCode||order.packageLabel||"").includes("30") ? 30 : 7;
+    const input = window.prompt(`Approve order ${order.orderId}?\nJumlah hari premium (default ${defaultDays}):`, defaultDays);
+    if(input===null) return;
+    const days = Number(input)||defaultDays;
+    act(order,"approve",{days});
+  }
+  function reject(order){
+    if(!window.confirm(`Tolak order ${order.orderId}? User akan menerima notifikasi penolakan.`)) return;
+    act(order,"reject");
+  }
+  function remind(order){ act(order,"remind"); }
+  function saveNote(order,value){ act(order,"savenote",{adminNote:value}); }
+
+  const counts = {
+    all: orders.length,
+    pending: orders.filter(o=>String(o.status||"pending").toLowerCase()==="pending").length,
+    approved: orders.filter(o=>String(o.status||"").toLowerCase()==="approved").length,
+    rejected: orders.filter(o=>String(o.status||"").toLowerCase()==="rejected").length
+  };
+  const filtered = orders.filter(o=>{
+    if(tab==="all") return true;
+    return String(o.status||"pending").toLowerCase()===tab;
+  });
+
+  return <section className="adminSection newCard" style={{marginTop:20}}>
+    <div className="sectionHeader"><div><span className="eyebrow">ADMIN CONTROL</span><h3>Payment Orders</h3></div><button className="iconBtn" disabled={loading} onClick={load}><RefreshCw size={16} className={loading?"spin":""}/></button></div>
+
+    <div className="seg orderTabs">
+      <button type="button" className={tab==="pending"?"active":""} onClick={()=>setTab("pending")}>Pending ({counts.pending})</button>
+      <button type="button" className={tab==="approved"?"active":""} onClick={()=>setTab("approved")}>Approved ({counts.approved})</button>
+      <button type="button" className={tab==="rejected"?"active":""} onClick={()=>setTab("rejected")}>Rejected ({counts.rejected})</button>
+      <button type="button" className={tab==="all"?"active":""} onClick={()=>setTab("all")}>Semua ({counts.all})</button>
+    </div>
+
+    {error && <div className="notice error">{error}</div>}
+    {!error && !loading && !filtered.length && <div className="emptyBox">Tidak ada order di kategori ini.</div>}
+
+    <div className="orderList">
+      {filtered.map(order=>{
+        const meta = paymentStatusMeta(order.status);
+        const pending = String(order.status||"pending").toLowerCase()==="pending";
+        const remindCooldownLeft = order.remindedAt ? REMIND_COOLDOWN_MS-(now-new Date(order.remindedAt).getTime()) : 0;
+        const canRemind = pending && remindCooldownLeft<=0;
+        return <AdminOrderRow
+          key={order.orderId}
+          order={order}
+          meta={meta}
+          pending={pending}
+          canRemind={canRemind}
+          remindCooldownLeft={remindCooldownLeft}
+          busy={busyId.startsWith(order.orderId)}
+          onApprove={()=>approve(order)}
+          onReject={()=>reject(order)}
+          onRemind={()=>remind(order)}
+          onSaveNote={(v)=>saveNote(order,v)}
+        />;
+      })}
+    </div>
+  </section>;
+}
+
+function AdminOrderRow({ order, meta, pending, canRemind, remindCooldownLeft, busy, onApprove, onReject, onRemind, onSaveNote }){
+  const [noteDraft,setNoteDraft]=useState(order.adminNote||"");
+  const noteDirty = noteDraft !== (order.adminNote||"");
+  const status = String(order.status||"pending").toLowerCase();
+
+  return <article className="orderRow">
+    <div className="orderRowTop">
+      <div className="orderRowMain">
+        <b>{order.email || "-"}</b>
+        <span className="paymentOrderId">ID: {order.orderId}</span>
+      </div>
+      <div className="orderRowSide">
+        <span className={`statusPill ${meta.cls}`}>{meta.label}</span>
+        <b>{order.packageLabel || order.packageCode || "-"} • {order.price || "-"}</b>
+        <time>{fmtDate(order.createdAt)}</time>
+      </div>
+    </div>
+
+    {status==="approved" && <div className="notice ok">Premium aktif sampai {fmtDate(order.premiumUntil)}.</div>}
+    {status==="rejected" && <div className="notice error">Ditolak {fmtDate(order.rejectedAt)}.</div>}
+    {order.remindedAt && <div className="notice">Terakhir diingatkan {fmtDate(order.remindedAt)} ({order.reminderCount||1}x).</div>}
+
+    <div className="orderNote">
+      <textarea rows="2" placeholder="Catatan internal admin (tidak terlihat user)..." value={noteDraft} onChange={e=>setNoteDraft(e.target.value)}/>
+      {noteDirty && <button type="button" className="textBtn" disabled={busy} onClick={()=>onSaveNote(noteDraft)}>Simpan Catatan</button>}
+    </div>
+
+    {pending && <div className="adminActions">
+      <button className="primaryBtn" disabled={busy} onClick={onApprove}><CheckCircle2 size={15}/> Approve</button>
+      <button className="dangerBtn" disabled={busy} onClick={onReject}>Reject</button>
+      <button type="button" className="textBtn" disabled={busy||!canRemind} onClick={onRemind}>
+        {canRemind ? "Kirim Reminder" : `Reminder lagi dalam ${Math.max(1,Math.ceil(remindCooldownLeft/60000))}m`}
+      </button>
+    </div>}
+  </article>;
+}
+
 function AppShell({ user, profile, refreshProfile, profileError }) {
   const [latest,setLatest]=useState(null);
   const [history,setHistory]=useState([]);
   const [loading,setLoading]=useState(true);
   const [toast,setToast]=useState("");
   const [paymentRefreshKey,setPaymentRefreshKey]=useState(0);
+  const [adminToken,setAdminToken]=useState(()=>localStorage.getItem(ADMIN_TOKEN_KEY)||"");
   const premium=isPremiumProfile(profile);
   const admin=profile?.role==="admin";
 
@@ -467,7 +603,10 @@ function AppShell({ user, profile, refreshProfile, profileError }) {
       <Feed history={history} onRefresh={()=>loadSignals()}/>
       <AiPanel signal={latest}/>
 
-      {admin && <div id="admin"><AdminPanel latest={latest} history={history} onPublished={()=>loadSignals()}/></div>}
+      {admin && <div id="admin">
+        <AdminPanel latest={latest} history={history} onPublished={()=>loadSignals()} token={adminToken} setToken={setAdminToken}/>
+        <AdminOrders token={adminToken}/>
+      </div>}
 
       <footer><span>{APP_NAME}</span> • Signal information & AI assistance • Trading dengan risk management.</footer>
     </main>
