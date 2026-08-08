@@ -1,4 +1,6 @@
 
+const REMIND_COOLDOWN_MS = 30 * 60 * 1000; // 30 menit, cegah spam reminder ke user yang sama
+
 const H = {
   "Content-Type": "application/json",
   "Access-Control-Allow-Origin": "*",
@@ -90,6 +92,38 @@ export async function onRequest({ request, env }) {
       ok: true,
       order: { ...order, adminNote, adminNoteUpdatedAt: now },
       message: "Catatan order berhasil disimpan"
+    });
+  }
+
+  if (action === "remind") {
+    const status = String(order.status || "pending").toLowerCase();
+    if (status !== "pending") {
+      return json({ ok: false, error: "Cuma order berstatus pending yang bisa diingatkan." }, 400);
+    }
+
+    if (order.remindedAt) {
+      const elapsed = Date.now() - new Date(order.remindedAt).getTime();
+      if (elapsed < REMIND_COOLDOWN_MS) {
+        const waitMin = Math.ceil((REMIND_COOLDOWN_MS - elapsed) / 60000);
+        return json({ ok: false, error: `Reminder terakhir baru dikirim. Coba lagi dalam ${waitMin} menit.` }, 429);
+      }
+    }
+
+    const now = new Date().toISOString();
+    const reminderCount = Number(order.reminderCount || 0) + 1;
+    const patch = { remindedAt: now, reminderCount, updatedAt: now };
+
+    await fbPatch(dbUrl, `/paymentOrders/${orderId}`, patch);
+    const user = await fbGet(dbUrl, `/users/${order.uid}`) || {};
+
+    const userNotify = await notifyUserPaymentReminder({ env, user, order: { ...order, ...patch } });
+    const emailNotify = await sendReminderEmail({ env, user, order: { ...order, ...patch } });
+
+    return json({
+      ok: true,
+      order: { ...order, ...patch },
+      telegramNotify: userNotify,
+      emailNotify
     });
   }
 
@@ -217,6 +251,87 @@ async function fbPatch(dbUrl, path, patch) {
   }
 
   return await res.json();
+}
+
+
+async function notifyUserPaymentReminder({ env, user, order }) {
+  const botToken = env.TELEGRAM_BOT_TOKEN || env.BOT_TOKEN || "";
+  const chatId = getUserTelegramChatId(user);
+
+  if (!botToken) {
+    return { ok: false, skipped: true, reason: "telegram-bot-token-missing" };
+  }
+  if (!chatId) {
+    return { ok: false, skipped: true, reason: "telegram-not-connected" };
+  }
+
+  const lines = [
+    "⏰ <b>Reminder Pembayaran</b>",
+    "",
+    "Order premium kamu masih menunggu pembayaran.",
+    `Paket: ${safeText(order.packageLabel || order.packageCode || "-")}`,
+    `Harga: ${safeText(order.price || "-")}`,
+    `Order ID: <code>${safeText(order.orderId || "-")}</code>`,
+    "",
+    "Segera selesaikan pembayaran & kirim bukti transfer ke admin supaya premium bisa langsung diaktifkan.",
+    "Kalau sudah bayar tapi belum diproses, langsung hubungi admin ya."
+  ];
+
+  try {
+    const res = await fetch(`https://api.telegram.org/bot${botToken}/sendMessage`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        chat_id: chatId,
+        text: lines.join("\n"),
+        parse_mode: "HTML",
+        disable_web_page_preview: true
+      })
+    });
+    const data = await res.json().catch(() => ({}));
+    return { ok: Boolean(res.ok && data.ok), status: res.status, description: data.description || "" };
+  } catch (err) {
+    return { ok: false, error: err.message || String(err) };
+  }
+}
+
+async function sendReminderEmail({ env, user, order }) {
+  const resendKey = env.RESEND_API_KEY || "";
+  const from = env.EMAIL_FROM || "";
+  const appUrl = env.APP_URL || env.VITE_APP_URL || "https://xau-ai-signal.pages.dev";
+  const to = safeText(order.email || user?.email || "");
+
+  if (!resendKey || !from) return { ok: false, skipped: true, reason: "email-env-not-ready" };
+  if (!to || to === "-") return { ok: false, skipped: true, reason: "user-email-missing" };
+
+  const body = [
+    `<b>Order premium kamu masih menunggu pembayaran.</b>`,
+    `Paket: <b>${escapeHtml(safeText(order.packageLabel || order.packageCode || "-"))}</b>`,
+    `Harga: <b>${escapeHtml(safeText(order.price || "-"))}</b>`,
+    `Order ID: <code>${escapeHtml(safeText(order.orderId || "-"))}</code>`,
+    `Segera kirim bukti transfer ke admin supaya premium bisa langsung diaktifkan.`
+  ].join("<br/>");
+
+  const html = buildEmailShell({
+    title: "Reminder Pembayaran",
+    subtitle: "Order premium kamu masih menunggu konfirmasi pembayaran.",
+    body,
+    buttonText: "Buka Dashboard",
+    appUrl
+  });
+
+  try {
+    const res = await fetch("https://api.resend.com/emails", {
+      method: "POST",
+      headers: { "Authorization": `Bearer ${resendKey}`, "Content-Type": "application/json" },
+      body: JSON.stringify({ from, to, subject: "Reminder Pembayaran XAU AI Signal", html })
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) return { ok: false, reason: "resend-error", error: data?.message || data?.error || `Resend error ${res.status}` };
+    return { ok: true, resendId: data?.id || null };
+  } catch (err) {
+    return { ok: false, reason: "email-send-error", error: err.message || String(err) };
+  }
 }
 
 
