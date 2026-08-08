@@ -21,9 +21,25 @@ export async function onRequest({ request, env }) {
   const dbUrl = (env.FIREBASE_DATABASE_URL || env.VITE_FIREBASE_DATABASE_URL || "").replace(/\/$/, "");
   if (!dbUrl) return json({ ok: false, error: "FIREBASE_DATABASE_URL belum diset" }, 500);
 
+  // Sama seperti user-payment-orders.js: pakai service-account access token
+  // supaya request server-side ini lolos RTDB rules (yang mewajibkan auth != null
+  // dan hanya boleh baca punya sendiri). Tanpa ini, fbGet/fbPatch di bawah akan
+  // selalu kena permission-denied dari Firebase -> throw error tak tertangani ->
+  // Cloudflare balikin halaman error HTML -> muncul "Unexpected token '<'" di frontend.
+  let accessToken = null;
+  try {
+    const service = readServiceAccount(env);
+    if (service) accessToken = await getGoogleAccessToken(service);
+  } catch (err) {
+    return json({ ok: false, error: `Gagal ambil service-account token: ${err.message || err}` }, 500);
+  }
+  if (!accessToken) {
+    return json({ ok: false, error: "FIREBASE_SERVICE_ACCOUNT_JSON belum diset di Cloudflare Pages env." }, 500);
+  }
+
   if (request.method === "GET") {
-    const orders = await fbGet(dbUrl, "/paymentOrders") || {};
-    const adminNotes = await fbGet(dbUrl, "/adminOrderNotes") || {};
+    const orders = await fbGet(dbUrl, "/paymentOrders", accessToken) || {};
+    const adminNotes = await fbGet(dbUrl, "/adminOrderNotes", accessToken) || {};
 
     const list = Object.values(orders)
       .filter(Boolean)
@@ -59,7 +75,7 @@ export async function onRequest({ request, env }) {
 
   if (!orderId) return json({ ok: false, error: "orderId wajib diisi" }, 400);
 
-  const order = await fbGet(dbUrl, `/paymentOrders/${orderId}`);
+  const order = await fbGet(dbUrl, `/paymentOrders/${orderId}`, accessToken);
   if (!order) return json({ ok: false, error: "Order tidak ditemukan" }, 404);
 
 
@@ -76,14 +92,14 @@ export async function onRequest({ request, env }) {
       updatedAt: now
     };
 
-    await fbPatch(dbUrl, `/adminOrderNotes/${orderId}`, notePatch);
+    await fbPatch(dbUrl, `/adminOrderNotes/${orderId}`, notePatch, accessToken);
 
     try {
       await fbPatch(dbUrl, `/paymentOrders/${orderId}`, {
         adminNote: null,
         adminNoteUpdatedAt: null,
         updatedAt: now
-      });
+      }, accessToken);
     } catch {
       // cleanup lama bersifat optional
     }
@@ -113,8 +129,8 @@ export async function onRequest({ request, env }) {
     const reminderCount = Number(order.reminderCount || 0) + 1;
     const patch = { remindedAt: now, reminderCount, updatedAt: now };
 
-    await fbPatch(dbUrl, `/paymentOrders/${orderId}`, patch);
-    const user = await fbGet(dbUrl, `/users/${order.uid}`) || {};
+    await fbPatch(dbUrl, `/paymentOrders/${orderId}`, patch, accessToken);
+    const user = await fbGet(dbUrl, `/users/${order.uid}`, accessToken) || {};
 
     const userNotify = await notifyUserPaymentReminder({ env, user, order: { ...order, ...patch } });
     const emailNotify = await sendReminderEmail({ env, user, order: { ...order, ...patch } });
@@ -134,14 +150,14 @@ export async function onRequest({ request, env }) {
       updatedAt: new Date().toISOString()
     };
 
-    await fbPatch(dbUrl, `/paymentOrders/${orderId}`, patch);
-    const user = await fbGet(dbUrl, `/users/${order.uid}`) || {};
+    await fbPatch(dbUrl, `/paymentOrders/${orderId}`, patch, accessToken);
+    const user = await fbGet(dbUrl, `/users/${order.uid}`, accessToken) || {};
 
     await fbPatch(dbUrl, `/users/${order.uid}`, {
       lastPaymentStatus: "rejected",
       lastPaymentOrderId: orderId,
       updatedAt: new Date().toISOString()
-    });
+    }, accessToken);
 
     const userNotify = await notifyUserOrderStatus({
       env,
@@ -172,7 +188,7 @@ export async function onRequest({ request, env }) {
   const days = Number(body.days || getDaysFromPackage(order.packageCode || order.packageLabel));
   if (!days || days <= 0) return json({ ok: false, error: "Durasi paket tidak valid" }, 400);
 
-  const user = await fbGet(dbUrl, `/users/${order.uid}`) || {};
+  const user = await fbGet(dbUrl, `/users/${order.uid}`, accessToken) || {};
   const baseTime = user.premiumUntil && new Date(user.premiumUntil).getTime() > Date.now()
     ? new Date(user.premiumUntil)
     : new Date();
@@ -189,7 +205,7 @@ export async function onRequest({ request, env }) {
     updatedAt: now
   };
 
-  await fbPatch(dbUrl, `/paymentOrders/${orderId}`, orderPatch);
+  await fbPatch(dbUrl, `/paymentOrders/${orderId}`, orderPatch, accessToken);
   await fbPatch(dbUrl, `/users/${order.uid}`, {
     role: "premium",
     premiumUntil,
@@ -198,7 +214,7 @@ export async function onRequest({ request, env }) {
     lastPaymentPackage: order.packageLabel || order.packageCode || "",
     lastPaymentPrice: order.price || "",
     updatedAt: now
-  });
+  }, accessToken);
 
   const userNotifyApprove = await notifyUserOrderStatus({
     env,
@@ -232,14 +248,18 @@ function getDaysFromPackage(value) {
   return 0;
 }
 
-async function fbGet(dbUrl, path) {
-  const res = await fetch(`${dbUrl}${path}.json`);
+async function fbGet(dbUrl, path, accessToken) {
+  const url = new URL(`${dbUrl}${path}.json`);
+  if (accessToken) url.searchParams.set("access_token", accessToken);
+  const res = await fetch(url.toString());
   if (!res.ok) throw new Error(`Firebase GET failed ${res.status}`);
   return await res.json();
 }
 
-async function fbPatch(dbUrl, path, patch) {
-  const res = await fetch(`${dbUrl}${path}.json`, {
+async function fbPatch(dbUrl, path, patch, accessToken) {
+  const url = new URL(`${dbUrl}${path}.json`);
+  if (accessToken) url.searchParams.set("access_token", accessToken);
+  const res = await fetch(url.toString(), {
     method: "PATCH",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(patch)
@@ -612,4 +632,82 @@ function json(payload, status = 200) {
     status,
     headers: { ...H, "Cache-Control": "no-store" }
   });
+}
+
+// ---- Firebase service-account OAuth (sama pola dengan user-payment-orders.js) ----
+// Ini yang bikin request server-side ini "jadi admin" di mata RTDB rules,
+// karena akun servis punya akses penuh dan tidak terikat rule ".read"/".write" biasa.
+function readServiceAccount(env) {
+  const jsonRaw = env.FIREBASE_SERVICE_ACCOUNT_JSON || env.FIREBASE_SERVICE_ACCOUNT || env.FIREBASE_ADMIN_SERVICE_ACCOUNT || "";
+  if (jsonRaw) {
+    try {
+      const parsed = JSON.parse(jsonRaw);
+      return normalizeServiceAccount({
+        projectId: parsed.project_id || parsed.projectId,
+        clientEmail: parsed.client_email || parsed.clientEmail,
+        privateKey: parsed.private_key || parsed.privateKey
+      });
+    } catch {
+      throw new Error("FIREBASE_SERVICE_ACCOUNT_JSON tidak valid.");
+    }
+  }
+  const projectId = env.FIREBASE_PROJECT_ID || env.FIREBASE_SERVICE_ACCOUNT_PROJECT_ID || env.FIREBASE_ADMIN_PROJECT_ID || env.VITE_FIREBASE_PROJECT_ID || "";
+  const clientEmail = env.FIREBASE_SERVICE_ACCOUNT_CLIENT_EMAIL || env.FIREBASE_CLIENT_EMAIL || env.FIREBASE_ADMIN_CLIENT_EMAIL || "";
+  const privateKey = env.FIREBASE_SERVICE_ACCOUNT_PRIVATE_KEY || env.FIREBASE_PRIVATE_KEY || env.FIREBASE_ADMIN_PRIVATE_KEY || "";
+  if (!projectId || !clientEmail || !privateKey) return null;
+  return normalizeServiceAccount({ projectId, clientEmail, privateKey });
+}
+function normalizeServiceAccount({ projectId, clientEmail, privateKey }) {
+  const cleanProjectId = String(projectId || "").trim();
+  const cleanClientEmail = String(clientEmail || "").trim();
+  const cleanPrivateKey = String(privateKey || "").replace(/\\n/g, "\n").trim();
+  if (!cleanProjectId || !cleanClientEmail || !cleanPrivateKey) return null;
+  return { projectId: cleanProjectId, clientEmail: cleanClientEmail, privateKey: cleanPrivateKey };
+}
+async function getGoogleAccessToken(service) {
+  const now = Math.floor(Date.now() / 1000);
+  const header = { alg: "RS256", typ: "JWT" };
+  const payload = {
+    iss: service.clientEmail,
+    scope: "https://www.googleapis.com/auth/firebase.database https://www.googleapis.com/auth/userinfo.email",
+    aud: "https://oauth2.googleapis.com/token",
+    iat: now,
+    exp: now + 3600
+  };
+  const unsigned = `${base64UrlJson(header)}.${base64UrlJson(payload)}`;
+  const signature = await signRs256(unsigned, service.privateKey);
+  const assertion = `${unsigned}.${signature}`;
+  const res = await fetch("https://oauth2.googleapis.com/token", {
+    method: "POST",
+    headers: { "Content-Type": "application/x-www-form-urlencoded" },
+    body: new URLSearchParams({ grant_type: "urn:ietf:params:oauth:grant-type:jwt-bearer", assertion })
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok || !data.access_token) {
+    throw new Error(data?.error_description || data?.error || "Gagal mengambil Firebase service-account access token.");
+  }
+  return data.access_token;
+}
+async function signRs256(input, privateKeyPem) {
+  const keyData = pemToArrayBuffer(privateKeyPem);
+  const key = await crypto.subtle.importKey("pkcs8", keyData, { name: "RSASSA-PKCS1-v1_5", hash: "SHA-256" }, false, ["sign"]);
+  const signature = await crypto.subtle.sign("RSASSA-PKCS1-v1_5", key, new TextEncoder().encode(input));
+  return arrayBufferToBase64Url(signature);
+}
+function pemToArrayBuffer(pem) {
+  const clean = String(pem || "").replace(/-----BEGIN PRIVATE KEY-----/g, "").replace(/-----END PRIVATE KEY-----/g, "").replace(/\s/g, "");
+  const binary = atob(clean);
+  const bytes = new Uint8Array(binary.length);
+  for (let i = 0; i < binary.length; i += 1) bytes[i] = binary.charCodeAt(i);
+  return bytes.buffer;
+}
+function base64UrlJson(value) {
+  return arrayBufferToBase64Url(new TextEncoder().encode(JSON.stringify(value)).buffer);
+}
+function arrayBufferToBase64Url(buffer) {
+  const bytes = new Uint8Array(buffer);
+  let binary = "";
+  const chunkSize = 0x8000;
+  for (let i = 0; i < bytes.length; i += chunkSize) binary += String.fromCharCode(...bytes.subarray(i, i + chunkSize));
+  return btoa(binary).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/g, "");
 }
