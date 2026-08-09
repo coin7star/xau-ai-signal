@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { verifyPasswordResetCode, confirmPasswordReset, applyActionCode } from "firebase/auth";
 import {
-  Activity, Bell, Bot, ArrowLeft, CheckCircle2, Clock3, Copy, Crown, LogIn,
+  Activity, ArrowLeft, Bell, Bot, CheckCircle2, Clock3, Copy, Crown, ExternalLink, LogIn,
   LogOut, Menu, RefreshCw, Send, Shield, Sparkles, Target, TrendingDown,
   TrendingUp, User, Users, Wallet, X, Zap
 } from "lucide-react";
@@ -947,6 +947,44 @@ function AdminUserRow({ u, busy, onGrant, onRevoke, onMakeAdmin, onRemoveAdmin, 
   </article>;
 }
 
+const ADMIN_PANELS = [
+  { id: "dashboard", label: "Dashboard Ringkasan", desc: "Revenue, user premium aktif, order pending" },
+  { id: "publish", label: "Publish Signal", desc: "Terbitkan call baru, tutup/batalkan, test recap WR" },
+  { id: "status", label: "Status & Sapaan", desc: "Banner online/offline + broadcast Telegram" },
+  { id: "orders", label: "Payment Orders", desc: "Approve / reject order premium user" },
+  { id: "users", label: "User Management", desc: "Kelola role, kasih premium, tes reminder H-1" },
+  { id: "winrate", label: "Winrate Signal Manual", desc: "Statistik performa signal (7/30 hari)" }
+];
+
+function AdminMenu({ onOpenPanel }) {
+  return <section className="adminSection newCard">
+    <div className="sectionHeader"><div><span className="eyebrow">ADMIN CONTROL</span><h3>Menu Admin</h3></div><Shield size={20}/></div>
+    <div className="adminMenuList">
+      {ADMIN_PANELS.map(p => (
+        <button key={p.id} type="button" className="adminMenuItem" onClick={() => onOpenPanel(p.id)}>
+          <div><b>{p.label}</b><span>{p.desc}</span></div>
+          <ExternalLink size={16}/>
+        </button>
+      ))}
+    </div>
+    <p className="muted" style={{ marginTop: 14, fontSize: 12 }}>Tiap panel dibuka di tab browser baru, biar nggak numpuk semua sekaligus di sini.</p>
+  </section>;
+}
+
+function AdminPanelView({ panelId, onBack, ...rest }) {
+  const meta = ADMIN_PANELS.find(p => p.id === panelId);
+  return <>
+    <button type="button" className="textBtn adminBackBtn" onClick={onBack}><ArrowLeft size={14}/> Kembali ke Menu Admin</button>
+    {!meta && <div className="notice error" style={{ marginTop: 12 }}>Panel "{panelId}" tidak dikenal.</div>}
+    {panelId === "dashboard" && <DashboardSummary token={rest.token}/>}
+    {panelId === "winrate" && <WinrateCard stats={rest.stats}/>}
+    {panelId === "status" && <AdminStatusPanel token={rest.token} status={rest.adminStatus} onUpdated={rest.loadAdminStatus}/>}
+    {panelId === "publish" && <AdminPanel latest={rest.latest} history={rest.history} onPublished={rest.onPublished} token={rest.token} setToken={rest.setToken} onSetResult={rest.onSetResult} busyResultId={rest.busyResultId}/>}
+    {panelId === "orders" && <AdminOrders token={rest.token}/>}
+    {panelId === "users" && <AdminUsers token={rest.token}/>}
+  </>;
+}
+
 function AppShell({ user, profile, refreshProfile, profileError }) {
   const [latest,setLatest]=useState(null);
   const [history,setHistory]=useState([]);
@@ -956,7 +994,19 @@ function AppShell({ user, profile, refreshProfile, profileError }) {
   const [paymentRefreshKey,setPaymentRefreshKey]=useState(0);
   const [adminToken,setAdminToken]=useState(()=>localStorage.getItem(ADMIN_TOKEN_KEY)||"");
   const [busyResultId,setBusyResultId]=useState("");
-  const [tab,setTab]=useState("signal");
+  const [tab,setTab]=useState(()=> new URLSearchParams(window.location.search).get("adminPanel") ? "admin" : "signal");
+  const [adminPanel,setAdminPanel]=useState(()=> new URLSearchParams(window.location.search).get("adminPanel") || "");
+  function openAdminPanel(id){
+    const url=new URL(window.location.href);
+    url.searchParams.set("adminPanel",id);
+    window.open(url.toString(),"_blank");
+  }
+  function closeAdminPanel(){
+    setAdminPanel("");
+    const url=new URL(window.location.href);
+    url.searchParams.delete("adminPanel");
+    window.history.replaceState({},"",url.toString());
+  }
   const premium=isPremiumProfile(profile);
   const admin=profile?.role==="admin";
 
@@ -1053,14 +1103,24 @@ function AppShell({ user, profile, refreshProfile, profileError }) {
 
       {tab==="telegram" && <TelegramPanel user={user} profile={profile} premium={premium} refresh={refreshProfile}/>}
 
-      {tab==="admin" && admin && <>
-        <DashboardSummary token={adminToken}/>
-        <WinrateCard stats={stats}/>
-        <AdminStatusPanel token={adminToken} status={adminStatus} onUpdated={loadAdminStatus}/>
-        <AdminPanel latest={latest} history={history} onPublished={()=>loadSignals()} token={adminToken} setToken={setAdminToken} onSetResult={setSignalResult} busyResultId={busyResultId}/>
-        <AdminOrders token={adminToken}/>
-        <AdminUsers token={adminToken}/>
-      </>}
+      {tab==="admin" && admin && (
+        adminPanel
+          ? <AdminPanelView
+              panelId={adminPanel}
+              onBack={closeAdminPanel}
+              token={adminToken}
+              setToken={setAdminToken}
+              stats={stats}
+              adminStatus={adminStatus}
+              loadAdminStatus={loadAdminStatus}
+              latest={latest}
+              history={history}
+              onPublished={()=>loadSignals()}
+              onSetResult={setSignalResult}
+              busyResultId={busyResultId}
+            />
+          : <AdminMenu onOpenPanel={openAdminPanel}/>
+      )}
 
       <footer><span>{APP_NAME}</span> • Signal information & AI assistance • Trading dengan risk management.</footer>
     </main>
