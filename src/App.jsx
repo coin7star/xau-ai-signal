@@ -632,6 +632,55 @@ function AdminStatusPanel({ token, status, onUpdated }) {
   </section>;
 }
 
+function AdminBroadcastPanel({ token }) {
+  const [text,setText]=useState("");
+  const [target,setTarget]=useState("premium_connected");
+  const [busy,setBusy]=useState(false);
+  const [result,setResult]=useState(null);
+
+  const TARGET_LABELS = {
+    premium_connected: "Premium aktif (connected Telegram)",
+    all_connected: "Semua user connected Telegram (termasuk yang belum premium)",
+    admin_connected: "Admin saja"
+  };
+
+  async function send(){
+    if(!token){ setResult({error:"❌ Isi & simpan ADMIN_ACTION_TOKEN dulu."}); return; }
+    if(text.trim().length<3){ setResult({error:"❌ Isi pesan promo minimal 3 karakter."}); return; }
+    if(!window.confirm(`Kirim broadcast promo ke "${TARGET_LABELS[target]}"?\nAksi ini langsung terkirim dan nggak bisa dibatalkan.`)) return;
+
+    setBusy(true); setResult(null);
+    try{
+      const res=await fetch("/api/admin-broadcast-telegram",{method:"POST",headers:{"Content-Type":"application/json",Authorization:`Bearer ${token}`},body:JSON.stringify({text,target})});
+      const data=await res.json();
+      if(!res.ok||!data.ok) throw new Error(data.error||"Gagal kirim broadcast.");
+      setResult({ok:true,data});
+      setText("");
+    }catch(e){ setResult({error:`❌ ${e.message}`}); }
+    finally{ setBusy(false); }
+  }
+
+  return <section className="adminSection newCard">
+    <div className="sectionHeader"><div><span className="eyebrow">ADMIN CONTROL</span><h3>Broadcast Promo</h3></div><Send size={20}/></div>
+    <p className="muted" style={{fontSize:13,marginBottom:14}}>Kirim notif promo langsung ke Telegram user yang udah connect bot. Cocok buat kabarin promo paket baru (mis. diskon "60 Hari") biar user tergerak upgrade/perpanjang.</p>
+    <div className="signalForm" style={{gap:12}}>
+      <label>Target penerima
+        <select value={target} onChange={e=>setTarget(e.target.value)}>
+          <option value="premium_connected">Premium aktif (connected Telegram)</option>
+          <option value="all_connected">Semua user connected Telegram (termasuk belum premium)</option>
+          <option value="admin_connected">Admin saja</option>
+        </select>
+      </label>
+      <label>Isi pesan promo<textarea value={text} onChange={e=>setText(e.target.value)} rows="4" placeholder='Contoh: 🔥 Promo spesial! Paket 60 Hari cuma Rp99.000 sampai akhir bulan ini. Sisa hari premium lo otomatis ditambah kalau upgrade sekarang.'/></label>
+      <div className="adminActions">
+        <button type="button" className="okBtn" disabled={busy} onClick={send}>{busy?"Mengirim...":"📣 Kirim Broadcast"}</button>
+      </div>
+      {result?.error && <div className="notice" style={{color:"#ff6b6b"}}>{result.error}</div>}
+      {result?.ok && <div className="notice">✅ Terkirim ke {result.data.successCount}/{result.data.totalRecipients} penerima{result.data.failedCount>0?` (${result.data.failedCount} gagal)`:""}.</div>}
+    </div>
+  </section>;
+}
+
 const REMIND_COOLDOWN_MS = 30 * 60 * 1000; // samain dengan backend (admin-orders.js)
 
 function AdminOrders({ token }) {
@@ -1129,7 +1178,8 @@ const ADMIN_GROUPS = [
   ]},
   { id: "ops", label: "Operasional Signal", panels: [
     { id: "publish", label: "Publish Signal", desc: "Terbitkan call baru, tutup/batalkan, test recap WR", icon: Megaphone },
-    { id: "status", label: "Status & Sapaan", desc: "Banner online/offline + broadcast Telegram", icon: Radio }
+    { id: "status", label: "Status & Sapaan", desc: "Banner online/offline + broadcast Telegram", icon: Radio },
+    { id: "broadcast", label: "Broadcast Promo", desc: "Kirim notif promo ke Telegram user", icon: Send }
   ]},
   { id: "people", label: "Pengguna & Order", panels: [
     { id: "orders", label: "Payment Orders", desc: "Approve / reject order premium user", icon: Wallet },
@@ -1181,6 +1231,7 @@ function AdminShell({ panelId, onSelect, ...rest }) {
       {activeId === "dashboard" && <DashboardSummary token={rest.token}/>}
       {activeId === "winrate" && <WinrateCard stats={rest.stats}/>}
       {activeId === "status" && <AdminStatusPanel token={rest.token} status={rest.adminStatus} onUpdated={rest.loadAdminStatus}/>}
+      {activeId === "broadcast" && <AdminBroadcastPanel token={rest.token}/>}
       {activeId === "publish" && <AdminPanel latest={rest.latest} history={rest.history} onPublished={rest.onPublished} token={rest.token} setToken={rest.setToken} onSetResult={rest.onSetResult} busyResultId={rest.busyResultId}/>}
       {activeId === "orders" && <AdminOrders token={rest.token}/>}
       {activeId === "users" && <AdminUsers token={rest.token}/>}
