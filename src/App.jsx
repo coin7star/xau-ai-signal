@@ -10,8 +10,10 @@ import {
   auth,
   captureReferralFromUrl,
   checkVoucher,
+  clearPendingWelcomeVoucher,
   createPaymentOrder,
   getMyReferral,
+  getPendingWelcomeVoucher,
   getUserPaymentOrders,
   getUserProfile,
   hasFirebaseClientConfig,
@@ -239,6 +241,7 @@ function PremiumBox({ profile, user, refresh, onOrderCreated }) {
   const [voucherChecking,setVoucherChecking]=useState(false);
   const [voucherResult,setVoucherResult]=useState(null); // {ok,error?, voucher, discountedPriceLabel,...}
   const [selectedPkg,setSelectedPkg]=useState("");
+  const [autoVoucherNote,setAutoVoucherNote]=useState("");
 
   useEffect(()=>{
     let alive=true;
@@ -256,6 +259,31 @@ function PremiumBox({ profile, user, refresh, onOrderCreated }) {
     return()=>{alive=false};
     // eslint-disable-next-line react-hooks/exhaustive-deps
   },[]);
+
+  // Step Referral bugfix: kalau user daftar lewat link referral, dia dapat
+  // voucher welcome dari server tapi sebelumnya ga pernah ditampilkan /
+  // diisikan kemana-mana - jadinya pas klik "Beli" harga tetap normal.
+  // Sekarang begitu paket & voucher sudah siap, otomatis diisi + dicek sekali.
+  useEffect(()=>{
+    if(loadingPkgs || !selectedPkg || voucherCode) return;
+    const pending = getPendingWelcomeVoucher();
+    if(!pending?.code) return;
+    setVoucherCode(pending.code);
+    setAutoVoucherNote(`Voucher welcome dari link referral (${pending.code}) otomatis diisi & dicek 👇`);
+    (async()=>{
+      setVoucherChecking(true);
+      try{
+        const data = await checkVoucher({code:pending.code, packageCode:selectedPkg});
+        setVoucherResult({ok:true, ...data});
+      }catch(e){
+        setVoucherResult({ok:false, error:e?.message||"Kode voucher welcome tidak valid lagi."});
+      }finally{
+        setVoucherChecking(false);
+        clearPendingWelcomeVoucher();
+      }
+    })();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  },[loadingPkgs,selectedPkg]);
 
   async function applyVoucher(){
     const code = voucherCode.trim().toUpperCase();
@@ -311,6 +339,7 @@ function PremiumBox({ profile, user, refresh, onOrderCreated }) {
         : "Subscriber premium mendapat notifikasi langsung saat admin menerbitkan sinyal."}</p>
 
       {!loadingPkgs && packages.length>0 && <div className="voucherBox">
+        {autoVoucherNote && <div className="voucherMsg ok" style={{marginBottom:8}}>🎁 {autoVoucherNote}</div>}
         <div className="voucherRow">
           <Ticket size={15}/>
           <input
@@ -1705,6 +1734,7 @@ function AppShell({ user, profile, refreshProfile, profileError }) {
   const [adminToken,setAdminToken]=useState(()=>localStorage.getItem(ADMIN_TOKEN_KEY)||"");
   const [busyResultId,setBusyResultId]=useState("");
   const [tab,setTab]=useState(()=> new URLSearchParams(window.location.search).get("adminPanel") ? "admin" : "signal");
+  const [welcomeVoucher,setWelcomeVoucher]=useState(()=>getPendingWelcomeVoucher());
   const [adminPanel,setAdminPanel]=useState(()=> new URLSearchParams(window.location.search).get("adminPanel") || "dashboard");
   function selectAdminPanel(id){
     setAdminPanel(id);
@@ -1786,6 +1816,13 @@ function AppShell({ user, profile, refreshProfile, profileError }) {
         <div><span className="eyebrow">XAUUSD • MANUAL CALL CENTER</span><h1>Informasi sinyal, <span>tanpa ribet.</span></h1><p>Admin menganalisa market secara manual. Setelah call diterbitkan, signal tampil di sini dan subscriber premium langsung menerima alert Telegram.</p><div className="welcomeStats"><span><Activity size={15}/> Live feed</span><span><Bot size={15}/> AI assistant</span><span><Crown size={15}/> Premium alert</span></div></div>
         <div className="miniPanel"><div className="miniTop"><span>ACCOUNT</span><span className={premium?"status premium":"status"}>{premium?"PREMIUM":"FREE"}</span></div><b>{user.email||"User"}</b><small>{profile?.telegramConnected?"Telegram connected":"Telegram not connected"}</small></div>
       </section>
+
+      {welcomeVoucher && <div className="notice ok" style={{display:"flex",alignItems:"center",gap:10,flexWrap:"wrap",marginBottom:14}}>
+        <Gift size={16}/>
+        <span style={{flex:1}}>Kamu daftar lewat link referral & dapat voucher welcome kode <b>{welcomeVoucher.code}</b> ({welcomeVoucher.discountPercent}% off pembelian pertama). Kode otomatis diisi di tab Premium.</span>
+        <button type="button" className="textBtn" onClick={()=>setTab("premium")}>Buka Tab Premium</button>
+        <button type="button" className="iconBtn" onClick={()=>{ clearPendingWelcomeVoucher(); setWelcomeVoucher(null); }}><X size={14}/></button>
+      </div>}
 
       {adminStatus?.online && <div className="adminOnlineBanner"><span className="onlineDot on"/><b>Mimin Online</b>{adminStatus.message && <span> — {adminStatus.message}</span>}</div>}
 

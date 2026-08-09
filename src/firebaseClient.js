@@ -152,6 +152,7 @@ export async function refreshCurrentUser() {
 }
 
 const REFERRAL_STORAGE_KEY = "xau_pending_ref_code";
+const WELCOME_VOUCHER_STORAGE_KEY = "xau_welcome_voucher";
 
 // Step Referral: simpan kode ?ref=KODE dari URL begitu halaman dibuka,
 // biar tetap kebawa walau user baru daftar setelah beberapa langkah
@@ -167,6 +168,30 @@ export function captureReferralFromUrl() {
   }
 }
 
+// Step Referral bugfix: voucher welcome yang dibalikin server (action=link)
+// sebelumnya cuma dibuang gitu aja - user daftar lewat link ref tapi ga
+// pernah lihat kode vouchernya sama sekali. Sekarang disimpan di
+// localStorage biar bisa ditampilkan + auto-diisi di halaman Premium.
+export function getPendingWelcomeVoucher() {
+  try {
+    const raw = localStorage.getItem(WELCOME_VOUCHER_STORAGE_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw);
+    if (!parsed?.code) return null;
+    if (parsed.expiresAt && new Date(parsed.expiresAt).getTime() < Date.now()) {
+      localStorage.removeItem(WELCOME_VOUCHER_STORAGE_KEY);
+      return null;
+    }
+    return parsed;
+  } catch {
+    return null;
+  }
+}
+
+export function clearPendingWelcomeVoucher() {
+  try { localStorage.removeItem(WELCOME_VOUCHER_STORAGE_KEY); } catch { /* noop */ }
+}
+
 async function linkPendingReferral(user) {
   if (!user) return;
   let code = "";
@@ -175,11 +200,15 @@ async function linkPendingReferral(user) {
 
   try {
     const idToken = await user.getIdToken();
-    await fetch("/api/referral", {
+    const res = await fetch("/api/referral", {
       method: "POST",
       headers: { "Content-Type": "application/json", Authorization: `Bearer ${idToken}` },
       body: JSON.stringify({ action: "link", code })
     });
+    const data = await res.json().catch(() => ({}));
+    if (data?.ok && data?.welcomeVoucher?.code) {
+      try { localStorage.setItem(WELCOME_VOUCHER_STORAGE_KEY, JSON.stringify(data.welcomeVoucher)); } catch { /* noop */ }
+    }
   } catch {
     // gagal link referral tidak boleh menggagalkan proses registrasi
   } finally {
