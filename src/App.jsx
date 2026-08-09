@@ -224,6 +224,10 @@ function AiPanel({ signal }) {
 
 function PremiumBox({ profile, user, refresh, onOrderCreated }) {
   const premium=isPremiumProfile(profile);
+  const daysLeft = premium && profile?.premiumUntil
+    ? Math.max(0, Math.ceil((new Date(profile.premiumUntil).getTime()-Date.now())/(24*60*60*1000)))
+    : null;
+  const expiringSoon = premium && daysLeft!==null && daysLeft<=3;
   const [busy,setBusy]=useState(false);
   const [packages,setPackages]=useState([]);
   const [loadingPkgs,setLoadingPkgs]=useState(true);
@@ -245,24 +249,26 @@ function PremiumBox({ profile, user, refresh, onOrderCreated }) {
     setBusy(true);
     try {
       await createPaymentOrder({user,profile,packageCode:code,packageLabel:label,price});
-      alert("Order dibuat. Silakan ikuti instruksi pembayaran/admin.");
+      alert(premium ? "Order perpanjangan dibuat. Sisa hari aktif kamu bakal otomatis ditambah setelah disetujui admin." : "Order dibuat. Silakan ikuti instruksi pembayaran/admin.");
       onOrderCreated?.();
     }
     catch(e){ alert(e?.message||"Gagal membuat order."); }
     finally { setBusy(false); refresh(); }
   }
-  return <section className={`premiumBox newCard ${premium?"active":""}`}>
+  return <section id="premium-renew" className={`premiumBox newCard ${premium?"active":""} ${expiringSoon?"warn":""}`}>
     <div className="premiumIcon"><Crown size={21}/></div>
     <div className="premiumBody">
-      <span className="eyebrow">{premium?"PREMIUM ACTIVE":"PREMIUM ALERT"}</span>
-      <h3>{premium ? "Alert Telegram kamu aktif" : "Jangan ketinggalan CALL"}</h3>
-      <p>{premium ? `Aktif sampai ${fmtDate(profile?.premiumUntil)}.` : "Subscriber premium mendapat notifikasi langsung saat admin menerbitkan sinyal."}</p>
+      <span className="eyebrow">{premium ? (expiringSoon?"PREMIUM MAU HABIS":"PREMIUM ACTIVE") : "PREMIUM ALERT"}</span>
+      <h3>{premium ? (expiringSoon?`Tinggal ${daysLeft} hari lagi!`:"Alert Telegram kamu aktif") : "Jangan ketinggalan CALL"}</h3>
+      <p>{premium
+        ? `Aktif sampai ${fmtDate(profile?.premiumUntil)}. ${expiringSoon?"Perpanjang sekarang biar nggak putus":"Mau nambah durasi? Beli paket lagi"}, sisa hari otomatis ditambahkan.`
+        : "Subscriber premium mendapat notifikasi langsung saat admin menerbitkan sinyal."}</p>
     </div>
-    {!premium && !loadingPkgs && <div className="premiumActions">
+    {!loadingPkgs && <div className="premiumActions">
       {packages.map(p=> (
         <button key={p.code} disabled={busy} onClick={()=>buy(p.code,p.label,p.priceLabel)}>
           {p.promo && <span className="promoBadge">{p.promo.label}</span>}
-          <span>{p.label} • {p.promo?.originalPriceLabel && <s className="promoOldPrice">{p.promo.originalPriceLabel}</s>} {p.priceLabel}</span>
+          <span>{premium?"Perpanjang":"Beli"} {p.label} • {p.promo?.originalPriceLabel && <s className="promoOldPrice">{p.promo.originalPriceLabel}</s>} {p.priceLabel}</span>
         </button>
       ))}
     </div>}

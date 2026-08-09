@@ -36,6 +36,7 @@ export async function onRequest({ request, env }) {
   const resendKey = env.RESEND_API_KEY || "";
   const emailFrom = env.EMAIL_FROM || "XAU AI Signal <onboarding@resend.dev>";
   const botToken = env.TELEGRAM_BOT_TOKEN || "";
+  const renewUrl = `${(env.APP_URL || "https://www.xauaisignal.online").replace(/\/$/, "")}/#premium-renew`;
 
   if (!dbUrl) return json({ ok: false, error: "FIREBASE_DATABASE_URL belum diset" }, 500);
 
@@ -114,11 +115,11 @@ export async function onRequest({ request, env }) {
       const entry = { uid: user.uid, email: user.email || null, daysLeft, email_ok: null, telegram_ok: null };
 
       if (resendKey && user.email) {
-        entry.email_ok = await sendReminderEmail(resendKey, emailFrom, user, daysLeft);
+        entry.email_ok = await sendReminderEmail(resendKey, emailFrom, user, daysLeft, renewUrl);
       }
 
       if (botToken && user.telegramConnected && user.telegramChatId) {
-        const sent = await sendTelegram(botToken, String(user.telegramChatId), buildTelegramText(user, daysLeft));
+        const sent = await sendTelegram(botToken, String(user.telegramChatId), buildTelegramText(user, daysLeft), buildRenewKeyboard(renewUrl));
         entry.telegram_ok = sent.ok;
       }
 
@@ -191,10 +192,10 @@ function daysLeftOf(user, now) {
   return Math.max(0, Math.ceil((untilMs - now) / ONE_DAY_MS));
 }
 
-async function sendReminderEmail(resendKey, emailFrom, user, daysLeft) {
+async function sendReminderEmail(resendKey, emailFrom, user, daysLeft, renewUrl) {
   try {
     const untilLabel = formatDateID(user.premiumUntil);
-    const html = buildEmailHtml(user, daysLeft, untilLabel);
+    const html = buildEmailHtml(user, daysLeft, untilLabel, renewUrl);
     const res = await fetch("https://api.resend.com/emails", {
       method: "POST",
       headers: { "Authorization": `Bearer ${resendKey}`, "Content-Type": "application/json" },
@@ -211,7 +212,7 @@ async function sendReminderEmail(resendKey, emailFrom, user, daysLeft) {
   }
 }
 
-function buildEmailHtml(user, daysLeft, untilLabel) {
+function buildEmailHtml(user, daysLeft, untilLabel, renewUrl) {
   return `
   <div style="font-family:Arial,sans-serif;line-height:1.6;color:#111827">
     <h2>XAU AI Signal</h2>
@@ -220,7 +221,12 @@ function buildEmailHtml(user, daysLeft, untilLabel) {
     <div style="font-size:20px;font-weight:900;background:#111827;color:#facc15;padding:14px 18px;border-radius:14px;width:max-content">
       ${untilLabel}
     </div>
-    <p style="margin-top:16px">Perpanjang sekarang biar tetap dapat sinyal live, AI Analysis, dan alert Telegram tanpa putus.</p>
+    <p style="margin-top:16px">Perpanjang sekarang biar tetap dapat sinyal live, AI Analysis, dan alert Telegram tanpa putus. Sisa hari aktif kamu otomatis ditambahkan ke masa aktif baru, jadi nggak ada yang hangus.</p>
+    <p style="margin-top:20px">
+      <a href="${renewUrl}" style="display:inline-block;background:#facc15;color:#111827;font-weight:900;padding:12px 22px;border-radius:12px;text-decoration:none">
+        Perpanjang Sekarang →
+      </a>
+    </p>
     <p>Thanks,<br/>XAU AI Signal Team</p>
   </div>`;
 }
@@ -233,8 +239,16 @@ function buildTelegramText(user, daysLeft) {
     `Masa aktif Premium XAU AI Signal ${daysLeft <= 1 ? "berakhir <b>besok</b>" : `berakhir dalam <b>${daysLeft} hari</b>`}.`,
     `Tanggal: <b>${untilLabel}</b>`,
     "",
-    "Perpanjang sekarang biar tetap dapat sinyal live & alert Telegram tanpa putus."
+    "Perpanjang sekarang biar tetap dapat sinyal live & alert Telegram tanpa putus. Sisa hari aktif otomatis ditambahkan, nggak hangus."
   ].join("\n");
+}
+
+function buildRenewKeyboard(renewUrl) {
+  return {
+    inline_keyboard: [
+      [{ text: "💳 Perpanjang Sekarang", url: renewUrl }]
+    ]
+  };
 }
 
 function formatDateID(iso) {
@@ -245,12 +259,14 @@ function formatDateID(iso) {
   }
 }
 
-async function sendTelegram(token, chatId, text) {
+async function sendTelegram(token, chatId, text, replyMarkup = null) {
   try {
+    const payload = { chat_id: chatId, text, parse_mode: "HTML", disable_web_page_preview: true };
+    if (replyMarkup) payload.reply_markup = replyMarkup;
     const res = await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ chat_id: chatId, text, parse_mode: "HTML", disable_web_page_preview: true })
+      body: JSON.stringify(payload)
     });
     return { ok: res.ok, status: res.status };
   } catch (err) {
