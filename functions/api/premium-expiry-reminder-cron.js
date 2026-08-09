@@ -53,7 +53,12 @@ export async function onRequest({ request, env }) {
     return json({ ok: false, error: "Token tidak valid. Pakai cron secret, atau admin token + preview:true." }, 401);
   }
 
-  const usersRaw = await fbGet(dbUrl, "/users");
+  let usersRaw;
+  try {
+    usersRaw = await fbGet(dbUrl, "/users");
+  } catch (err) {
+    return json({ ok: false, error: `Gagal ambil data users dari Firebase: ${String(err?.message || err)}` }, 500);
+  }
   const usersObj = usersRaw || {};
   const now = Date.now();
 
@@ -92,46 +97,63 @@ export async function onRequest({ request, env }) {
 
   const results = [];
 
-  for (const user of candidates) {
-    const daysLeft = daysLeftOf(user, now);
-    const entry = { uid: user.uid, email: user.email || null, daysLeft, email_ok: null, telegram_ok: null };
+  try {
+    for (const user of candidates) {
+      const daysLeft = daysLeftOf(user, now);
+      const entry = { uid: user.uid, email: user.email || null, daysLeft, email_ok: null, telegram_ok: null };
 
-    if (resendKey && user.email) {
-      entry.email_ok = await sendReminderEmail(resendKey, emailFrom, user, daysLeft);
+      if (resendKey && user.email) {
+        entry.email_ok = await sendReminderEmail(resendKey, emailFrom, user, daysLeft);
+      }
+
+      if (botToken && user.telegramConnected && user.telegramChatId) {
+        const sent = await sendTelegram(botToken, String(user.telegramChatId), buildTelegramText(user, daysLeft));
+        entry.telegram_ok = sent.ok;
+      }
+
+      results.push(entry);
+
+      // Dedupe cuma ditandai untuk pengiriman resmi (cron asli, bukan test 1 user).
+      if (isCron) {
+        try {
+          await fbPatch(dbUrl, `/users/${user.uid}`, {
+            premiumReminder1DaySentAt: new Date(now).toISOString(),
+            premiumReminder1DaySentFor: user.premiumUntil
+          });
+        } catch (e) {
+          entry.dedupe_write_error = String(e?.message || e);
+        }
+      }
     }
 
-    if (botToken && user.telegramConnected && user.telegramChatId) {
-      const sent = await sendTelegram(botToken, String(user.telegramChatId), buildTelegramText(user, daysLeft));
-      entry.telegram_ok = sent.ok;
-    }
-
-    results.push(entry);
-
-    // Dedupe cuma ditandai untuk pengiriman resmi (cron asli, bukan test 1 user).
-    if (isCron) {
-      await fbPatch(dbUrl, `/users/${user.uid}`, {
-        premiumReminder1DaySentAt: new Date(now).toISOString(),
-        premiumReminder1DaySentFor: user.premiumUntil
+    try {
+      await fbPatch(dbUrl, `/xauusd/system/premiumReminderCron`, {
+        lastRunAt: new Date(now).toISOString(),
+        lastStatus: "OK",
+        totalSent: results.length
       });
+    } catch (e) {
+      // Status log gagal ditulis, tapi reminder yang sudah terkirim tidak dibatalkan.
     }
-  }
 
-  const logId = new Date(now).toISOString().replace(/[.:]/g, "_");
-  await fbPut(dbUrl, `/xauusd/system/premiumReminderCron`, {
-    lastRunAt: new Date(now).toISOString(),
-    lastStatus: "OK",
-    totalSent: results.length
-  });
-  if (isCron) {
-    await fbPut(dbUrl, `/premiumReminderLogs/${logId}`, { createdAt: new Date(now).toISOString(), results });
-  }
+    if (isCron) {
+      try {
+        const logId = new Date(now).toISOString().replace(/[.:]/g, "_");
+        await fbPut(dbUrl, `/premiumReminderLogs/${logId}`, { createdAt: new Date(now).toISOString(), results });
+      } catch (e) {
+        // Log history gagal ditulis, tidak fatal.
+      }
+    }
 
-  return json({
-    ok: true,
-    mode: isAdminPreview ? "test-single-user" : "cron",
-    totalSent: results.length,
-    results
-  });
+    return json({
+      ok: true,
+      mode: isAdminPreview ? "test-single-user" : "cron",
+      totalSent: results.length,
+      results
+    });
+  } catch (err) {
+    return json({ ok: false, error: `Gagal proses reminder: ${String(err?.message || err)}`, partialResults: results }, 500);
+  }
 }
 
 function isEligibleForReminder(user, now) {
