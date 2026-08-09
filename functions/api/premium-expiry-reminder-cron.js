@@ -39,6 +39,17 @@ export async function onRequest({ request, env }) {
 
   if (!dbUrl) return json({ ok: false, error: "FIREBASE_DATABASE_URL belum diset" }, 500);
 
+  // Pakai service account (sama pola dengan admin-user.js / wr-recap-cron.js) supaya
+  // request ke Firebase RTDB dianggap "admin" dan tidak diblokir oleh security rules
+  // (rules cuma izinkan user baca/tulis /users/{uid} miliknya sendiri).
+  let accessToken = null;
+  try {
+    const service = readServiceAccount(env);
+    if (service) accessToken = await getGoogleAccessToken(service);
+  } catch (e) {
+    return json({ ok: false, error: `Gagal ambil Firebase service-account token: ${e?.message || e}` }, 500);
+  }
+
   let body = {};
   try { body = await request.json(); } catch { body = {}; }
 
@@ -55,7 +66,7 @@ export async function onRequest({ request, env }) {
 
   let usersRaw;
   try {
-    usersRaw = await fbGet(dbUrl, "/users");
+    usersRaw = await fbGet(dbUrl, "/users", accessToken);
   } catch (err) {
     return json({ ok: false, error: `Gagal ambil data users dari Firebase: ${String(err?.message || err)}` }, 500);
   }
@@ -119,7 +130,7 @@ export async function onRequest({ request, env }) {
           await fbPatch(dbUrl, `/users/${user.uid}`, {
             premiumReminder1DaySentAt: new Date(now).toISOString(),
             premiumReminder1DaySentFor: user.premiumUntil
-          });
+          }, accessToken);
         } catch (e) {
           entry.dedupe_write_error = String(e?.message || e);
         }
@@ -131,7 +142,7 @@ export async function onRequest({ request, env }) {
         lastRunAt: new Date(now).toISOString(),
         lastStatus: "OK",
         totalSent: results.length
-      });
+      }, accessToken);
     } catch (e) {
       // Status log gagal ditulis, tapi reminder yang sudah terkirim tidak dibatalkan.
     }
@@ -139,7 +150,7 @@ export async function onRequest({ request, env }) {
     if (isCron) {
       try {
         const logId = new Date(now).toISOString().replace(/[.:]/g, "_");
-        await fbPut(dbUrl, `/premiumReminderLogs/${logId}`, { createdAt: new Date(now).toISOString(), results });
+        await fbPut(dbUrl, `/premiumReminderLogs/${logId}`, { createdAt: new Date(now).toISOString(), results }, accessToken);
       } catch (e) {
         // Log history gagal ditulis, tidak fatal.
       }
@@ -247,14 +258,22 @@ async function sendTelegram(token, chatId, text) {
   }
 }
 
-async function fbGet(dbUrl, path) {
-  const res = await fetch(`${dbUrl}${path}.json?ts=${Date.now()}`, { headers: { "Cache-Control": "no-cache" } });
-  if (!res.ok) return null;
+async function fbGet(dbUrl, path, accessToken) {
+  const url = new URL(`${dbUrl}${path}.json`);
+  url.searchParams.set("ts", String(Date.now()));
+  if (accessToken) url.searchParams.set("access_token", accessToken);
+  const res = await fetch(url.toString(), { headers: { "Cache-Control": "no-cache" } });
+  if (!res.ok) {
+    const body = await res.text().catch(() => "");
+    throw new Error(`Firebase GET ${path} gagal (${res.status}): ${body.slice(0, 180)}`);
+  }
   return await res.json();
 }
 
-async function fbPut(dbUrl, path, data) {
-  const res = await fetch(`${dbUrl}${path}.json`, {
+async function fbPut(dbUrl, path, data, accessToken) {
+  const url = new URL(`${dbUrl}${path}.json`);
+  if (accessToken) url.searchParams.set("access_token", accessToken);
+  const res = await fetch(url.toString(), {
     method: "PUT",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(data)
@@ -263,8 +282,10 @@ async function fbPut(dbUrl, path, data) {
   return await res.json();
 }
 
-async function fbPatch(dbUrl, path, data) {
-  const res = await fetch(`${dbUrl}${path}.json`, {
+async function fbPatch(dbUrl, path, data, accessToken) {
+  const url = new URL(`${dbUrl}${path}.json`);
+  if (accessToken) url.searchParams.set("access_token", accessToken);
+  const res = await fetch(url.toString(), {
     method: "PATCH",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(data)
@@ -275,4 +296,83 @@ async function fbPatch(dbUrl, path, data) {
 
 function json(payload, status = 200) {
   return new Response(JSON.stringify(payload, null, 2), { status, headers: { ...H, "Cache-Control": "no-store" } });
+}
+
+function readServiceAccount(env) {
+  const jsonRaw = env.FIREBASE_SERVICE_ACCOUNT_JSON || env.FIREBASE_SERVICE_ACCOUNT || env.FIREBASE_ADMIN_SERVICE_ACCOUNT || "";
+  if (jsonRaw) {
+    try {
+      const parsed = JSON.parse(jsonRaw);
+      return normalizeServiceAccount({
+        projectId: parsed.project_id || parsed.projectId,
+        clientEmail: parsed.client_email || parsed.clientEmail,
+        privateKey: parsed.private_key || parsed.privateKey
+      });
+    } catch {
+      throw new Error("FIREBASE_SERVICE_ACCOUNT_JSON tidak valid.");
+    }
+  }
+  const projectId = env.FIREBASE_PROJECT_ID || env.FIREBASE_SERVICE_ACCOUNT_PROJECT_ID || env.FIREBASE_ADMIN_PROJECT_ID || env.VITE_FIREBASE_PROJECT_ID || "";
+  const clientEmail = env.FIREBASE_SERVICE_ACCOUNT_CLIENT_EMAIL || env.FIREBASE_CLIENT_EMAIL || env.FIREBASE_ADMIN_CLIENT_EMAIL || "";
+  const privateKey = env.FIREBASE_SERVICE_ACCOUNT_PRIVATE_KEY || env.FIREBASE_PRIVATE_KEY || env.FIREBASE_ADMIN_PRIVATE_KEY || "";
+  if (!projectId || !clientEmail || !privateKey) return null;
+  return normalizeServiceAccount({ projectId, clientEmail, privateKey });
+}
+
+function normalizeServiceAccount({ projectId, clientEmail, privateKey }) {
+  const cleanProjectId = String(projectId || "").trim();
+  const cleanClientEmail = String(clientEmail || "").trim();
+  const cleanPrivateKey = String(privateKey || "").replace(/\\n/g, "\n").trim();
+  if (!cleanProjectId || !cleanClientEmail || !cleanPrivateKey) return null;
+  return { projectId: cleanProjectId, clientEmail: cleanClientEmail, privateKey: cleanPrivateKey };
+}
+
+async function getGoogleAccessToken(service) {
+  const now = Math.floor(Date.now() / 1000);
+  const header = { alg: "RS256", typ: "JWT" };
+  const payload = {
+    iss: service.clientEmail,
+    scope: "https://www.googleapis.com/auth/firebase.database https://www.googleapis.com/auth/userinfo.email",
+    aud: "https://oauth2.googleapis.com/token",
+    iat: now,
+    exp: now + 3600
+  };
+  const unsigned = `${base64UrlJson(header)}.${base64UrlJson(payload)}`;
+  const signature = await signRs256(unsigned, service.privateKey);
+  const assertion = `${unsigned}.${signature}`;
+  const res = await fetch("https://oauth2.googleapis.com/token", {
+    method: "POST",
+    headers: { "Content-Type": "application/x-www-form-urlencoded" },
+    body: new URLSearchParams({ grant_type: "urn:ietf:params:oauth:grant-type:jwt-bearer", assertion })
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok || !data.access_token) throw new Error(data?.error_description || data?.error || "Gagal mengambil Firebase service-account access token.");
+  return data.access_token;
+}
+
+async function signRs256(input, privateKeyPem) {
+  const keyData = pemToArrayBuffer(privateKeyPem);
+  const key = await crypto.subtle.importKey("pkcs8", keyData, { name: "RSASSA-PKCS1-v1_5", hash: "SHA-256" }, false, ["sign"]);
+  const signature = await crypto.subtle.sign("RSASSA-PKCS1-v1_5", key, new TextEncoder().encode(input));
+  return arrayBufferToBase64Url(signature);
+}
+
+function pemToArrayBuffer(pem) {
+  const clean = String(pem || "").replace(/-----BEGIN PRIVATE KEY-----/g, "").replace(/-----END PRIVATE KEY-----/g, "").replace(/\s/g, "");
+  const binary = atob(clean);
+  const bytes = new Uint8Array(binary.length);
+  for (let i = 0; i < binary.length; i += 1) bytes[i] = binary.charCodeAt(i);
+  return bytes.buffer;
+}
+
+function base64UrlJson(value) {
+  return arrayBufferToBase64Url(new TextEncoder().encode(JSON.stringify(value)).buffer);
+}
+
+function arrayBufferToBase64Url(buffer) {
+  const bytes = new Uint8Array(buffer);
+  let binary = "";
+  const chunkSize = 0x8000;
+  for (let i = 0; i < bytes.length; i += chunkSize) binary += String.fromCharCode(...bytes.subarray(i, i + chunkSize));
+  return btoa(binary).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/g, "");
 }
