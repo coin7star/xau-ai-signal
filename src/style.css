@@ -31,3 +31,29 @@
 .resultBadge.closed{background:rgba(255,255,255,.08);color:#aeb9ce}.resultBadge.cancelled{background:rgba(255,148,60,.14);color:#ffb27a}.closeBox{margin-top:18px;padding:18px;border-radius:16px;border:1px solid rgba(255,255,255,.08);background:rgba(255,255,255,.02);display:grid;gap:12px}.closeBox label{color:#7f8ba3;font-size:11px;font-weight:900;display:grid;gap:7px}.closeBox textarea{width:100%;background:#080b12;border:1px solid rgba(255,255,255,.1);color:#eaf0fc;border-radius:12px;padding:11px 13px;outline:none;resize:vertical;font-size:12.5px}.closeReasonNote{margin-top:10px;padding:11px 13px;border-radius:12px;background:rgba(255,148,60,.08);color:#ffc39a;font-size:12.5px;line-height:1.6}.feedCloseReason{display:block;color:#ffb27a;font-size:11px;margin-top:3px}
 .adminOnlineBanner{display:flex;align-items:center;gap:10px;padding:13px 16px;border-radius:14px;background:rgba(51,214,142,.1);border:1px solid rgba(51,214,142,.22);color:#c9f5df;font-size:13px;margin-bottom:16px}.adminOnlineBanner b{color:#7dedb2}.onlineDot{width:9px;height:9px;border-radius:50%;background:#5b6478;flex-shrink:0}.onlineDot.on{background:#33d68e;box-shadow:0 0 0 4px rgba(51,214,142,.18)}.statusNow{display:flex;align-items:center;gap:9px;padding:12px 14px;border-radius:12px;background:rgba(255,255,255,.03);font-size:13px}.checkRow{display:flex!important;flex-direction:row!important;align-items:center;gap:8px;font-weight:800!important;color:#aab5ca!important}.checkRow input{width:auto!important}
 .winrateStat.pip b{color:#ffc95c}@media(max-width:850px){.winrateGrid{grid-template-columns:1fr 1fr 1fr}}
+.adminShell{display:grid;grid-template-columns:248px 1fr;gap:18px;align-items:start;margin-top:24px}
+.adminSidebar{position:sticky;top:18px;background:rgba(9,12,19,.92);border:1px solid rgba(255,255,255,.07);border-radius:20px;padding:16px 12px;box-shadow:0 20px 60px rgba(0,0,0,.28)}
+.adminSidebarHead{display:flex;align-items:center;gap:8px;color:#ffc95c;font-size:11px;font-weight:1000;letter-spacing:.09em;padding:6px 10px 14px;border-bottom:1px solid rgba(255,255,255,.06);margin-bottom:10px}
+.adminNavGroup{margin-bottom:14px}
+.adminNavGroup:last-child{margin-bottom:0}
+.adminNavGroupLabel{display:block;padding:0 10px 6px;font-size:10px;letter-spacing:.08em;color:#5f6b85;font-weight:1000;text-transform:uppercase}
+.adminNavItem{display:flex;align-items:center;gap:10px;width:100%;text-align:left;padding:10px 10px;border-radius:12px;border:1px solid transparent;background:transparent;color:#9aa6bf;font-weight:800;font-size:13px;margin-bottom:2px;border-left:3px solid transparent}
+.adminNavItem svg{opacity:.85;flex-shrink:0}
+.adminNavItem:hover{background:rgba(255,255,255,.045);color:#dbe3f2}
+.adminNavItem.active{background:rgba(255,201,92,.08);border-color:rgba(255,201,92,.16);border-left:3px solid #ffc95c;color:#ffe3ad;padding-left:9px}
+.adminNavItem.active svg{opacity:1;color:#ffc95c}
+.adminContent{min-width:0}
+.adminContentHead{padding:20px 22px;margin-bottom:14px;background:rgba(14,18,29,.86);border:1px solid rgba(255,255,255,.09);border-radius:20px;box-shadow:0 20px 60px rgba(0,0,0,.2)}
+.adminContentHead h3{margin:5px 0 4px;font-size:22px;letter-spacing:-.03em}
+.adminContentHead p{margin:0;color:#8996b2;font-size:13px}
+.adminContent>.adminSection,.adminContent>.newCard{margin-top:0;margin-bottom:14px}
+.adminContent .dashGrid{grid-template-columns:repeat(auto-fit,minmax(150px,1fr))}
+@media(max-width:880px){
+  .adminShell{grid-template-columns:1fr;gap:12px}
+  .adminSidebar{position:static;padding:10px;display:flex;overflow-x:auto;gap:4px}
+  .adminSidebarHead{display:none}
+  .adminNavGroup{display:flex;gap:4px;margin-bottom:0;flex-shrink:0}
+  .adminNavGroupLabel{display:none}
+  .adminNavItem{flex-direction:row;white-space:nowrap;width:auto;border-left:none;border-bottom:3px solid transparent;padding:9px 12px}
+  .adminNavItem.active{padding-left:12px;border-left:none;border-bottom:3px solid #ffc95c}
+}

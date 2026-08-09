@@ -1,8 +1,8 @@
 import { useEffect, useMemo, useState } from "react";
 import { verifyPasswordResetCode, confirmPasswordReset, applyActionCode } from "firebase/auth";
 import {
-  Activity, ArrowLeft, Bell, Bot, CheckCircle2, Clock3, Copy, Crown, ExternalLink, LogIn,
-  LogOut, Menu, RefreshCw, Send, Shield, Sparkles, Target, TrendingDown,
+  Activity, ArrowLeft, Bell, Bot, CheckCircle2, Clock3, Copy, Crown, LayoutDashboard, LogIn,
+  LogOut, Megaphone, Menu, Radio, RefreshCw, Send, Shield, Sparkles, Target, TrendingDown,
   TrendingUp, User, Users, Wallet, X, Zap
 } from "lucide-react";
 import Landing from "./Landing";
@@ -947,42 +947,68 @@ function AdminUserRow({ u, busy, onGrant, onRevoke, onMakeAdmin, onRemoveAdmin, 
   </article>;
 }
 
-const ADMIN_PANELS = [
-  { id: "dashboard", label: "Dashboard Ringkasan", desc: "Revenue, user premium aktif, order pending" },
-  { id: "publish", label: "Publish Signal", desc: "Terbitkan call baru, tutup/batalkan, test recap WR" },
-  { id: "status", label: "Status & Sapaan", desc: "Banner online/offline + broadcast Telegram" },
-  { id: "orders", label: "Payment Orders", desc: "Approve / reject order premium user" },
-  { id: "users", label: "User Management", desc: "Kelola role, kasih premium, tes reminder H-1" },
-  { id: "winrate", label: "Winrate Signal Manual", desc: "Statistik performa signal (7/30 hari)" }
+const ADMIN_GROUPS = [
+  { id: "overview", label: "Ringkasan", panels: [
+    { id: "dashboard", label: "Dashboard", desc: "Revenue, user premium aktif, order pending", icon: LayoutDashboard }
+  ]},
+  { id: "ops", label: "Operasional Signal", panels: [
+    { id: "publish", label: "Publish Signal", desc: "Terbitkan call baru, tutup/batalkan, test recap WR", icon: Megaphone },
+    { id: "status", label: "Status & Sapaan", desc: "Banner online/offline + broadcast Telegram", icon: Radio }
+  ]},
+  { id: "people", label: "Pengguna & Order", panels: [
+    { id: "orders", label: "Payment Orders", desc: "Approve / reject order premium user", icon: Wallet },
+    { id: "users", label: "User Management", desc: "Kelola role, kasih premium, tes reminder H-1", icon: Users }
+  ]},
+  { id: "stats", label: "Statistik", panels: [
+    { id: "winrate", label: "Winrate Signal", desc: "Statistik performa signal (7/30 hari)", icon: Target }
+  ]}
 ];
+const ADMIN_PANELS = ADMIN_GROUPS.flatMap(g => g.panels);
 
-function AdminMenu({ onOpenPanel }) {
-  return <section className="adminSection newCard">
-    <div className="sectionHeader"><div><span className="eyebrow">ADMIN CONTROL</span><h3>Menu Admin</h3></div><Shield size={20}/></div>
-    <div className="adminMenuList">
-      {ADMIN_PANELS.map(p => (
-        <button key={p.id} type="button" className="adminMenuItem" onClick={() => onOpenPanel(p.id)}>
-          <div><b>{p.label}</b><span>{p.desc}</span></div>
-          <ExternalLink size={16}/>
-        </button>
-      ))}
+function AdminShell({ panelId, onSelect, ...rest }) {
+  const activeId = ADMIN_PANELS.some(p => p.id === panelId) ? panelId : "dashboard";
+  const active = ADMIN_PANELS.find(p => p.id === activeId);
+  const activeGroup = ADMIN_GROUPS.find(g => g.panels.some(p => p.id === activeId));
+
+  return <section className="adminShell">
+    <aside className="adminSidebar">
+      <div className="adminSidebarHead"><Shield size={16}/><span>ADMIN CONTROL ROOM</span></div>
+      <nav>
+        {ADMIN_GROUPS.map(g => (
+          <div className="adminNavGroup" key={g.id}>
+            <span className="adminNavGroupLabel">{g.label}</span>
+            {g.panels.map(p => {
+              const Icon = p.icon;
+              return (
+                <button
+                  key={p.id}
+                  type="button"
+                  className={`adminNavItem${p.id === activeId ? " active" : ""}`}
+                  onClick={() => onSelect(p.id)}
+                >
+                  <Icon size={16}/>
+                  <span>{p.label}</span>
+                </button>
+              );
+            })}
+          </div>
+        ))}
+      </nav>
+    </aside>
+
+    <div className="adminContent">
+      <div className="adminContentHead">
+        <div><span className="eyebrow">{activeGroup?.label?.toUpperCase()}</span><h3>{active?.label}</h3><p>{active?.desc}</p></div>
+      </div>
+
+      {activeId === "dashboard" && <DashboardSummary token={rest.token}/>}
+      {activeId === "winrate" && <WinrateCard stats={rest.stats}/>}
+      {activeId === "status" && <AdminStatusPanel token={rest.token} status={rest.adminStatus} onUpdated={rest.loadAdminStatus}/>}
+      {activeId === "publish" && <AdminPanel latest={rest.latest} history={rest.history} onPublished={rest.onPublished} token={rest.token} setToken={rest.setToken} onSetResult={rest.onSetResult} busyResultId={rest.busyResultId}/>}
+      {activeId === "orders" && <AdminOrders token={rest.token}/>}
+      {activeId === "users" && <AdminUsers token={rest.token}/>}
     </div>
-    <p className="muted" style={{ marginTop: 14, fontSize: 12 }}>Tiap panel dibuka di tab browser baru, biar nggak numpuk semua sekaligus di sini.</p>
   </section>;
-}
-
-function AdminPanelView({ panelId, onBack, ...rest }) {
-  const meta = ADMIN_PANELS.find(p => p.id === panelId);
-  return <>
-    <button type="button" className="textBtn adminBackBtn" onClick={onBack}><ArrowLeft size={14}/> Kembali ke Menu Admin</button>
-    {!meta && <div className="notice error" style={{ marginTop: 12 }}>Panel "{panelId}" tidak dikenal.</div>}
-    {panelId === "dashboard" && <DashboardSummary token={rest.token}/>}
-    {panelId === "winrate" && <WinrateCard stats={rest.stats}/>}
-    {panelId === "status" && <AdminStatusPanel token={rest.token} status={rest.adminStatus} onUpdated={rest.loadAdminStatus}/>}
-    {panelId === "publish" && <AdminPanel latest={rest.latest} history={rest.history} onPublished={rest.onPublished} token={rest.token} setToken={rest.setToken} onSetResult={rest.onSetResult} busyResultId={rest.busyResultId}/>}
-    {panelId === "orders" && <AdminOrders token={rest.token}/>}
-    {panelId === "users" && <AdminUsers token={rest.token}/>}
-  </>;
 }
 
 function AppShell({ user, profile, refreshProfile, profileError }) {
@@ -995,16 +1021,11 @@ function AppShell({ user, profile, refreshProfile, profileError }) {
   const [adminToken,setAdminToken]=useState(()=>localStorage.getItem(ADMIN_TOKEN_KEY)||"");
   const [busyResultId,setBusyResultId]=useState("");
   const [tab,setTab]=useState(()=> new URLSearchParams(window.location.search).get("adminPanel") ? "admin" : "signal");
-  const [adminPanel,setAdminPanel]=useState(()=> new URLSearchParams(window.location.search).get("adminPanel") || "");
-  function openAdminPanel(id){
+  const [adminPanel,setAdminPanel]=useState(()=> new URLSearchParams(window.location.search).get("adminPanel") || "dashboard");
+  function selectAdminPanel(id){
+    setAdminPanel(id);
     const url=new URL(window.location.href);
     url.searchParams.set("adminPanel",id);
-    window.open(url.toString(),"_blank");
-  }
-  function closeAdminPanel(){
-    setAdminPanel("");
-    const url=new URL(window.location.href);
-    url.searchParams.delete("adminPanel");
     window.history.replaceState({},"",url.toString());
   }
   const premium=isPremiumProfile(profile);
@@ -1104,22 +1125,20 @@ function AppShell({ user, profile, refreshProfile, profileError }) {
       {tab==="telegram" && <TelegramPanel user={user} profile={profile} premium={premium} refresh={refreshProfile}/>}
 
       {tab==="admin" && admin && (
-        adminPanel
-          ? <AdminPanelView
-              panelId={adminPanel}
-              onBack={closeAdminPanel}
-              token={adminToken}
-              setToken={setAdminToken}
-              stats={stats}
-              adminStatus={adminStatus}
-              loadAdminStatus={loadAdminStatus}
-              latest={latest}
-              history={history}
-              onPublished={()=>loadSignals()}
-              onSetResult={setSignalResult}
-              busyResultId={busyResultId}
-            />
-          : <AdminMenu onOpenPanel={openAdminPanel}/>
+        <AdminShell
+          panelId={adminPanel}
+          onSelect={selectAdminPanel}
+          token={adminToken}
+          setToken={setAdminToken}
+          stats={stats}
+          adminStatus={adminStatus}
+          loadAdminStatus={loadAdminStatus}
+          latest={latest}
+          history={history}
+          onPublished={()=>loadSignals()}
+          onSetResult={setSignalResult}
+          busyResultId={busyResultId}
+        />
       )}
 
       <footer><span>{APP_NAME}</span> • Signal information & AI assistance • Trading dengan risk management.</footer>
