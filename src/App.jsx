@@ -670,7 +670,8 @@ function AdminOrders({ token }) {
   }
 
   function approve(order){
-    const defaultDays = String(order.packageCode||order.packageLabel||"").includes("30") ? 30 : 7;
+    const pkgMatch = String(order.packageCode||order.packageLabel||"").match(/\d+/);
+    const defaultDays = pkgMatch ? parseInt(pkgMatch[0],10) : 7;
     const input = window.prompt(`Approve order ${order.orderId}?\nJumlah hari premium (default ${defaultDays}):`, defaultDays);
     if(input===null) return;
     const days = Number(input)||defaultDays;

@@ -242,10 +242,12 @@ export async function onRequest({ request, env }) {
 }
 
 function getDaysFromPackage(value) {
-  const text = String(value || "").toUpperCase();
-  if (text.includes("7")) return 7;
-  if (text.includes("30")) return 30;
-  return 0;
+  const text = String(value || "");
+  // Ambil angka pertama yang muncul di kode/label paket (mis. "Paket 60 Hari", "PKG60D", "30")
+  const match = text.match(/\d+/);
+  if (!match) return 0;
+  const days = parseInt(match[0], 10);
+  return Number.isFinite(days) && days > 0 ? days : 0;
 }
 
 async function fbGet(dbUrl, path, accessToken) {
