@@ -1587,13 +1587,41 @@ function AdminVouchers({ token }){
     finally{ setBusy(false); }
   }
 
+  // Voucher welcome dari referral otomatis dibikin setiap ada yang daftar
+  // lewat link ref, jadi lama-lama numpuk. Belum ada auto-delete di server
+  // (RTDB gak punya TTL), jadi ini tombol buat bersihin yang udah kedaluwarsa
+  // sekaligus, daripada hapus manual satu-satu.
+  const expiredVouchers = vouchers.filter(v=>v.expiresAt && new Date(v.expiresAt).getTime()<Date.now());
+
+  async function cleanupExpired(){
+    if(!token || !expiredVouchers.length) return;
+    if(!window.confirm(`Hapus ${expiredVouchers.length} voucher yang sudah kedaluwarsa? Tindakan ini gak bisa dibatalkan.`)) return;
+    setBusy(true);
+    try{
+      for(const v of expiredVouchers){
+        const res=await fetch("/api/voucher",{method:"POST",headers:{"Content-Type":"application/json",Authorization:`Bearer ${token}`},body:JSON.stringify({action:"delete",code:v.code})});
+        const data=await res.json().catch(()=>({}));
+        if(!res.ok||!data.ok) throw new Error(data.error||`Gagal menghapus ${v.code}.`);
+      }
+      await load();
+    }catch(e){ alert(e?.message||"Gagal membersihkan voucher kedaluwarsa."); }
+    finally{ setBusy(false); }
+  }
+
   const isEditing = editingCode!=="";
 
   return <section className="adminSection newCard">
     <div className="sectionHeader"><div><span className="eyebrow">ADMIN CONTROL</span><h3>Voucher Diskon Instan</h3></div><button className="iconBtn" disabled={loading} onClick={load}><RefreshCw size={16} className={loading?"spin":""}/></button></div>
     <p className="muted" style={{fontSize:13,marginBottom:4}}>Bikin kode voucher buat bikin user penasaran & tertarik langganan — user ketik kode di halaman Premium, harga langsung keliatan diskon real-time sebelum checkout.</p>
+    <p className="muted" style={{fontSize:12,marginTop:2}}>Voucher kedaluwarsa (termasuk voucher welcome dari referral) <b>gak otomatis kehapus</b> — dia cuma berhenti bisa dipakai. Bersihin manual pakai tombol di bawah kalau daftarnya udah mulai numpuk.</p>
 
     {error && <div className="notice error">{error}</div>}
+
+    {expiredVouchers.length>0 && <div className="adminActions" style={{marginTop:10,marginBottom:4}}>
+      <button type="button" className="dangerBtn" disabled={busy} onClick={cleanupExpired}>
+        🧹 Hapus {expiredVouchers.length} Voucher Kedaluwarsa
+      </button>
+    </div>}
 
     <div className="pricingList" style={{marginTop:12}}>
       {vouchers.map(v=> (
