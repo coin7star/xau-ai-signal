@@ -118,7 +118,7 @@ async function getGoogleAccessToken(service) {
   const header = { alg: "RS256", typ: "JWT" };
   const payload = {
     iss: service.clientEmail,
-    scope: "https://www.googleapis.com/auth/cloud-platform",
+    scope: "https://www.googleapis.com/auth/firebase.database https://www.googleapis.com/auth/userinfo.email",
     aud: "https://oauth2.googleapis.com/token",
     iat: now,
     exp: now + 3600
