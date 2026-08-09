@@ -833,6 +833,8 @@ function AdminUsers({ token }) {
   const [busyUid,setBusyUid]=useState("");
   const [reminderBusy,setReminderBusy]=useState(false);
   const [reminderResult,setReminderResult]=useState(null);
+  const [downgradeBusy,setDowngradeBusy]=useState(false);
+  const [downgradeResult,setDowngradeResult]=useState(null);
 
   async function load(){
     if(!token){ setError("Isi & simpan ADMIN_ACTION_TOKEN dulu di atas."); return; }
@@ -877,6 +879,38 @@ function AdminUsers({ token }) {
       }
     }catch(e){ alert(e?.message||"Gagal tes reminder."); }
     finally{ setBusyReminderUid(""); }
+  }
+
+  async function checkDowngrade(){
+    if(!token) return;
+    setDowngradeBusy(true);setDowngradeResult(null);
+    try{
+      const res=await fetch("/api/premium-auto-downgrade-cron",{method:"POST",headers:{"Content-Type":"application/json",Authorization:`Bearer ${token}`},body:JSON.stringify({preview:true})});
+      const data=await res.json();
+      if(!res.ok||!data.ok) throw new Error(data.error||"Gagal cek auto-downgrade.");
+      setDowngradeResult(data);
+    }catch(e){ setDowngradeResult({ok:false,error:e?.message||"Gagal cek auto-downgrade."}); }
+    finally{ setDowngradeBusy(false); }
+  }
+
+  const [busyDowngradeUid,setBusyDowngradeUid]=useState("");
+  async function testDowngradeForUser(u){
+    if(!token){ alert("Isi & simpan ADMIN_ACTION_TOKEN dulu di atas."); return; }
+    if(!window.confirm(`Downgrade ${u.email||u.uid} ke Free sekarang juga? Aksi ini beneran mengubah role user (hanya bisa dites kalau premiumnya memang sudah expired).`)) return;
+    setBusyDowngradeUid(u.uid);
+    try{
+      const res=await fetch("/api/premium-auto-downgrade-cron",{method:"POST",headers:{"Content-Type":"application/json",Authorization:`Bearer ${token}`},body:JSON.stringify({preview:true,testUid:u.uid})});
+      const data=await res.json();
+      if(!res.ok||!data.ok) throw new Error(data.error||"Gagal tes auto-downgrade.");
+      if(data.totalDowngraded===0){
+        alert(`Tidak bisa downgrade ${u.email||u.uid}: user belum expired atau bukan premium.`);
+      }else{
+        const r=data.results[0]||{};
+        alert(`${u.email||u.uid} berhasil didowngrade ke Free.`);
+        await load();
+      }
+    }catch(e){ alert(e?.message||"Gagal tes auto-downgrade."); }
+    finally{ setBusyDowngradeUid(""); }
   }
 
   async function act(uid,body){
@@ -956,6 +990,8 @@ function AdminUsers({ token }) {
         onRemoveAdmin={()=>removeAdmin(u)}
         onTestReminder={()=>testReminderForUser(u)}
         reminderBusy={busyReminderUid===u.uid}
+        onTestDowngrade={()=>testDowngradeForUser(u)}
+        downgradeBusy={busyDowngradeUid===u.uid}
       />)}
     </div>
 
@@ -980,15 +1016,35 @@ function AdminUsers({ token }) {
         </div>
       )}
     </div>
+
+    <div className="recapPreviewBox" style={{marginTop:16}}>
+      <div className="sectionHeader" style={{marginBottom:8}}><div><span className="eyebrow">AUTO-DOWNGRADE</span><h4 style={{margin:0}}>Downgrade Otomatis Premium Habis</h4></div></div>
+      <p className="muted" style={{fontSize:13,marginBottom:10}}>Cron ini otomatis balikin role user ke Free begitu premiumnya sudah lewat masa aktif (bukan cuma "mau habis"), plus kirim notif email + Telegram kalau ada. Cek dulu siapa yang bakal kena downgrade saat ini, atau klik "Tes Downgrade" di baris user yang sudah expired buat tes beneran (langsung ubah role user itu).</p>
+      <div className="adminActions">
+        <button type="button" className="textBtn" disabled={!token||downgradeBusy} onClick={checkDowngrade}>{downgradeBusy?"Mengecek...":"Cek Siapa Bakal Didowngrade (Dry Run)"}</button>
+      </div>
+      {downgradeResult && !downgradeResult.ok && <div className="notice error" style={{marginTop:10}}>{downgradeResult.error}</div>}
+      {downgradeResult && downgradeResult.ok && downgradeResult.mode==="dry-run" && (
+        <div className="notice" style={{marginTop:10}}>
+          {downgradeResult.totalCandidates===0 ? "Tidak ada user premium yang sudah expired saat ini." : `${downgradeResult.totalCandidates} user akan didowngrade ke Free:`}
+          {downgradeResult.totalCandidates>0 && <ul style={{margin:"8px 0 0",paddingLeft:18}}>
+            {downgradeResult.candidates.map(c=><li key={c.uid} style={{fontSize:12.5}}>{c.email||c.uid} — expired {c.expiredDaysAgo} hari lalu {c.telegramConnected?"(Telegram ✅)":"(Telegram ❌)"}</li>)}
+          </ul>}
+        </div>
+      )}
+    </div>
   </section>;
 }
 
-function AdminUserRow({ u, busy, onGrant, onRevoke, onMakeAdmin, onRemoveAdmin, onTestReminder, reminderBusy }){
+function AdminUserRow({ u, busy, onGrant, onRevoke, onMakeAdmin, onRemoveAdmin, onTestReminder, reminderBusy, onTestDowngrade, downgradeBusy }){
   const premium = isPremiumProfile(u);
   const isAdmin = u.role==="admin";
   const untilMs = u.premiumUntil ? new Date(u.premiumUntil).getTime() : 0;
   const daysLeft = untilMs ? Math.ceil((untilMs-Date.now())/(1000*60*60*24)) : null;
   const expiringSoon = premium && daysLeft!==null && daysLeft<=3;
+  // Note: isPremiumProfile() sudah balikin false kalau premiumUntil lewat, jadi
+  // deteksi "sudah expired tapi role masih premium di DB" pakai field mentah.
+  const alreadyExpired = u.role==="premium" && u.premiumUntil && new Date(u.premiumUntil).getTime()<=Date.now();
 
   async function copyUid(){
     try{ await navigator.clipboard.writeText(u.uid); }catch{}
@@ -1022,6 +1078,7 @@ function AdminUserRow({ u, busy, onGrant, onRevoke, onMakeAdmin, onRemoveAdmin, 
       {!isAdmin && <button type="button" className="textBtn" disabled={busy} onClick={onMakeAdmin}>Jadikan Admin</button>}
       {isAdmin && <button type="button" className="textBtn" disabled={busy} onClick={onRemoveAdmin}>Cabut Admin</button>}
       {premium && !isAdmin && <button type="button" className="textBtn" disabled={reminderBusy} onClick={onTestReminder}>{reminderBusy?"Mengirim...":"Tes Reminder H-1"}</button>}
+      {alreadyExpired && !isAdmin && <button type="button" className="dangerBtn" disabled={downgradeBusy} onClick={onTestDowngrade}>{downgradeBusy?"Downgrade...":"Tes Downgrade"}</button>}
     </div>
   </article>;
 }
