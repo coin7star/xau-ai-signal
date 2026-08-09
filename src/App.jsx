@@ -749,7 +749,7 @@ function AdminUsers({ token }) {
     {error && <div className="notice error">{error}</div>}
     {!error && !loading && !filtered.length && <div className="emptyBox">Tidak ada user di kategori ini.</div>}
 
-    <div className="userList">
+    <div className="userList scrollable">
       {filtered.map(u=><AdminUserRow
         key={u.uid}
         u={u}
