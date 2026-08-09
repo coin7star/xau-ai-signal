@@ -662,6 +662,142 @@ function AdminOrderRow({ order, meta, pending, canRemind, remindCooldownLeft, bu
   </article>;
 }
 
+function AdminUsers({ token }) {
+  const [users,setUsers]=useState([]);
+  const [loading,setLoading]=useState(false);
+  const [error,setError]=useState("");
+  const [tab,setTab]=useState("all");
+  const [search,setSearch]=useState("");
+  const [busyUid,setBusyUid]=useState("");
+
+  async function load(){
+    if(!token){ setError("Isi & simpan ADMIN_ACTION_TOKEN dulu di atas."); return; }
+    setLoading(true);setError("");
+    try{
+      const res=await fetch("/api/admin-user",{headers:{Authorization:`Bearer ${token}`}});
+      const data=await res.json();
+      if(!res.ok||!data.ok) throw new Error(data.error||"Gagal memuat users.");
+      setUsers(data.users||[]);
+    }catch(e){ setError(e?.message||"Gagal memuat users."); }
+    finally{ setLoading(false); }
+  }
+  useEffect(()=>{ load(); },[token]);
+
+  async function act(uid,body){
+    setBusyUid(uid);
+    try{
+      const res=await fetch("/api/admin-user",{method:"POST",headers:{"Content-Type":"application/json",Authorization:`Bearer ${token}`},body:JSON.stringify({uid,...body})});
+      const data=await res.json();
+      if(!res.ok||!data.ok) throw new Error(data.error||"Aksi gagal.");
+      await load();
+    }catch(e){ alert(e?.message||"Aksi gagal."); }
+    finally{ setBusyUid(""); }
+  }
+
+  function grantPremium(u){
+    const input=window.prompt(`Kasih premium ke ${u.email||u.uid}?\nJumlah hari (nambah dari sisa premium yang ada, kalau masih aktif):`,"30");
+    if(input===null) return;
+    const days=Number(input);
+    if(!Number.isFinite(days)||days<=0){ alert("Jumlah hari harus angka positif."); return; }
+    act(u.uid,{role:"premium",premiumDays:days});
+  }
+  function revokePremium(u){
+    if(!window.confirm(`Cabut premium dari ${u.email||u.uid}? User langsung jadi free.`)) return;
+    act(u.uid,{action:"revokePremium"});
+  }
+  function makeAdmin(u){
+    if(!window.confirm(`Jadikan ${u.email||u.uid} admin? User ini bakal punya akses penuh.`)) return;
+    act(u.uid,{role:"admin"});
+  }
+  function removeAdmin(u){
+    if(!window.confirm(`Cabut akses admin dari ${u.email||u.uid}? User jadi free.`)) return;
+    act(u.uid,{role:"free"});
+  }
+
+  const counts = {
+    all: users.length,
+    premium: users.filter(u=>isPremiumProfile(u)).length,
+    free: users.filter(u=>u.role!=="admin"&&!isPremiumProfile(u)).length,
+    admin: users.filter(u=>u.role==="admin").length
+  };
+
+  const q = search.trim().toLowerCase();
+  const filtered = users.filter(u=>{
+    const matchTab = tab==="all" ? true
+      : tab==="premium" ? isPremiumProfile(u)
+      : tab==="admin" ? u.role==="admin"
+      : u.role!=="admin" && !isPremiumProfile(u);
+    if(!matchTab) return false;
+    if(!q) return true;
+    return String(u.email||"").toLowerCase().includes(q)
+      || String(u.uid||"").toLowerCase().includes(q)
+      || String(u.telegramUsername||"").toLowerCase().includes(q);
+  });
+
+  return <section className="adminSection newCard" style={{marginTop:20}}>
+    <div className="sectionHeader"><div><span className="eyebrow">ADMIN CONTROL</span><h3>User Management</h3></div><button className="iconBtn" disabled={loading} onClick={load}><RefreshCw size={16} className={loading?"spin":""}/></button></div>
+
+    <input className="userSearch" placeholder="Cari email, UID, atau username Telegram..." value={search} onChange={e=>setSearch(e.target.value)}/>
+
+    <div className="seg orderTabs">
+      <button type="button" className={tab==="all"?"active":""} onClick={()=>setTab("all")}>Semua ({counts.all})</button>
+      <button type="button" className={tab==="premium"?"active":""} onClick={()=>setTab("premium")}>Premium ({counts.premium})</button>
+      <button type="button" className={tab==="free"?"active":""} onClick={()=>setTab("free")}>Free ({counts.free})</button>
+      <button type="button" className={tab==="admin"?"active":""} onClick={()=>setTab("admin")}>Admin ({counts.admin})</button>
+    </div>
+
+    {error && <div className="notice error">{error}</div>}
+    {!error && !loading && !filtered.length && <div className="emptyBox">Tidak ada user di kategori ini.</div>}
+
+    <div className="userList">
+      {filtered.map(u=><AdminUserRow
+        key={u.uid}
+        u={u}
+        busy={busyUid===u.uid}
+        onGrant={()=>grantPremium(u)}
+        onRevoke={()=>revokePremium(u)}
+        onMakeAdmin={()=>makeAdmin(u)}
+        onRemoveAdmin={()=>removeAdmin(u)}
+      />)}
+    </div>
+  </section>;
+}
+
+function AdminUserRow({ u, busy, onGrant, onRevoke, onMakeAdmin, onRemoveAdmin }){
+  const premium = isPremiumProfile(u);
+  const isAdmin = u.role==="admin";
+  const untilMs = u.premiumUntil ? new Date(u.premiumUntil).getTime() : 0;
+  const daysLeft = untilMs ? Math.ceil((untilMs-Date.now())/(1000*60*60*24)) : null;
+  const expiringSoon = premium && daysLeft!==null && daysLeft<=3;
+
+  return <article className="orderRow">
+    <div className="orderRowTop">
+      <div className="orderRowMain">
+        <b>{u.email || "(tanpa email)"}</b>
+        <span className="paymentOrderId">UID: {u.uid}</span>
+      </div>
+      <div className="orderRowSide">
+        <span className={`statusPill ${isAdmin?"paid":premium?"paid":"expired"}`}>{isAdmin?"Admin":premium?"Premium":"Free"}</span>
+        {premium && !isAdmin && <b className={expiringSoon?"warnText":""}>{expiringSoon?`⚠️ ${daysLeft}h lagi`:`s/d ${fmtDate(u.premiumUntil)}`}</b>}
+        <time>Daftar {fmtDate(u.createdAt)}</time>
+      </div>
+    </div>
+
+    <div className="userMeta">
+      <span className={`telegramTag ${u.telegramConnected?"connected":""}`}>
+        {u.telegramConnected ? `✅ @${u.telegramUsername||"terhubung"}` : "❌ Telegram belum connect"}
+      </span>
+    </div>
+
+    <div className="adminActions">
+      {!isAdmin && <button type="button" className="okBtn" disabled={busy} onClick={onGrant}><CheckCircle2 size={15}/> {premium?"Tambah Hari":"Kasih Premium"}</button>}
+      {premium && !isAdmin && <button type="button" className="dangerBtn" disabled={busy} onClick={onRevoke}>Cabut Premium</button>}
+      {!isAdmin && <button type="button" className="textBtn" disabled={busy} onClick={onMakeAdmin}>Jadikan Admin</button>}
+      {isAdmin && <button type="button" className="textBtn" disabled={busy} onClick={onRemoveAdmin}>Cabut Admin</button>}
+    </div>
+  </article>;
+}
+
 function AppShell({ user, profile, refreshProfile, profileError }) {
   const [latest,setLatest]=useState(null);
   const [history,setHistory]=useState([]);
@@ -773,6 +909,7 @@ function AppShell({ user, profile, refreshProfile, profileError }) {
         <AdminStatusPanel token={adminToken} status={adminStatus} onUpdated={loadAdminStatus}/>
         <AdminPanel latest={latest} history={history} onPublished={()=>loadSignals()} token={adminToken} setToken={setAdminToken} onSetResult={setSignalResult} busyResultId={busyResultId}/>
         <AdminOrders token={adminToken}/>
+        <AdminUsers token={adminToken}/>
       </>}
 
       <footer><span>{APP_NAME}</span> • Signal information & AI assistance • Trading dengan risk management.</footer>
