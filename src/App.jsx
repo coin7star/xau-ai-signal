@@ -189,6 +189,7 @@ function Feed({ history, onRefresh, admin, onSetResult, busyResultId }) {
 
 function WinrateCard({ stats }) {
   if (!stats) return null;
+  const pipSign = (stats.totalPip||0)>=0?"+":"";
   return <section className="adminSection newCard winrateCard">
     <div className="sectionHeader"><div><span className="eyebrow">PERFORMANCE</span><h3>Winrate Signal Manual</h3></div><Target size={20}/></div>
     <div className="winrateGrid">
@@ -197,8 +198,9 @@ function WinrateCard({ stats }) {
       <div className="winrateStat loss"><b>{stats.losses}</b><span>LOSS</span></div>
       <div className="winrateStat be"><b>{stats.be}</b><span>BE</span></div>
       <div className="winrateStat total"><b>{stats.total}</b><span>Total Call</span></div>
+      <div className="winrateStat pip"><b>{pipSign}{stats.totalPip||0}</b><span>Total Pip</span></div>
     </div>
-    <p className="muted" style={{marginTop:10,fontSize:13}}>Winrate dihitung dari WIN / (WIN + LOSS), tidak termasuk BE. Update tiap kali admin menandai hasil di panel atau feed.</p>
+    <p className="muted" style={{marginTop:10,fontSize:13}}>Winrate dihitung dari WIN / (WIN + LOSS), tidak termasuk BE. Pip dihitung dari selisih Entry-TP (WIN) / Entry-SL (LOSS) × 10 (1$ XAUUSD = 10 pip). Update tiap kali admin menandai hasil di panel atau feed.</p>
   </section>;
 }
 
