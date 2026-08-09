@@ -325,6 +325,28 @@ export function isPremiumProfile(profile) {
   return new Date(until).getTime() > Date.now();
 }
 
+// Step Kontak-Admin: manual dulu (belum pakai payment gateway) - user kirim
+// bukti transfer langsung ke admin lewat WhatsApp/Telegram. Nomor & username
+// diatur lewat env Cloudflare Pages (VITE_ADMIN_WHATSAPP / VITE_ADMIN_TELEGRAM),
+// jadi gampang diganti tanpa ubah kode kalau nanti pindah ke Xendit dkk.
+export function getAdminContact() {
+  const rawWhatsapp = String(import.meta.env.VITE_ADMIN_WHATSAPP || "").replace(/[^0-9]/g, "");
+  const whatsapp = rawWhatsapp ? (rawWhatsapp.startsWith("0") ? `62${rawWhatsapp.slice(1)}` : rawWhatsapp) : "";
+  const telegram = String(import.meta.env.VITE_ADMIN_TELEGRAM || "").replace(/^@/, "").trim();
+  return { whatsapp: whatsapp || null, telegram: telegram || null };
+}
+
+export function buildPaymentProofMessage({ orderId, packageLabel, price, email }) {
+  const lines = [
+    "Halo Admin XAU AI Signal, saya mau kirim bukti pembayaran.",
+    `Order ID: ${orderId || "-"}`,
+    `Paket: ${packageLabel || "-"}`,
+    `Total: ${price || "-"}`,
+    email ? `Email akun: ${email}` : ""
+  ].filter(Boolean);
+  return lines.join("\n");
+}
+
 
 // Step Voucher-1: cek kode voucher secara publik (tanpa mengunci pemakaian)
 // buat nampilin preview "harga setelah diskon" real-time pas user ngetik kode.

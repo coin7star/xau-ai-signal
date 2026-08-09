@@ -2,16 +2,18 @@ import { useEffect, useMemo, useState } from "react";
 import { verifyPasswordResetCode, confirmPasswordReset, applyActionCode } from "firebase/auth";
 import {
   Activity, ArrowLeft, Bell, Bot, CheckCircle2, Clock3, Copy, Crown, Gift, LayoutDashboard, LogIn,
-  LogOut, Megaphone, Menu, Radio, RefreshCw, Send, Shield, Sparkles, Target, Ticket, TrendingDown,
-  TrendingUp, User, Users, Wallet, X, Zap
+  LogOut, Megaphone, Menu, MessageCircle, Radio, RefreshCw, Send, Shield, Sparkles, Target, Ticket,
+  TrendingDown, TrendingUp, User, Users, Wallet, X, Zap
 } from "lucide-react";
 import Landing from "./Landing";
 import {
   auth,
+  buildPaymentProofMessage,
   captureReferralFromUrl,
   checkVoucher,
   clearPendingWelcomeVoucher,
   createPaymentOrder,
+  getAdminContact,
   getMyReferral,
   getPendingWelcomeVoucher,
   getUserPaymentOrders,
@@ -333,6 +335,12 @@ function PremiumBox({ profile, user, refresh, onOrderCreated }) {
     await buy(confirmPkg, priceLabel, voucherInfo);
   }
 
+  // Step Kontak-Admin: dulu abis order langsung `alert(...)` doang terus
+  // ditutup, user gak dikasih cara kirim bukti transfer sama sekali. Sekarang
+  // begitu order berhasil, dialog konfirmasi ganti jadi layar sukses berisi
+  // Order ID + tombol WhatsApp/Telegram admin yang pesannya udah keisi otomatis.
+  const [orderDone,setOrderDone]=useState(null);
+
   async function buy(pkg, priceLabel, voucherInfo) {
     setBusy(true);
     try {
@@ -350,15 +358,17 @@ function PremiumBox({ profile, user, refresh, onOrderCreated }) {
         };
       }
 
-      await createPaymentOrder({user,profile,packageCode:pkg.code,packageLabel:pkg.label,price:finalPrice,voucher:voucherPayload});
-      alert(premium ? "Order perpanjangan dibuat. Sisa hari aktif kamu bakal otomatis ditambah setelah disetujui admin." : "Order dibuat. Silakan ikuti instruksi pembayaran/admin.");
+      const created = await createPaymentOrder({user,profile,packageCode:pkg.code,packageLabel:pkg.label,price:finalPrice,voucher:voucherPayload});
       clearVoucher();
-      closeConfirm();
+      setConfirmVoucher(null);
+      setOrderDone({ orderId: created?.orderId, packageLabel: pkg.label, price: finalPrice });
       onOrderCreated?.();
     }
     catch(e){ alert(e?.message||"Gagal membuat order."); }
     finally { setBusy(false); refresh(); }
   }
+
+  function closeOrderDone(){ setOrderDone(null); closeConfirm(); }
 
   const voucherOk = voucherResult?.ok && voucherResult?.discountedPriceLabel;
 
@@ -414,60 +424,94 @@ function PremiumBox({ profile, user, refresh, onOrderCreated }) {
       })}
     </div>}
 
-    {confirmPkg && <div className="modalOverlay" onClick={e=>{ if(e.target===e.currentTarget && !busy) closeConfirm(); }}>
+    {confirmPkg && <div className="modalOverlay" onClick={e=>{ if(e.target===e.currentTarget && !busy) (orderDone?closeOrderDone():closeConfirm()); }}>
       <div className="modalCard">
-        <div className="modalHead">
-          <h4>Konfirmasi {premium?"Perpanjangan":"Pembelian"}</h4>
-          <button type="button" className="iconBtn" onClick={closeConfirm} disabled={busy}><X size={16}/></button>
-        </div>
+        {!orderDone && <>
+          <div className="modalHead">
+            <h4>Konfirmasi {premium?"Perpanjangan":"Pembelian"}</h4>
+            <button type="button" className="iconBtn" onClick={closeConfirm} disabled={busy}><X size={16}/></button>
+          </div>
 
-        <div className="modalPkgRow">
-          <span className="muted">Paket</span>
-          <b>{confirmPkg.label}</b>
-        </div>
-
-        {confirmChecking && <div className="voucherMsg" style={{marginTop:10}}><RefreshCw size={13} className="spin"/> Ngecek voucher buat paket ini...</div>}
-
-        {!confirmChecking && confirmVoucher?.ok && <>
           <div className="modalPkgRow">
-            <span className="muted">Harga normal</span>
-            <s className="promoOldPrice">{confirmVoucher.originalPriceLabel || confirmPkg.priceLabel}</s>
+            <span className="muted">Paket</span>
+            <b>{confirmPkg.label}</b>
           </div>
-          <div className="modalPkgRow">
-            <span className="muted">Voucher <b>{confirmVoucher.voucher.code}</b></span>
-            <span className="voucherBadge"><Ticket size={11}/> {confirmVoucher.savingsLabel ? `Hemat ${confirmVoucher.savingsLabel}` : "Diterapkan"}</span>
-          </div>
-          <div className="modalPkgRow modalTotal">
-            <span>Total bayar</span>
-            <b>{confirmVoucher.discountedPriceLabel}</b>
-          </div>
-        </>}
 
-        {!confirmChecking && confirmVoucher && !confirmVoucher.ok && <>
-          <div className="voucherMsg error" style={{marginTop:10}}>❌ {confirmVoucher.error}</div>
-          <div className="modalPkgRow modalTotal">
+          {confirmChecking && <div className="voucherMsg" style={{marginTop:10}}><RefreshCw size={13} className="spin"/> Ngecek voucher buat paket ini...</div>}
+
+          {!confirmChecking && confirmVoucher?.ok && <>
+            <div className="modalPkgRow">
+              <span className="muted">Harga normal</span>
+              <s className="promoOldPrice">{confirmVoucher.originalPriceLabel || confirmPkg.priceLabel}</s>
+            </div>
+            <div className="modalPkgRow">
+              <span className="muted">Voucher <b>{confirmVoucher.voucher.code}</b></span>
+              <span className="voucherBadge"><Ticket size={11}/> {confirmVoucher.savingsLabel ? `Hemat ${confirmVoucher.savingsLabel}` : "Diterapkan"}</span>
+            </div>
+            <div className="modalPkgRow modalTotal">
+              <span>Total bayar</span>
+              <b>{confirmVoucher.discountedPriceLabel}</b>
+            </div>
+          </>}
+
+          {!confirmChecking && confirmVoucher && !confirmVoucher.ok && <>
+            <div className="voucherMsg error" style={{marginTop:10}}>❌ {confirmVoucher.error}</div>
+            <div className="modalPkgRow modalTotal">
+              <span>Total bayar</span>
+              <b>{confirmPkg.priceLabel}</b>
+            </div>
+          </>}
+
+          {!confirmChecking && !confirmVoucher && <div className="modalPkgRow modalTotal">
             <span>Total bayar</span>
             <b>{confirmPkg.priceLabel}</b>
+          </div>}
+
+          <p className="muted" style={{fontSize:12,marginTop:4}}>
+            {premium
+              ? "Sisa hari premium kamu bakal otomatis ditambah durasi paket ini setelah order disetujui admin."
+              : "Order akan dibuat dan menunggu approve admin sesuai instruksi pembayaran."}
+          </p>
+
+          <div className="modalActions">
+            <button type="button" className="textBtn" onClick={closeConfirm} disabled={busy}>Batal</button>
+            <button type="button" className="primaryBtn" onClick={confirmBuy} disabled={busy||confirmChecking}>
+              {busy ? "Memproses..." : "Konfirmasi & Beli"}
+            </button>
           </div>
         </>}
 
-        {!confirmChecking && !confirmVoucher && <div className="modalPkgRow modalTotal">
-          <span>Total bayar</span>
-          <b>{confirmPkg.priceLabel}</b>
-        </div>}
+        {orderDone && <>
+          <div className="modalHead">
+            <h4><CheckCircle2 size={17} style={{color:"#8ee9bc",verticalAlign:"-3px",marginRight:6}}/> Order Berhasil Dibuat</h4>
+            <button type="button" className="iconBtn" onClick={closeOrderDone}><X size={16}/></button>
+          </div>
 
-        <p className="muted" style={{fontSize:12,marginTop:4}}>
-          {premium
-            ? "Sisa hari premium kamu bakal otomatis ditambah durasi paket ini setelah order disetujui admin."
-            : "Order akan dibuat dan menunggu approve admin sesuai instruksi pembayaran."}
-        </p>
+          <div className="modalPkgRow">
+            <span className="muted">Order ID</span>
+            <span className="paymentOrderId"><b>{orderDone.orderId}</b>
+              <button type="button" className="copyMini" onClick={()=>{ try{navigator.clipboard.writeText(orderDone.orderId);}catch{} }} title="Salin Order ID"><Copy size={12}/></button>
+            </span>
+          </div>
+          <div className="modalPkgRow">
+            <span className="muted">Paket</span>
+            <b>{orderDone.packageLabel}</b>
+          </div>
+          <div className="modalPkgRow modalTotal">
+            <span>Total bayar</span>
+            <b>{orderDone.price}</b>
+          </div>
 
-        <div className="modalActions">
-          <button type="button" className="textBtn" onClick={closeConfirm} disabled={busy}>Batal</button>
-          <button type="button" className="primaryBtn" onClick={confirmBuy} disabled={busy||confirmChecking}>
-            {busy ? "Memproses..." : "Konfirmasi & Beli"}
-          </button>
-        </div>
+          <p className="muted" style={{fontSize:12,marginTop:8}}>
+            Silakan transfer sesuai total di atas, lalu kirim bukti pembayaran + Order ID ke admin biar {premium?"perpanjangan":"premium"} kamu cepat diaktifkan. Kami masih verifikasi manual dulu ya, bukan otomatis 🙏
+          </p>
+
+          <AdminContactButtons orderId={orderDone.orderId} packageLabel={orderDone.packageLabel} price={orderDone.price} email={user?.email}/>
+
+          <div className="modalActions">
+            <button type="button" className="textBtn" onClick={closeOrderDone}>Tutup</button>
+          </div>
+        </>}
       </div>
     </div>}
   </section>;
@@ -479,6 +523,21 @@ function paymentStatusMeta(status) {
   if (s === "rejected" || s === "failed" || s === "declined") return { label: "Ditolak", cls: "rejected" };
   if (s === "expired") return { label: "Kedaluwarsa", cls: "expired" };
   return { label: "Menunggu konfirmasi", cls: "pending" };
+}
+
+function AdminContactButtons({ orderId, packageLabel, price, email, compact }){
+  const { whatsapp, telegram } = getAdminContact();
+  if(!whatsapp && !telegram) return null;
+  const message = buildPaymentProofMessage({ orderId, packageLabel, price, email });
+  const encoded = encodeURIComponent(message);
+  return <div className={compact?"adminContactRow compact":"adminContactRow"}>
+    {whatsapp && <a className="waBtn" href={`https://wa.me/${whatsapp}?text=${encoded}`} target="_blank" rel="noreferrer">
+      <MessageCircle size={15}/> Kirim Bukti via WhatsApp
+    </a>}
+    {telegram && <a className="tgBtn" href={`https://t.me/${telegram}?text=${encoded}`} target="_blank" rel="noreferrer">
+      <Send size={15}/> Chat Admin di Telegram
+    </a>}
+  </div>;
 }
 
 function PaymentHistory({ user, refreshKey }) {
@@ -517,6 +576,7 @@ function PaymentHistory({ user, refreshKey }) {
     {!error && orders.length > 0 && <div className="paymentList">
       {orders.map((order)=> {
         const meta = paymentStatusMeta(order.status);
+        const isPending = String(order.status||"pending").toLowerCase()==="pending";
         return <article className="paymentItem" key={order.orderId}>
           <div className="paymentMain">
             <b>{order.packageLabel || order.packageCode || "Premium"}</b>
@@ -524,6 +584,7 @@ function PaymentHistory({ user, refreshKey }) {
               ID: {order.orderId}
               <button type="button" className="copyMini" onClick={()=>copyOrderId(order.orderId)} title="Salin Order ID"><Copy size={12}/></button>
             </span>
+            {isPending && <AdminContactButtons compact orderId={order.orderId} packageLabel={order.packageLabel} price={order.price} email={user?.email}/>}
           </div>
           <div className="paymentSide">
             <span className={`statusPill ${meta.cls}`}>{meta.label}</span>
@@ -534,7 +595,7 @@ function PaymentHistory({ user, refreshKey }) {
       })}
     </div>}
 
-    {!error && orders.some(o => String(o.status||"pending").toLowerCase()==="pending") && <div className="notice">Order berstatus "Menunggu konfirmasi" perlu bukti transfer dikirim ke admin agar segera diverifikasi. Simpan Order ID di atas sebagai referensi.</div>}
+    {!error && orders.some(o => String(o.status||"pending").toLowerCase()==="pending") && <div className="notice">Order berstatus "Menunggu konfirmasi" perlu bukti transfer dikirim ke admin agar segera diverifikasi — klik tombol WhatsApp/Telegram di order terkait di atas.</div>}
   </section>;
 }
 

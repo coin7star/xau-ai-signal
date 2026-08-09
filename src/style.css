@@ -81,6 +81,14 @@
 .modalTotal b{color:#ffd166;font-size:19px}
 .modalActions{display:flex;justify-content:flex-end;gap:10px;margin-top:18px}
 @media(max-width:560px){.modalCard{padding:18px}}
+.adminContactRow{display:flex;gap:10px;flex-wrap:wrap;margin-top:14px}
+.adminContactRow.compact{margin-top:8px}
+.waBtn,.tgBtn{display:inline-flex;align-items:center;gap:7px;padding:11px 15px;border-radius:12px;font-weight:1000;font-size:13px;text-decoration:none;border:1px solid transparent}
+.adminContactRow.compact .waBtn,.adminContactRow.compact .tgBtn{padding:8px 12px;font-size:12px}
+.waBtn{background:rgba(37,211,102,.14);color:#4fe08a;border-color:rgba(37,211,102,.3)}
+.waBtn:hover{background:rgba(37,211,102,.22)}
+.tgBtn{background:rgba(51,144,236,.14);color:#6db6ff;border-color:rgba(51,144,236,.3)}
+.tgBtn:hover{background:rgba(51,144,236,.22)}
 .referralHero{background:linear-gradient(120deg,rgba(121,93,255,.08),rgba(14,18,29,.86))}
 .referralCodeBox{display:flex;justify-content:space-between;align-items:center;gap:12px;margin-top:16px;padding:14px 16px;border-radius:14px;background:rgba(0,0,0,.22);border:1px dashed rgba(255,255,255,.14);flex-wrap:wrap}
 .referralCodeMain{display:grid;gap:4px}
