@@ -72,3 +72,4 @@
 .pricingFormGrid label,.pricingForm>label{display:grid;gap:5px;font-size:11px;color:#8996b2;font-weight:800}
 .pricingForm input[type=text],.pricingForm input[type=number],.pricingForm input[type=datetime-local]{width:100%;background:#080b12;border:1px solid rgba(255,255,255,.1);color:#eef4ff;padding:10px 12px;border-radius:10px}
 .pricingPromoBox{padding:12px;border-radius:14px;background:rgba(255,159,67,.06);border:1px solid rgba(255,159,67,.16);display:grid;gap:10px}
+.landingPromoBadge{display:inline-flex;align-self:flex-start;margin-top:10px;background:linear-gradient(120deg,#ff6b6b,#ff9f43);color:#1a0d05;font-size:10px;font-weight:1000;letter-spacing:.04em;padding:4px 10px;border-radius:999px;box-shadow:0 4px 10px rgba(255,107,107,.3)}

@@ -1,48 +1,44 @@
+import { useEffect, useState } from "react";
 import { Activity, Bell, Bot, CheckCircle2, Crown, Send, Shield, Sparkles, TrendingUp, Zap } from "lucide-react";
 
-const PLANS = [
-  {
-    code: "FREE",
-    label: "Feed Gratis",
-    price: "Rp0",
-    period: "selamanya",
-    tagline: "Buat yang mau lihat-lihat dulu.",
-    features: [
-      "Lihat feed sinyal & riwayat call",
-      "Akses AI assistant (baca konteks setup)",
-      "Tanpa alert Telegram real-time"
-    ],
-    cta: "Mulai Gratis",
-    featured: false
-  },
-  {
-    code: "7D",
-    label: "7 Hari",
-    price: "Rp10K",
-    period: "/ 7 hari",
+const FREE_PLAN = {
+  code: "FREE",
+  label: "Feed Gratis",
+  price: "Rp0",
+  period: "selamanya",
+  tagline: "Buat yang mau lihat-lihat dulu.",
+  features: [
+    "Lihat feed sinyal & riwayat call",
+    "Akses AI assistant (baca konteks setup)",
+    "Tanpa alert Telegram real-time"
+  ],
+  cta: "Mulai Gratis",
+  featured: false,
+  promo: null
+};
+
+// Copy per kode paket (dipakai kalau admin belum ganti apa-apa). Kalau admin
+// nambah kode baru yang belum ada di sini, otomatis fallback ke DEFAULT_COPY.
+const PLAN_COPY = {
+  "7D": {
     tagline: "Coba dulu sebelum langganan penuh.",
-    features: [
-      "Semua fitur Free",
-      "Alert Telegram real-time tiap call baru",
-      "Notifikasi hasil (TP/SL/BE)"
-    ],
-    cta: "Pilih 7 Hari",
-    featured: false
+    features: ["Semua fitur Free", "Alert Telegram real-time tiap call baru", "Notifikasi hasil (TP/SL/BE)"]
   },
-  {
-    code: "30D",
-    label: "30 Hari",
-    price: "Rp30K",
-    period: "/ 30 hari",
+  "30D": {
     tagline: "Paling hemat buat langganan rutin.",
-    features: [
-      "Semua fitur 7 Hari",
-      "Prioritas dukungan admin",
-      "Hemat dibanding perpanjang mingguan"
-    ],
-    cta: "Pilih 30 Hari",
-    featured: true
+    features: ["Semua fitur 7 Hari", "Prioritas dukungan admin", "Hemat dibanding perpanjang mingguan"]
   }
+};
+const DEFAULT_COPY = {
+  tagline: "Aktifkan alert Telegram real-time buat call berikutnya.",
+  features: ["Semua fitur Free", "Alert Telegram real-time tiap call baru", "Notifikasi hasil (TP/SL/BE)"]
+};
+
+// Dipakai sebelum fetch /api/pricing selesai (atau kalau API gagal), biar
+// halaman beranda tetap langsung nampilin harga tanpa nunggu/blank.
+const FALLBACK_PAID_PACKAGES = [
+  { code: "7D", label: "7 Hari", priceLabel: "Rp10K", durationDays: 7, promo: null },
+  { code: "30D", label: "30 Hari", priceLabel: "Rp30K", durationDays: 30, promo: null }
 ];
 
 const PILLARS = [
@@ -97,6 +93,44 @@ function ExampleSignalCard() {
 }
 
 export default function Landing({ onGetStarted }) {
+  const [paidPackages, setPaidPackages] = useState(null); // null = belum selesai fetch, pakai fallback dulu
+
+  useEffect(() => {
+    let alive = true;
+    (async () => {
+      try {
+        const res = await fetch("/api/pricing");
+        const data = await res.json();
+        if (alive && data.ok && Array.isArray(data.packages) && data.packages.length) {
+          setPaidPackages(data.packages);
+        }
+      } catch {
+        // biarin, tetap pakai FALLBACK_PAID_PACKAGES di bawah
+      }
+    })();
+    return () => { alive = false; };
+  }, []);
+
+  const paid = paidPackages || FALLBACK_PAID_PACKAGES;
+  const maxDuration = Math.max(...paid.map((p) => Number(p.durationDays) || 0), 0);
+  const PLANS = [
+    FREE_PLAN,
+    ...paid.map((p) => {
+      const copy = PLAN_COPY[p.code] || DEFAULT_COPY;
+      return {
+        code: p.code,
+        label: p.label,
+        price: p.priceLabel,
+        period: `/ ${p.durationDays} hari`,
+        tagline: copy.tagline,
+        features: copy.features,
+        cta: `Pilih ${p.label}`,
+        featured: Number(p.durationDays) === maxDuration,
+        promo: p.promo || null
+      };
+    })
+  ];
+
   return (
     <main className="landing">
       <header className="landingNav">
@@ -169,7 +203,11 @@ export default function Landing({ onGetStarted }) {
             <div className={`pricingCard newCard ${plan.featured ? "featured" : ""}`} key={plan.code}>
               {plan.featured && <div className="pricingBadge">Paling hemat</div>}
               <span className="eyebrow">{plan.label}</span>
-              <div className="pricingPrice"><strong>{plan.price}</strong><span>{plan.period}</span></div>
+              {plan.promo && <span className="landingPromoBadge">{plan.promo.label}</span>}
+              <div className="pricingPrice">
+                {plan.promo?.originalPriceLabel && <s className="promoOldPrice">{plan.promo.originalPriceLabel}</s>}
+                <strong>{plan.price}</strong><span>{plan.period}</span>
+              </div>
               <p className="muted">{plan.tagline}</p>
               <ul className="pricingFeatures">
                 {plan.features.map((f) => (
