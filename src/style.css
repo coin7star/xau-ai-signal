@@ -71,6 +71,16 @@
 .voucherMsg.error{background:rgba(255,83,106,.09);color:#ff9baa}
 .voucherClear{margin-left:8px;border:0;background:transparent;color:inherit;text-decoration:underline;font-weight:800;cursor:pointer;font-size:12px}
 .voucherBadge{display:inline-flex;align-items:center;gap:4px;background:linear-gradient(120deg,#33d68e,#1fb583)!important;color:#052e1d!important}
+.modalOverlay{position:fixed;inset:0;background:rgba(4,6,11,.72);backdrop-filter:blur(3px);display:grid;place-items:center;z-index:40;padding:20px}
+.modalCard{width:min(420px,100%);background:#11151f;border:1px solid rgba(255,255,255,.09);border-radius:20px;padding:22px;box-shadow:0 30px 70px rgba(0,0,0,.5)}
+.modalHead{display:flex;justify-content:space-between;align-items:center;margin-bottom:14px}
+.modalHead h4{margin:0;font-size:16px}
+.modalPkgRow{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:9px 0;border-bottom:1px solid rgba(255,255,255,.06);font-size:13px}
+.modalPkgRow:last-of-type{border-bottom:0}
+.modalTotal{font-size:16px;padding-top:12px}
+.modalTotal b{color:#ffd166;font-size:19px}
+.modalActions{display:flex;justify-content:flex-end;gap:10px;margin-top:18px}
+@media(max-width:560px){.modalCard{padding:18px}}
 .referralHero{background:linear-gradient(120deg,rgba(121,93,255,.08),rgba(14,18,29,.86))}
 .referralCodeBox{display:flex;justify-content:space-between;align-items:center;gap:12px;margin-top:16px;padding:14px 16px;border-radius:14px;background:rgba(0,0,0,.22);border:1px dashed rgba(255,255,255,.14);flex-wrap:wrap}
 .referralCodeMain{display:grid;gap:4px}

@@ -300,27 +300,60 @@ function PremiumBox({ profile, user, refresh, onOrderCreated }) {
 
   function clearVoucher(){ setVoucherCode(""); setVoucherResult(null); }
 
-  async function buy(code,label,price) {
+  // Step Beli-Konfirmasi: sebelumnya klik paket langsung bikin order tanpa
+  // ada jeda buat user ngecek dulu potongan harga voucher-nya. Sekarang klik
+  // paket cuma buka dialog konfirmasi - order baru dibuat kalau user klik
+  // "Konfirmasi & Beli" di dialog itu.
+  const [confirmPkg,setConfirmPkg]=useState(null);
+  const [confirmChecking,setConfirmChecking]=useState(false);
+  const [confirmVoucher,setConfirmVoucher]=useState(null);
+
+  async function openConfirm(p){
+    setSelectedPkg(p.code);
+    setConfirmPkg(p);
+    setConfirmVoucher(null);
+    const code = voucherCode.trim().toUpperCase();
+    if(!code) return;
+    setConfirmChecking(true);
+    try{
+      const data = await checkVoucher({code, packageCode:p.code});
+      setConfirmVoucher({ok:true, ...data});
+      setVoucherResult({ok:true, ...data});
+    }catch(e){
+      setConfirmVoucher({ok:false, error:e?.message||"Kode voucher tidak berlaku untuk paket ini."});
+    }finally{ setConfirmChecking(false); }
+  }
+
+  function closeConfirm(){ setConfirmPkg(null); setConfirmVoucher(null); }
+
+  async function confirmBuy(){
+    if(!confirmPkg) return;
+    const voucherInfo = confirmVoucher?.ok ? confirmVoucher : null;
+    const priceLabel = voucherInfo?.discountedPriceLabel || confirmPkg.priceLabel;
+    await buy(confirmPkg, priceLabel, voucherInfo);
+  }
+
+  async function buy(pkg, priceLabel, voucherInfo) {
     setBusy(true);
     try {
       let voucherPayload=null;
-      const voucherValid = voucherResult?.ok && voucherResult?.voucher?.code;
-      let finalPrice = price;
+      let finalPrice = priceLabel;
 
-      if (voucherValid) {
+      if (voucherInfo?.ok && voucherInfo?.voucher?.code) {
         // Kunci pemakaian voucher (server-side, anti dobel pakai) tepat sebelum order dibuat.
-        const redeemed = await redeemVoucher({user, code: voucherResult.voucher.code, packageCode: code});
-        finalPrice = redeemed.discountedPriceLabel || price;
+        const redeemed = await redeemVoucher({user, code: voucherInfo.voucher.code, packageCode: pkg.code});
+        finalPrice = redeemed.discountedPriceLabel || priceLabel;
         voucherPayload = {
           voucherCode: redeemed.voucherCode,
           voucherLabel: redeemed.voucherLabel,
-          originalPriceLabel: redeemed.originalPriceLabel || price
+          originalPriceLabel: redeemed.originalPriceLabel || priceLabel
         };
       }
 
-      await createPaymentOrder({user,profile,packageCode:code,packageLabel:label,price:finalPrice,voucher:voucherPayload});
+      await createPaymentOrder({user,profile,packageCode:pkg.code,packageLabel:pkg.label,price:finalPrice,voucher:voucherPayload});
       alert(premium ? "Order perpanjangan dibuat. Sisa hari aktif kamu bakal otomatis ditambah setelah disetujui admin." : "Order dibuat. Silakan ikuti instruksi pembayaran/admin.");
       clearVoucher();
+      closeConfirm();
       onOrderCreated?.();
     }
     catch(e){ alert(e?.message||"Gagal membuat order."); }
@@ -368,7 +401,7 @@ function PremiumBox({ profile, user, refresh, onOrderCreated }) {
         return <button
           key={p.code}
           disabled={busy}
-          onClick={()=>{ setSelectedPkg(p.code); buy(p.code,p.label, applyHere ? voucherResult.discountedPriceLabel : p.priceLabel); }}
+          onClick={()=>openConfirm(p)}
           onMouseEnter={()=>setSelectedPkg(p.code)}
         >
           {p.promo && !applyHere && <span className="promoBadge">{p.promo.label}</span>}
@@ -379,6 +412,63 @@ function PremiumBox({ profile, user, refresh, onOrderCreated }) {
           }</span>
         </button>;
       })}
+    </div>}
+
+    {confirmPkg && <div className="modalOverlay" onClick={e=>{ if(e.target===e.currentTarget && !busy) closeConfirm(); }}>
+      <div className="modalCard">
+        <div className="modalHead">
+          <h4>Konfirmasi {premium?"Perpanjangan":"Pembelian"}</h4>
+          <button type="button" className="iconBtn" onClick={closeConfirm} disabled={busy}><X size={16}/></button>
+        </div>
+
+        <div className="modalPkgRow">
+          <span className="muted">Paket</span>
+          <b>{confirmPkg.label}</b>
+        </div>
+
+        {confirmChecking && <div className="voucherMsg" style={{marginTop:10}}><RefreshCw size={13} className="spin"/> Ngecek voucher buat paket ini...</div>}
+
+        {!confirmChecking && confirmVoucher?.ok && <>
+          <div className="modalPkgRow">
+            <span className="muted">Harga normal</span>
+            <s className="promoOldPrice">{confirmVoucher.originalPriceLabel || confirmPkg.priceLabel}</s>
+          </div>
+          <div className="modalPkgRow">
+            <span className="muted">Voucher <b>{confirmVoucher.voucher.code}</b></span>
+            <span className="voucherBadge"><Ticket size={11}/> {confirmVoucher.savingsLabel ? `Hemat ${confirmVoucher.savingsLabel}` : "Diterapkan"}</span>
+          </div>
+          <div className="modalPkgRow modalTotal">
+            <span>Total bayar</span>
+            <b>{confirmVoucher.discountedPriceLabel}</b>
+          </div>
+        </>}
+
+        {!confirmChecking && confirmVoucher && !confirmVoucher.ok && <>
+          <div className="voucherMsg error" style={{marginTop:10}}>❌ {confirmVoucher.error}</div>
+          <div className="modalPkgRow modalTotal">
+            <span>Total bayar</span>
+            <b>{confirmPkg.priceLabel}</b>
+          </div>
+        </>}
+
+        {!confirmChecking && !confirmVoucher && <div className="modalPkgRow modalTotal">
+          <span>Total bayar</span>
+          <b>{confirmPkg.priceLabel}</b>
+        </div>}
+
+        <p className="muted" style={{fontSize:12,marginTop:4}}>
+          {premium
+            ? "Sisa hari premium kamu bakal otomatis ditambah durasi paket ini setelah order disetujui admin."
+            : "Order akan dibuat dan menunggu approve admin sesuai instruksi pembayaran."}
+        </p>
+
+        <div className="modalActions">
+          <button type="button" className="textBtn" onClick={closeConfirm} disabled={busy}>Batal</button>
+          <button type="button" className="primaryBtn" onClick={confirmBuy} disabled={busy||confirmChecking}>
+            {busy ? "Memproses..." : "Konfirmasi & Beli"}
+          </button>
+        </div>
+      </div>
     </div>}
   </section>;
 }
