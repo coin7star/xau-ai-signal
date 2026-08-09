@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { verifyPasswordResetCode, confirmPasswordReset, applyActionCode } from "firebase/auth";
 import {
-  Activity, ArrowLeft, Bell, Bot, CheckCircle2, Clock3, Copy, Crown, Gift, LayoutDashboard, LogIn,
+  Activity, AlertTriangle, ArrowLeft, Bell, Bot, CheckCircle2, Clock3, Copy, Crown, Gift, LayoutDashboard, LogIn,
   LogOut, Megaphone, Menu, MessageCircle, Radio, RefreshCw, Send, Shield, Sparkles, Target, Ticket,
   TrendingDown, TrendingUp, User, Users, Wallet, X, Zap
 } from "lucide-react";
@@ -472,6 +472,18 @@ function PremiumBox({ profile, user, refresh, onOrderCreated }) {
               ? "Sisa hari premium kamu bakal otomatis ditambah durasi paket ini setelah order disetujui admin."
               : "Order akan dibuat dan menunggu approve admin sesuai instruksi pembayaran."}
           </p>
+
+          {String(profile?.lastPaymentStatus||"").toLowerCase()==="pending" && <div className="voucherMsg error" style={{marginTop:10,display:"flex",gap:7,alignItems:"flex-start"}}>
+            <AlertTriangle size={14} style={{flexShrink:0,marginTop:2}}/>
+            <span>
+              <b>Awas, kamu masih punya order pending sebelumnya</b> ({profile?.lastPaymentPackage||"paket lain"} • {profile?.lastPaymentPrice||"-"}).
+              Klik "Konfirmasi & Beli" di bawah bakal <b>otomatis menghapus</b> order lama itu. Kalau order lama itu masih mau kamu lanjutkan/sudah kamu bayar, tutup dialog ini dan hubungi admin dulu sebelum bikin order baru.
+            </span>
+          </div>}
+
+          {(confirmVoucher?.ok || String(profile?.lastPaymentStatus||"").toLowerCase()==="pending") && <p className="muted" style={{fontSize:11.5,marginTop:8}}>
+            ⚠️ Kode voucher yang sudah dipakai (di order ini maupun order lama) <b>hangus permanen</b> begitu diterapkan, walaupun order-nya dibatalkan/dihapus/diganti paket lain. Pastikan paket & kode voucher di atas sudah sesuai keinginanmu sebelum lanjut.
+          </p>}
 
           <div className="modalActions">
             <button type="button" className="textBtn" onClick={closeConfirm} disabled={busy}>Batal</button>

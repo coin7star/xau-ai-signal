@@ -373,28 +373,38 @@ export async function redeemVoucher({ user, code, packageCode }) {
   return data;
 }
 
+// Step Anti-Nyangkut: dulu kalau user masih punya order pending, klik "Beli"
+// paket lain cuma balikin order LAMA itu lagi (tidak bikin order baru) -
+// akibatnya kalau user emang niat ganti paket/pakai voucher baru, order
+// lamanya nyangkut terus dan bikin bingung (dan numpuk di Firebase kalau
+// gak pernah dibayar/diproses admin). Sekarang: order pending lama milik
+// user ini (kalau ada) DIHAPUS dulu lewat endpoint server (client tidak
+// diizinkan hapus langsung oleh security rules), baru order baru dibuat.
+// User sudah diperingatkan soal ini di dialog konfirmasi sebelum sampai sini.
+export async function cancelPendingPaymentOrders({ user }) {
+  if (!user?.uid) throw new Error("User belum login.");
+  const idToken = await user.getIdToken();
+  const res = await fetch("/api/payment-order-cancel-pending", {
+    method: "POST",
+    headers: { "Content-Type": "application/json", Authorization: `Bearer ${idToken}` }
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok || !data.ok) throw new Error(data.error || "Gagal membatalkan order pending sebelumnya.");
+  return data;
+}
+
 export async function createPaymentOrder({ user, profile, packageCode, packageLabel, price, voucher }) {
   if (!db) throw new Error("Firebase client ENV belum lengkap.");
   if (!user?.uid) throw new Error("User belum login.");
 
-  const userRef = ref(db, `users/${user.uid}`);
-  const userSnapshot = await get(userRef);
-  const latestProfile = userSnapshot.exists() ? userSnapshot.val() || {} : {};
-  const existingPendingOrder = String(latestProfile.lastPaymentStatus || profile?.lastPaymentStatus || "").toLowerCase() === "pending";
-  const existingOrderId = latestProfile.lastPaymentOrderId || profile?.lastPaymentOrderId || "";
-
-  if (existingPendingOrder && existingOrderId) {
-    return {
-      orderId: existingOrderId,
-      uid: user.uid,
-      email: user.email || latestProfile.email || profile?.email || "",
-      packageCode: latestProfile.lastPaymentPackage || profile?.lastPaymentPackage || packageCode || "30D",
-      packageLabel: latestProfile.lastPaymentPackage || profile?.lastPaymentPackage || packageLabel || "30 Day",
-      price: latestProfile.lastPaymentPrice || profile?.lastPaymentPrice || price || "Rp30K",
-      status: "pending",
-      duplicate: true,
-      message: "Kamu masih punya order pending. Silakan kirim bukti pembayaran ke admin."
-    };
+  // Hapus dulu order pending lama (kalau ada) supaya tidak numpuk & tidak
+  // ada 2 order nyangkut bersamaan punya user yang sama. Non-fatal: kalau
+  // gagal (mis. network flaky), tetap lanjut bikin order baru - toh rule
+  // RTDB cuma cek unik per-orderId, jadi order baru tetap bisa dibuat.
+  try {
+    await cancelPendingPaymentOrders({ user });
+  } catch {
+    // diamkan, order baru tetap dilanjutkan di bawah
   }
 
   const now = new Date().toISOString();
