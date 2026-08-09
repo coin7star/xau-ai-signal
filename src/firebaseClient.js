@@ -151,6 +151,51 @@ export async function refreshCurrentUser() {
   return auth.currentUser;
 }
 
+const REFERRAL_STORAGE_KEY = "xau_pending_ref_code";
+
+// Step Referral: simpan kode ?ref=KODE dari URL begitu halaman dibuka,
+// biar tetap kebawa walau user baru daftar setelah beberapa langkah
+// (buka landing -> klik daftar -> isi form -> verifikasi email, dst).
+export function captureReferralFromUrl() {
+  try {
+    const code = new URLSearchParams(window.location.search).get("ref");
+    if (code && code.trim()) {
+      localStorage.setItem(REFERRAL_STORAGE_KEY, code.trim().toUpperCase());
+    }
+  } catch {
+    // localStorage tidak tersedia (mis. private mode ekstrem) -> abaikan, bukan fitur kritis
+  }
+}
+
+async function linkPendingReferral(user) {
+  if (!user) return;
+  let code = "";
+  try { code = localStorage.getItem(REFERRAL_STORAGE_KEY) || ""; } catch { return; }
+  if (!code) return;
+
+  try {
+    const idToken = await user.getIdToken();
+    await fetch("/api/referral", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${idToken}` },
+      body: JSON.stringify({ action: "link", code })
+    });
+  } catch {
+    // gagal link referral tidak boleh menggagalkan proses registrasi
+  } finally {
+    try { localStorage.removeItem(REFERRAL_STORAGE_KEY); } catch { /* noop */ }
+  }
+}
+
+export async function getMyReferral(user) {
+  if (!user) throw new Error("User belum login.");
+  const idToken = await user.getIdToken();
+  const res = await fetch("/api/referral", { headers: { Authorization: `Bearer ${idToken}` } });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok || !data.ok) throw new Error(data.error || "Gagal memuat data referral.");
+  return data;
+}
+
 export async function ensureUserProfile(user) {
   if (!db || !user) return null;
 
@@ -174,6 +219,7 @@ export async function ensureUserProfile(user) {
     };
 
     await set(userRef, profile);
+    await linkPendingReferral(user); // akun baru -> coba sambungkan ke referral yang pending
     return profile;
   }
 

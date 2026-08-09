@@ -71,6 +71,13 @@
 .voucherMsg.error{background:rgba(255,83,106,.09);color:#ff9baa}
 .voucherClear{margin-left:8px;border:0;background:transparent;color:inherit;text-decoration:underline;font-weight:800;cursor:pointer;font-size:12px}
 .voucherBadge{display:inline-flex;align-items:center;gap:4px;background:linear-gradient(120deg,#33d68e,#1fb583)!important;color:#052e1d!important}
+.referralHero{background:linear-gradient(120deg,rgba(121,93,255,.08),rgba(14,18,29,.86))}
+.referralCodeBox{display:flex;justify-content:space-between;align-items:center;gap:12px;margin-top:16px;padding:14px 16px;border-radius:14px;background:rgba(0,0,0,.22);border:1px dashed rgba(255,255,255,.14);flex-wrap:wrap}
+.referralCodeMain{display:grid;gap:4px}
+.referralCode{font-size:22px;letter-spacing:.06em;color:#ffd166}
+.referralLinkBox{display:flex;gap:8px;margin-top:10px}
+.referralLinkBox input{flex:1;min-width:0;background:#080b12;border:1px solid rgba(255,255,255,.1);color:#aeb9ce;border-radius:10px;padding:11px 13px;outline:none;font-size:12.5px}
+.referralLinkBox .okBtn{white-space:nowrap;padding:11px 15px}
 .pricingList{display:grid;gap:10px}
 .pricingRow{display:grid;grid-template-columns:1fr auto;gap:10px;align-items:center;padding:14px 16px;border:1px solid rgba(255,255,255,.08);border-radius:16px;background:rgba(14,18,29,.65)}
 .pricingRow.inactive{opacity:.5}

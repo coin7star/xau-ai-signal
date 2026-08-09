@@ -232,12 +232,23 @@ export async function onRequest({ request, env }) {
     premiumUntil
   });
 
+  // Step Referral: kalau pembeli ini dulu daftar lewat link ajakan teman,
+  // dan ini order approved PERTAMA dia, kasih reward hari premium gratis
+  // ke yang ngajak (sekali per orang yang diajak, bukan tiap perpanjang).
+  let referralReward = null;
+  try {
+    referralReward = await grantReferralReward({ dbUrl, accessToken, env, buyer: user, buyerUid: order.uid, orderId });
+  } catch (err) {
+    referralReward = { granted: false, error: err?.message || String(err) };
+  }
+
   return json({
     ok: true,
     order: { ...order, ...orderPatch },
     premiumUntil,
     telegramNotify: userNotifyApprove,
-    emailNotify: emailNotifyApprove
+    emailNotify: emailNotifyApprove,
+    referralReward
   });
 }
 
@@ -248,6 +259,78 @@ function getDaysFromPackage(value) {
   if (!match) return 0;
   const days = parseInt(match[0], 10);
   return Number.isFinite(days) && days > 0 ? days : 0;
+}
+
+// Step Referral: reward referrer dengan tambahan hari premium gratis begitu
+// orang yang dia ajak sukses approved order PERTAMA-nya. `buyer` di sini
+// adalah snapshot /users/{uid} SEBELUM di-patch premium, jadi field
+// `referredBy`-nya masih apa adanya (tidak perlu fetch ulang).
+async function grantReferralReward({ dbUrl, accessToken, env, buyer, buyerUid, orderId }) {
+  const referrerUid = buyer?.referredBy;
+  if (!referrerUid) return { granted: false, reason: "buyer-not-referred" };
+
+  const existingReferral = await fbGet(dbUrl, `/referrals/${referrerUid}/${buyerUid}`, accessToken);
+  if (existingReferral?.status === "rewarded") {
+    return { granted: false, reason: "already-rewarded" };
+  }
+
+  const config = (await fbGet(dbUrl, "/referralConfig", accessToken)) || {};
+  if (config.active === false) return { granted: false, reason: "referral-program-inactive" };
+  const rewardDays = Math.max(1, Number(config.rewardDays) || 3);
+
+  const referrer = await fbGet(dbUrl, `/users/${referrerUid}`, accessToken);
+  if (!referrer) return { granted: false, reason: "referrer-not-found" };
+
+  const now = new Date();
+  const baseTime = referrer.premiumUntil && new Date(referrer.premiumUntil).getTime() > now.getTime()
+    ? new Date(referrer.premiumUntil)
+    : now;
+  baseTime.setDate(baseTime.getDate() + rewardDays);
+  const newPremiumUntil = baseTime.toISOString();
+  const nowIso = now.toISOString();
+
+  const referrerPatch = { premiumUntil: newPremiumUntil, updatedAt: nowIso };
+  if (referrer.role !== "admin") referrerPatch.role = "premium"; // jangan turunkan admin
+
+  await fbPatch(dbUrl, `/users/${referrerUid}`, referrerPatch, accessToken);
+  await fbPatch(dbUrl, `/referrals/${referrerUid}/${buyerUid}`, {
+    status: "rewarded",
+    rewardDays,
+    rewardedAt: nowIso,
+    orderId
+  }, accessToken);
+
+  const notify = await notifyReferralReward({ env, referrer, rewardDays, newPremiumUntil });
+
+  return { granted: true, referrerUid, rewardDays, newPremiumUntil, telegramNotify: notify };
+}
+
+async function notifyReferralReward({ env, referrer, rewardDays, newPremiumUntil }) {
+  const botToken = env.TELEGRAM_BOT_TOKEN || env.BOT_TOKEN || "";
+  const chatId = getUserTelegramChatId(referrer);
+  if (!botToken || !chatId) return { ok: false, skipped: true, reason: !botToken ? "telegram-bot-token-missing" : "telegram-not-connected" };
+
+  const lines = [
+    "🎁 Reward Referral!",
+    "",
+    `Temanmu yang daftar lewat kode referral kamu baru aja langganan premium.`,
+    `Kamu dapat tambahan +${rewardDays} hari premium GRATIS.`,
+    `Premium kamu sekarang aktif sampai: ${formatTelegramDate(newPremiumUntil)}`,
+    "",
+    "Makasih udah bantu bangun komunitas XAU AI Signal! Ajak teman lain lagi buat dapat reward tambahan."
+  ];
+
+  try {
+    const res = await fetch(`https://api.telegram.org/bot${botToken}/sendMessage`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ chat_id: chatId, text: lines.join("\n"), disable_web_page_preview: true })
+    });
+    const data = await res.json().catch(() => ({}));
+    return { ok: Boolean(res.ok && data.ok), status: res.status, description: data.description || "" };
+  } catch (err) {
+    return { ok: false, error: err.message || String(err) };
+  }
 }
 
 async function fbGet(dbUrl, path, accessToken) {

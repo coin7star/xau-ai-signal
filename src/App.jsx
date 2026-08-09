@@ -1,15 +1,17 @@
 import { useEffect, useMemo, useState } from "react";
 import { verifyPasswordResetCode, confirmPasswordReset, applyActionCode } from "firebase/auth";
 import {
-  Activity, ArrowLeft, Bell, Bot, CheckCircle2, Clock3, Copy, Crown, LayoutDashboard, LogIn,
+  Activity, ArrowLeft, Bell, Bot, CheckCircle2, Clock3, Copy, Crown, Gift, LayoutDashboard, LogIn,
   LogOut, Megaphone, Menu, Radio, RefreshCw, Send, Shield, Sparkles, Target, Ticket, TrendingDown,
   TrendingUp, User, Users, Wallet, X, Zap
 } from "lucide-react";
 import Landing from "./Landing";
 import {
   auth,
+  captureReferralFromUrl,
   checkVoucher,
   createPaymentOrder,
+  getMyReferral,
   getUserPaymentOrders,
   getUserProfile,
   hasFirebaseClientConfig,
@@ -415,6 +417,82 @@ function PaymentHistory({ user, refreshKey }) {
 
     {!error && orders.some(o => String(o.status||"pending").toLowerCase()==="pending") && <div className="notice">Order berstatus "Menunggu konfirmasi" perlu bukti transfer dikirim ke admin agar segera diverifikasi. Simpan Order ID di atas sebagai referensi.</div>}
   </section>;
+}
+
+function referralStatusMeta(status){
+  if(status==="rewarded") return { label:"Sudah dapat reward", cls:"paid" };
+  return { label:"Menunggu order pertama", cls:"pending" };
+}
+
+function ReferralPanel({ user }) {
+  const [data,setData]=useState(null);
+  const [loading,setLoading]=useState(true);
+  const [error,setError]=useState("");
+  const [copied,setCopied]=useState("");
+
+  async function load(){
+    setLoading(true);setError("");
+    try{
+      const res=await getMyReferral(user);
+      setData(res);
+    }catch(e){ setError(e?.message||"Gagal memuat data referral."); }
+    finally{ setLoading(false); }
+  }
+  useEffect(()=>{ load(); },[user?.uid]);
+
+  async function copy(text,label){
+    try{ await navigator.clipboard.writeText(text); setCopied(label); setTimeout(()=>setCopied(""),2500); }
+    catch{ /* clipboard tidak tersedia, biarkan user copy manual */ }
+  }
+
+  if(loading) return <section className="section newCard adminSection"><div className="sectionHeader"><div><span className="eyebrow">AJAK TEMAN</span><h3>Program Referral</h3></div></div><div className="emptyBox">Memuat kode referral kamu...</div></section>;
+  if(error) return <section className="section newCard adminSection"><div className="sectionHeader"><div><span className="eyebrow">AJAK TEMAN</span><h3>Program Referral</h3></div><button className="iconBtn" onClick={load}><RefreshCw size={17}/></button></div><div className="notice error">{error}</div></section>;
+
+  return <>
+    <section className="section newCard adminSection referralHero">
+      <div className="sectionHeader"><div><span className="eyebrow">AJAK TEMAN, DAPAT REWARD</span><h3>Program Referral</h3></div><button className="iconBtn" onClick={load}><RefreshCw size={17}/></button></div>
+      <p className="muted" style={{fontSize:13}}>Share link kamu ke teman. Begitu dia daftar & langganan premium pertama kali, kamu otomatis dapat <b>tambahan hari premium GRATIS</b> — dan temanmu juga langsung dapat <b>voucher diskon welcome</b> buat pembelian pertamanya. Makin banyak yang diajak, makin gede benefitnya.</p>
+
+      <div className="referralCodeBox">
+        <div className="referralCodeMain">
+          <span className="muted" style={{fontSize:11,fontWeight:900,letterSpacing:".05em"}}>KODE REFERRAL KAMU</span>
+          <b className="referralCode">{data.code}</b>
+        </div>
+        <button type="button" className="textBtn" onClick={()=>copy(data.code,"code")}><Copy size={14}/> {copied==="code"?"Tersalin!":"Salin Kode"}</button>
+      </div>
+      <div className="referralLinkBox">
+        <input readOnly value={data.link} onFocus={e=>e.target.select()}/>
+        <button type="button" className="okBtn" onClick={()=>copy(data.link,"link")}><Copy size={14}/> {copied==="link"?"Tersalin!":"Salin Link"}</button>
+      </div>
+
+      <div className="winrateGrid" style={{marginTop:16}}>
+        <div className="winrateStat total"><b>{data.stats.totalInvited}</b><span>Total Diajak</span></div>
+        <div className="winrateStat win"><b>{data.stats.rewarded}</b><span>Sudah Reward</span></div>
+        <div className="winrateStat be"><b>{data.stats.pending}</b><span>Menunggu</span></div>
+        <div className="winrateStat pip"><b>+{data.stats.totalDaysEarned}</b><span>Hari Premium Didapat</span></div>
+      </div>
+    </section>
+
+    <section className="section">
+      <div className="sectionHeader"><div><span className="eyebrow">DAFTAR TEMAN</span><h3>Yang kamu ajak</h3></div></div>
+      {!data.referrals.length && <div className="emptyBox">Belum ada teman yang gabung lewat link kamu. Yuk mulai share sekarang!</div>}
+      {data.referrals.length>0 && <div className="paymentList">
+        {data.referrals.map((r,i)=>{
+          const meta=referralStatusMeta(r.status);
+          return <article className="paymentItem" key={i}>
+            <div className="paymentMain">
+              <b>{r.email}</b>
+              <span className="paymentOrderId">Gabung {fmtDate(r.joinedAt)}</span>
+            </div>
+            <div className="paymentSide">
+              <span className={`statusPill ${meta.cls}`}>{meta.label}</span>
+              {r.status==="rewarded" && <b>+{r.rewardDays} hari</b>}
+            </div>
+          </article>;
+        })}
+      </div>}
+    </section>
+  </>;
 }
 
 
@@ -1465,6 +1543,86 @@ function AdminVouchers({ token }){
   </section>;
 }
 
+function AdminReferral({ token }){
+  const [config,setConfig]=useState(null);
+  const [leaderboard,setLeaderboard]=useState([]);
+  const [form,setForm]=useState({rewardDays:"3",refereeDiscountPercent:"15",active:true});
+  const [loading,setLoading]=useState(false);
+  const [error,setError]=useState("");
+  const [busy,setBusy]=useState(false);
+  const [msg,setMsg]=useState("");
+
+  async function load(){
+    if(!token){ setError("Isi & simpan ADMIN_ACTION_TOKEN dulu di panel Publish Signal."); return; }
+    setLoading(true);setError("");
+    try{
+      const res=await fetch("/api/referral",{headers:{Authorization:`Bearer ${token}`}});
+      const data=await res.json();
+      if(!res.ok||!data.ok) throw new Error(data.error||"Gagal memuat data referral.");
+      setConfig(data.config);
+      setLeaderboard(data.leaderboard||[]);
+      setForm({rewardDays:String(data.config.rewardDays), refereeDiscountPercent:String(data.config.refereeDiscountPercent), active:data.config.active!==false});
+    }catch(e){ setError(e?.message||"Gagal memuat data referral."); }
+    finally{ setLoading(false); }
+  }
+  useEffect(()=>{ load(); },[token]);
+
+  async function saveConfig(e){
+    e.preventDefault();
+    if(!token) return;
+    setBusy(true);setMsg("");
+    try{
+      const body={action:"config", rewardDays:Number(form.rewardDays)||3, refereeDiscountPercent:Number(form.refereeDiscountPercent)||0, active:form.active};
+      const res=await fetch("/api/referral",{method:"POST",headers:{"Content-Type":"application/json",Authorization:`Bearer ${token}`},body:JSON.stringify(body)});
+      const data=await res.json();
+      if(!res.ok||!data.ok) throw new Error(data.error||"Gagal menyimpan pengaturan.");
+      setMsg("✅ Pengaturan referral tersimpan.");
+      await load();
+    }catch(e){ setMsg(`❌ ${e.message}`); }
+    finally{ setBusy(false); }
+  }
+
+  return <section className="adminSection newCard">
+    <div className="sectionHeader"><div><span className="eyebrow">ADMIN CONTROL</span><h3>Program Referral</h3></div><button className="iconBtn" disabled={loading} onClick={load}><RefreshCw size={16} className={loading?"spin":""}/></button></div>
+    <p className="muted" style={{fontSize:13,marginBottom:4}}>Atur berapa hari reward buat yang ngajak, dan berapa persen diskon welcome buat teman yang diajak. Reward otomatis diberikan begitu order pertama temannya di-approve.</p>
+
+    {error && <div className="notice error">{error}</div>}
+
+    <form className="pricingForm" onSubmit={saveConfig} style={{borderTop:"none",paddingTop:0}}>
+      <div className="pricingFormGrid">
+        <label>Reward Referrer <span className="muted">(hari premium gratis)</span>
+          <input type="number" min="1" required value={form.rewardDays} onChange={e=>setForm(f=>({...f,rewardDays:e.target.value}))}/>
+        </label>
+        <label>Diskon Welcome Teman <span className="muted">(% dari harga paket)</span>
+          <input type="number" min="0" max="90" required value={form.refereeDiscountPercent} onChange={e=>setForm(f=>({...f,refereeDiscountPercent:e.target.value}))}/>
+        </label>
+        <label className="checkRow"><input type="checkbox" checked={form.active} onChange={e=>setForm(f=>({...f,active:e.target.checked}))}/> Program referral aktif</label>
+      </div>
+      <div className="adminActions">
+        <button type="submit" className="okBtn" disabled={busy}><CheckCircle2 size={15}/> {busy?"Menyimpan...":"Simpan Pengaturan"}</button>
+      </div>
+    </form>
+
+    {msg && <div className="notice" style={{marginTop:10}}>{msg}</div>}
+
+    <div className="sectionHeader" style={{marginTop:22}}><div><span className="eyebrow">LEADERBOARD</span><h3>Top Pengajak</h3></div></div>
+    <div className="pricingList">
+      {leaderboard.map(row=>(
+        <div key={row.uid} className="pricingRow">
+          <div className="pricingRowMain">
+            <span className="pricingCode">{row.referralCode}</span>
+            <b>{row.email}</b>
+            <span className="muted">{row.totalInvited} diajak</span>
+            <span className="statusPill paid">{row.rewarded} reward</span>
+            <b>+{row.totalDaysEarned} hari</b>
+          </div>
+        </div>
+      ))}
+      {!loading && !leaderboard.length && !error && <div className="emptyBox">Belum ada aktivitas referral.</div>}
+    </div>
+  </section>;
+}
+
 const ADMIN_GROUPS = [
   { id: "overview", label: "Ringkasan", panels: [
     { id: "dashboard", label: "Dashboard", desc: "Revenue, user premium aktif, order pending", icon: LayoutDashboard }
@@ -1478,7 +1636,8 @@ const ADMIN_GROUPS = [
     { id: "orders", label: "Payment Orders", desc: "Approve / reject order premium user", icon: Wallet },
     { id: "users", label: "User Management", desc: "Kelola role, kasih premium, tes reminder H-1", icon: Users },
     { id: "pricing", label: "Harga & Promo", desc: "Ubah harga paket premium & bikin promo baru", icon: Crown },
-    { id: "vouchers", label: "Voucher Diskon", desc: "Bikin kode voucher diskon instan biar user penasaran & tertarik langganan", icon: Ticket }
+    { id: "vouchers", label: "Voucher Diskon", desc: "Bikin kode voucher diskon instan biar user penasaran & tertarik langganan", icon: Ticket },
+    { id: "referral", label: "Program Referral", desc: "Atur reward ajak teman & lihat leaderboard pengajak", icon: Gift }
   ]},
   { id: "stats", label: "Statistik", panels: [
     { id: "winrate", label: "Winrate Signal", desc: "Statistik performa signal (7/30 hari)", icon: Target }
@@ -1531,6 +1690,7 @@ function AdminShell({ panelId, onSelect, ...rest }) {
       {activeId === "users" && <AdminUsers token={rest.token}/>}
       {activeId === "pricing" && <AdminPricing token={rest.token}/>}
       {activeId === "vouchers" && <AdminVouchers token={rest.token}/>}
+      {activeId === "referral" && <AdminReferral token={rest.token}/>}
     </div>
   </section>;
 }
@@ -1559,6 +1719,7 @@ function AppShell({ user, profile, refreshProfile, profileError }) {
     {id:"signal",label:"Sinyal",icon:Activity},
     {id:"premium",label:"Premium",icon:Crown},
     {id:"telegram",label:"Telegram",icon:Zap},
+    {id:"referral",label:"Ajak Teman",icon:Gift},
     ...(admin?[{id:"admin",label:"Admin",icon:Shield}]:[])
   ];
 
@@ -1648,6 +1809,8 @@ function AppShell({ user, profile, refreshProfile, profileError }) {
 
       {tab==="telegram" && <TelegramPanel user={user} profile={profile} premium={premium} refresh={refreshProfile}/>}
 
+      {tab==="referral" && <ReferralPanel user={user}/>}
+
       {tab==="admin" && admin && (
         <AdminShell
           panelId={adminPanel}
@@ -1676,6 +1839,8 @@ export default function App(){
   const [profile,setProfile]=useState(null);
   const [profileLoading,setProfileLoading]=useState(false);
   const [profileError,setProfileError]=useState("");
+
+  useEffect(()=>{ captureReferralFromUrl(); },[]);
 
   useEffect(()=>listenAuth(async u=>{
     setUser(u||null);
