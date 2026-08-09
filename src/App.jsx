@@ -418,6 +418,18 @@ function AdminPanel({ latest, history, onPublished, token, setToken, onSetResult
       onPublished();
     }catch(e){setResult(`❌ ${e.message}`)}finally{setBusy(false)}
   }
+  const [previewBusy,setPreviewBusy]=useState("");
+  async function previewRecap(period){
+    if(!token) return;
+    setPreviewBusy(period);setResult("");
+    try{
+      const res=await fetch("/api/wr-recap-cron",{method:"POST",headers:{"Content-Type":"application/json","Authorization":`Bearer ${token}`},body:JSON.stringify({period,preview:true})});
+      const data=await res.json();
+      if(!res.ok||!data.ok) throw new Error(data.error||"Gagal kirim preview.");
+      setResult(`🧪 Preview terkirim (${data.rangeLabel}) — Winrate ${data.stats.winratePercent}% (${data.stats.wins}W/${data.stats.losses}L/${data.stats.be}BE). ${data.notifications?.successCount||0} user menerima.`);
+    }catch(e){setResult(`❌ ${e.message}`)}
+    finally{setPreviewBusy("")}
+  }
   return <section className="adminSection newCard">
     <div className="sectionHeader"><div><span className="eyebrow">ADMIN CONTROL</span><h3>Publish Signal</h3></div><Shield size={20}/></div>
     <div className="adminToken"><input type="password" placeholder="ADMIN_ACTION_TOKEN" value={token} onChange={e=>setToken(e.target.value)}/><button className="textBtn" onClick={saveToken}>Simpan</button></div>
@@ -454,6 +466,16 @@ function AdminPanel({ latest, history, onPublished, token, setToken, onSetResult
         <button type="button" disabled={!token||busyResultId===latest.id} className="textBtn" onClick={()=>onSetResult(latest.id,"BE")}><Target size={16}/> Tandai Break Even</button>
       </div>
     </div>}
+
+    <div className="recapPreviewBox">
+      <div className="sectionHeader" style={{marginBottom:8}}><div><span className="eyebrow">TEST RECAP</span><h4 style={{margin:0}}>Preview Recap Sekarang</h4></div></div>
+      <p className="muted" style={{fontSize:13,marginBottom:10}}>Kirim recap "hari ini s/d sekarang" (bukan window resmi "kemarin") ke Telegram premium, buat ngetes tanpa nunggu jadwal cron. Ditandai jelas [PREVIEW TEST] dan tidak menimpa data recap harian yang asli.</p>
+      <div className="adminActions">
+        <button type="button" className="textBtn" disabled={!token||previewBusy} onClick={()=>previewRecap("daily")}>{previewBusy==="daily"?"Mengirim...":"Preview Daily"}</button>
+        <button type="button" className="textBtn" disabled={!token||previewBusy} onClick={()=>previewRecap("weekly")}>{previewBusy==="weekly"?"Mengirim...":"Preview Weekly"}</button>
+        <button type="button" className="textBtn" disabled={!token||previewBusy} onClick={()=>previewRecap("monthly")}>{previewBusy==="monthly"?"Mengirim...":"Preview Monthly"}</button>
+      </div>
+    </div>
   </section>;
 }
 
