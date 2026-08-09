@@ -166,10 +166,12 @@ function SignalCard({ signal, premium }) {
 }
 
 function Feed({ history, onRefresh, admin, onSetResult, busyResultId }) {
+  const [expanded,setExpanded]=useState(false);
+  const visible = expanded ? history : history.slice(0,5);
   return <section className="section">
     <div className="sectionHeader"><div><span className="eyebrow">SIGNAL FEED</span><h3>Riwayat call</h3></div><button className="iconBtn" onClick={onRefresh}><RefreshCw size={17}/></button></div>
-    <div className="feedList">
-      {history.length ? history.map((s,i)=><article className="feedItem" key={s.id || i}>
+    <div className={`feedList ${expanded?"scrollable":""}`}>
+      {visible.length ? visible.map((s,i)=><article className="feedItem" key={s.id || i}>
         <div className={`dir ${isBuy(s.direction)?"buy":isSell(s.direction)?"sell":""}`}>{s.direction || "WAIT"}</div>
         <div className="feedMain"><b>{s.title || `${s.pair || "XAUUSD"} ${s.timeframe || "M15"}`}</b><span>{s.note || s.reason || "Manual setup"}</span>{s.closeReason && <span className="feedCloseReason">{s.status==="CANCELLED"?"🚫":"⏹"} {s.closeReason}</span>}</div>
         <div className="feedNums"><b>{money(s.entry)}</b><span>SL {money(s.sl)} • TP {money(s.tp)}</span></div>
@@ -184,6 +186,9 @@ function Feed({ history, onRefresh, admin, onSetResult, busyResultId }) {
         <time>{fmtDate(s.publishedAt || s.createdAt)}</time>
       </article>) : <div className="emptyBox">Belum ada riwayat sinyal.</div>}
     </div>
+    {history.length>5 && <button type="button" className="feedToggleBtn" onClick={()=>setExpanded(v=>!v)}>
+      {expanded ? "Tampilkan lebih sedikit" : `Lihat semua (${history.length})`}
+    </button>}
   </section>;
 }
 
