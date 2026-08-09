@@ -429,15 +429,27 @@ export async function createPaymentOrder({ user, profile, packageCode, packageLa
     updatedAt: now
   };
 
-  await set(ref(db, `paymentOrders/${orderId}`), order);
-  await update(ref(db, `users/${user.uid}`), {
-    lastPaymentOrderId: orderId,
-    lastPaymentPackage: order.packageLabel,
-    lastPaymentPrice: order.price,
-    lastPaymentStatus: "pending",
-    lastPaymentCreatedAt: now,
-    updatedAt: now
-  });
+  try {
+    await set(ref(db, `paymentOrders/${orderId}`), order);
+  } catch (err) {
+    throw new Error(`Gagal simpan order baru ke /paymentOrders (${err?.code || err?.message || err}). Order belum dibuat, voucher (kalau dipakai) mohon dicek manual ke admin.`);
+  }
+
+  try {
+    await update(ref(db, `users/${user.uid}`), {
+      lastPaymentOrderId: orderId,
+      lastPaymentPackage: order.packageLabel,
+      lastPaymentPrice: order.price,
+      lastPaymentStatus: "pending",
+      lastPaymentCreatedAt: now,
+      updatedAt: now
+    });
+  } catch (err) {
+    // Order-nya sendiri SUDAH kesimpen di /paymentOrders (baris di atas berhasil),
+    // cuma gagal update pointer di /users/{uid}. Jangan disembunyikan sebagai
+    // "gagal total" - order tetap ada & tetap bisa diproses admin manual.
+    console.error("createPaymentOrder: order tersimpan tapi gagal update /users profile", err);
+  }
 
   // Step 8D: notify admin via Telegram, non-blocking.
   // Kalau endpoint/env Telegram error, order tetap berhasil dibuat.
