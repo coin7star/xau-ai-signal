@@ -16,7 +16,7 @@
 .resultBadge.loss{background:rgba(255,83,106,.14);color:#ff8392}
 .resultBadge.be{background:rgba(255,201,92,.14);color:#ffd36c}
 .winrateCard{margin-top:0}
-.winrateGrid{display:grid;grid-template-columns:1.2fr 1fr 1fr 1fr 1fr;gap:10px;margin-top:6px}
+.winrateGrid{display:grid;grid-template-columns:1.2fr repeat(5,1fr);gap:10px;margin-top:6px}
 .winrateGrid>div{padding:16px;border-radius:14px;background:rgba(0,0,0,.22);text-align:center;display:grid;gap:6px}
 .winrateBig b{font-size:30px;color:#ffd36c}
 .winrateStat b{font-size:22px}
@@ -30,3 +30,4 @@
 .backToLanding{position:absolute;top:22px;left:22px;display:inline-flex;align-items:center;gap:7px;border:1px solid rgba(255,255,255,.1);background:rgba(255,255,255,.04);color:#aeb9ce;padding:9px 14px;border-radius:12px;font-weight:900;font-size:12px;z-index:2}@media(max-width:560px){.backToLanding{position:static;margin-bottom:16px}}
 .resultBadge.closed{background:rgba(255,255,255,.08);color:#aeb9ce}.resultBadge.cancelled{background:rgba(255,148,60,.14);color:#ffb27a}.closeBox{margin-top:18px;padding:18px;border-radius:16px;border:1px solid rgba(255,255,255,.08);background:rgba(255,255,255,.02);display:grid;gap:12px}.closeBox label{color:#7f8ba3;font-size:11px;font-weight:900;display:grid;gap:7px}.closeBox textarea{width:100%;background:#080b12;border:1px solid rgba(255,255,255,.1);color:#eaf0fc;border-radius:12px;padding:11px 13px;outline:none;resize:vertical;font-size:12.5px}.closeReasonNote{margin-top:10px;padding:11px 13px;border-radius:12px;background:rgba(255,148,60,.08);color:#ffc39a;font-size:12.5px;line-height:1.6}.feedCloseReason{display:block;color:#ffb27a;font-size:11px;margin-top:3px}
 .adminOnlineBanner{display:flex;align-items:center;gap:10px;padding:13px 16px;border-radius:14px;background:rgba(51,214,142,.1);border:1px solid rgba(51,214,142,.22);color:#c9f5df;font-size:13px;margin-bottom:16px}.adminOnlineBanner b{color:#7dedb2}.onlineDot{width:9px;height:9px;border-radius:50%;background:#5b6478;flex-shrink:0}.onlineDot.on{background:#33d68e;box-shadow:0 0 0 4px rgba(51,214,142,.18)}.statusNow{display:flex;align-items:center;gap:9px;padding:12px 14px;border-radius:12px;background:rgba(255,255,255,.03);font-size:13px}.checkRow{display:flex!important;flex-direction:row!important;align-items:center;gap:8px;font-weight:800!important;color:#aab5ca!important}.checkRow input{width:auto!important}
+.winrateStat.pip b{color:#ffc95c}@media(max-width:850px){.winrateGrid{grid-template-columns:1fr 1fr 1fr}}
