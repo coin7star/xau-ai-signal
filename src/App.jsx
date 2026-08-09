@@ -772,15 +772,16 @@ function AdminUsers({ token }) {
         onRevoke={()=>revokePremium(u)}
         onMakeAdmin={()=>makeAdmin(u)}
         onRemoveAdmin={()=>removeAdmin(u)}
+        onTestReminder={()=>checkReminder(u.uid)}
+        reminderBusy={reminderBusy}
       />)}
     </div>
 
     <div className="recapPreviewBox" style={{marginTop:16}}>
       <div className="sectionHeader" style={{marginBottom:8}}><div><span className="eyebrow">H-1 REMINDER</span><h4 style={{margin:0}}>Reminder Premium Mau Habis</h4></div></div>
-      <p className="muted" style={{fontSize:13,marginBottom:10}}>Otomatis kirim email + Telegram ke user yang premiumnya tinggal 1 hari (cron harian). Cek dulu siapa yang bakal kena reminder hari ini, atau kirim tes ke 1 UID.</p>
+      <p className="muted" style={{fontSize:13,marginBottom:10}}>Otomatis kirim email + Telegram ke user yang premiumnya tinggal 1 hari (cron harian). Cek dulu siapa yang bakal kena reminder hari ini, atau klik "Tes Reminder H-1" di baris user manapun di bawah buat tes kirim sungguhan (gak perlu copy UID manual lagi).</p>
       <div className="adminActions">
         <button type="button" className="textBtn" disabled={!token||reminderBusy} onClick={()=>checkReminder()}>{reminderBusy?"Mengecek...":"Cek Siapa Kena Reminder (Dry Run)"}</button>
-        <button type="button" className="textBtn" disabled={!token||reminderBusy} onClick={()=>{const uid=window.prompt("UID user buat tes kirim reminder sungguhan (email+telegram):");if(uid) checkReminder(uid.trim());}}>Tes Kirim ke 1 UID</button>
       </div>
       {reminderResult && !reminderResult.ok && <div className="notice error" style={{marginTop:10}}>{reminderResult.error}</div>}
       {reminderResult && reminderResult.ok && reminderResult.mode==="dry-run" && (
@@ -800,18 +801,25 @@ function AdminUsers({ token }) {
   </section>;
 }
 
-function AdminUserRow({ u, busy, onGrant, onRevoke, onMakeAdmin, onRemoveAdmin }){
+function AdminUserRow({ u, busy, onGrant, onRevoke, onMakeAdmin, onRemoveAdmin, onTestReminder, reminderBusy }){
   const premium = isPremiumProfile(u);
   const isAdmin = u.role==="admin";
   const untilMs = u.premiumUntil ? new Date(u.premiumUntil).getTime() : 0;
   const daysLeft = untilMs ? Math.ceil((untilMs-Date.now())/(1000*60*60*24)) : null;
   const expiringSoon = premium && daysLeft!==null && daysLeft<=3;
 
+  async function copyUid(){
+    try{ await navigator.clipboard.writeText(u.uid); }catch{}
+  }
+
   return <article className="orderRow">
     <div className="orderRowTop">
       <div className="orderRowMain">
         <b>{u.email || "(tanpa email)"}</b>
-        <span className="paymentOrderId">UID: {u.uid}</span>
+        <span className="paymentOrderId">
+          UID: {u.uid}
+          <button type="button" className="copyMini" onClick={copyUid} title="Salin UID"><Copy size={12}/></button>
+        </span>
       </div>
       <div className="orderRowSide">
         <span className={`statusPill ${isAdmin?"paid":premium?"paid":"expired"}`}>{isAdmin?"Admin":premium?"Premium":"Free"}</span>
@@ -831,6 +839,7 @@ function AdminUserRow({ u, busy, onGrant, onRevoke, onMakeAdmin, onRemoveAdmin }
       {premium && !isAdmin && <button type="button" className="dangerBtn" disabled={busy} onClick={onRevoke}>Cabut Premium</button>}
       {!isAdmin && <button type="button" className="textBtn" disabled={busy} onClick={onMakeAdmin}>Jadikan Admin</button>}
       {isAdmin && <button type="button" className="textBtn" disabled={busy} onClick={onRemoveAdmin}>Cabut Admin</button>}
+      {premium && !isAdmin && <button type="button" className="textBtn" disabled={reminderBusy} onClick={onTestReminder}>{reminderBusy?"Mengirim...":"Tes Reminder H-1"}</button>}
     </div>
   </article>;
 }
