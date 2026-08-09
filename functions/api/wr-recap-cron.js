@@ -21,12 +21,18 @@ export async function onRequest({ request, env }) {
   let body = {};
   try { body = await request.json(); } catch { body = {}; }
 
-  const secret = env.WR_RECAP_CRON_SECRET || "";
-  const token = request.headers.get("x-wr-recap-cron-secret")
+  const cronSecret = env.WR_RECAP_CRON_SECRET || "";
+  const adminToken = env.ADMIN_ACTION_TOKEN || env.VITE_ADMIN_ACTION_TOKEN || "";
+  const incomingToken = request.headers.get("x-wr-recap-cron-secret")
     || (request.headers.get("Authorization") || "").replace(/^Bearer\s+/i, "")
     || body.token || "";
-  if (!secret) return json({ ok: false, error: "WR_RECAP_CRON_SECRET belum diset di Cloudflare ENV." }, 500);
-  if (token !== secret) return json({ ok: false, error: "Cron secret tidak valid." }, 401);
+
+  const isCron = Boolean(cronSecret) && incomingToken === cronSecret;
+  const isAdminPreview = Boolean(adminToken) && incomingToken === adminToken && body.preview === true;
+
+  if (!isCron && !isAdminPreview) {
+    return json({ ok: false, error: "Token tidak valid. Pakai cron secret, atau admin token + preview:true." }, 401);
+  }
 
   const period = ["daily", "weekly", "monthly"].includes(String(body.period || "").toLowerCase())
     ? String(body.period).toLowerCase() : "daily";
@@ -41,20 +47,43 @@ export async function onRequest({ request, env }) {
 
   try {
     const rawHistory = await fbGet(dbUrl, "/manualSignals/history", accessToken);
-    const { from, to } = periodWindowWIB(period);
+    const { from, to } = isAdminPreview ? previewWindowWIB(period) : periodWindowWIB(period);
     const windowed = filterHistoryByWindow(rawHistory, from, to);
     const stats = statsFromList(windowed);
 
-    const rangeLabel = formatRangeWIB(from, to, period);
-    const logId = `${period}-${new Date(to).toISOString().slice(0, 10)}`;
-    await fbPut(dbUrl, `/wrRecaps/${period}/${safeKey(logId)}`, { ...stats, period, from, to, sentAt: new Date().toISOString() }, accessToken);
+    const rangeLabel = formatRangeWIB(from, to, period) + (isAdminPreview ? " (preview, s/d sekarang)" : "");
 
-    const notifications = await notifyRecapTelegram(env, dbUrl, period, rangeLabel, stats, accessToken);
-    return json({ ok: true, period, rangeLabel, stats, notifications });
+    if (!isAdminPreview) {
+      const logId = `${period}-${new Date(to).toISOString().slice(0, 10)}`;
+      await fbPut(dbUrl, `/wrRecaps/${period}/${safeKey(logId)}`, { ...stats, period, from, to, sentAt: new Date().toISOString() }, accessToken);
+    }
+
+    const notifications = await notifyRecapTelegram(env, dbUrl, period, rangeLabel, stats, accessToken, isAdminPreview);
+    return json({ ok: true, period, rangeLabel, stats, notifications, preview: isAdminPreview });
   } catch (e) {
     console.error("wr-recap-cron error", e);
     return json({ ok: false, error: e?.message || "Terjadi kesalahan tak terduga." }, 500);
   }
+}
+
+// Window "hari ini s/d sekarang" (WIB) - khusus admin preview, supaya bisa test
+// langsung tanpa harus nunggu window resmi "kemarin penuh" milik cron asli.
+function previewWindowWIB(period, refDate = new Date()) {
+  const WIB_OFFSET_MS = 7 * 60 * 60 * 1000;
+  const wib = new Date(refDate.getTime() + WIB_OFFSET_MS);
+  const y = wib.getUTCFullYear(), m = wib.getUTCMonth(), d = wib.getUTCDate();
+  const todayMidnightWIB = Date.UTC(y, m, d, 0, 0, 0) - WIB_OFFSET_MS;
+  const now = refDate.getTime();
+
+  if (period === "weekly") {
+    const from = todayMidnightWIB - 7 * 24 * 60 * 60 * 1000;
+    return { from, to: now };
+  }
+  if (period === "monthly") {
+    const firstOfThisMonthWIB = Date.UTC(y, m, 1, 0, 0, 0) - WIB_OFFSET_MS;
+    return { from: firstOfThisMonthWIB, to: now };
+  }
+  return { from: todayMidnightWIB, to: now };
 }
 
 function formatRangeWIB(from, to, period) {
@@ -65,7 +94,7 @@ function formatRangeWIB(from, to, period) {
   return `${fromLabel} — ${toLabel}`;
 }
 
-async function notifyRecapTelegram(env, dbUrl, period, rangeLabel, stats, accessToken) {
+async function notifyRecapTelegram(env, dbUrl, period, rangeLabel, stats, accessToken, isPreview) {
   const token = env.TELEGRAM_BOT_TOKEN || "";
   if (!token) return { ok: false, skipped: true, reason: "TELEGRAM_BOT_TOKEN missing", totalRecipients: 0, successCount: 0, failedCount: 0 };
   const raw = await fbGet(dbUrl, "/users", accessToken);
@@ -75,12 +104,12 @@ async function notifyRecapTelegram(env, dbUrl, period, rangeLabel, stats, access
 
   const pipSign = stats.totalPip >= 0 ? "+" : "";
   const text = [
-    `📊 <b>REKAP ${PERIOD_LABEL[period]} — XAU AI SIGNAL</b>`, "",
+    isPreview ? `🧪 <b>[PREVIEW TEST] REKAP ${PERIOD_LABEL[period]}</b>` : `📊 <b>REKAP ${PERIOD_LABEL[period]} — XAU AI SIGNAL</b>`, "",
     `Periode: <b>${escapeHtml(rangeLabel)}</b> (WIB)`, "",
     `Winrate: <b>${stats.winratePercent}%</b> (${stats.wins}W/${stats.losses}L/${stats.be}BE dari ${stats.total} call)`,
     `Total Pip: <b>${pipSign}${stats.totalPip} pip</b>`, "",
     stats.total === 0 ? "Tidak ada call yang selesai di periode ini." : "",
-    "👑 Premium Alert • XAU AI Signal"
+    isPreview ? "🧪 Ini pesan preview/test dari admin, bukan recap resmi." : "👑 Premium Alert • XAU AI Signal"
   ].filter(Boolean).join("\n");
 
   let successCount = 0, failedCount = 0;
