@@ -669,6 +669,8 @@ function AdminUsers({ token }) {
   const [tab,setTab]=useState("all");
   const [search,setSearch]=useState("");
   const [busyUid,setBusyUid]=useState("");
+  const [reminderBusy,setReminderBusy]=useState(false);
+  const [reminderResult,setReminderResult]=useState(null);
 
   async function load(){
     if(!token){ setError("Isi & simpan ADMIN_ACTION_TOKEN dulu di atas."); return; }
@@ -682,6 +684,18 @@ function AdminUsers({ token }) {
     finally{ setLoading(false); }
   }
   useEffect(()=>{ load(); },[token]);
+
+  async function checkReminder(testUid){
+    if(!token) return;
+    setReminderBusy(true);setReminderResult(null);
+    try{
+      const res=await fetch("/api/premium-expiry-reminder-cron",{method:"POST",headers:{"Content-Type":"application/json",Authorization:`Bearer ${token}`},body:JSON.stringify({preview:true,...(testUid?{testUid}:{})})});
+      const data=await res.json();
+      if(!res.ok||!data.ok) throw new Error(data.error||"Gagal cek reminder.");
+      setReminderResult(data);
+    }catch(e){ setReminderResult({ok:false,error:e?.message||"Gagal cek reminder."}); }
+    finally{ setReminderBusy(false); }
+  }
 
   async function act(uid,body){
     setBusyUid(uid);
@@ -759,6 +773,29 @@ function AdminUsers({ token }) {
         onMakeAdmin={()=>makeAdmin(u)}
         onRemoveAdmin={()=>removeAdmin(u)}
       />)}
+    </div>
+
+    <div className="recapPreviewBox" style={{marginTop:16}}>
+      <div className="sectionHeader" style={{marginBottom:8}}><div><span className="eyebrow">H-1 REMINDER</span><h4 style={{margin:0}}>Reminder Premium Mau Habis</h4></div></div>
+      <p className="muted" style={{fontSize:13,marginBottom:10}}>Otomatis kirim email + Telegram ke user yang premiumnya tinggal 1 hari (cron harian). Cek dulu siapa yang bakal kena reminder hari ini, atau kirim tes ke 1 UID.</p>
+      <div className="adminActions">
+        <button type="button" className="textBtn" disabled={!token||reminderBusy} onClick={()=>checkReminder()}>{reminderBusy?"Mengecek...":"Cek Siapa Kena Reminder (Dry Run)"}</button>
+        <button type="button" className="textBtn" disabled={!token||reminderBusy} onClick={()=>{const uid=window.prompt("UID user buat tes kirim reminder sungguhan (email+telegram):");if(uid) checkReminder(uid.trim());}}>Tes Kirim ke 1 UID</button>
+      </div>
+      {reminderResult && !reminderResult.ok && <div className="notice error" style={{marginTop:10}}>{reminderResult.error}</div>}
+      {reminderResult && reminderResult.ok && reminderResult.mode==="dry-run" && (
+        <div className="notice" style={{marginTop:10}}>
+          {reminderResult.totalCandidates===0 ? "Tidak ada user yang premiumnya tinggal 1 hari saat ini." : `${reminderResult.totalCandidates} user akan menerima reminder:`}
+          {reminderResult.totalCandidates>0 && <ul style={{margin:"8px 0 0",paddingLeft:18}}>
+            {reminderResult.candidates.map(c=><li key={c.uid} style={{fontSize:12.5}}>{c.email||c.uid} — sisa {c.daysLeft} hari {c.telegramConnected?"(Telegram ✅)":"(Telegram ❌)"}</li>)}
+          </ul>}
+        </div>
+      )}
+      {reminderResult && reminderResult.ok && reminderResult.mode==="test-single-user" && (
+        <div className="notice" style={{marginTop:10}}>
+          {reminderResult.totalSent===0 ? "UID tidak ditemukan atau tidak memenuhi kriteria." : `Tes terkirim ke ${reminderResult.results[0]?.email||"user"}: email ${reminderResult.results[0]?.email_ok===true?"✅":reminderResult.results[0]?.email_ok===false?"❌":"–"}, Telegram ${reminderResult.results[0]?.telegram_ok===true?"✅":reminderResult.results[0]?.telegram_ok===false?"❌":"–"}.`}
+        </div>
+      )}
     </div>
   </section>;
 }
