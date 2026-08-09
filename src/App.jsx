@@ -697,6 +697,26 @@ function AdminUsers({ token }) {
     finally{ setReminderBusy(false); }
   }
 
+  const [busyReminderUid,setBusyReminderUid]=useState("");
+  async function testReminderForUser(u){
+    if(!token){ alert("Isi & simpan ADMIN_ACTION_TOKEN dulu di atas."); return; }
+    setBusyReminderUid(u.uid);
+    try{
+      const res=await fetch("/api/premium-expiry-reminder-cron",{method:"POST",headers:{"Content-Type":"application/json",Authorization:`Bearer ${token}`},body:JSON.stringify({preview:true,testUid:u.uid})});
+      const data=await res.json();
+      if(!res.ok||!data.ok) throw new Error(data.error||"Gagal tes reminder.");
+      if(data.totalSent===0){
+        alert(`Tidak bisa tes ke ${u.email||u.uid}: UID tidak ditemukan di database.`);
+      }else{
+        const r=data.results[0]||{};
+        const emailTxt = r.email_ok===true?"✅ terkirim":r.email_ok===false?"❌ gagal kirim":"– (user tidak punya email)";
+        const teleTxt = r.telegram_ok===true?"✅ terkirim":r.telegram_ok===false?"❌ gagal kirim":"– (Telegram belum connect)";
+        alert(`Tes reminder ke ${u.email||u.uid}\n\nEmail: ${emailTxt}\nTelegram: ${teleTxt}`);
+      }
+    }catch(e){ alert(e?.message||"Gagal tes reminder."); }
+    finally{ setBusyReminderUid(""); }
+  }
+
   async function act(uid,body){
     setBusyUid(uid);
     try{
@@ -772,8 +792,8 @@ function AdminUsers({ token }) {
         onRevoke={()=>revokePremium(u)}
         onMakeAdmin={()=>makeAdmin(u)}
         onRemoveAdmin={()=>removeAdmin(u)}
-        onTestReminder={()=>checkReminder(u.uid)}
-        reminderBusy={reminderBusy}
+        onTestReminder={()=>testReminderForUser(u)}
+        reminderBusy={busyReminderUid===u.uid}
       />)}
     </div>
 
