@@ -60,6 +60,17 @@
 .premiumActions button{display:flex;flex-direction:column;align-items:center;gap:3px;position:relative;padding-top:16px}
 .promoBadge{position:absolute;top:-9px;left:50%;transform:translateX(-50%);background:linear-gradient(120deg,#ff6b6b,#ff9f43);color:#1a0d05;font-size:9px;font-weight:1000;letter-spacing:.04em;padding:3px 8px;border-radius:999px;white-space:nowrap;box-shadow:0 4px 10px rgba(255,107,107,.35)}
 .promoOldPrice{opacity:.6;font-weight:700;margin-right:3px;text-decoration:line-through}
+.voucherBox{margin-top:14px;padding:12px;border-radius:14px;background:rgba(255,209,102,.05);border:1px dashed rgba(255,209,102,.25)}
+.voucherRow{display:flex;gap:8px;align-items:center}
+.voucherRow svg{color:#ffd166;flex-shrink:0}
+.voucherRow input{flex:1;min-width:0;background:#080b12;border:1px solid rgba(255,255,255,.1);color:#eaf0fc;border-radius:10px;padding:10px 12px;outline:none;font-weight:900;letter-spacing:.03em}
+.voucherRow input::placeholder{font-weight:400;letter-spacing:normal;color:#5c6780}
+.voucherRow .textBtn{white-space:nowrap;border:1px solid rgba(255,209,102,.3);background:rgba(255,209,102,.1);color:#ffd166;padding:10px 14px;border-radius:10px;font-weight:1000}
+.voucherMsg{margin-top:9px;font-size:12.5px;line-height:1.6;padding:10px 12px;border-radius:10px;background:rgba(255,255,255,.04)}
+.voucherMsg.ok{background:rgba(51,214,142,.09);color:#8ee9bc}
+.voucherMsg.error{background:rgba(255,83,106,.09);color:#ff9baa}
+.voucherClear{margin-left:8px;border:0;background:transparent;color:inherit;text-decoration:underline;font-weight:800;cursor:pointer;font-size:12px}
+.voucherBadge{display:inline-flex;align-items:center;gap:4px;background:linear-gradient(120deg,#33d68e,#1fb583)!important;color:#052e1d!important}
 .pricingList{display:grid;gap:10px}
 .pricingRow{display:grid;grid-template-columns:1fr auto;gap:10px;align-items:center;padding:14px 16px;border:1px solid rgba(255,255,255,.08);border-radius:16px;background:rgba(14,18,29,.65)}
 .pricingRow.inactive{opacity:.5}
@@ -70,6 +81,6 @@
 .pricingForm{display:grid;gap:12px;margin-top:16px;padding-top:16px;border-top:1px solid rgba(255,255,255,.07)}
 .pricingFormGrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:10px}
 .pricingFormGrid label,.pricingForm>label{display:grid;gap:5px;font-size:11px;color:#8996b2;font-weight:800}
-.pricingForm input[type=text],.pricingForm input[type=number],.pricingForm input[type=datetime-local]{width:100%;background:#080b12;border:1px solid rgba(255,255,255,.1);color:#eef4ff;padding:10px 12px;border-radius:10px}
+.pricingForm input[type=text],.pricingForm input[type=number],.pricingForm input[type=datetime-local],.pricingForm select{width:100%;background:#080b12;border:1px solid rgba(255,255,255,.1);color:#eef4ff;padding:10px 12px;border-radius:10px}
 .pricingPromoBox{padding:12px;border-radius:14px;background:rgba(255,159,67,.06);border:1px solid rgba(255,159,67,.16);display:grid;gap:10px}
 .landingPromoBadge{display:inline-flex;align-self:flex-start;margin-top:10px;background:linear-gradient(120deg,#ff6b6b,#ff9f43);color:#1a0d05;font-size:10px;font-weight:1000;letter-spacing:.04em;padding:4px 10px;border-radius:999px;box-shadow:0 4px 10px rgba(255,107,107,.3)}

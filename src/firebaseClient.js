@@ -251,7 +251,32 @@ export function isPremiumProfile(profile) {
 }
 
 
-export async function createPaymentOrder({ user, profile, packageCode, packageLabel, price }) {
+// Step Voucher-1: cek kode voucher secara publik (tanpa mengunci pemakaian)
+// buat nampilin preview "harga setelah diskon" real-time pas user ngetik kode.
+export async function checkVoucher({ code, packageCode }) {
+  const qs = new URLSearchParams({ code: code || "", packageCode: packageCode || "" });
+  const res = await fetch(`/api/voucher?${qs.toString()}`);
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok || !data.ok) throw new Error(data.error || "Kode voucher tidak valid.");
+  return data;
+}
+
+// Step Voucher-2: kunci pemakaian voucher (increment usedCount + catat uid)
+// tepat sebelum order dibuat, biar 1 kode = 1x pakai per user & tidak lewat kuota.
+export async function redeemVoucher({ user, code, packageCode }) {
+  if (!user?.uid) throw new Error("User belum login.");
+  const idToken = await user.getIdToken();
+  const res = await fetch("/api/voucher", {
+    method: "POST",
+    headers: { "Content-Type": "application/json", Authorization: `Bearer ${idToken}` },
+    body: JSON.stringify({ action: "redeem", code, packageCode })
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok || !data.ok) throw new Error(data.error || "Gagal memakai kode voucher.");
+  return data;
+}
+
+export async function createPaymentOrder({ user, profile, packageCode, packageLabel, price, voucher }) {
   if (!db) throw new Error("Firebase client ENV belum lengkap.");
   if (!user?.uid) throw new Error("User belum login.");
 
@@ -288,6 +313,11 @@ export async function createPaymentOrder({ user, profile, packageCode, packageLa
     price: price || (cleanPackage === "7D" ? "Rp10K" : "Rp30K"),
     status: "pending",
     source: "paywall",
+    ...(voucher ? {
+      voucherCode: voucher.voucherCode,
+      voucherLabel: voucher.voucherLabel || null,
+      originalPrice: voucher.originalPriceLabel || null
+    } : {}),
     createdAt: now,
     updatedAt: now
   };

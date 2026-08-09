@@ -2,12 +2,13 @@ import { useEffect, useMemo, useState } from "react";
 import { verifyPasswordResetCode, confirmPasswordReset, applyActionCode } from "firebase/auth";
 import {
   Activity, ArrowLeft, Bell, Bot, CheckCircle2, Clock3, Copy, Crown, LayoutDashboard, LogIn,
-  LogOut, Megaphone, Menu, Radio, RefreshCw, Send, Shield, Sparkles, Target, TrendingDown,
+  LogOut, Megaphone, Menu, Radio, RefreshCw, Send, Shield, Sparkles, Target, Ticket, TrendingDown,
   TrendingUp, User, Users, Wallet, X, Zap
 } from "lucide-react";
 import Landing from "./Landing";
 import {
   auth,
+  checkVoucher,
   createPaymentOrder,
   getUserPaymentOrders,
   getUserProfile,
@@ -17,6 +18,7 @@ import {
   loginWithEmail,
   loginWithGoogle,
   logout,
+  redeemVoucher,
   refreshCurrentUser,
   registerWithEmail,
   resetPasswordEmail,
@@ -231,6 +233,10 @@ function PremiumBox({ profile, user, refresh, onOrderCreated }) {
   const [busy,setBusy]=useState(false);
   const [packages,setPackages]=useState([]);
   const [loadingPkgs,setLoadingPkgs]=useState(true);
+  const [voucherCode,setVoucherCode]=useState("");
+  const [voucherChecking,setVoucherChecking]=useState(false);
+  const [voucherResult,setVoucherResult]=useState(null); // {ok,error?, voucher, discountedPriceLabel,...}
+  const [selectedPkg,setSelectedPkg]=useState("");
 
   useEffect(()=>{
     let alive=true;
@@ -238,23 +244,61 @@ function PremiumBox({ profile, user, refresh, onOrderCreated }) {
       try{
         const res=await fetch("/api/pricing");
         const data=await res.json();
-        if(alive && data.ok) setPackages(data.packages||[]);
+        if(alive && data.ok) {
+          setPackages(data.packages||[]);
+          if(!selectedPkg && data.packages?.length) setSelectedPkg(data.packages[0].code);
+        }
       }catch(e){ /* diamkan, tombol default tetap tampil kalau API gagal */ }
       finally{ if(alive) setLoadingPkgs(false); }
     })();
     return()=>{alive=false};
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   },[]);
+
+  async function applyVoucher(){
+    const code = voucherCode.trim().toUpperCase();
+    if(!code){ setVoucherResult(null); return; }
+    if(!selectedPkg){ setVoucherResult({ok:false,error:"Pilih paket dulu di atas."}); return; }
+    setVoucherChecking(true); setVoucherResult(null);
+    try{
+      const data = await checkVoucher({code, packageCode:selectedPkg});
+      setVoucherResult({ok:true, ...data});
+    }catch(e){
+      setVoucherResult({ok:false, error:e?.message||"Kode voucher tidak valid."});
+    }finally{ setVoucherChecking(false); }
+  }
+
+  function clearVoucher(){ setVoucherCode(""); setVoucherResult(null); }
 
   async function buy(code,label,price) {
     setBusy(true);
     try {
-      await createPaymentOrder({user,profile,packageCode:code,packageLabel:label,price});
+      let voucherPayload=null;
+      const voucherValid = voucherResult?.ok && voucherResult?.voucher?.code;
+      let finalPrice = price;
+
+      if (voucherValid) {
+        // Kunci pemakaian voucher (server-side, anti dobel pakai) tepat sebelum order dibuat.
+        const redeemed = await redeemVoucher({user, code: voucherResult.voucher.code, packageCode: code});
+        finalPrice = redeemed.discountedPriceLabel || price;
+        voucherPayload = {
+          voucherCode: redeemed.voucherCode,
+          voucherLabel: redeemed.voucherLabel,
+          originalPriceLabel: redeemed.originalPriceLabel || price
+        };
+      }
+
+      await createPaymentOrder({user,profile,packageCode:code,packageLabel:label,price:finalPrice,voucher:voucherPayload});
       alert(premium ? "Order perpanjangan dibuat. Sisa hari aktif kamu bakal otomatis ditambah setelah disetujui admin." : "Order dibuat. Silakan ikuti instruksi pembayaran/admin.");
+      clearVoucher();
       onOrderCreated?.();
     }
     catch(e){ alert(e?.message||"Gagal membuat order."); }
     finally { setBusy(false); refresh(); }
   }
+
+  const voucherOk = voucherResult?.ok && voucherResult?.discountedPriceLabel;
+
   return <section id="premium-renew" className={`premiumBox newCard ${premium?"active":""} ${expiringSoon?"warn":""}`}>
     <div className="premiumIcon"><Crown size={21}/></div>
     <div className="premiumBody">
@@ -263,14 +307,47 @@ function PremiumBox({ profile, user, refresh, onOrderCreated }) {
       <p>{premium
         ? `Aktif sampai ${fmtDate(profile?.premiumUntil)}. ${expiringSoon?"Perpanjang sekarang biar nggak putus":"Mau nambah durasi? Beli paket lagi"}, sisa hari otomatis ditambahkan.`
         : "Subscriber premium mendapat notifikasi langsung saat admin menerbitkan sinyal."}</p>
+
+      {!loadingPkgs && packages.length>0 && <div className="voucherBox">
+        <div className="voucherRow">
+          <Ticket size={15}/>
+          <input
+            type="text"
+            placeholder="Punya kode voucher? Coba masukin di sini"
+            value={voucherCode}
+            onChange={e=>{ setVoucherCode(e.target.value.toUpperCase()); setVoucherResult(null); }}
+            onKeyDown={e=>{ if(e.key==="Enter"){ e.preventDefault(); applyVoucher(); } }}
+            maxLength={24}
+          />
+          <button type="button" className="textBtn" disabled={voucherChecking||!voucherCode.trim()} onClick={applyVoucher}>
+            {voucherChecking?"Cek...":"Terapkan"}
+          </button>
+        </div>
+        {voucherResult && !voucherResult.ok && <div className="voucherMsg error">❌ {voucherResult.error}</div>}
+        {voucherOk && <div className="voucherMsg ok">
+          🎉 Kode <b>{voucherResult.voucher.code}</b> berhasil dipakai! Harga jadi <b>{voucherResult.discountedPriceLabel}</b>
+          {voucherResult.savingsLabel && <> (hemat {voucherResult.savingsLabel})</>} untuk paket {voucherResult.packageLabel || selectedPkg}.
+          <button type="button" className="voucherClear" onClick={clearVoucher}>Batal</button>
+        </div>}
+      </div>}
     </div>
     {!loadingPkgs && <div className="premiumActions">
-      {packages.map(p=> (
-        <button key={p.code} disabled={busy} onClick={()=>buy(p.code,p.label,p.priceLabel)}>
-          {p.promo && <span className="promoBadge">{p.promo.label}</span>}
-          <span>{premium?"Perpanjang":"Beli"} {p.label} • {p.promo?.originalPriceLabel && <s className="promoOldPrice">{p.promo.originalPriceLabel}</s>} {p.priceLabel}</span>
-        </button>
-      ))}
+      {packages.map(p=> {
+        const applyHere = voucherOk && selectedPkg===p.code;
+        return <button
+          key={p.code}
+          disabled={busy}
+          onClick={()=>{ setSelectedPkg(p.code); buy(p.code,p.label, applyHere ? voucherResult.discountedPriceLabel : p.priceLabel); }}
+          onMouseEnter={()=>setSelectedPkg(p.code)}
+        >
+          {p.promo && !applyHere && <span className="promoBadge">{p.promo.label}</span>}
+          {applyHere && <span className="promoBadge voucherBadge"><Ticket size={10}/> {voucherResult.voucher.code}</span>}
+          <span>{premium?"Perpanjang":"Beli"} {p.label} • {applyHere
+            ? <><s className="promoOldPrice">{voucherResult.originalPriceLabel || p.priceLabel}</s> {voucherResult.discountedPriceLabel}</>
+            : <>{p.promo?.originalPriceLabel && <s className="promoOldPrice">{p.promo.originalPriceLabel}</s>} {p.priceLabel}</>
+          }</span>
+        </button>;
+      })}
     </div>}
   </section>;
 }
@@ -1235,6 +1312,159 @@ function AdminPricing({ token }){
   </section>;
 }
 
+function emptyVoucherForm(){
+  return { code:"", label:"", discountType:"percent", discountValue:"", packageCode:"", maxUses:"", active:true, expiresAt:"" };
+}
+
+function AdminVouchers({ token }){
+  const [vouchers,setVouchers]=useState([]);
+  const [packages,setPackages]=useState([]);
+  const [loading,setLoading]=useState(false);
+  const [error,setError]=useState("");
+  const [form,setForm]=useState(emptyVoucherForm());
+  const [editingCode,setEditingCode]=useState("");
+  const [busy,setBusy]=useState(false);
+  const [msg,setMsg]=useState("");
+
+  async function load(){
+    if(!token){ setError("Isi & simpan ADMIN_ACTION_TOKEN dulu di panel Publish Signal."); return; }
+    setLoading(true);setError("");
+    try{
+      const [vRes,pRes]=await Promise.all([
+        fetch("/api/voucher",{headers:{Authorization:`Bearer ${token}`}}),
+        fetch("/api/pricing",{headers:{Authorization:`Bearer ${token}`}})
+      ]);
+      const vData=await vRes.json();
+      const pData=await pRes.json();
+      if(!vRes.ok||!vData.ok) throw new Error(vData.error||"Gagal memuat daftar voucher.");
+      setVouchers(vData.vouchers||[]);
+      if(pRes.ok&&pData.ok) setPackages(pData.packages||[]);
+    }catch(e){ setError(e?.message||"Gagal memuat daftar voucher."); }
+    finally{ setLoading(false); }
+  }
+  useEffect(()=>{ load(); },[token]);
+
+  function startEdit(v){
+    setEditingCode(v.code);
+    setForm({
+      code:v.code, label:v.label||"", discountType:v.discountType||"percent", discountValue:String(v.discountValue||""),
+      packageCode:v.packageCode||"", maxUses: v.maxUses===null||v.maxUses===undefined ? "" : String(v.maxUses),
+      active:v.active!==false, expiresAt: v.expiresAt ? v.expiresAt.slice(0,16) : ""
+    });
+  }
+  function startNew(){ setEditingCode("__new__"); setForm(emptyVoucherForm()); }
+  function cancelEdit(){ setEditingCode(""); setForm(emptyVoucherForm()); setMsg(""); }
+
+  async function submit(e){
+    e.preventDefault();
+    if(!token) return;
+    setBusy(true);setMsg("");
+    try{
+      const body={
+        action:"save",
+        code:form.code, label:form.label, discountType:form.discountType,
+        discountValue:Number(form.discountValue)||0, packageCode:form.packageCode||"",
+        maxUses: form.maxUses==="" ? "" : Number(form.maxUses), active:form.active,
+        expiresAt: form.expiresAt||""
+      };
+      const res=await fetch("/api/voucher",{method:"POST",headers:{"Content-Type":"application/json",Authorization:`Bearer ${token}`},body:JSON.stringify(body)});
+      const data=await res.json();
+      if(!res.ok||!data.ok) throw new Error(data.error||"Gagal menyimpan voucher.");
+      setMsg(`✅ Voucher ${data.voucher.code} tersimpan.`);
+      cancelEdit();
+      await load();
+    }catch(e){ setMsg(`❌ ${e.message}`); }
+    finally{ setBusy(false); }
+  }
+
+  async function remove(v){
+    if(!token) return;
+    if(!window.confirm(`Hapus voucher ${v.code}? Kode ini nggak akan bisa dipakai lagi.`)) return;
+    setBusy(true);
+    try{
+      const res=await fetch("/api/voucher",{method:"POST",headers:{"Content-Type":"application/json",Authorization:`Bearer ${token}`},body:JSON.stringify({action:"delete",code:v.code})});
+      const data=await res.json();
+      if(!res.ok||!data.ok) throw new Error(data.error||"Gagal menghapus voucher.");
+      await load();
+    }catch(e){ alert(e?.message||"Gagal menghapus voucher."); }
+    finally{ setBusy(false); }
+  }
+
+  const isEditing = editingCode!=="";
+
+  return <section className="adminSection newCard">
+    <div className="sectionHeader"><div><span className="eyebrow">ADMIN CONTROL</span><h3>Voucher Diskon Instan</h3></div><button className="iconBtn" disabled={loading} onClick={load}><RefreshCw size={16} className={loading?"spin":""}/></button></div>
+    <p className="muted" style={{fontSize:13,marginBottom:4}}>Bikin kode voucher buat bikin user penasaran & tertarik langganan — user ketik kode di halaman Premium, harga langsung keliatan diskon real-time sebelum checkout.</p>
+
+    {error && <div className="notice error">{error}</div>}
+
+    <div className="pricingList" style={{marginTop:12}}>
+      {vouchers.map(v=> (
+        <div key={v.code} className={`pricingRow${v.active===false?" inactive":""}`}>
+          <div className="pricingRowMain">
+            <span className="pricingCode">{v.code}</span>
+            <b>{v.label}</b>
+            <span className="muted">{v.discountType==="percent" ? `${v.discountValue}%` : `Rp${v.discountValue}`} off{v.packageCode?` • khusus ${v.packageCode}`:""}</span>
+            <span className="statusPill paid">{v.usedCount||0}{v.maxUses?`/${v.maxUses}`:""} dipakai</span>
+            {v.expiresAt && new Date(v.expiresAt).getTime()<Date.now() && <span className="statusPill expired">Kedaluwarsa</span>}
+            {v.active===false && <span className="statusPill expired">Nonaktif</span>}
+          </div>
+          <div className="pricingRowActions">
+            <button type="button" className="textBtn" disabled={busy} onClick={()=>startEdit(v)}>Edit</button>
+            <button type="button" className="dangerBtn" disabled={busy} onClick={()=>remove(v)}>Hapus</button>
+          </div>
+        </div>
+      ))}
+      {!loading && !vouchers.length && !error && <div className="emptyBox">Belum ada voucher. Bikin kode pertama di bawah.</div>}
+    </div>
+
+    {!isEditing && <div className="adminActions" style={{marginTop:14}}>
+      <button type="button" className="primaryBtn" onClick={startNew}><Ticket size={15}/> Buat Voucher Baru</button>
+    </div>}
+
+    {isEditing && <form className="pricingForm" onSubmit={submit}>
+      <div className="sectionHeader" style={{marginBottom:0}}><div><h4 style={{margin:0}}>{editingCode==="__new__"?"Voucher Baru":`Edit Voucher ${editingCode}`}</h4></div></div>
+      <div className="pricingFormGrid">
+        <label>Kode Voucher <span className="muted">(unik, contoh: MERDEKA20)</span>
+          <input type="text" required disabled={editingCode!=="__new__"} value={form.code} onChange={e=>setForm(f=>({...f,code:e.target.value.toUpperCase()}))} placeholder="MERDEKA20"/>
+        </label>
+        <label>Label <span className="muted">(tampil ke user)</span>
+          <input type="text" value={form.label} onChange={e=>setForm(f=>({...f,label:e.target.value}))} placeholder="Promo 17an"/>
+        </label>
+        <label>Tipe Diskon
+          <select value={form.discountType} onChange={e=>setForm(f=>({...f,discountType:e.target.value}))}>
+            <option value="percent">Persen (%)</option>
+            <option value="fixed">Potongan Tetap (Rp)</option>
+          </select>
+        </label>
+        <label>Nilai Diskon <span className="muted">{form.discountType==="percent"?"(contoh: 20)":"(contoh: 5000)"}</span>
+          <input type="number" required min="1" value={form.discountValue} onChange={e=>setForm(f=>({...f,discountValue:e.target.value}))} placeholder={form.discountType==="percent"?"20":"5000"}/>
+        </label>
+        <label>Khusus Paket <span className="muted">(kosongkan = semua paket)</span>
+          <select value={form.packageCode} onChange={e=>setForm(f=>({...f,packageCode:e.target.value}))}>
+            <option value="">Semua paket</option>
+            {packages.map(p=><option key={p.code} value={p.code}>{p.code} - {p.label}</option>)}
+          </select>
+        </label>
+        <label>Kuota Maks <span className="muted">(kosongkan = tanpa batas)</span>
+          <input type="number" min="1" value={form.maxUses} onChange={e=>setForm(f=>({...f,maxUses:e.target.value}))} placeholder="100"/>
+        </label>
+        <label>Berlaku Sampai <span className="muted">(opsional)</span>
+          <input type="datetime-local" value={form.expiresAt} onChange={e=>setForm(f=>({...f,expiresAt:e.target.value}))}/>
+        </label>
+        <label className="checkRow"><input type="checkbox" checked={form.active} onChange={e=>setForm(f=>({...f,active:e.target.checked}))}/> Aktif (bisa dipakai user)</label>
+      </div>
+
+      <div className="adminActions">
+        <button type="submit" className="okBtn" disabled={busy}><CheckCircle2 size={15}/> {busy?"Menyimpan...":"Simpan Voucher"}</button>
+        <button type="button" className="textBtn" disabled={busy} onClick={cancelEdit}>Batal</button>
+      </div>
+    </form>}
+
+    {msg && <div className="notice" style={{marginTop:10}}>{msg}</div>}
+  </section>;
+}
+
 const ADMIN_GROUPS = [
   { id: "overview", label: "Ringkasan", panels: [
     { id: "dashboard", label: "Dashboard", desc: "Revenue, user premium aktif, order pending", icon: LayoutDashboard }
@@ -1247,7 +1477,8 @@ const ADMIN_GROUPS = [
   { id: "people", label: "Pengguna & Order", panels: [
     { id: "orders", label: "Payment Orders", desc: "Approve / reject order premium user", icon: Wallet },
     { id: "users", label: "User Management", desc: "Kelola role, kasih premium, tes reminder H-1", icon: Users },
-    { id: "pricing", label: "Harga & Promo", desc: "Ubah harga paket premium & bikin promo baru", icon: Crown }
+    { id: "pricing", label: "Harga & Promo", desc: "Ubah harga paket premium & bikin promo baru", icon: Crown },
+    { id: "vouchers", label: "Voucher Diskon", desc: "Bikin kode voucher diskon instan biar user penasaran & tertarik langganan", icon: Ticket }
   ]},
   { id: "stats", label: "Statistik", panels: [
     { id: "winrate", label: "Winrate Signal", desc: "Statistik performa signal (7/30 hari)", icon: Target }
@@ -1299,6 +1530,7 @@ function AdminShell({ panelId, onSelect, ...rest }) {
       {activeId === "orders" && <AdminOrders token={rest.token}/>}
       {activeId === "users" && <AdminUsers token={rest.token}/>}
       {activeId === "pricing" && <AdminPricing token={rest.token}/>}
+      {activeId === "vouchers" && <AdminVouchers token={rest.token}/>}
     </div>
   </section>;
 }
