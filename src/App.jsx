@@ -225,6 +225,22 @@ function AiPanel({ signal }) {
 function PremiumBox({ profile, user, refresh, onOrderCreated }) {
   const premium=isPremiumProfile(profile);
   const [busy,setBusy]=useState(false);
+  const [packages,setPackages]=useState([]);
+  const [loadingPkgs,setLoadingPkgs]=useState(true);
+
+  useEffect(()=>{
+    let alive=true;
+    (async()=>{
+      try{
+        const res=await fetch("/api/pricing");
+        const data=await res.json();
+        if(alive && data.ok) setPackages(data.packages||[]);
+      }catch(e){ /* diamkan, tombol default tetap tampil kalau API gagal */ }
+      finally{ if(alive) setLoadingPkgs(false); }
+    })();
+    return()=>{alive=false};
+  },[]);
+
   async function buy(code,label,price) {
     setBusy(true);
     try {
@@ -242,7 +258,14 @@ function PremiumBox({ profile, user, refresh, onOrderCreated }) {
       <h3>{premium ? "Alert Telegram kamu aktif" : "Jangan ketinggalan CALL"}</h3>
       <p>{premium ? `Aktif sampai ${fmtDate(profile?.premiumUntil)}.` : "Subscriber premium mendapat notifikasi langsung saat admin menerbitkan sinyal."}</p>
     </div>
-    {!premium && <div className="premiumActions"><button disabled={busy} onClick={()=>buy("7D","7 Day","Rp10K")}>7 Hari • Rp10K</button><button disabled={busy} onClick={()=>buy("30D","30 Day","Rp30K")}>30 Hari • Rp30K</button></div>}
+    {!premium && !loadingPkgs && <div className="premiumActions">
+      {packages.map(p=> (
+        <button key={p.code} disabled={busy} onClick={()=>buy(p.code,p.label,p.priceLabel)}>
+          {p.promo && <span className="promoBadge">{p.promo.label}</span>}
+          <span>{p.label} • {p.promo?.originalPriceLabel && <s className="promoOldPrice">{p.promo.originalPriceLabel}</s>} {p.priceLabel}</span>
+        </button>
+      ))}
+    </div>}
   </section>;
 }
 
@@ -947,6 +970,158 @@ function AdminUserRow({ u, busy, onGrant, onRevoke, onMakeAdmin, onRemoveAdmin, 
   </article>;
 }
 
+function emptyPricingForm(){
+  return { code:"", label:"", durationDays:"", priceLabel:"", active:true, sortOrder:99, promoActive:false, promoLabel:"", promoOriginalPriceLabel:"", promoUntil:"" };
+}
+
+function AdminPricing({ token }){
+  const [packages,setPackages]=useState([]);
+  const [loading,setLoading]=useState(false);
+  const [error,setError]=useState("");
+  const [form,setForm]=useState(emptyPricingForm());
+  const [editingCode,setEditingCode]=useState("");
+  const [busy,setBusy]=useState(false);
+  const [msg,setMsg]=useState("");
+
+  async function load(){
+    if(!token){ setError("Isi & simpan ADMIN_ACTION_TOKEN dulu di panel Publish Signal."); return; }
+    setLoading(true);setError("");
+    try{
+      const res=await fetch("/api/pricing",{headers:{Authorization:`Bearer ${token}`}});
+      const data=await res.json();
+      if(!res.ok||!data.ok) throw new Error(data.error||"Gagal memuat daftar harga.");
+      setPackages(data.packages||[]);
+    }catch(e){ setError(e?.message||"Gagal memuat daftar harga."); }
+    finally{ setLoading(false); }
+  }
+  useEffect(()=>{ load(); },[token]);
+
+  function startEdit(p){
+    setEditingCode(p.code);
+    setForm({
+      code:p.code, label:p.label, durationDays:String(p.durationDays||""), priceLabel:p.priceLabel,
+      active:p.active!==false, sortOrder:p.sortOrder??99,
+      promoActive:!!p.promo?.active, promoLabel:p.promo?.label||"", promoOriginalPriceLabel:p.promo?.originalPriceLabel||"",
+      promoUntil:p.promo?.until ? p.promo.until.slice(0,16) : ""
+    });
+  }
+  function startNew(){ setEditingCode("__new__"); setForm(emptyPricingForm()); }
+  function cancelEdit(){ setEditingCode(""); setForm(emptyPricingForm()); setMsg(""); }
+
+  async function submit(e){
+    e.preventDefault();
+    if(!token) return;
+    setBusy(true);setMsg("");
+    try{
+      const body={
+        action:"save",
+        code:form.code, label:form.label, priceLabel:form.priceLabel,
+        durationDays:Number(form.durationDays)||0, active:form.active, sortOrder:Number(form.sortOrder)||99,
+        promo: form.promoActive ? { active:true, label:form.promoLabel, originalPriceLabel:form.promoOriginalPriceLabel, until: form.promoUntil||null } : null
+      };
+      const res=await fetch("/api/pricing",{method:"POST",headers:{"Content-Type":"application/json",Authorization:`Bearer ${token}`},body:JSON.stringify(body)});
+      const data=await res.json();
+      if(!res.ok||!data.ok) throw new Error(data.error||"Gagal menyimpan paket.");
+      setMsg(`✅ Paket ${data.package.code} tersimpan.`);
+      cancelEdit();
+      await load();
+    }catch(e){ setMsg(`❌ ${e.message}`); }
+    finally{ setBusy(false); }
+  }
+
+  async function remove(p){
+    if(!token) return;
+    if(!window.confirm(`Hapus paket ${p.label} (${p.code})? User tidak akan bisa beli paket ini lagi.`)) return;
+    setBusy(true);
+    try{
+      const res=await fetch("/api/pricing",{method:"POST",headers:{"Content-Type":"application/json",Authorization:`Bearer ${token}`},body:JSON.stringify({action:"delete",code:p.code})});
+      const data=await res.json();
+      if(!res.ok||!data.ok) throw new Error(data.error||"Gagal menghapus paket.");
+      await load();
+    }catch(e){ alert(e?.message||"Gagal menghapus paket."); }
+    finally{ setBusy(false); }
+  }
+
+  const isEditing = editingCode!=="";
+
+  return <section className="adminSection newCard">
+    <div className="sectionHeader"><div><span className="eyebrow">ADMIN CONTROL</span><h3>Harga & Promo</h3></div><button className="iconBtn" disabled={loading} onClick={load}><RefreshCw size={16} className={loading?"spin":""}/></button></div>
+    <p className="muted" style={{fontSize:13,marginBottom:4}}>Ubah harga paket premium yang tampil di halaman user, atau bikin promo (badge + harga coret) tanpa perlu deploy ulang.</p>
+
+    {error && <div className="notice error">{error}</div>}
+
+    <div className="pricingList" style={{marginTop:12}}>
+      {packages.map(p=> (
+        <div key={p.code} className={`pricingRow${p.active===false?" inactive":""}`}>
+          <div className="pricingRowMain">
+            <span className="pricingCode">{p.code}</span>
+            <b>{p.label}</b>
+            <span className="muted">{p.durationDays} hari</span>
+            {p.promo?.originalPriceLabel && <s className="promoOldPrice">{p.promo.originalPriceLabel}</s>}
+            <b>{p.priceLabel}</b>
+            {p.promo && <span className="statusPill paid">{p.promo.label}</span>}
+            {p.active===false && <span className="statusPill expired">Nonaktif</span>}
+          </div>
+          <div className="pricingRowActions">
+            <button type="button" className="textBtn" disabled={busy} onClick={()=>startEdit(p)}>Edit</button>
+            <button type="button" className="dangerBtn" disabled={busy} onClick={()=>remove(p)}>Hapus</button>
+          </div>
+        </div>
+      ))}
+      {!loading && !packages.length && !error && <div className="emptyBox">Belum ada paket. Tambah paket pertama di bawah.</div>}
+    </div>
+
+    {!isEditing && <div className="adminActions" style={{marginTop:14}}>
+      <button type="button" className="primaryBtn" onClick={startNew}><Sparkles size={15}/> Tambah Paket / Promo Baru</button>
+    </div>}
+
+    {isEditing && <form className="pricingForm" onSubmit={submit}>
+      <div className="sectionHeader" style={{marginBottom:0}}><div><h4 style={{margin:0}}>{editingCode==="__new__"?"Paket Baru":`Edit Paket ${editingCode}`}</h4></div></div>
+      <div className="pricingFormGrid">
+        <label>Kode Paket <span className="muted">(unik, contoh: 7D)</span>
+          <input type="text" required disabled={editingCode!=="__new__"} value={form.code} onChange={e=>setForm(f=>({...f,code:e.target.value.toUpperCase()}))} placeholder="7D"/>
+        </label>
+        <label>Label <span className="muted">(tampil ke user)</span>
+          <input type="text" required value={form.label} onChange={e=>setForm(f=>({...f,label:e.target.value}))} placeholder="7 Hari"/>
+        </label>
+        <label>Durasi (hari)
+          <input type="number" required min="1" value={form.durationDays} onChange={e=>setForm(f=>({...f,durationDays:e.target.value}))} placeholder="7"/>
+        </label>
+        <label>Harga <span className="muted">(teks, contoh: Rp10K)</span>
+          <input type="text" required value={form.priceLabel} onChange={e=>setForm(f=>({...f,priceLabel:e.target.value}))} placeholder="Rp10K"/>
+        </label>
+        <label>Urutan Tampil
+          <input type="number" value={form.sortOrder} onChange={e=>setForm(f=>({...f,sortOrder:e.target.value}))}/>
+        </label>
+        <label className="checkRow"><input type="checkbox" checked={form.active} onChange={e=>setForm(f=>({...f,active:e.target.checked}))}/> Aktif (tampil ke user)</label>
+      </div>
+
+      <label className="checkRow"><input type="checkbox" checked={form.promoActive} onChange={e=>setForm(f=>({...f,promoActive:e.target.checked}))}/> Jadikan promo (badge + harga coret)</label>
+
+      {form.promoActive && <div className="pricingPromoBox">
+        <div className="pricingFormGrid">
+          <label>Label Promo <span className="muted">(badge kecil)</span>
+            <input type="text" value={form.promoLabel} onChange={e=>setForm(f=>({...f,promoLabel:e.target.value}))} placeholder="PROMO 17AN"/>
+          </label>
+          <label>Harga Asli <span className="muted">(dicoret, opsional)</span>
+            <input type="text" value={form.promoOriginalPriceLabel} onChange={e=>setForm(f=>({...f,promoOriginalPriceLabel:e.target.value}))} placeholder="Rp15K"/>
+          </label>
+          <label>Promo Berlaku Sampai <span className="muted">(opsional, auto nonaktif setelah lewat)</span>
+            <input type="datetime-local" value={form.promoUntil} onChange={e=>setForm(f=>({...f,promoUntil:e.target.value}))}/>
+          </label>
+        </div>
+      </div>}
+
+      <div className="adminActions">
+        <button type="submit" className="okBtn" disabled={busy}><CheckCircle2 size={15}/> {busy?"Menyimpan...":"Simpan Paket"}</button>
+        <button type="button" className="textBtn" disabled={busy} onClick={cancelEdit}>Batal</button>
+      </div>
+    </form>}
+
+    {msg && <div className="notice" style={{marginTop:10}}>{msg}</div>}
+  </section>;
+}
+
 const ADMIN_GROUPS = [
   { id: "overview", label: "Ringkasan", panels: [
     { id: "dashboard", label: "Dashboard", desc: "Revenue, user premium aktif, order pending", icon: LayoutDashboard }
@@ -957,7 +1132,8 @@ const ADMIN_GROUPS = [
   ]},
   { id: "people", label: "Pengguna & Order", panels: [
     { id: "orders", label: "Payment Orders", desc: "Approve / reject order premium user", icon: Wallet },
-    { id: "users", label: "User Management", desc: "Kelola role, kasih premium, tes reminder H-1", icon: Users }
+    { id: "users", label: "User Management", desc: "Kelola role, kasih premium, tes reminder H-1", icon: Users },
+    { id: "pricing", label: "Harga & Promo", desc: "Ubah harga paket premium & bikin promo baru", icon: Crown }
   ]},
   { id: "stats", label: "Statistik", panels: [
     { id: "winrate", label: "Winrate Signal", desc: "Statistik performa signal (7/30 hari)", icon: Target }
@@ -1007,6 +1183,7 @@ function AdminShell({ panelId, onSelect, ...rest }) {
       {activeId === "publish" && <AdminPanel latest={rest.latest} history={rest.history} onPublished={rest.onPublished} token={rest.token} setToken={rest.setToken} onSetResult={rest.onSetResult} busyResultId={rest.busyResultId}/>}
       {activeId === "orders" && <AdminOrders token={rest.token}/>}
       {activeId === "users" && <AdminUsers token={rest.token}/>}
+      {activeId === "pricing" && <AdminPricing token={rest.token}/>}
     </div>
   </section>;
 }

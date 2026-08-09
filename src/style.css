@@ -57,3 +57,18 @@
   .adminNavItem{flex-direction:row;white-space:nowrap;width:auto;border-left:none;border-bottom:3px solid transparent;padding:9px 12px}
   .adminNavItem.active{padding-left:12px;border-left:none;border-bottom:3px solid #ffc95c}
 }
+.premiumActions button{display:flex;flex-direction:column;align-items:center;gap:3px;position:relative;padding-top:16px}
+.promoBadge{position:absolute;top:-9px;left:50%;transform:translateX(-50%);background:linear-gradient(120deg,#ff6b6b,#ff9f43);color:#1a0d05;font-size:9px;font-weight:1000;letter-spacing:.04em;padding:3px 8px;border-radius:999px;white-space:nowrap;box-shadow:0 4px 10px rgba(255,107,107,.35)}
+.promoOldPrice{opacity:.6;font-weight:700;margin-right:3px;text-decoration:line-through}
+.pricingList{display:grid;gap:10px}
+.pricingRow{display:grid;grid-template-columns:1fr auto;gap:10px;align-items:center;padding:14px 16px;border:1px solid rgba(255,255,255,.08);border-radius:16px;background:rgba(14,18,29,.65)}
+.pricingRow.inactive{opacity:.5}
+.pricingRowMain{display:flex;flex-wrap:wrap;align-items:center;gap:8px}
+.pricingRowMain b{font-size:14px}
+.pricingCode{font-size:10px;font-weight:1000;letter-spacing:.05em;color:#77839e;background:rgba(255,255,255,.05);padding:3px 8px;border-radius:999px}
+.pricingRowActions{display:flex;gap:6px;flex-shrink:0}
+.pricingForm{display:grid;gap:12px;margin-top:16px;padding-top:16px;border-top:1px solid rgba(255,255,255,.07)}
+.pricingFormGrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:10px}
+.pricingFormGrid label,.pricingForm>label{display:grid;gap:5px;font-size:11px;color:#8996b2;font-weight:800}
+.pricingForm input[type=text],.pricingForm input[type=number],.pricingForm input[type=datetime-local]{width:100%;background:#080b12;border:1px solid rgba(255,255,255,.1);color:#eef4ff;padding:10px 12px;border-radius:10px}
+.pricingPromoBox{padding:12px;border-radius:14px;background:rgba(255,159,67,.06);border:1px solid rgba(255,159,67,.16);display:grid;gap:10px}
