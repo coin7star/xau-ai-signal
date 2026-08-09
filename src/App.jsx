@@ -3,7 +3,7 @@ import { verifyPasswordResetCode, confirmPasswordReset, applyActionCode } from "
 import {
   Activity, Bell, Bot, ArrowLeft, CheckCircle2, Clock3, Copy, Crown, LogIn,
   LogOut, Menu, RefreshCw, Send, Shield, Sparkles, Target, TrendingDown,
-  TrendingUp, User, X, Zap
+  TrendingUp, User, Users, Wallet, X, Zap
 } from "lucide-react";
 import Landing from "./Landing";
 import {
@@ -481,6 +481,89 @@ function AdminPanel({ latest, history, onPublished, token, setToken, onSetResult
         <button type="button" className="textBtn" disabled={!token||previewBusy} onClick={()=>previewRecap("monthly")}>{previewBusy==="monthly"?"Mengirim...":"Preview Monthly"}</button>
       </div>
     </div>
+  </section>;
+}
+
+function rupiah(n) {
+  return "Rp" + Math.round(n || 0).toLocaleString("id-ID");
+}
+
+function DashboardSummary({ token }) {
+  const [data, setData] = useState(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
+
+  async function load() {
+    if (!token) return;
+    setLoading(true); setError("");
+    try {
+      const res = await fetch("/api/admin-dashboard-summary", { headers: { Authorization: `Bearer ${token}` } });
+      const data = await res.json();
+      if (!res.ok || !data.ok) throw new Error(data.error || "Gagal memuat ringkasan.");
+      setData(data);
+    } catch (e) {
+      setError(e?.message || "Gagal memuat ringkasan.");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  useEffect(() => { load(); }, [token]);
+
+  return <section className="adminSection newCard">
+    <div className="sectionHeader">
+      <div><span className="eyebrow">ADMIN CONTROL</span><h3>Dashboard Ringkasan</h3></div>
+      <button className="iconBtn" disabled={loading || !token} onClick={load}><RefreshCw size={16} className={loading ? "spin" : ""}/></button>
+    </div>
+
+    {!token && <div className="notice">Isi & simpan ADMIN_ACTION_TOKEN dulu di panel Publish Signal buat lihat ringkasan.</div>}
+    {error && <div className="notice error">{error}</div>}
+
+    {data && <>
+      <div className="dashGrid">
+        <div className="dashCard">
+          <small><Users size={13}/> PREMIUM AKTIF</small>
+          <strong>{data.users.premiumActive}</strong>
+          <span>{data.users.total} total user • {data.users.free} free</span>
+        </div>
+        <div className="dashCard">
+          <small><Clock3 size={13}/> EXPIRE ≤ 7 HARI</small>
+          <strong className={data.premium.expiringIn7Days > 0 ? "warnText" : ""}>{data.premium.expiringIn7Days}</strong>
+          <span>Segera follow up biar perpanjang</span>
+        </div>
+        <div className="dashCard">
+          <small><Wallet size={13}/> REVENUE BULAN INI</small>
+          <strong>{rupiah(data.revenue.thisMonth)}</strong>
+          <span>{data.revenue.approvedOrdersThisMonth} order approved</span>
+        </div>
+        <div className="dashCard">
+          <small><TrendingUp size={13}/> REVENUE 30 HARI</small>
+          <strong>{rupiah(data.revenue.last30Days)}</strong>
+          <span>{data.revenue.approvedOrdersLast30Days} order approved</span>
+        </div>
+      </div>
+
+      <div className="dashGrid dashGridSecondary">
+        <div className="dashCard small">
+          <small>USER BARU (7 HARI)</small>
+          <strong>{data.users.newLast7Days}</strong>
+        </div>
+        <div className="dashCard small">
+          <small>USER BARU (30 HARI)</small>
+          <strong>{data.users.newLast30Days}</strong>
+        </div>
+        <div className="dashCard small">
+          <small>ORDER PENDING</small>
+          <strong className={data.orders.pending > 0 ? "warnText" : ""}>{data.orders.pending}</strong>
+        </div>
+        <div className="dashCard small">
+          <small>REVENUE ALL-TIME</small>
+          <strong>{rupiah(data.revenue.allTimeApproved)}</strong>
+        </div>
+      </div>
+
+      <div className="notice" style={{ marginTop: 12 }}>Terakhir diperbarui: {fmtDate(data.generatedAt)}</div>
+    </>}
   </section>;
 }
 
@@ -971,6 +1054,7 @@ function AppShell({ user, profile, refreshProfile, profileError }) {
       {tab==="telegram" && <TelegramPanel user={user} profile={profile} premium={premium} refresh={refreshProfile}/>}
 
       {tab==="admin" && admin && <>
+        <DashboardSummary token={adminToken}/>
         <WinrateCard stats={stats}/>
         <AdminStatusPanel token={adminToken} status={adminStatus} onUpdated={loadAdminStatus}/>
         <AdminPanel latest={latest} history={history} onPublished={()=>loadSignals()} token={adminToken} setToken={setAdminToken} onSetResult={setSignalResult} busyResultId={busyResultId}/>
