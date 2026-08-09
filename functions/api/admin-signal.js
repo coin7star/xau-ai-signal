@@ -1,3 +1,5 @@
+import { statsFromHistoryObj } from "./pip-utils.js";
+
 const H = {
   "Content-Type":"application/json",
   "Access-Control-Allow-Origin":"*",
@@ -27,7 +29,7 @@ export async function onRequest({request,env}) {
       const history=Object.values(raw||{}).filter(Boolean)
         .sort((a,b)=>new Date(b.publishedAt||b.createdAt||0)-new Date(a.publishedAt||a.createdAt||0))
         .slice(0,30);
-      const stats=computeStatsFromHistory(raw);
+      const stats=statsFromHistoryObj(raw);
       return json({ok:true,latest:latest||null,history,stats});
     }
 
@@ -87,7 +89,7 @@ export async function onRequest({request,env}) {
       // kena delay konsistensi baca-setelah-tulis di Firebase REST.
       const rawHistory=await fbGet(dbUrl,"/manualSignals/history",accessToken);
       const mergedHistory={...(rawHistory||{}),[key]:updated};
-      const stats=computeStatsFromHistory(mergedHistory);
+      const stats=statsFromHistoryObj(mergedHistory);
 
       let notifications=null;
       if(body.notify!==false){
@@ -196,24 +198,6 @@ async function notifyResultTelegram(env,dbUrl,signal,stats,accessToken){
     }catch{failedCount++}
   }
   return {ok:failedCount===0,totalRecipients:recipients.length,successCount,failedCount};
-}
-
-function computeStatsFromHistory(historyObj){
-  const list=Object.values(historyObj||{}).filter(Boolean);
-  let wins=0,losses=0,be=0;
-  for(const item of list){
-    const r=String(item?.result||"").toUpperCase();
-    if(r==="WIN") wins+=1;
-    else if(r==="LOSS") losses+=1;
-    else if(r==="BE") be+=1;
-  }
-  const total=wins+losses+be;
-  return {wins,losses,be,total,winratePercent:computeWinrate({wins,losses})};
-}
-function computeWinrate(s){
-  const decisive=s.wins+s.losses;
-  if(!decisive) return 0;
-  return Math.round((s.wins/decisive)*100);
 }
 
 async function notifyCloseTelegram(env,dbUrl,signal,accessToken){
